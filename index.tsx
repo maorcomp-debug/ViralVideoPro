@@ -609,10 +609,17 @@ const App = () => {
   };
 
   const handleAnalysis = async () => {
-    if (!process.env.API_KEY) {
-      setError("מפתח API חסר.");
-      return;
-    }
+ setError(null);
+  setLoading(true);
+  setResult(null);
+
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
+
+if (!apiKey) {
+  setError("חסר מפתח API. ודא ש-VITE_GEMINI_API_KEY מוגדר בקובץ .env.local");
+  return;
+}
+
 
     if (!file && !prompt) {
       setError("אנא העלה וידאו/תמונה או כתוב טקסט כדי להתחיל.");
@@ -624,7 +631,8 @@ const App = () => {
     setError("");
 
     try {
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
+
       
       const parts: any[] = [];
       
