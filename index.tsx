@@ -439,9 +439,6 @@ const AppLogo = ({ customSrc }: { customSrc?: string | null }) => {
     />
   </div>
 );
-
-};
-
 const LogoContainer = styled.div`
   margin-bottom: 40px;
   cursor: pointer;
