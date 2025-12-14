@@ -422,23 +422,14 @@ const AppLogo = ({ customSrc }: { customSrc?: string | null }) => {
     );
   }
 
- return (
-  <div style={{
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '20px'
-  }}>
-    <img
-      src="/logo.png"
-      alt="Logo"
-      style={{
-        maxWidth: '200px',
-        height: 'auto'
-      }}
-    />
-  </div>
-);
+  return (
+    <PlaceholderLogo>
+      <div style={{ fontSize: '50px', marginBottom: '10px' }}>+</div>
+      <div style={{ fontSize: '18px', fontFamily: 'Assistant', fontWeight: 'bold' }}>העלה לוגו כאן</div>
+    </PlaceholderLogo>
+  );
+};
+
 const LogoContainer = styled.div`
   margin-bottom: 40px;
   cursor: pointer;
