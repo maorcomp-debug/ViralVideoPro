@@ -1580,12 +1580,20 @@ const App = () => {
     }
 
     const styles = `
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
       body { 
         direction: rtl; 
         font-family: 'Assistant', sans-serif; 
         background: #050505 !important; 
         color: #f5f5f5 !important; 
-        padding: 24px; 
+        padding: 32px 32px 40px 32px;
       }
       h1,h2,h3,h4,h5,h6 {
         font-family: 'Frank Ruhl Libre', serif;
@@ -1596,14 +1604,22 @@ const App = () => {
         color: #e0e0e0;
       }
       .export-wrapper { max-width: 1000px; margin: 0 auto; }
-      .export-header { text-align: center; margin-bottom: 24px; }
-      .export-note { color: #999; font-size: 11px; margin-top: 4px; }
-      .export-logo {
+      .export-header { 
         display: flex;
-        justify-content: center;
-        margin-bottom: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px; 
       }
-      .export-logo img {
+      .export-header-text {
+        text-align: right;
+        flex: 1;
+        margin-right: 16px;
+      }
+      .export-note { color: #999; font-size: 11px; margin-top: 4px; }
+      .export-logo-left {
+        flex: 0 0 auto;
+      }
+      .export-logo-left img {
         max-width: 120px;
         height: auto;
       }
@@ -1626,11 +1642,13 @@ const App = () => {
         <body>
           <div class="export-wrapper">
             <div class="export-header">
-              <div class="export-logo">
+              <div class="export-header-text">
+                <h2>דו"ח ניתוח - Video Director Pro</h2>
+                <div class="export-note">נוצר במסלול פרימיום • ${new Date().toLocaleString('he-IL')}</div>
+              </div>
+              <div class="export-logo-left">
                 <img src="/Logo.png" alt="Viraly Logo" />
               </div>
-              <h2>דו"ח ניתוח - Video Director Pro</h2>
-              <div class="export-note">נוצר במסלול פרימיום • ${new Date().toLocaleString('he-IL')}</div>
             </div>
             ${contentElement.innerHTML}
           </div>
@@ -1693,8 +1711,14 @@ const App = () => {
     setLoading(true);
     
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
-const ai = new GoogleGenAI({ apiKey });
+      const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
+      if (!apiKey) {
+        alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY בסביבת ההרצה.");
+        setLoading(false);
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
@@ -1840,9 +1864,16 @@ const ai = new GoogleGenAI({ apiKey });
         }
       }, 200);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("API Error:", error);
-      alert("אירעה שגיאה בניתוח. ייתכן שהקובץ גדול מדי, האינטרנט איטי, או שיש עומס על המערכת.");
+      const code = error?.error?.code || error?.status;
+      if (code === 429) {
+        alert("חרגת ממכסת הקריאות למודל Gemini בחשבון גוגל. יש להמתין לחידוש המכסה או לשדרג חבילה.");
+      } else if (code === 503) {
+        alert("המודל של Gemini כרגע עמוס (503). נסה שוב בעוד כמה דקות.");
+      } else {
+        alert("אירעה שגיאה בניתוח. ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.");
+      }
     } finally {
       setLoading(false);
     }
