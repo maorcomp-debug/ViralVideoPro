@@ -1693,8 +1693,7 @@ const App = () => {
     setLoading(true);
     
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
-const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
@@ -1800,7 +1799,7 @@ const ai = new GoogleGenAI({ apiKey });
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
         contents: { parts },
         config: { 
           systemInstruction,
@@ -1951,7 +1950,15 @@ const ai = new GoogleGenAI({ apiKey });
             <FullSizePreview>
               <RemoveFileBtn onClick={handleRemoveFile}>✕</RemoveFileBtn>
               {file?.type.startsWith('video') ? (
-                <video ref={videoRef} src={previewUrl} controls />
+                <video
+                  ref={videoRef}
+                  src={previewUrl}
+                  controls
+                  muted
+                  playsInline
+                  webkit-playsinline="true"
+                  x5-playsinline="true"
+                />
               ) : (
                 <img src={previewUrl} alt="preview" />
               )}
