@@ -1583,23 +1583,42 @@ const App = () => {
       body { 
         direction: rtl; 
         font-family: 'Assistant', sans-serif; 
-        background: #050505; 
-        color: #e0e0e0; 
-        padding: 20px; 
+        background: #050505 !important; 
+        color: #f5f5f5 !important; 
+        padding: 24px; 
+      }
+      h1,h2,h3,h4,h5,h6 {
+        font-family: 'Frank Ruhl Libre', serif;
+        color: #D4A043 !important;
+        margin: 0 0 10px;
+      }
+      p, li, span, div {
+        color: #e0e0e0;
       }
       .export-wrapper { max-width: 1000px; margin: 0 auto; }
       .export-header { text-align: center; margin-bottom: 24px; }
       .export-note { color: #999; font-size: 11px; margin-top: 4px; }
+      .export-logo {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 12px;
+      }
+      .export-logo img {
+        max-width: 120px;
+        height: auto;
+      }
       /* אל תציג כפתורים וקישורים */
       a, button { display: none !important; }
       /* רשימות */
       ul { padding-right: 20px; margin: 0; }
       li { margin-bottom: 6px; }
       /* איקונים – קטנים ועדינים יותר */
-      svg { max-width: 18px; max-height: 18px; }
+      svg { max-width: 16px; max-height: 16px; }
     `;
 
-    const html = `
+    const doc = printWindow.document;
+    doc.open();
+    doc.write(`
       <html dir="rtl">
         <head>
           <title>דו"ח ניתוח וידאו</title>
@@ -1607,6 +1626,9 @@ const App = () => {
         <body>
           <div class="export-wrapper">
             <div class="export-header">
+              <div class="export-logo">
+                <img src="/Logo.png" alt="Viraly Logo" />
+              </div>
               <h2>דו"ח ניתוח - Video Director Pro</h2>
               <div class="export-note">נוצר במסלול פרימיום • ${new Date().toLocaleString('he-IL')}</div>
             </div>
@@ -1614,24 +1636,23 @@ const App = () => {
           </div>
         </body>
       </html>
-    `;
+    `);
 
-    printWindow.document.write(html);
-    printWindow.document.close();
-
-    // העתקה של כל ה-CSS מהאפליקציה כדי שהעיצוב ב-PDF יהיה זהה ככל האפשר למקור
+    // העתקה של כל ה-CSS מהאפליקציה כדי שהעיצוב ב-PDF יהיה נאמן למקור
     try {
       const headNodes = document.querySelectorAll('style, link[rel="stylesheet"]');
       headNodes.forEach(node => {
-        printWindow.document.head.appendChild(node.cloneNode(true));
+        doc.head.appendChild(node.cloneNode(true));
       });
 
-      const styleTag = printWindow.document.createElement('style');
+      const styleTag = doc.createElement('style');
       styleTag.textContent = styles;
-      printWindow.document.head.appendChild(styleTag);
+      doc.head.appendChild(styleTag);
     } catch (e) {
       console.error('Failed to clone styles into print window', e);
     }
+
+    doc.close();
 
     printWindow.focus();
     printWindow.print();
@@ -1672,8 +1693,7 @@ const App = () => {
     setLoading(true);
     
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
-const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
