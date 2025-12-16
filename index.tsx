@@ -1649,9 +1649,8 @@ const App = () => {
     setLoading(true);
     
     try {
-      const ai = new GoogleGenAI({
-  apiKey: import.meta.env.VITE_API_KEY as string,
-});
+     const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
+
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
