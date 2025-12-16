@@ -24,7 +24,7 @@ interface AnalysisResult {
 
 // --- Constants ---
 const MAX_VIDEO_SECONDS = 5 * 60; // 5 minutes
-const MAX_FILE_BYTES = 60 * 1024 * 1024; // 60MB
+const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20MB
 
 const TRACK_DESCRIPTIONS: Record<string, string> = {
   actors: 'חדר האודישנים הראשי של הפקות הדרמה המובילות בישראל ובעולם אצלך בכיס. הסטנדרט הוא קולנועי וחסר פשרות.',
@@ -1463,7 +1463,7 @@ const App = () => {
     if (!selectedFile) return;
 
     if (selectedFile.size > MAX_FILE_BYTES) {
-      alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 60MB.");
+      alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 20MB.");
       resetInput();
       return;
     }
@@ -1485,7 +1485,7 @@ const App = () => {
 
       videoEl.onloadedmetadata = () => {
         if (videoEl.duration > MAX_VIDEO_SECONDS) {
-          alert("הסרטון חורג מהמגבלה: עד 5 דקות או 60MB.");
+          alert("הסרטון חורג מהמגבלה: עד 5 דקות או 20MB.");
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;
@@ -1693,8 +1693,7 @@ const App = () => {
     setLoading(true);
     
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
-const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
@@ -1775,7 +1774,7 @@ const ai = new GoogleGenAI({ apiKey });
       
       if (file) {
         if (file.size > MAX_FILE_BYTES) {
-           alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 60MB.");
+           alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 20MB.");
            setLoading(false);
            return;
         }
@@ -1962,7 +1961,7 @@ const ai = new GoogleGenAI({ apiKey });
               <UploadTitle>
                 {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
               </UploadTitle>
-              <UploadSubtitle>עד 5 דקות או 60MB</UploadSubtitle>
+              <UploadSubtitle>עד 5 דקות או 20MB</UploadSubtitle>
               
               <UploadButton>
                 {isImprovementMode ? 'בחר קובץ לשיפור' : 'העלה סרטון עכשיו'}
