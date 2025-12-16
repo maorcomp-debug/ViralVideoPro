@@ -1637,25 +1637,20 @@ const App = () => {
     });
   };
 
-  const handleAnalysis = async () => {
- 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
-
-if (!apiKey) {
-  setError("חסר מפתח API. ודא ש-VITE_GEMINI_API_KEY מוגדר בקובץ .env.local");
-  return;
-}
-
-    if (!file && !prompt) {
-      setError("אנא העלה וידאו/תמונה או כתוב טקסט כדי להתחיל.");
-      return;
+  const handleGenerate = async () => {
+    if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
+    
+    // Start playing video when analysis begins
+    if (videoRef.current) {
+        videoRef.current.muted = true;
+        videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
     }
-	setLoading(true);
-    	setResult(null);
-        setError("");
 
+    setLoading(true);
+    
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
       if (isImprovementMode && previousResult) {
