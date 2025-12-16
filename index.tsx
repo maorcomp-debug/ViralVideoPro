@@ -1,219 +1,38 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
-import { createRoot } from "react-dom/client";
+import React, { useState, useRef, useEffect } from 'react';
+import { createRoot } from 'react-dom/client';
+import styled, { createGlobalStyle, keyframes, css } from 'styled-components';
 import { GoogleGenAI } from "@google/genai";
-import styled, { createGlobalStyle, keyframes, css } from "styled-components";
 
-// --- PROMPTS & DATA CONFIGURATION ---
+// --- Types ---
+type TrackId = 'actors' | 'musicians' | 'creators' | 'influencers';
 
-const COMMON_INSTRUCTIONS_BASE = `
-אתה Viraly AI - המערכת המתקדמת בעולם לניתוח ביצועים.
-אתה פועל כפאנל שופטים עלית מהתעשייה הבינלאומית והמקומית הגבוהה ביותר.
-
-**המשימה שלך:**
-המשתמש העלה ביצוע (וידאו) ולעיתים קרובות גם טקסט/תסריט מקורי (PDF/תמונה).
-בנוסף, המשתמש עשוי לספק הנחיות ספציפיות או שאלות למומחים.
-עליך לבצע **השוואה כירורגית (ניתוח פערים)** בין מה שהיה כתוב/נדרש בקובץ המצורף לבין מה שבוצע בפועל בוידאו.
-אנחנו לא מחפשים רק "משחק טוב", אלא **דיוק בביצוע ההנחיות**.
-הניתוח חייב להיות מקצועי, נוקב, וללא הנחות.
-
-**הנחיות קריטיות לניתוח:**
-1. **התמונה הגדולה**: לפני שאתה צולל לפרטים, האם המבצע הבין את המשימה? האם הוא קרא את ההוראות בקובץ או התעלם מהן? בדוק קורלציה מלאה בין הכתוב למבוצע.
-2. **התייחסות להערות המשתמש**: אם המשתמש הוסיף הערות או שאלות, התייחס אליהן בנפרד ובכובד ראש.
-3. **עברית תקנית וטבעית**: כתוב את הניתוח בעברית עשירה ומקצועית. **הימנע לחלוטין מתעתיק מאולץ של מילים באנגלית** (למשל: אל תכתוב 'קול-באק', 'סלייט', 'שואוריל'). במקום זאת, השתמש במונחים העבריים המקובלים: 'אודישן חוזר', 'הצגה עצמית', 'תיק עבודות'. השתמש במונחים לועזיים רק אם הם "ברזל" בתעשייה הישראלית.
-4. **השוואה לטקסט**: חובה לצטט מהקובץ המצורף. תכתוב: "בהוראות כתוב [ציטוט], אך בביצוע בחרת בכיוון הפוך לחלוטין".
-5. **טון**: סמכותי, חד, מנטורי, ומקדם. אל תמרח את הזמן.
-
-**המבנה הנדרש (JSON בלבד):**
-החזר אובייקט JSON המכיל מפתח "verdict" (סיכום) ומפתח "experts" (מערך אובייקטים).
-כל מומחה במערך "experts" יכיל:
-- "title": שם המומחה (בדיוק כפי שהוגדר ברשימה למטה).
-- "score": מספר 0-100.
-- "analysis": טקסט הניתוח המלא (בשפה מקצועית עשירה בעברית בלבד, עם דוגמאות ספציפיות מהוידאו והשוואה לטקסט המצורף).
-- "tips": רשימה של 3 צעדים פרקטיים וטכניים לשיפור מיידי בטייק הבא (מסופררים 1., 2., 3.).
-
-**הנחיה למומחה המסכם (The Verdict):**
-סיכום מנהלים בשורה תחתונה: האם הביצוע עומד בסטנדרט? האם המבצע עמד במשימה שהוגדרה לו?
-`;
-
-interface ExpertDef {
-  id: string;
-  name: string;
+interface ExpertAnalysis {
   role: string;
+  insight: string;
+  tips: string;
+  score: number; // Individual expert score
 }
 
-interface TrackDef {
-  label: string;
-  icon: React.ReactNode;
-  context: string;
-  uiDescription: string;
-  verdictPrompt: string;
-  experts: ExpertDef[];
+interface AnalysisResult {
+  expertAnalysis: ExpertAnalysis[];
+  hook: string; // The "Golden Insight"
+  committee: {
+    summary: string;
+    finalTips: string[];
+  };
 }
 
-// --- ICONS DEFINITIONS ---
+// --- Constants ---
 
-function MasksIcon() {
-  return (
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="goldGradIcon" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#F5D061" />
-        <stop offset="100%" stopColor="#B5831A" />
-      </linearGradient>
-    </defs>
-    <path d="M12 24C12 15 18 10 26 10C34 10 40 15 40 24C40 36 34 42 26 42C18 42 12 36 12 24Z" stroke="url(#goldGradIcon)" strokeWidth="2.5" />
-    <path d="M19 22H23" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M29 22H33" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M20 32C22 35 26 35 30 32" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M38 28C38 19 44 14 52 14C60 14 66 19 66 28C66 40 60 46 52 46C44 46 38 40 38 28Z" fill="#111" stroke="url(#goldGradIcon)" strokeWidth="2.5"/>
-    <path d="M45 26H49" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M55 26H59" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M46 38C48 35 52 35 56 38" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-  </svg>
-  );
-}
-
-function MicIcon() {
-  return (
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="22" y="6" width="20" height="30" rx="10" stroke="url(#goldGradIcon)" strokeWidth="2.5" />
-    <path d="M28 12V24" stroke="url(#goldGradIcon)" strokeWidth="2" strokeLinecap="round"/>
-    <path d="M36 12V24" stroke="url(#goldGradIcon)" strokeWidth="2" strokeLinecap="round"/>
-    <path d="M32 6V36" stroke="url(#goldGradIcon)" strokeWidth="1" strokeDasharray="2 2"/>
-    <path d="M12 26V28C12 39.0457 20.9543 48 32 48C43.0457 48 52 39.0457 52 28V26" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M32 48V58" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M20 58H44" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-  </svg>
-  );
-}
-
-function CreatorIcon() {
-  return (
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="20" y="10" width="24" height="44" rx="4" stroke="url(#goldGradIcon)" strokeWidth="2.5" />
-    <path d="M29 26V38L38 32L29 26Z" fill="url(#goldGradIcon)" stroke="url(#goldGradIcon)" strokeWidth="1.5" strokeLinejoin="round"/>
-    <path d="M52 14L54 20L60 20L55 24L57 30L52 26L47 30L49 24L44 20L50 20L52 14Z" stroke="url(#goldGradIcon)" strokeWidth="2" fill="none"/>
-    <path d="M14 46L10 50" stroke="url(#goldGradIcon)" strokeWidth="2" strokeLinecap="round"/>
-    <path d="M10 40H6" stroke="url(#goldGradIcon)" strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-  );
-}
-
-function MusicIcon() {
-  return (
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M24 8V42C24 45 22 48 18 48C14 48 12 45 12 42C12 39 14 36 18 36C20 36 22 37 24 38V8Z" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M48 8V42C48 45 46 48 42 48C38 48 36 45 36 42C36 39 38 36 42 36C44 36 46 37 48 38V8Z" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M24 16H48" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M24 8H48" stroke="url(#goldGradIcon)" strokeWidth="2.5" strokeLinecap="round"/>
-  </svg>
-  );
-}
-
-const VideoCameraIcon = ({width = "60", height = "60"}: {width?: string, height?: string}) => (
-  <svg width={width} height={height} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 10L19.5528 7.72361C19.8153 7.59239 20.1265 7.61863 20.3541 7.78886C20.5818 7.95909 20.7027 8.24921 20.6659 8.53046L20.0033 15.4095C19.9665 15.7908 19.8456 16.0809 19.6179 16.2511C19.3903 16.4214 19.0791 16.4476 18.8166 16.3164L15 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const DocIcon = () => (
-   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-     <path d="M9 12H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-     <path d="M9 16H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-     <path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-     <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-   </svg>
-);
-
-const RefreshIcon = ({width = "24", height = "24"}: {width?: string, height?: string}) => (
-    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-        <path d="M3 3v5h5" />
-    </svg>
-);
-
-const TRACKS_DATA: Record<string, TrackDef> = {
-  actors: {
-    label: "שחקנים ואודישנים",
-    icon: <MasksIcon />,
-    context: "אתה חדר האודישנים הראשי של הפקות הדרמה המובילות בישראל ובעולם. הסטנדרט הוא קולנועי וחסר פשרות.",
-    uiDescription: "חדר האודישנים הראשי של הפקות הדרמה המובילות בישראל ובעולם אצלך בכיס. הסטנדרט הוא קולנועי וחסר פשרות.",
-    verdictPrompt: "האם זה 'עובר מסך'? האם השחקן עמד במשימה? האם היית מזמין אותו לאודישן חוזר? התייחס לפוטנציאל הליהוקי.",
-    experts: [
-      { id: 'director', name: 'הבמאי', role: 'בניית הסצנה, פיצוח הרצון, חלוקה לביטים.' },
-      { id: 'casting', name: 'מלהקת ראשית', role: 'טייפקאסט, אמינות, האם הוא "חי" את הדמות.' },
-      { id: 'screenwriter', name: 'התסריטאי', role: 'דיוק בטקסט, הבנת הסאב-טקסט והניואנסים.' },
-      { id: 'acting_coach', name: 'מאמן משחק', role: 'מתח גופני, בחירות רגשיות, זיכרון חושי.' },
-      { id: 'camera', name: 'צלם ראשי', role: 'מציאת האור, קשר עין, עבודה מול עדשה.' },
-      { id: 'body_lang', name: 'מומחה שפת גוף', role: 'הלימה בין גוף לטקסט, מיקרו-הבעות.' },
-      { id: 'mentor', name: 'מנטור אודישנים', role: 'הצגה עצמית, כניסה ויציאה מדמות.' },
-      { id: 'agent', name: 'אסטרטג קריירה', role: 'התאמה לתיק עבודות, שיווקיות, פוטנציאל ליהוק.' }
-    ]
-  },
-  singers: {
-    label: "זמרים ומוזיקאים",
-    icon: <MusicIcon />,
-    context: "אתה פאנל השופטים של תוכניות המוזיקה הגדולות והלייבלים המובילים.",
-    uiDescription: "פאנל השופטים של תוכניות המוזיקה הגדולות והלייבלים המובילים אצלך בכיס.",
-    verdictPrompt: "האם הביצוע מרגש ומקצועי? האם יש 'סטאר קוואליטי'? האם זה להיט?",
-    experts: [
-      { id: 'vocal_coach', name: 'מאמן ווקאלי', role: 'טכניקה, דיוק בצליל, נשימה, תמיכה.' },
-      { id: 'producer', name: 'מפיק מוזיקלי', role: 'ריתמיקה, גרוב, דינמיקה, עיבוד.' },
-      { id: 'judge', name: 'השופט הקשוח', role: 'ייחודיות, חותם אישי, כריזמה.' },
-      { id: 'performance', name: 'מומחה פרפורמנס', role: 'הגשה, תנועה על במה, קשר עם הקהל.' },
-      { id: 'soul', name: 'מומחה אינטרפרטציה', role: 'רגש, חיבור לטקסט, אמינות בהגשה.' },
-      { id: 'stylist', name: 'סטיילינג ותדמית', role: 'לוק, נראות, התאמה לז\'אנר.' },
-      { id: 'repertoire', name: 'מנהל רפרטואר', role: 'בחירת שיר, התאמה למנעד ולזמר.' },
-      { id: 'radio', name: 'עורך רדיו', role: 'פוטנציאל רדיופוני, מסחריות.' }
-    ]
-  },
-  creators: {
-    label: "יוצרי תוכן וכוכבי רשת",
-    icon: <CreatorIcon />,
-    context: "אתה האלגוריתם של הרשתות החברתיות (טיקטוק/רילס/יוטיוב).",
-    uiDescription: "האלגוריתם של הרשתות החברתיות (טיקטוק/רילס/יוטיוב) אצלך בכיס.",
-    verdictPrompt: "האם זה ויראלי? האם זה יעצור את הגלילה?",
-    experts: [
-      { id: 'viral_strat', name: 'אסטרטג ויראליות', role: 'הבטחה מול ביצוע, פוטנציאל שיתוף.' },
-      { id: 'hook_master', name: 'מאסטר הוקים', role: '3 שניות ראשונות, לכידת תשומת לב.' },
-      { id: 'video_editor', name: 'עורך וידאו', role: 'קצב וזרימה, חיתוכים, זום, אפקטים.' },
-      { id: 'algo_hacker', name: 'האקר אלגוריתם', role: 'זמן צפייה, צפייה חוזרת.' },
-      { id: 'vibe', name: 'מומחה אנרגיה', role: 'וייב, אותנטיות, התאמה לטרנדים.' },
-      { id: 'aesthetic', name: 'אסתטיקה', role: 'ערך הפקה, תאורה, איכות סאונד, כתוביות.' },
-      { id: 'engagement', name: 'גורו מעורבות', role: 'הנעה לפעולה, עידוד תגובות.' },
-      { id: 'script_web', name: 'תסריטאי רשת', role: 'פאנץ\', הידוק מסרים, סטוריטלינג קצר.' }
-    ]
-  },
-  mentors: {
-    label: "מנטורים ומרצים",
-    icon: <MicIcon />,
-    context: "אתה הוועדה האומנותית של כנס המרצים הגדול בעולם (סגנון הרצאות טד).",
-    uiDescription: "הוועדה האומנותית של כנס המרצים הגדול בעולם (סגנון הרצאות טד) אצלך בכיס.",
-    verdictPrompt: "האם המסר עבר בצורה חדה ומשכנעת? האם היית משלם כרטיס להרצאה הזו?",
-    experts: [
-      { id: 'rhetoric', name: 'מאמן רטוריקה', role: 'גיוון קולי, אינטונציה, שימוש בשתיקות.' },
-      { id: 'content_arch', name: 'ארכיטקט תוכן', role: 'בניית הסיפור, מבנה לוגי, מסר מרכזי.' },
-      { id: 'authority', name: 'מומחה סמכות', role: 'שליטה במרחב, ביטחון עצמי.' },
-      { id: 'psychology', name: 'פסיכולוגיה של הקהל', role: 'חיבור לקהל, אמפתיה, החזקת קשב.' },
-      { id: 'visual_branding', name: 'מיתוג ויזואלי', role: 'תדמית, לבוש, שפת גוף פתוחה.' },
-      { id: 'production', name: 'ערך הפקה', role: 'סאונד ברור, תאורה מחמיאה, רקע נקי.' },
-      { id: 'charisma', name: 'פקטור הכריזמה', role: 'הניצוץ הייחודי, אנרגיה מדבקת.' },
-      { id: 'marketing', name: 'מומחה שיווק', role: 'הפתיח, הנעה לפעולה, רלוונטיות.' }
-    ]
-  }
+const TRACK_DESCRIPTIONS: Record<string, string> = {
+  actors: 'חדר האודישנים הראשי של הפקות הדרמה המובילות בישראל ובעולם אצלך בכיס. הסטנדרט הוא קולנועי וחסר פשרות.',
+  musicians: 'פאנל השופטים של תוכניות המוזיקה הגדולות והלייבלים המובילים אצלך בכיס.',
+  creators: 'האלגוריתם של הרשתות החברתיות (טיקטוק/רילס/יוטיוב) אצלך בכיס.',
+  influencers: 'חדר האסטרטגיה של המותגים הגדולים ומשרדי הפרסום המובילים אצלך בכיס.',
 };
 
-type TrackType = keyof typeof TRACKS_DATA;
+// --- Global Styles & Animation ---
 
-
-// --- Color Palette ---
-const goldColor = "#D4A043";
-const darkGold = "#B5831A";
-const lightGold = "#F9E4B7"; 
-const blackBg = "#000000";
-
-// --- Animations ---
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -224,1690 +43,1981 @@ const shimmer = keyframes`
   100% { background-position: 200% 0; }
 `;
 
-const sparkleDim = keyframes`
-  0% { box-shadow: 0 0 10px rgba(212, 160, 67, 0.5); filter: brightness(1); border-color: #fff; }
-  50% { box-shadow: 0 0 30px rgba(212, 160, 67, 1), 0 0 50px rgba(255, 255, 255, 0.6); filter: brightness(1.2); border-color: ${lightGold}; }
-  100% { box-shadow: 0 0 10px rgba(212, 160, 67, 0.5); filter: brightness(1); border-color: #fff; }
+const pulse = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(212, 160, 67, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(212, 160, 67, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(212, 160, 67, 0); }
 `;
 
-// --- Styles ---
+const glowReady = keyframes`
+  0% { box-shadow: 0 0 5px rgba(212, 160, 67, 0.3); border-color: rgba(212, 160, 67, 0.5); }
+  50% { box-shadow: 0 0 25px rgba(212, 160, 67, 0.7); border-color: #D4A043; transform: scale(1.02); }
+  100% { box-shadow: 0 0 5px rgba(212, 160, 67, 0.3); border-color: rgba(212, 160, 67, 0.5); }
+`;
+
+const breathingHigh = keyframes`
+  0% { 
+    box-shadow: 0 0 20px rgba(212, 160, 67, 0.6); 
+    transform: scale(1); 
+    filter: brightness(100%);
+    border-color: rgba(212, 160, 67, 0.5);
+  }
+  50% { 
+    box-shadow: 0 0 60px rgba(255, 215, 0, 0.8); 
+    transform: scale(1.02); 
+    filter: brightness(140%);
+    border-color: #fff;
+  }
+  100% { 
+    box-shadow: 0 0 20px rgba(212, 160, 67, 0.6); 
+    transform: scale(1); 
+    filter: brightness(100%);
+    border-color: rgba(212, 160, 67, 0.5);
+  }
+`;
 
 const GlobalStyle = createGlobalStyle`
   body {
-    background-color: ${blackBg};
+    background-color: #050505;
     color: #e0e0e0;
     font-family: 'Assistant', sans-serif;
     margin: 0;
     padding: 0;
     overflow-x: hidden;
-    direction: rtl;
   }
   
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Frank Ruhl Libre', serif;
+  ::selection {
+    background: #D4A043;
+    color: #000;
   }
 
   ::-webkit-scrollbar {
     width: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: #0a0a0a;
+    background: #0f0f0f; 
   }
   ::-webkit-scrollbar-thumb {
-    background: #333;
+    background: #333; 
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: #D4A043; 
   }
-
-  /* --- ULTIMATE MOBILE PRINT FIX --- */
-  @media print {
-    @page {
-      margin: 1cm;
-      size: A4;
-    }
-    
-    html, body {
-      background-color: #ffffff !important;
-      background: #ffffff !important;
-      color: #000000 !important;
-      height: auto !important;
-      min-height: 100vh !important;
-      width: 100% !important;
-      overflow: visible !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    /* Aggressively hide the normal app container */
-    .no-print {
-      display: none !important;
-      opacity: 0 !important;
-      height: 0 !important;
-      width: 0 !important;
-      overflow: hidden !important;
-      visibility: hidden !important;
-    }
-
-    /* Force the print container to overlay everything */
-    .print-only {
-      display: block !important;
-      visibility: visible !important;
-      position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100% !important;
-      height: auto !important;
-      min-height: 100vh !important;
-      background-color: white !important;
-      z-index: 9999 !important;
-      color: black !important;
-    }
-    
-    * {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-      box-shadow: none !important;
-      text-shadow: none !important;
-    }
-  }
-
-  /* Hide print container on screen */
-  @media screen {
-    .print-only {
-      display: none !important;
-    }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Frank Ruhl Libre', serif;
+    margin: 0;
   }
 `;
 
-const MainContainer = styled.main<{ $isPrintMode: boolean }>`
-  width: 100%;
-  min-height: 100vh;
-  padding-bottom: 50px;
-  background: #050505;
-  color: #e0e0e0;
-`;
+// --- Styled Components ---
 
-const Section = styled.section`
-  padding: 60px 20px;
-  max-width: 1200px;
+const AppContainer = styled.div`
+  max-width: 1000px;
   margin: 0 auto;
-  position: relative;
+  padding: 40px 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 
-  @media (max-width: 1024px) { /* Tablet */
-    padding: 40px 20px;
-  }
-
-  @media (max-width: 768px) { /* Mobile */
-    padding: 30px 15px;
+  @media (max-width: 600px) {
+    padding: 20px 15px;
   }
 `;
 
-// --- Hero Section ---
-const HeroSection = styled(Section)`
+// -- Header Section --
+
+const Header = styled.header`
   text-align: center;
-  padding-top: 60px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-height: 60vh;
-  justify-content: center;
-
-  @media (max-width: 768px) {
-    min-height: auto;
-    padding-top: 90px;
-    padding-bottom: 40px;
-  }
-`;
-
-const PlaceholderLogo = styled.div`
-  width: 400px;
-  height: 260px;
-  border: 2px dashed rgba(212, 160, 67, 0.3);
-  border-radius: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: rgba(212, 160, 67, 0.5);
-  transition: all 0.3s;
-  background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
-
-  &:hover {
-    border-color: rgba(212, 160, 67, 1);
-    color: rgba(212, 160, 67, 1);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 0 30px rgba(212, 160, 67, 0.1);
-  }
-
-  @media (max-width: 768px) {
-    width: 100%;
-    max-width: 300px;
-    height: 200px;
-    
-    div:first-child {
-      font-size: 50px !important;
-    }
-    div:last-child {
-      font-size: 18px !important;
-    }
-  }
-`;
-
-const AppLogoImage = styled.img`
-  width: auto;
-  height: 400px;
-  max-width: 90vw;
-  object-fit: contain;
-  display: block;
-
-  @media (max-width: 768px) {
-    height: auto;
-    max-height: 280px;
-    width: 100%;
-  }
-`;
-
-const AppLogo = ({ customSrc }: { customSrc?: string | null }) => {
-  if (customSrc) {
-    return (
-      <AppLogoImage 
-        src={customSrc} 
-        alt="Viraly Custom Logo"
-      />
-    );
-  }
-
-  return (
-    <PlaceholderLogo>
-      <div style={{ fontSize: '50px', marginBottom: '10px' }}>+</div>
-      <div style={{ fontSize: '18px', fontFamily: 'Assistant', fontWeight: 'bold' }}>העלה לוגו כאן</div>
-    </PlaceholderLogo>
-  );
-};
-
-const LogoContainer = styled.div`
-  margin-bottom: 40px;
-  cursor: pointer;
-  position: relative;
-  
-  &:hover::after {
-    content: 'לחץ להחלפת לוגו';
-    position: absolute;
-    bottom: -30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
-    color: ${goldColor};
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    white-space: nowrap;
-    border: 1px solid ${goldColor};
-  }
-
-  @media (max-width: 768px) {
-    margin-bottom: 5px;
-    margin-top: 0;
-  }
-`;
-
-const MobileLineBreak = styled.br`
-    display: none;
-    @media (max-width: 768px) {
-        display: block;
-    }
-`;
-
-const HeroDescription = styled.h2`
-  margin-top: 20px;
-  color: #e0e0e0;
-  font-family: 'Assistant', sans-serif;
-  font-weight: 300;
-  font-size: 1.5rem;
-  max-width: 900px;
-  line-height: 1.6;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-
-  strong {
-    color: ${goldColor};
-    font-weight: 700;
-  }
-
-  @media (max-width: 768px) {
-    font-size: 1.1rem;
-    padding: 0 10px;
-    line-height: 1.5;
-    margin-top: 5px;
-  }
-`;
-
-// --- Track Selection ---
-const TrackGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 15px;
-  margin-top: 40px;
+  margin-bottom: 30px;
   width: 100%;
-  
-  @media (max-width: 1024px) { /* Tablet */
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  @media (max-width: 768px) { /* Mobile */
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin-top: 30px;
-  }
-`;
-
-const TrackCard = styled.div<{ $selected: boolean }>`
-  background: ${props => props.$selected ? 'linear-gradient(145deg, #222, #0d0d0d)' : 'rgba(20, 20, 20, 0.6)'};
-  border: 1px solid ${props => props.$selected ? goldColor : '#333'};
-  border-radius: 12px;
-  padding: 15px 10px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  box-shadow: ${props => props.$selected ? `0 0 15px rgba(212, 160, 67, 0.15)` : 'none'};
-
-  &:hover {
-    border-color: ${goldColor};
-    transform: translateY(-3px);
-    background: ${props => props.$selected ? 'linear-gradient(145deg, #222, #0d0d0d)' : 'rgba(30, 30, 30, 0.8)'};
-  }
-
-  svg {
-    width: 35px;
-    height: 35px;
-    margin-bottom: 10px;
-    opacity: ${props => props.$selected ? 1 : 0.8};
-    transition: all 0.3s;
-    filter: ${props => props.$selected ? 'drop-shadow(0 0 5px rgba(212, 160, 67, 0.5))' : 'none'};
-  }
-
-  h3 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: ${props => props.$selected ? goldColor : '#e0e0e0'};
-  }
-  
-  @media (max-width: 768px) {
-    padding: 12px 8px;
-    svg {
-        width: 28px;
-        height: 28px;
-    }
-    h3 {
-        font-size: 0.9rem;
-    }
-  }
-`;
-
-// --- Panel Selection UI ---
-
-const PanelContainer = styled.div`
-  margin-top: 30px;
-  padding: 20px;
-  background: rgba(20,20,20,0.5);
-  border: 1px solid #333;
-  border-radius: 16px;
-  animation: ${fadeIn} 0.4s ease-out;
-
-  @media (max-width: 768px) {
-    padding: 15px;
-  }
-`;
-
-const PanelHeader = styled.div`
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 15px;
+  animation: ${fadeIn} 0.8s ease-out;
+`;
 
-  h3 {
-    margin: 0;
-    color: ${lightGold};
+const Title = styled.h1`
+  font-size: 3.5rem;
+  color: #D4A043; /* Metallic Gold */
+  margin: 10px 0 5px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  background: linear-gradient(to bottom, #fcf6ba, #bf953f, #b38728, #fbf5b7, #aa771c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(212, 160, 67, 0.3));
+  
+  @media (max-width: 768px) {
+    font-size: 2.5rem;
+  }
+  @media (max-width: 480px) {
+    font-size: 2rem;
+    letter-spacing: 1px;
+  }
+`;
+
+const Subtitle = styled.h2`
+  font-family: 'Playfair Display', serif;
+  font-size: 1.4rem;
+  color: #D4A043;
+  margin-bottom: 10px;
+  font-weight: 400;
+
+  @media (max-width: 480px) {
     font-size: 1.2rem;
   }
 `;
 
-const PanelControls = styled.div`
-  display: flex;
-  gap: 8px;
-  
-  button {
-    background: rgba(212, 160, 67, 0.1);
-    border: 1px solid ${goldColor};
-    color: ${goldColor};
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    font-family: 'Assistant', sans-serif;
-    font-weight: 600;
-    transition: all 0.2s;
-    
-    &:hover {
-        background: ${goldColor};
-        color: black;
-    }
-  }
+const Description = styled.p`
+  color: #888;
+  font-size: 1rem;
+  max-width: 600px;
+  line-height: 1.6;
+  margin-bottom: 30px;
+  padding: 0 10px;
 `;
 
-const ExpertsSelectionGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 15px;
-
-  @media (max-width: 768px) {
-    /* Allow cards to be smaller on mobile to fit 2 in a row if screen permits, or stacked */
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  }
-`;
-
-const ExpertCheckbox = styled.div<{ $isActive: boolean }>`
-  display: flex;
-  align-items: flex-start;
-  padding: 15px;
-  background: ${props => props.$isActive ? 'rgba(212, 160, 67, 0.08)' : 'rgba(255,255,255,0.02)'};
-  border: 1px solid ${props => props.$isActive ? goldColor : 'rgba(255,255,255,0.1)'};
-  border-radius: 10px;
+const CTAButton = styled.button`
+  background: linear-gradient(135deg, #b8862e 0%, #e6be74 50%, #b8862e 100%);
+  background-size: 200% auto;
+  color: #000;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 35px;
+  font-family: 'Assistant', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
-  height: 100%;
-  
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(212, 160, 67, 0.3);
+
   &:hover {
-    background: rgba(212, 160, 67, 0.04);
-    border-color: ${goldColor};
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(212, 160, 67, 0.5);
+  }
+`;
+
+// -- Capabilities Button --
+
+const CapabilitiesButton = styled.button`
+  background: #000;
+  border: 1px solid #D4A043;
+  color: #D4A043;
+  border-radius: 50px;
+  padding: 10px 30px;
+  font-family: 'Assistant', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 20px 0 40px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px rgba(212, 160, 67, 0.1);
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.1);
+    box-shadow: 0 0 15px rgba(212, 160, 67, 0.3);
     transform: translateY(-2px);
   }
 
-  @media (max-width: 768px) {
-    padding: 12px;
+  span {
+    background: linear-gradient(90deg, #D4A043, #e6be74);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 `;
 
-const CheckboxInput = styled.div<{ $checked: boolean }>`
-    width: 18px;
-    height: 18px;
-    border: 1px solid ${props => props.$checked ? goldColor : '#666'};
-    background: ${props => props.$checked ? goldColor : 'transparent'};
-    border-radius: 50%; /* Rounded for list style */
-    margin-left: 12px;
-    margin-top: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    
-    &:after {
-        content: '✓';
-        color: black;
-        font-weight: bold;
-        font-size: 12px;
-        display: ${props => props.$checked ? 'block' : 'none'};
-    }
+// -- Modal --
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 10px;
+  animation: ${fadeIn} 0.3s ease-out;
 `;
 
-// --- Upload Section ---
-const VideoUploadArea = styled.div<{ $isDragging: boolean }>`
-  margin-top: 40px;
-  border: 2px dashed ${props => props.$isDragging ? goldColor : '#444'};
-  background: ${props => props.$isDragging ? 'rgba(212, 160, 67, 0.05)' : 'rgba(15, 15, 15, 0.6)'};
-  border-radius: 20px;
-  padding: 40px;
-  min-height: 250px;
+const ModalContent = styled.div`
+  background: #0a0a0a;
+  border: 1px solid #D4A043;
+  border-radius: 12px;
+  width: 95%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 0 40px rgba(212, 160, 67, 0.2);
+  display: flex;
+  flex-direction: column;
+`;
+
+const ModalHeader = styled.div`
+  padding: 25px 25px 15px;
+  text-align: center;
+  border-bottom: 1px solid #222;
+`;
+
+const ModalTitle = styled.h2`
+  color: #D4A043;
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+`;
+
+const ModalSubtitle = styled.p`
+  color: #ccc;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 600px;
+  margin: 0 auto;
+`;
+
+const ModalCloseBtn = styled.button`
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 24px;
+  cursor: pointer;
+  transition: color 0.2s;
+  &:hover { color: #D4A043; }
+`;
+
+const ModalTabs = styled.div`
+  display: flex;
+  border-bottom: 1px solid #D4A043;
+  margin-top: 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+`;
+
+const ModalTab = styled.button<{ $active: boolean }>`
+  flex: 1;
+  background: ${props => props.$active ? 'linear-gradient(to top, rgba(212, 160, 67, 0.1), transparent)' : 'transparent'};
+  border: none;
+  border-bottom: 3px solid ${props => props.$active ? '#D4A043' : 'transparent'};
+  color: ${props => props.$active ? '#D4A043' : '#888'};
+  padding: 15px;
+  font-weight: 700;
+  font-family: 'Assistant', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+
+  &:hover {
+    color: #D4A043;
+  }
+`;
+
+const TrackDescriptionText = styled.p`
+  text-align: center;
+  color: #999;
+  font-size: 1rem;
+  margin: 25px auto 10px;
+  max-width: 750px;
+  line-height: 1.5;
+  padding: 0 20px;
+`;
+
+const ModalBody = styled.div`
+  padding: 25px;
+  overflow-y: auto;
+`;
+
+const ModalRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #1a1a1a;
+  padding-bottom: 15px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const ModalRole = styled.div`
+  color: #e6be74;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 5px;
+  text-align: right;
+`;
+
+const ModalDesc = styled.div`
+  color: #e0e0e0;
+  font-size: 0.95rem;
+  text-align: right;
+`;
+
+// -- Track Selection --
+
+const SectionLabel = styled.div`
+  color: #e0e0e0;
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+  font-weight: 600;
+  position: relative;
+  display: inline-block;
+  text-align: center;
+  
+  &::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 2px;
+    background: #D4A043;
+    margin: 8px auto 0;
+  }
+`;
+
+// -- Expert Selection Controls --
+
+const ExpertControlBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+  
+  @media (max-width: 650px) {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+`;
+
+const ExpertControlText = styled.div`
+  color: #ccc;
+  font-size: 0.95rem;
+  padding-right: 5px;
+
+  strong {
+    color: #D4A043;
+    font-weight: 600;
+  }
+`;
+
+const ExpertToggleGroup = styled.div`
+  display: flex;
+  background: rgba(255,255,255,0.05);
+  border-radius: 50px;
+  padding: 4px;
+  border: 1px solid #333;
+  gap: 5px;
+`;
+
+const ExpertToggleButton = styled.button<{ $active: boolean }>`
+  background: ${props => props.$active ? '#D4A043' : 'transparent'};
+  color: ${props => props.$active ? '#000' : '#888'};
+  border: none;
+  border-radius: 50px;
+  padding: 6px 18px;
+  font-size: 0.85rem;
+  font-family: 'Assistant', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+
+  &:hover {
+    color: ${props => props.$active ? '#000' : '#D4A043'};
+  }
+`;
+
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  width: 100%;
+  margin-bottom: 30px;
+  
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+`;
+
+const TrackCard = styled.div<{ $active: boolean }>`
+  background: ${props => props.$active ? 'rgba(212, 160, 67, 0.15)' : 'rgba(20, 20, 20, 0.6)'};
+  border: 1px solid ${props => props.$active ? '#D4A043' : '#333'};
+  border-radius: 12px;
+  padding: 20px 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  transition: all 0.3s;
   cursor: pointer;
-  position: relative;
-  overflow: hidden;
+  transition: all 0.3s ease;
+  height: 100px;
   
   &:hover {
-    border-color: ${goldColor};
-    background: rgba(25, 25, 25, 0.8);
+    border-color: #D4A043;
+    background: rgba(212, 160, 67, 0.05);
+    transform: translateY(-5px);
   }
 
   svg {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 20px;
-    color: ${props => props.$isDragging ? goldColor : '#666'};
-    transition: color 0.3s;
-  }
-  
-  &:hover svg {
-    color: ${goldColor};
+    width: 32px;
+    height: 32px;
+    margin-bottom: 10px;
+    stroke: ${props => props.$active ? '#D4A043' : '#888'};
+    transition: stroke 0.3s;
   }
 
-  @media (max-width: 768px) {
-    padding: 20px;
-    min-height: 200px;
-    margin-top: 30px;
-
-    svg {
-        width: 45px;
-        height: 45px;
-        margin-bottom: 15px;
-    }
+  span {
+    color: ${props => props.$active ? '#D4A043' : '#aaa'};
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
   }
 `;
 
-const ScriptUploadButton = styled.div`
-  margin-top: 20px;
-  background: rgba(30, 30, 30, 0.8);
-  border: 1px solid #444;
+// -- Features Grid (Resized to match TrackCard) --
+
+const FeatureCard = styled.div<{ $selected: boolean }>`
+  background: ${props => props.$selected ? 'rgba(212, 160, 67, 0.1)' : '#0a0a0a'};
+  border: 1px solid ${props => props.$selected ? '#D4A043' : '#222'};
   border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 15px;
-  cursor: pointer;
+  padding: 10px;
+  text-align: center;
   transition: all 0.3s;
-  color: #ccc;
-  width: 100%;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  height: 100px;
 
   &:hover {
-    border-color: ${goldColor};
-    background: rgba(212, 160, 67, 0.1);
-    color: ${goldColor};
-  }
-  
-  svg {
-    width: 24px;
-    height: 24px;
-    color: ${goldColor};
+    border-color: #D4A043;
+    background: rgba(212, 160, 67, 0.05);
+    transform: translateY(-5px);
   }
 
-  @media (max-width: 768px) {
-    padding: 15px;
-    span {
-        font-size: 1rem;
-    }
+  /* Checkmark */
+  &::after {
+    content: '✓';
+    position: absolute;
+    top: 5px;
+    left: 8px;
+    color: #D4A043;
+    opacity: ${props => props.$selected ? 1 : 0};
+    font-weight: bold;
+    transition: opacity 0.2s;
+    font-size: 14px;
   }
+`;
+
+const FeatureTitle = styled.h4<{ $selected: boolean }>`
+  color: ${props => props.$selected ? '#D4A043' : '#ccc'};
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+`;
+
+const FeatureDesc = styled.p`
+  color: #e0e0e0;
+  font-size: 0.75rem;
+  line-height: 1.1;
+  margin: 5px 0 0 0;
+  font-weight: 400;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+`;
+
+// -- Upload Section --
+
+const UploadContainer = styled.div<{ $hasFile?: boolean }>`
+  background: ${props => props.$hasFile ? '#000' : '#0f0f0f'};
+  border: 2px dashed ${props => props.$hasFile ? '#D4A043' : '#333'};
+  border-radius: 16px;
+  padding: ${props => props.$hasFile ? '0' : '40px'};
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+  
+  @media (max-width: 480px) {
+    padding: ${props => props.$hasFile ? '0' : '30px 15px'};
+  }
+  
+  &:hover {
+    border-color: #D4A043;
+    background: ${props => props.$hasFile ? '#000' : '#111'};
+  }
+`;
+
+const UploadContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+`;
+
+const UploadIcon = styled.div`
+  font-size: 50px;
+  color: #D4A043;
+  margin-bottom: 15px;
+  filter: drop-shadow(0 0 10px rgba(212, 160, 67, 0.2));
+`;
+
+const UploadTitle = styled.h3`
+  color: #fff;
+  font-size: 1.2rem;
+  margin-bottom: 5px;
+  font-family: 'Assistant', sans-serif;
+  font-weight: 700;
+  text-align: center;
+`;
+
+const UploadSubtitle = styled.p`
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 25px;
+  text-align: center;
 `;
 
 const FileInput = styled.input`
   display: none;
 `;
 
-const InstructionsInput = styled.textarea`
+const UploadButton = styled.label`
+  background: #D4A043;
+  color: #000;
+  padding: 12px 30px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+  
+  &:hover {
+    background: #e6be74;
+  }
+`;
+
+const FullSizePreview = styled.div`
   width: 100%;
-  background: rgba(10, 10, 10, 0.8);
+  height: 100%;
+  min-height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  position: relative;
+
+  video, img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    max-height: 500px;
+  }
+`;
+
+const RemoveFileBtn = styled.button`
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: 1px solid #D4A043;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #D4A043;
+    color: #000;
+  }
+`;
+
+// -- PDF Upload Section --
+
+const PdfUploadWrapper = styled.div`
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  justify-content: center;
+  margin-top: -10px;
+  margin-bottom: 20px;
+`;
+
+const PdfUploadLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(212, 160, 67, 0.4);
+  padding: 12px 25px;
+  border-radius: 8px;
+  color: #e6be74;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+  font-weight: 600;
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.15);
+    border-color: #D4A043;
+    color: #fff;
+    transform: translateY(-1px);
+  }
+`;
+
+const PdfFileInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(212, 160, 67, 0.1);
+  border: 1px solid rgba(212, 160, 67, 0.3);
+  padding: 8px 15px;
+  border-radius: 8px;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  animation: ${fadeIn} 0.3s ease-out;
+
+  span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+`;
+
+const RemovePdfBtnSmall = styled.button`
+  background: none;
+  border: none;
+  color: #D4A043;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+  }
+`;
+
+// -- Input Section --
+
+const InputWrapper = styled.div`
+  width: 100%;
+  max-width: 700px;
+  position: relative;
+  margin-top: 20px;
+`;
+
+const MainInput = styled.textarea`
+  width: 100%;
+  background: #0a0a0a;
   border: 1px solid #444;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 15px;
   color: #e0e0e0;
   font-family: 'Assistant', sans-serif;
   font-size: 1rem;
-  margin-top: 30px;
-  min-height: 100px;
+  min-height: 80px;
   resize: vertical;
   transition: border-color 0.3s;
   
   &:focus {
     outline: none;
-    border-color: ${goldColor};
+    border-color: #D4A043;
   }
   
   &::placeholder {
-    color: #666;
+    color: #999;
+    font-weight: 500;
   }
 `;
 
-const ActionBigButton = styled.button`
-  margin-top: 20px;
-  background: linear-gradient(135deg, #F5D061 0%, #FFFFFF 50%, #F5D061 100%);
+const ActionButton = styled.button<{ $isReady?: boolean; $isLoading?: boolean }>`
+  width: 100%;
+  margin-top: 15px;
+  background: linear-gradient(90deg, #b8862e, #e6be74, #b8862e);
   background-size: 200% auto;
   color: #000;
-  border: 3px solid #fff;
-  padding: 15px 50px;
-  font-size: 2rem;
-  font-weight: 900;
-  border-radius: 100px;
+  border: 2px solid transparent;
+  padding: 15px;
+  border-radius: 50px;
+  font-weight: 800;
+  font-size: 1.1rem;
   cursor: pointer;
-  animation: ${sparkleDim} 2.5s infinite ease-in-out;
+  box-shadow: 0 4px 20px rgba(212, 160, 67, 0.2);
   transition: all 0.3s;
-  font-family: 'Frank Ruhl Libre', serif;
-  text-shadow: 0 0 2px rgba(255,255,255,0.5);
-  letter-spacing: 2px;
   
-  &:hover {
-    background-position: right center;
-    transform: scale(1.05);
-    box-shadow: 0 0 60px rgba(245, 208, 97, 0.8), 0 0 30px rgba(255, 255, 255, 0.8);
-  }
+  /* Ready state animation */
+  ${props => props.$isReady && !props.$isLoading && css`
+    animation: ${glowReady} 2s infinite ease-in-out;
+  `}
 
+  /* Loading state styles */
+  ${props => props.$isLoading && css`
+    animation: ${breathingHigh} 1.5s infinite ease-in-out;
+    background: linear-gradient(90deg, #D4A043, #FFF8DC, #D4A043);
+    background-size: 200% auto;
+    opacity: 1 !important;
+    cursor: wait !important;
+    color: #000 !important;
+    border-color: #fff;
+    text-shadow: none;
+    font-weight: 800;
+  `}
+
+  &:hover:not(:disabled) {
+    transform: scale(1.02);
+    box-shadow: 0 6px 25px rgba(212, 160, 67, 0.4);
+  }
+  
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
-    transform: none;
-    animation: none;
-    box-shadow: none;
-  }
-
-  @media (max-width: 768px) {
-    padding: 12px 30px;
-    font-size: 1.6rem;
-    width: 100%;
-    max-width: 300px;
   }
 `;
 
-const InfoBadge = styled.div`
-  margin-top: 15px;
-  background: rgba(255, 255, 255, 0.03); /* Transparent */
-  color: #ccc; /* Subtle text color */
-  border: 1px solid rgba(255, 255, 255, 0.15); /* Subtle border */
-  padding: 8px 20px;
+const ErrorMsg = styled.div`
+  color: #ff4d4d;
+  font-size: 0.9rem;
+  margin-top: 10px;
+  text-align: center;
+`;
+
+// -- Response Section --
+
+const ResponseArea = styled.div`
+  width: 100%;
+  max-width: 900px;
+  margin-top: 40px;
+  animation: ${fadeIn} 0.5s ease-out;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+`;
+
+const SectionTitleExternal = styled.h3`
+  color: #D4A043;
   font-size: 1rem;
-  font-weight: 400; /* Lighter font weight */
-  border-radius: 4px;
-  font-family: 'Assistant', sans-serif;
-  opacity: 1;
-  pointer-events: none;
-  user-select: none;
-  display: inline-block;
-  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 `;
+
+const CompactResultBox = styled.div`
+  background: linear-gradient(145deg, #111, #080808);
+  border: 1px solid rgba(212, 160, 67, 0.3);
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin: 0 auto 10px;
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+
+  p {
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #e0e0e0;
+    font-family: 'Assistant', sans-serif;
+    margin: 0;
+  }
+`;
+
+const HookText = styled.p`
+  color: #fff !important;
+  font-style: italic;
+  font-family: 'Frank Ruhl Libre', serif !important;
+`;
+
+// -- Premium Expert Cards --
+
+const ExpertsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+`;
+
+const ExpertResultCard = styled.div`
+  background: linear-gradient(145deg, #111, #0a0a0a);
+  border: 1px solid #333;
+  border-top: 1px solid #D4A043;
+  border-radius: 4px;
+  padding: 25px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  transition: transform 0.3s;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(212, 160, 67, 0.15);
+    border-color: #555;
+  }
+
+  /* Decorative Stars */
+  &::before, &::after {
+    content: '✦';
+    position: absolute;
+    color: #D4A043;
+    font-size: 14px;
+    opacity: 0.5;
+  }
+  &::before { top: 8px; left: 8px; }
+  &::after { bottom: 8px; right: 8px; }
+
+  h4 {
+    color: #D4A043;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    border-bottom: 1px solid rgba(212, 160, 67, 0.3);
+    padding-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'Frank Ruhl Libre', serif;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+`;
+
+const ExpertScore = styled.span`
+  background: #D4A043;
+  color: #000;
+  font-family: 'Assistant', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+`;
+
+const ExpertSectionTitle = styled.h5`
+  color: #888;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 15px;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  
+  svg { width: 14px; height: 14px; color: #D4A043; }
+`;
+
+const ExpertText = styled.p`
+  color: #ccc;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 10px;
+`;
+
+// -- Committee Section --
+
+const CommitteeSection = styled.div`
+  margin-top: 40px;
+  position: relative;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+const CommitteeText = styled.p`
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #e0e0e0;
+  margin: 0;
+`;
+
+const CommitteeTips = styled.div`
+  background: rgba(255,255,255,0.03);
+  padding: 20px;
+  border-radius: 8px;
+  text-align: right;
+  max-width: 600px;
+  width: 100%;
+  margin: 20px auto 30px;
+  border: 1px dashed #444;
+
+  h5 {
+    color: #D4A043;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+  }
+  
+  ul {
+    padding-right: 20px;
+    margin: 0;
+  }
+  li {
+    margin-bottom: 8px;
+    color: #ccc;
+  }
+`;
+
+const FinalScore = styled.div`
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+  
+  .number {
+    font-size: 4rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(212, 160, 67, 0.4);
+  }
+  .label {
+    color: #D4A043;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 5px;
+  }
+`;
+
+// -- Action Buttons (Footer of Response) --
 
 const ActionButtonsContainer = styled.div`
   display: flex;
-  justify-content: center;
   gap: 20px;
-  margin-top: 60px;
-  margin-bottom: 40px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  justify-content: center;
   flex-wrap: wrap;
-  width: 100%;
 
-  @media (max-width: 768px) {
+  @media (max-width: 600px) {
     flex-direction: column;
-    align-items: center;
-    gap: 15px;
-    margin-top: 40px;
   }
 `;
 
-const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'outline' }>`
-  flex: 1;
-  min-width: 200px;
-  max-width: 350px;
-  background: ${props => 
-    props.$variant === 'primary' ? `linear-gradient(90deg, ${darkGold}, ${goldColor})` :
-    props.$variant === 'secondary' ? '#333' : 
-    'transparent'};
-  
-  border: ${props => props.$variant === 'outline' ? `2px solid ${goldColor}` : 'none'};
-  color: ${props => props.$variant === 'outline' ? goldColor : props.$variant === 'primary' ? '#000' : '#fff'};
-  padding: 15px 30px;
-  font-size: 1.1rem;
-  font-weight: 700;
+const SecondaryButton = styled.button`
+  background: transparent;
+  border: 1px solid #888;
+  color: #ccc;
+  padding: 12px 25px;
   border-radius: 50px;
+  font-family: 'Assistant', sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s;
-  font-family: 'Assistant', sans-serif;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
 
   &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    background: ${props => props.$variant === 'outline' ? 'rgba(212, 160, 67, 0.1)' : undefined};
-  }
-
-  @media (max-width: 768px) {
-    width: 100%;
-    max-width: 100%;
-    min-width: unset;
+    border-color: #fff;
+    color: #fff;
+    background: rgba(255,255,255,0.05);
   }
 `;
 
-// --- Results Section ---
-const ResultsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 30px;
-  margin-top: 40px;
+const PrimaryButton = styled.button`
+  background: linear-gradient(135deg, #b8862e 0%, #e6be74 50%, #b8862e 100%);
+  background-size: 200% auto;
+  border: none;
+  color: #000;
+  padding: 12px 25px;
+  border-radius: 50px;
+  font-family: 'Assistant', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 15px rgba(212, 160, 67, 0.2);
 
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr; /* Single column for results cards on mobile */
-    gap: 20px;
+  &:hover:not(:disabled) {
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(212, 160, 67, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: wait;
   }
 `;
 
-const ExpertCard = styled.div`
-  background: #111;
-  border: 1px solid #333;
-  border-top: 4px solid ${goldColor};
+const PremiumBadge = styled.span`
+  background: rgba(212, 160, 67, 0.15);
+  color: #D4A043;
+  border: 1px solid rgba(212, 160, 67, 0.3);
+  padding: 2px 8px;
   border-radius: 12px;
-  padding: 30px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+`;
+
+// --- SVGs ---
+
+const PhoneStarIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+    <path d="M12 18h.01" />
+    <path d="M14.5 9.5l-2.5-1.5-2.5 1.5 1-3-2.5-1.5h3l1.5-3 1.5 3h3l-2.5 1.5 1 3z" style={{ fill: 'currentColor', stroke: 'none' }} opacity="0.5"/>
+    <path d="M12 6v6" opacity="0.01"/>
+  </svg>
+);
+
+const TheaterMasksIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 10.5C2 5.8 5.8 2 10.5 2h3C18.2 2 22 5.8 22 10.5v1c0 4.7-3.8 8.5-8.5 8.5h-3C5.8 20 2 16.2 2 11.5v-1z" />
+    <path d="M8 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+    <path d="M16 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+    <path d="M12 16c-2.5 0-4-2-4-2s1.5-2 4-2 4 2 4 2-1.5 2-4 2z" />
+  </svg>
+);
+
+const MicrophoneIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <line x1="12" y1="19" x2="12" y2="23" />
+    <line x1="8" y1="23" x2="16" y2="23" />
+  </svg>
+);
+
+const MusicNoteIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18V5l12-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="18" cy="16" r="3" />
+  </svg>
+);
+
+const CinematicCameraIcon = () => (
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="6" width="14" height="12" rx="2" />
+    <circle cx="9" cy="12" r="3" />
+    <path d="M16 16l6 2V6l-6 2" />
+  </svg>
+);
+
+const RefreshIcon = () => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 21h5v-5"></path></svg>
+);
+const UploadIconSmall = () => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+);
+const EyeIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+);
+const BulbIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M12 2v1"></path><path d="M12 6a7 7 0 0 1 7 7c0 2-2 3-2 3v2a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-2s-2-1-2-3a7 7 0 0 1 7-7z"></path></svg>
+);
+const SparklesIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z" />
+  </svg>
+);
+
+// Updated Subtle Icons
+const SubtleSparkleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2l3 7h7l-6 5 2 8-6-5-6 5 2-8-6-5h7z" />
+  </svg>
+);
+const SubtleDocumentIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="16" y1="13" x2="8" y2="13"></line>
+    <line x1="16" y1="17" x2="8" y2="17"></line>
+    <polyline points="10 9 9 9 8 9"></polyline>
+  </svg>
+);
+
+const PdfIcon = () => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="16" y1="13" x2="8" y2="13"></line>
+    <line x1="16" y1="17" x2="8" y2="17"></line>
+    <polyline points="10 9 9 9 8 9"></polyline>
+  </svg>
+);
+const CloseIcon = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+);
+
+// --- Logo Component ---
+
+const LogoContainer = styled.div`
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+`;
+
+const LogoPlaceholder = styled.div`
+  width: 180px;
+  height: 100px;
+  border: 1px dashed rgba(212, 160, 67, 0.3);
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s, box-shadow 0.3s;
-  animation: ${fadeIn} 0.6s ease-out forwards;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-  
-  &:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.7);
-    border-color: ${lightGold};
-  }
-
-  @media (max-width: 768px) {
-    padding: 20px;
-  }
-`;
-
-const ExpertHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #222;
-  padding-bottom: 15px;
-`;
-
-const ExpertTitle = styled.h3`
-  margin: 0;
-  color: ${goldColor};
-  font-size: 1.3rem;
-  font-family: 'Frank Ruhl Libre', serif;
-`;
-
-const ScoreBadge = styled.div<{ $score: number }>`
-  font-weight: 800;
-  font-size: 1.4rem;
-  color: ${props => props.$score >= 85 ? '#4caf50' : props.$score >= 70 ? '#ffb300' : '#f44336'};
-  text-shadow: 0 0 10px rgba(0,0,0,0.5);
-`;
-
-const ExpertAnalysis = styled.p`
-  font-size: 1.15rem;
-  line-height: 1.7;
-  color: #ddd;
-  margin-bottom: 25px;
-  flex-grow: 1;
-`;
-
-const TipsBox = styled.div`
-  background: rgba(212, 160, 67, 0.05);
-  padding: 20px;
-  border-radius: 8px;
-  border-right: 3px solid ${goldColor};
-  
-  h5 {
-    margin: 0 0 12px 0;
-    color: ${lightGold};
-    font-size: 1.25rem;
-  }
-  
-  ul {
-    margin: 0;
-    padding-right: 20px;
-    font-size: 1.1rem;
-    color: #ccc;
-  }
-  
-  li {
-    margin-bottom: 8px;
-  }
-`;
-
-const VerdictSection = styled.div`
-  background: linear-gradient(135deg, rgba(212, 160, 67, 0.15) 0%, transparent 100%);
-  border: 1px solid ${goldColor};
-  padding: 40px;
-  border-radius: 16px;
-  margin-bottom: 50px;
-  animation: ${fadeIn} 0.5s ease-out;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-
-  @media (max-width: 768px) {
-    padding: 25px;
-  }
-`;
-
-const VerdictTitle = styled.h2`
-  color: ${lightGold};
-  margin-top: 0;
-  font-size: 2rem;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-`;
-
-const LoadingOverlay = styled.div`
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.95);
-    z-index: 2000;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: ${goldColor};
-    backdrop-filter: blur(5px);
-    padding: 20px;
-    text-align: center;
-
-    h2 {
-        margin-top: 30px;
-        font-weight: 300;
-        letter-spacing: 2px;
-        animation: ${shimmer} 2s infinite linear; 
-        background: linear-gradient(to right, #B5831A 20%, #F9E4B7 50%, #B5831A 80%);
-        background-size: 200% auto;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 1.5rem;
-    }
-`;
-
-const Spinner = styled.div`
-    width: 70px;
-    height: 70px;
-    border: 4px solid rgba(212, 160, 67, 0.2);
-    border-radius: 50%;
-    border-top-color: ${goldColor};
-    animation: spin 1s ease-in-out infinite;
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-`;
-
-// --- INFO MODAL COMPONENTS ---
-
-const InfoButton = styled.button`
-  background: transparent;
-  color: ${goldColor};
-  border: 1px solid ${goldColor};
-  padding: 10px 24px;
-  font-size: 1rem;
-  border-radius: 30px;
+  justify-content: center;
+  color: rgba(212, 160, 67, 0.5);
+  background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
-  margin-bottom: 30px;
-  font-family: 'Assistant', sans-serif;
-  transition: all 0.3s;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
+  position: relative;
+  overflow: hidden;
 
   &:hover {
-    background: rgba(212, 160, 67, 0.1);
-    box-shadow: 0 0 15px rgba(212, 160, 67, 0.3);
+    border-color: #D4A043;
+    color: #D4A043;
   }
 `;
 
-const ModalOverlay = styled.div`
-  position: fixed;
+const HiddenLogoInput = styled.input`
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 3000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-  backdrop-filter: blur(5px);
-`;
-
-const ModalContent = styled.div`
-  background: #111;
-  border: 1px solid ${goldColor};
-  width: 100%;
-  max-width: 800px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 16px;
-  padding: 40px;
-  position: relative;
-  box-shadow: 0 0 50px rgba(0,0,0,0.8);
-  
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: ${goldColor};
-    border-radius: 3px;
-  }
-
-  @media (max-width: 768px) {
-    padding: 25px;
-    max-height: 95vh;
-  }
-`;
-
-const CloseModalButton = styled.button`
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  background: transparent;
-  border: none;
-  color: #666;
-  font-size: 24px;
+  opacity: 0;
   cursor: pointer;
-  &:hover { color: #fff; }
 `;
 
-const ModalTabs = styled.div`
-  display: flex;
-  gap: 10px;
-  margin-top: 30px;
-  border-bottom: 1px solid #333;
-  padding-bottom: 0;
-  overflow-x: auto;
-`;
-
-const ModalTab = styled.button<{ $active: boolean }>`
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid ${props => props.$active ? goldColor : 'transparent'};
-  color: ${props => props.$active ? goldColor : '#888'};
-  padding: 10px 20px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  cursor: pointer;
-  white-space: nowrap;
-  font-family: 'Assistant', sans-serif;
-  transition: all 0.3s;
-  
-  &:hover {
-    color: ${lightGold};
-  }
-`;
-
-const ModalTabContent = styled.div`
-  margin-top: 25px;
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const ModalExpertItem = styled.div`
-  margin-bottom: 15px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #222;
-  
-  &:last-child {
-    border-bottom: none;
-  }
-  
-  strong {
-    color: ${lightGold};
-    display: block;
-    margin-bottom: 4px;
-    font-size: 1.1rem;
-  }
-  span {
-    color: #ccc;
-    font-size: 0.95rem;
-  }
-`;
-
-// --- PRINT SPECIFIC COMPONENTS (Designed for A4, Premium Luxury) ---
-
-const PrintPage = styled.div`
+const StyledLogoImg = styled.img`
   width: 100%;
-  max-width: 210mm;
-  margin: 0 auto;
-  background: white;
-  color: #111;
-  font-family: 'Assistant', sans-serif;
-  direction: rtl;
-  padding: 40px;
-  box-sizing: border-box;
-  
-  h1, h2, h3, h4, h5, p, span, li, ul {
-      color: #111 !important;
-      text-shadow: none !important;
-  }
-
-  @media print {
-      padding: 0;
-      max-width: none;
-      margin: 0;
-  }
-`;
-
-const PrintHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 40px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid ${goldColor};
-`;
-
-const PrintLogo = styled.img`
-  height: 80px;
-  width: auto;
+  height: auto;
+  max-width: 320px;
   object-fit: contain;
 `;
 
-const PrintFallbackLogo = styled.div`
-  color: #000;
-  font-weight: 900;
-  font-size: 32px;
-  border: 3px solid ${goldColor};
-  padding: 10px 15px;
-  font-family: 'Frank Ruhl Libre', serif;
-  letter-spacing: 2px;
-`;
-
-const PrintTitle = styled.div`
-  text-align: right;
-  h1 { 
-    margin: 0; 
-    font-size: 32px; 
-    color: #000; 
-    font-weight: 900; 
-    font-family: 'Frank Ruhl Libre', serif;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  p { 
-    margin: 5px 0 0 0; 
-    color: #555; 
-    font-size: 14px; 
-    font-weight: 600;
-  }
-`;
-
-const PrintVerdictBox = styled.div`
-  background-color: #fff;
-  border: 1px solid #e0e0e0;
-  border-top: 4px solid ${goldColor};
-  border-bottom: 4px solid ${goldColor};
-  padding: 30px;
-  margin-bottom: 50px;
-  page-break-inside: avoid;
-  text-align: center;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-  
-  h2 {
-      color: ${darkGold} !important;
-      margin: 0 0 15px 0;
-      font-size: 22px;
-      font-weight: 900;
-      font-family: 'Frank Ruhl Libre', serif;
-      letter-spacing: 1.5px;
-  }
-  p {
-      font-size: 16px;
-      line-height: 1.8;
-      margin: 0;
-      color: #333;
-      font-weight: 500;
-  }
-`;
-
-const PrintSectionTitle = styled.h2`
-    font-size: 24px;
-    color: #000;
-    border-bottom: 2px solid #eee;
-    padding-bottom: 10px;
-    margin-top: 40px;
-    margin-bottom: 30px;
-    font-family: 'Frank Ruhl Libre', serif;
-    font-weight: 800;
-`;
-
-const PrintExpertsGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 25px;
-  
-  @media print {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-  }
-`;
-
-const PrintExpertCard = styled.div`
-  border: 1px solid #eee;
-  background-color: white;
-  padding: 25px;
-  margin-bottom: 0; /* Handled by grid gap */
-  page-break-inside: avoid;
-  break-inside: avoid;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-`;
-
-const PrintExpertHeader = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid ${goldColor};
-    padding-bottom: 12px;
-    margin-bottom: 15px;
-`;
-
-const PrintExpertName = styled.h3`
-    margin: 0;
-    font-size: 18px;
-    font-weight: 800;
-    color: #000 !important;
-    font-family: 'Frank Ruhl Libre', serif;
-`;
-
-const PrintScore = styled.div`
-    font-weight: 900;
-    font-size: 20px;
-    color: ${darkGold};
-`;
-
-const PrintAnalysis = styled.p`
-    font-size: 14px;
-    line-height: 1.6;
-    color: #444;
-    margin-bottom: 20px;
-    text-align: justify;
-`;
-
-const PrintTips = styled.div`
-    background: #fafafa;
-    border-right: 3px solid ${goldColor};
-    padding: 15px;
-    
-    h5 {
-        margin: 0 0 8px 0;
-        font-size: 14px;
-        color: #000 !important;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    ul {
-        margin: 0;
-        padding-right: 20px;
-    }
-    li {
-        font-size: 13px;
-        margin-bottom: 6px;
-        color: #555;
-        line-height: 1.4;
-    }
-`;
-
-const PrintFooter = styled.div`
-  margin-top: 50px;
-  text-align: center;
-  border-top: 1px solid #eee;
-  padding-top: 20px;
-  color: #999;
-  font-size: 12px;
-  font-family: 'Frank Ruhl Libre', serif;
-`;
-
-// --- Helpers ---
-async function fileToGenerativePart(file: File): Promise<{ inlineData: { data: string; mimeType: string } }> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const base64String = reader.result as string;
-            const base64Data = base64String.split(',')[1];
-            resolve({
-                inlineData: {
-                    data: base64Data,
-                    mimeType: file.type,
-                },
-            });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-// --- Components Breakdown ---
-
-const PrintLayout = ({ data, customLogo }: { data: any, customLogo: string | null }) => {
-    return (
-        <PrintPage>
-             <PrintHeader>
-                {customLogo ? (
-                    <PrintLogo src={customLogo} alt="Logo" />
-                ) : (
-                    <PrintFallbackLogo>VIRALY PRO</PrintFallbackLogo>
-                )}
-                <PrintTitle>
-                    <h1>דוח ניתוח ביצועים</h1>
-                    <p>{new Date().toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </PrintTitle>
-            </PrintHeader>
-
-             {data.verdict && (
-                <PrintVerdictBox>
-                    <h2>✨ השורה התחתונה ✨</h2>
-                    <p>
-                        {typeof data.verdict === 'string' ? data.verdict : JSON.stringify(data.verdict)}
-                    </p>
-                </PrintVerdictBox>
-            )}
-
-            <PrintSectionTitle>דוח פאנל המומחים</PrintSectionTitle>
-            
-            <PrintExpertsGrid>
-                {data.experts?.map((expert: any, index: number) => (
-                    <PrintExpertCard key={index}>
-                        <PrintExpertHeader>
-                            <PrintExpertName>{expert.title}</PrintExpertName>
-                            <PrintScore>{expert.score}/100</PrintScore>
-                        </PrintExpertHeader>
-                        
-                        <PrintAnalysis>
-                            {expert.analysis}
-                        </PrintAnalysis>
-                        
-                        {expert.tips && (
-                            <PrintTips>
-                                <h5>צעדים לשיפור:</h5>
-                                <ul>
-                                    {Array.isArray(expert.tips) 
-                                        ? expert.tips.map((tip: string, i: number) => <li key={i}>{tip}</li>)
-                                        : <li>{expert.tips}</li>
-                                    }
-                                </ul>
-                            </PrintTips>
-                        )}
-                    </PrintExpertCard>
-                ))}
-            </PrintExpertsGrid>
-
-            <PrintFooter>
-                Viraly AI - Video Director Pro • Generated Report
-            </PrintFooter>
-        </PrintPage>
-    );
+const AppLogo = () => {
+  return (
+    <LogoContainer>
+      <StyledLogoImg 
+        src="/Logo.png" 
+        alt="Logo"
+      />
+    </LogoContainer>
+  );
 };
 
-// --- Main Component ---
+// --- Modal Component ---
+
+const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpen: boolean, onClose: () => void, activeTab: string, setActiveTab: (t: string) => void }) => {
+  if (!isOpen) return null;
+
+  const content: Record<string, { role: string; desc: string }[]> = {
+    actors: [
+      { role: 'הבמאי', desc: 'בניית הסצנה, פיצוח הרצון, חלוקה לביטים.' },
+      { role: 'מלהקת ראשית', desc: 'טייפקאסט, אמינות, האם הוא "חי" את הדמות.' },
+      { role: 'התסריטאי', desc: 'דיוק בטקסט, הבנת הסאב-טקסט והניואנסים.' },
+      { role: 'מאמן משחק', desc: 'מתח גופני, בחירות רגשיות, זיכרון חושי.' },
+      { role: 'צלם ראשי', desc: 'מציאת האור, קשר עין, עבודה מול עדשה.' },
+      { role: 'מומחה שפת גוף', desc: 'הלימה בין גוף לטקסט, מיקרו-הבעות.' },
+      { role: 'מנטור אודישנים', desc: 'הצגה עצמית, כניסה ויציאה מדמות.' },
+      { role: 'אסטרטג קריירה', desc: 'התאמה לתיק עבודות, פוטנציאל ליהוק.' },
+    ],
+    musicians: [
+       { role: 'מאמן ווקאלי', desc: 'טכניקה, דיוק בצליל, נשימה, תמיכה.' },
+       { role: 'מפיק מוזיקלי', desc: 'ריתמיקה, גרוב, דינמיקה, עיבוד.' },
+       { role: 'השופט הקשוח', desc: 'ייחודיות, חותם אישי, כריזמה.' },
+       { role: 'מומחה פרפורמנס', desc: 'הגשה, תנועה על במה, קשר עם הקהל.' },
+       { role: 'מומחה אינטרפרטציה', desc: 'רגש, חיבור לטקסט, אמינות בהגשה.' },
+       { role: 'סטיילינג ותדמית', desc: 'לוק, נראות, התאמה לז\'אנר.' },
+       { role: 'מנהל רפרטואר', desc: 'בחירת שיר, התאמה למנעד ולזמר.' },
+       { role: 'עורך רדיו', desc: 'פוטנציאל רדיופוני, מסחריות.' },
+    ],
+    creators: [
+       { role: 'אסטרטג ויראליות', desc: 'הבטחה מול ביצוע, פוטנציאל שיתוף.' },
+       { role: 'מאסטר הוקים', desc: '3 שניות ראשונות, לכידת תשומת לב.' },
+       { role: 'עורך וידאו', desc: 'קצב וזרימה, חיתוכים, זום, אפקטים.' },
+       { role: 'האקר אלגוריתם', desc: 'זמן צפייה, צפייה חוזרת.' },
+       { role: 'מומחה אנרגיה', desc: 'וייב, אותנטיות, התאמה לטרנדים.' },
+       { role: 'עורך הפקה', desc: 'ערך הפקה, תאורה, איכות סאונד, כתוביות.' },
+       { role: 'גורו מעורבות', desc: 'הנעה לפעולה, עידוד תגובות.' },
+       { role: 'תסריטאי רשת', desc: 'פאנץ\', הידוק מסרים, סטוריטלינג קצר.' },
+    ],
+    influencers: [
+       { role: 'מאסטר רטוריקה', desc: 'דיקציה, שטף דיבור, שכנוע והעברת מסר.' },
+       { role: 'בונה סמכות', desc: 'מיצוב כמומחה, אמינות מקצועית וביטחון.' },
+       { role: 'סטוריטלר עסקי', desc: 'העברת מסר מורכב בפשטות ורגש.' },
+       { role: 'מומחה שפת גוף', desc: 'פתיחות, ביטחון עצמי, תנועות ידיים.' },
+       { role: 'מנהל מותג אישי', desc: 'בידול, ערכים, שפה ויזואלית אחידה.' },
+       { role: 'כריזמה בימתית', desc: 'נוכחות, החזקת קהל, אנרגיה גבוהה.' },
+       { role: 'קופירייטר שיווקי', desc: 'דיוק המסר, הנעה לפעולה אפקטיבית.' },
+       { role: 'אסטרטג תוכן', desc: 'ערך לקהל, בניית אמון לאורך זמן.' },
+    ]
+  };
+
+  const tabs = [
+    { id: 'actors', label: 'שחקנים ואודישנים' },
+    { id: 'musicians', label: 'זמרים ומוזיקאים' },
+    { id: 'creators', label: 'יוצרי תוכן וכוכבי רשת' },
+    { id: 'influencers', label: 'משפיענים ומותגים' },
+  ];
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalContent onClick={e => e.stopPropagation()}>
+        <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
+        <ModalHeader>
+          <ModalTitle>יכולות האפליקציה של סוכן העל</ModalTitle>
+          <ModalSubtitle>
+            פשוט וקל<br/>
+            מעלים סרטון, מצרפים קובץ הנחיות או תסריט (לדיוק מקסימלי),
+            כותבים הנחיה, הוראות או שאלות למומחים (אופציונלי) ולוחצים על אקשן !
+          </ModalSubtitle>
+        </ModalHeader>
+        
+        <ModalTabs>
+          {tabs.map(tab => (
+            <ModalTab 
+              key={tab.id} 
+              $active={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </ModalTab>
+          ))}
+        </ModalTabs>
+
+        <TrackDescriptionText>
+           {TRACK_DESCRIPTIONS[activeTab]}
+        </TrackDescriptionText>
+        
+        <ModalBody>
+          {content[activeTab]?.map((item, idx) => (
+             <ModalRow key={idx}>
+               <ModalRole>{item.role}</ModalRole>
+               <ModalDesc>{item.desc}</ModalDesc>
+             </ModalRow>
+          )) || <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>תוכן בבנייה...</div>}
+        </ModalBody>
+      </ModalContent>
+    </ModalOverlay>
+  );
+};
+
+// --- Main App Logic ---
+
+const TRACKS = [
+  { id: 'actors', label: 'שחקנים ואודישנים', icon: <TheaterMasksIcon /> },
+  { id: 'musicians', label: 'זמרים ומוזיקאים', icon: <MusicNoteIcon /> },
+  { id: 'creators', label: 'יוצרי תוכן וכוכבי רשת', icon: <PhoneStarIcon /> },
+  { id: 'influencers', label: 'משפיענים ומותגים', icon: <MicrophoneIcon /> },
+];
+
+const EXPERTS_BY_TRACK: Record<string, { title: string; desc: string }[]> = {
+  creators: [
+    { title: 'אסטרטג ויראליות', desc: 'הבטחה מול ביצוע, פוטנציאל שיתוף' },
+    { title: 'מאסטר הוקים', desc: '3 שניות ראשונות, לכידת תשומת לב' },
+    { title: 'עורך וידאו', desc: 'קצב וזרימה, חיתוכים, זום, אפקטים' },
+    { title: 'האקר אלגוריתם', desc: 'זמן צפייה, צפייה חוזרת' },
+    { title: 'מומחה אנרגיה', desc: 'וייב, אותנטיות, התאמה לטרנדים' },
+    { title: 'עורך הפקה', desc: 'ערך הפקה, תאורה, איכות סאונד' },
+    { title: 'גורו מעורבות', desc: 'הנעה לפעולה, עידוד תגובות' },
+    { title: 'תסריטאי רשת', desc: 'פאנץ\', הידוק מסרים, סטוריטלינג' },
+  ],
+  influencers: [
+    { title: 'מאסטר רטוריקה', desc: 'דיקציה, שטף דיבור, שכנוע' },
+    { title: 'בונה סמכות', desc: 'מיצוב כמומחה, אמינות מקצועית' },
+    { title: 'סטוריטלר עסקי', desc: 'העברת מסר מורכב בפשטות' },
+    { title: 'מומחה שפת גוף', desc: 'פתיחות, ביטחון עצמי, תנועות' },
+    { title: 'מנהל מותג אישי', desc: 'בידול, ערכים, שפה ויזואלית' },
+    { title: 'כריזמה בימתית', desc: 'נוכחות, החזקת קהל, אנרגיה' },
+    { title: 'קופירייטר שיווקי', desc: 'דיוק המסר, הנעה לפעולה' },
+    { title: 'אסטרטג תוכן', desc: 'ערך לקהל, בניית אמון' },
+  ],
+  actors: [
+    { title: 'הבמאי', desc: 'בניית הסצנה, פיצוח הרצון' },
+    { title: 'מלהקת ראשית', desc: 'טייפקאסט, אמינות, דמות' },
+    { title: 'התסריטאי', desc: 'דיוק בטקסט, סאב-טקסט' },
+    { title: 'מאמן משחק', desc: 'מתח גופני, בחירות רגשיות' },
+    { title: 'צלם ראשי', desc: 'מציאת האור, קשר עין, עדשה' },
+    { title: 'מומחה שפת גוף', desc: 'הלימה בין גוף לטקסט' },
+    { title: 'מנטור אודישנים', desc: 'הצגה עצמית, כניסה לדמות' },
+    { title: 'אסטרטג קריירה', desc: 'התאמה לתיק עבודות, ליהוק' },
+  ],
+  musicians: [
+    { title: 'מאמן ווקאלי', desc: 'טכניקה, דיוק בצליל, נשימה' },
+    { title: 'מפיק מוזיקלי', desc: 'ריתמיקה, גרוב, דינמיקה, עיבוד' },
+    { title: 'השופט הקשוח', desc: 'ייחודיות, חותם אישי, כריזמה' },
+    { title: 'מומחה פרפורמנס', desc: 'הגשה, תנועה על במה, קהל' },
+    { title: 'מומחה אינטרפרטציה', desc: 'רגש, חיבור לטקסט, אמינות' },
+    { title: 'סטיילינג ותדמית', desc: 'לוק, נראות, התאמה לז\'אנר' },
+    { title: 'מנהל רפרטואר', desc: 'בחירת שיר, התאמה למנעד' },
+    { title: 'עורך רדיו', desc: 'פוטנציאל רדיופוני, מסחריות' },
+  ],
+};
 
 const App = () => {
-  // Initialize with 'actors' track and its first 3 experts
-  const initialTrack = 'actors';
-  const initialExperts = TRACKS_DATA[initialTrack].experts.slice(0, 3).map(e => e.id);
-
-  const [selectedTrack, setSelectedTrack] = useState<TrackType | null>(initialTrack);
-  const [selectedExpertIds, setSelectedExpertIds] = useState<string[]>(initialExperts);
-  
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [scriptFile, setScriptFile] = useState<File | null>(null);
-  const [userInstructions, setUserInstructions] = useState("");
+  const [activeTrack, setActiveTrack] = useState<TrackId>('actors');
+  const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
+  const [prompt, setPrompt] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [customLogo, setCustomLogo] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState('actors');
+  const [hasPremiumAccess] = useState(true); // Placeholder for future premium gating logic
   
-  // Info Modal State
-  const [showInfoModal, setShowInfoModal] = useState(false);
-  const [infoTab, setInfoTab] = useState<TrackType>('actors');
-  
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const scriptInputRef = useRef<HTMLInputElement>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  
-  const [isDragging, setIsDragging] = useState(false);
+  // Results
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [averageScore, setAverageScore] = useState<number>(0);
+  const [previousResult, setPreviousResult] = useState<AnalysisResult | null>(null);
+  const [isImprovementMode, setIsImprovementMode] = useState(false);
 
-  // Use memo to prevent flickering of video preview
-  const videoPreviewUrl = useMemo(() => {
-    if (videoFile) {
-        return URL.createObjectURL(videoFile);
-    }
-    return null;
-  }, [videoFile]);
-
-  // Gemini Setup
-  const apiKey = process.env.API_KEY;
-  const ai = new GoogleGenAI({ apiKey });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    // Set document title permanently for good PDF name
-    document.title = "viraly-video-director-pro";
-  }, []);
+    const defaults = EXPERTS_BY_TRACK[activeTrack].slice(0, 3).map(e => e.title);
+    setSelectedExperts(defaults);
+  }, [activeTrack]);
 
-  const handleTrackSelect = (trackKey: TrackType) => {
-    setSelectedTrack(trackKey);
-    // Default to first 3 experts of the new track
-    const defaultExperts = TRACKS_DATA[trackKey].experts.slice(0, 3).map(e => e.id);
-    setSelectedExpertIds(defaultExperts);
-  };
-
-  const toggleExpert = (expertId: string) => {
-    if (selectedExpertIds.includes(expertId)) {
-        if (selectedExpertIds.length > 1) {
-            setSelectedExpertIds(prev => prev.filter(id => id !== expertId));
-        }
-    } else {
-        setSelectedExpertIds(prev => [...prev, expertId]);
+  const handleTrackChange = (id: string) => {
+    setActiveTrack(id as TrackId);
+    setResult(null);
+    setPreviousResult(null);
+    setIsImprovementMode(false);
+    // Sync modal tab with active track if possible
+    if (['actors', 'musicians', 'creators', 'influencers'].includes(id)) {
+        setModalTab(id);
     }
   };
 
-  const selectTopExperts = (count: number) => {
-      if (!selectedTrack) return;
-      const topExperts = TRACKS_DATA[selectedTrack].experts.slice(0, count).map(e => e.id);
-      setSelectedExpertIds(topExperts);
-  };
-
-  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setVideoFile(e.target.files[0]);
-    }
-  };
-
-  const handleScriptSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setScriptFile(e.target.files[0]);
-    }
-  };
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setCustomLogo(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(e.target.files[0]);
-    }
-  };
-
-  const handleDropVideo = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      if (file.type.startsWith('video/')) {
-        setVideoFile(file);
+  const toggleExpert = (title: string) => {
+    setSelectedExperts(prev => {
+      if (prev.includes(title)) {
+        return prev.filter(t => t !== title);
       } else {
-          alert('אנא גרור קובץ וידאו לכאן');
+        if (prev.length >= 8) return prev;
+        return [...prev, title];
+      }
+    });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      
+      const objectUrl = URL.createObjectURL(selectedFile);
+      setPreviewUrl(objectUrl);
+      
+      if (!isImprovementMode) {
+        setResult(null);
+      }
+    }
+  };
+  
+  const handleRemoveFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handlePdfSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedPdf = e.target.files[0];
+      if (selectedPdf.type === 'application/pdf') {
+        setPdfFile(selectedPdf);
+      } else {
+        alert("נא להעלות קובץ PDF בלבד");
       }
     }
   };
 
-  const handleAnalyze = async () => {
-    if (!selectedTrack || !videoFile || selectedExpertIds.length === 0) return;
-
-    setLoading(true);
-    setResult(null);
-
-    try {
-        const filesToUpload = [videoFile, scriptFile].filter((f): f is File => f !== null);
-        const parts = await Promise.all(filesToUpload.map(fileToGenerativePart));
-        const trackData = TRACKS_DATA[selectedTrack];
-        
-        const activeExperts = trackData.experts.filter(e => selectedExpertIds.includes(e.id));
-        const expertsListText = activeExperts.map(e => `- **${e.name}**: ${e.role}`).join('\n');
-
-        const dynamicPrompt = `
-${COMMON_INSTRUCTIONS_BASE}
-
-**הערות/הנחיות מהמשתמש:**
-${userInstructions || "אין הערות מיוחדות."}
-
-**הקשר (Context) למסלול הנבחר:**
-${trackData.context}
-
-**הנחיה למומחה המסכם (The Verdict):**
-${trackData.verdictPrompt}
-
-**חברי פאנל המומחים שנבחרו לניתוח זה (עליך לגלם כל אחד מהם בנפרד):**
-${expertsListText}
-
-החזר JSON תקין בלבד עם המבנה שהוגדר למעלה. במערך "experts" החזר אך ורק את המומחים ברשימה זו.
-        `;
-        
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: {
-                parts: [
-                    ...parts,
-                    { text: dynamicPrompt }
-                ]
-            },
-            config: {
-                responseMimeType: "application/json"
-            }
-        });
-
-        const jsonText = response.text;
-        if (jsonText) {
-            const cleanText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsedData = JSON.parse(cleanText);
-            setResult(parsedData);
-        }
-    } catch (error) {
-        console.error("Error generating analysis:", error);
-        alert("שגיאה בניתוח הנתונים. אנא נסה שנית.");
-    } finally {
-        setLoading(false);
-    }
+  const handleRemovePdf = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setPdfFile(null);
+    if (pdfInputRef.current) pdfInputRef.current.value = '';
   };
 
-  const handleImprovedTake = () => {
+  const handleReset = () => {
+    setFile(null);
+    setPdfFile(null);
+    setPreviewUrl(null);
+    setPrompt('');
     setResult(null);
-    setVideoFile(null);
+    setPreviousResult(null);
+    setIsImprovementMode(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (pdfInputRef.current) pdfInputRef.current.value = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleUploadImprovedTake = () => {
+    if (result) {
+      setPreviousResult(result);
+    }
+    setResult(null);
+    setIsImprovementMode(true);
+    setFile(null);
+    setPreviewUrl(null);
+    // Keep PDF if uploaded, or clear it? Let's keep it as it might be relevant.
+    setPrompt(''); 
+    
     setTimeout(() => {
-        document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' });
+      fileInputRef.current?.click();
     }, 100);
   };
 
-  const handleNewTake = () => {
-    setResult(null);
-    setVideoFile(null);
-    setScriptFile(null);
-    setUserInstructions("");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleExportPdf = () => {
+    if (!result) return;
+
+    if (!hasPremiumAccess) {
+      alert('יצוא ל-PDF זמין למנויי פרימיום בלבד.');
+      return;
+    }
+
+    const contentElement = document.getElementById('analysis-content');
+    if (!contentElement) {
+      alert('לא נמצא תוכן ניתוח לייצוא.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWindow) {
+      alert('נא לאפשר חלונות קופצים כדי לייצא ל-PDF.');
+      return;
+    }
+
+    const styles = `
+      body { direction: rtl; font-family: 'Assistant', sans-serif; background: #0b0b0b; color: #e0e0e0; padding: 20px; }
+      h1,h2,h3,h4,h5,h6 { color: #D4A043; margin: 0 0 10px; }
+      .export-wrapper { max-width: 900px; margin: 0 auto; }
+      .export-header { text-align: center; margin-bottom: 20px; }
+      .export-note { color: #888; font-size: 12px; margin-top: 4px; }
+      a, button { display: none !important; }
+      ul { padding-right: 20px; }
+      li { margin-bottom: 6px; }
+    `;
+
+    const html = `
+      <html dir="rtl">
+        <head>
+          <title>דו"ח ניתוח וידאו</title>
+          <style>${styles}</style>
+        </head>
+        <body>
+          <div class="export-wrapper">
+            <div class="export-header">
+              <h2>דו"ח ניתוח - Video Director Pro</h2>
+              <div class="export-note">נוצר במסלול פרימיום • ${new Date().toLocaleString('he-IL')}</div>
+            </div>
+            ${contentElement.innerHTML}
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
+  const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: string; mimeType: string } }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        if (!base64data) {
+           reject(new Error("Failed to read file"));
+           return;
+        }
+        const base64Content = base64data.split(',')[1];
+        resolve({
+          inlineData: {
+            data: base64Content,
+            mimeType: file.type
+          },
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleGenerate = async () => {
+    if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
+    
+    // Start playing video when analysis begins
+    if (videoRef.current) {
+        videoRef.current.muted = true;
+        videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
+    }
+
+    setLoading(true);
+    
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const expertPanel = selectedExperts.join(', ');
+
+      let extraContext = '';
+      if (isImprovementMode && previousResult) {
+        extraContext = `
+          CONTEXT: This is a "Second Take" (Attempt #2).
+          The user is trying to improve based on previous feedback.
+          
+          TASK: Compare this new take to the previous analysis (implied). 
+          Did they improve? Point out specific improvements in the expert analysis.
+        `;
+      }
+      
+      let pdfContext = '';
+      if (pdfFile) {
+        pdfContext = `
+          ADDITIONAL CONTEXT: The user has attached a PDF document (Script, Audition Instructions, or Guidelines). 
+          Use the content of this PDF to check if the video matches the requirements, lines, or tone described in the document.
+          This is crucial for the "Script Analysis" or "Director" roles if selected.
+        `;
+      }
+
+      const systemInstruction = `
+        You are "Viraly", a world-class Video Director and Analyst.
+        Current Mode: ${activeTrack}.
+        Panel: ${expertPanel}.
+        
+        Task: Analyze the user's input (Idea/Script or Video File) strictly in HEBREW.
+        
+        CRITICAL: OUTPUT MUST BE 100% HEBREW. DO NOT USE ENGLISH WORDS IN THE DISPLAYED TEXT.
+        Translate strictly:
+        - Hook -> "עוגן" or "מקדם צפייה"
+        - Cut -> "חיתוך"
+        - Frame -> "פריים" (Transliteration allowed for standard industry terms)
+        - Lighting -> "תאורה"
+        - Script -> "תסריט"
+        - Shot -> "שוט" or "צילום"
+        - Viral -> "ויראלי"
+        - Composition -> "קומפוזיציה"
+        - Timeline -> "ציר הזמן"
+        
+        ${extraContext}
+        ${pdfContext}
+
+        Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be Hebrew):
+        {
+          "expertAnalysis": [
+            {
+              "role": "Expert Title (Hebrew)",
+              "insight": "Deep professional analysis from this expert's unique POV (Hebrew only)",
+              "tips": "Actionable, specific tips for the next take (Hebrew only)",
+              "score": number (1-100)
+            }
+          ],
+          "hook": "The 'Golden Tip'. A single, explosive, game-changing sentence. It must be the absolute secret weapon for this specific video. Phrased as a direct, powerful, and unforgettable command that will transform the user's career. (Hebrew only)",
+          "committee": {
+            "summary": "A comprehensive summary from the entire committee, synthesizing the views (Hebrew only)",
+            "finalTips": ["Tip 1 (Hebrew)", "Tip 2 (Hebrew)", "Tip 3 (Hebrew)"]
+          }
+        }
+
+        Important:
+        - "expertAnalysis" array must contain an object for EACH selected expert in the panel.
+        - "hook" is NOT a suggestion for a video hook. It is the "Golden Insight" of the analysis.
+        - "score" for each expert must be authentic (1-100).
+        - Use purely Hebrew professional terms.
+        - Do not use Markdown formatting inside the JSON strings.
+      `;
+
+      const parts = [];
+      
+      // Force a text part if prompt is empty to ensure API stability
+      if (!prompt.trim()) {
+        parts.push({ text: "Please analyze the attached media based on the system instructions." });
+      } else {
+        parts.push({ text: prompt });
+      }
+      
+      if (file) {
+        // Reduced limit to 9.5MB to be safe for API and avoid RPC errors
+        if (file.size > 9.5 * 1024 * 1024) {
+           alert("הקובץ גדול מדי. המערכת תומכת בקבצים עד 9.5MB.");
+           setLoading(false);
+           return;
+        }
+        try {
+          const imagePart = await fileToGenerativePart(file);
+          parts.push(imagePart);
+        } catch (e) {
+          console.error("File processing error", e);
+          alert("שגיאה בעיבוד הקובץ");
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (pdfFile) {
+         try {
+           const pdfPart = await fileToGenerativePart(pdfFile);
+           parts.push(pdfPart);
+         } catch(e) {
+            console.error("PDF processing error", e);
+         }
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: { parts },
+        config: { 
+          systemInstruction,
+          responseMimeType: "application/json"
+        }
+      });
+
+      // Robust JSON Parsing
+      let jsonText = response.text || '{}';
+      // Clean potential markdown fencing from the model
+      jsonText = jsonText.replace(/```json|```/g, '').trim();
+      
+      let parsedResult: AnalysisResult;
+      try {
+        parsedResult = JSON.parse(jsonText) as AnalysisResult;
+      } catch (e) {
+        console.error("JSON Parse Error", e);
+        console.log("Raw Text:", jsonText);
+        alert("התקבלה תשובה לא תקינה מהמערכת. אנא נסה שוב.");
+        setLoading(false);
+        return;
+      }
+      
+      // Calculate average
+      if (parsedResult.expertAnalysis && parsedResult.expertAnalysis.length > 0) {
+        const total = parsedResult.expertAnalysis.reduce((acc, curr) => acc + curr.score, 0);
+        setAverageScore(Math.round(total / parsedResult.expertAnalysis.length));
+      }
+
+      setResult(parsedResult);
+      
+      // Jump to results area immediately
+      setTimeout(() => {
+        const resultsElement = document.getElementById('results-area');
+        if (resultsElement) {
+          resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 200);
+
+    } catch (error) {
+      console.error("API Error:", error);
+      alert("אירעה שגיאה בניתוח. ייתכן שהקובץ גדול מדי, האינטרנט איטי, או שיש עומס על המערכת.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isReady = (!!prompt || !!file) && selectedExperts.length >= 3;
+
+  const currentExpertsList = EXPERTS_BY_TRACK[activeTrack];
+  
+  const handleSetTop3 = () => {
+    const top3 = currentExpertsList.slice(0, 3).map(e => e.title);
+    setSelectedExperts(top3);
+  };
+
+  const handleSetAll = () => {
+    const all = currentExpertsList.map(e => e.title);
+    setSelectedExperts(all);
+  };
+
+  const isTop3 = () => {
+    const top3 = currentExpertsList.slice(0, 3).map(e => e.title);
+    if (selectedExperts.length !== 3) return false;
+    return top3.every(t => selectedExperts.includes(t));
+  };
+
+  const isAll = () => {
+    return selectedExperts.length === currentExpertsList.length;
   };
 
   return (
     <>
       <GlobalStyle />
-      
-      {/* --- SCREEN CONTENT (Hidden during print) --- */}
-      <div className="no-print">
-          <MainContainer $isPrintMode={false}>
-            
-            <HeroSection id="hero-section">
+      <AppContainer>
+        <Header>
+          <AppLogo />
+          <Title>Video Director Pro</Title>
+          <Subtitle>בינת וידאו לשחקנים, זמרים ויוצרי תוכן</Subtitle>
+          <Description>
+            סוכן על שמשלב ריאליטי, קולנוע, מוזיקה ומשפיענים.<br/>
+            קבל ניתוח עומק, הערות מקצועיות וליווי עד לפריצה הגדולה.
+          </Description>
+          <CTAButton onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
+            העלה סרטון וקבל ניתוח מלא
+          </CTAButton>
+          
+          <CapabilitiesButton onClick={() => setIsModalOpen(true)}>
+             יכולות האפליקציה של סוכן העל <SparklesIcon />
+          </CapabilitiesButton>
+        </Header>
+        
+        <CapabilitiesModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)}
+          activeTab={modalTab}
+          setActiveTab={setModalTab}
+        />
+
+        <SectionLabel>בחר את מסלול הניתוח שלך:</SectionLabel>
+        <Grid>
+          {TRACKS.map(track => (
+            <TrackCard 
+              key={track.id} 
+              $active={activeTrack === track.id}
+              onClick={() => handleTrackChange(track.id)}
+            >
+              {track.icon}
+              <span>{track.label}</span>
+            </TrackCard>
+          ))}
+        </Grid>
+        
+        <TrackDescriptionText>
+           {TRACK_DESCRIPTIONS[activeTrack]}
+        </TrackDescriptionText>
+
+        <SectionLabel>מי הם צוות המומחים שלך?</SectionLabel>
+        
+        <ExpertControlBar>
+           <ExpertControlText>
+             הנבחרת שלך ב<strong>{TRACKS.find(t => t.id === activeTrack)?.label}</strong>: אלו המומחים ומה הם בודקים
+           </ExpertControlText>
+           <ExpertToggleGroup>
+              <ExpertToggleButton $active={isTop3()} onClick={handleSetTop3}>3 המובילים</ExpertToggleButton>
+              <ExpertToggleButton $active={isAll()} onClick={handleSetAll}>כל המומחים</ExpertToggleButton>
+           </ExpertToggleGroup>
+        </ExpertControlBar>
+
+        <Grid>
+          {EXPERTS_BY_TRACK[activeTrack].map((expert, i) => {
+            const isSelected = selectedExperts.includes(expert.title);
+            return (
+              <FeatureCard 
+                key={i} 
+                $selected={isSelected}
+                onClick={() => toggleExpert(expert.title)}
+              >
+                <FeatureTitle $selected={isSelected}>{expert.title}</FeatureTitle>
+                <FeatureDesc>{expert.desc}</FeatureDesc>
+              </FeatureCard>
+            );
+          })}
+        </Grid>
+
+        <UploadContainer id="upload-section" $hasFile={!!previewUrl}>
+          {previewUrl ? (
+            <FullSizePreview>
+              <RemoveFileBtn onClick={handleRemoveFile}>✕</RemoveFileBtn>
+              {file?.type.startsWith('video') ? (
+                <video ref={videoRef} src={previewUrl} controls />
+              ) : (
+                <img src={previewUrl} alt="preview" />
+              )}
+            </FullSizePreview>
+          ) : (
+            <UploadContent>
+              <UploadIcon><CinematicCameraIcon /></UploadIcon>
+              <UploadTitle>
+                {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
+              </UploadTitle>
+              <UploadSubtitle>בגודל קובץ עד 9.5MB</UploadSubtitle>
+              
+              <UploadButton>
+                {isImprovementMode ? 'בחר קובץ לשיפור' : 'העלה סרטון עכשיו'}
+                <FileInput 
+                  type="file" 
+                  accept="video/*,image/*" 
+                  onChange={handleFileSelect}
+                  ref={fileInputRef}
+                />
+              </UploadButton>
+            </UploadContent>
+          )}
+        </UploadContainer>
+
+        <PdfUploadWrapper>
+          {pdfFile ? (
+            <PdfFileInfo>
+              <PdfIcon />
+              <span>{pdfFile.name}</span>
+              <RemovePdfBtnSmall onClick={handleRemovePdf} title="הסר קובץ">
+                <CloseIcon />
+              </RemovePdfBtnSmall>
+            </PdfFileInfo>
+          ) : (
+            <PdfUploadLabel>
+              <PdfIcon />
+              צרף תסריט / הנחיות (PDF)
               <input 
                 type="file" 
-                ref={logoInputRef} 
+                accept="application/pdf" 
+                onChange={handlePdfSelect} 
                 style={{ display: 'none' }} 
-                accept="image/*" 
-                onChange={handleLogoUpload} 
+                ref={pdfInputRef}
               />
-              <LogoContainer onClick={() => logoInputRef.current?.click()} title="לחץ להחלפת לוגו">
-                <AppLogo customSrc={customLogo} />
-              </LogoContainer>
-              <HeroDescription>
-                הפוך את הוידאו שלך לבלתי נשכח עם <MobileLineBreak /><strong>בימאי ה-AI המתקדם בעולם.</strong><br />
-                המערכת מנתחת כל ניואנס בביצוע, משווה לתסריט המקורי ומעניקה משוב כירורגי מפאנל מומחים בהתאמה אישית – למשחק, שירה, הרצאות ויצירת תוכן.<br />
-                קבלו ציון מקצועי, הערות מדויקות וטיפים מעשיים לשיפור מיידי שיקפיצו אתכם לרמה הבאה.
-              </HeroDescription>
-            </HeroSection>
+            </PdfUploadLabel>
+          )}
+        </PdfUploadWrapper>
 
-            <Section id="track-section">
-                <InfoButton onClick={() => setShowInfoModal(true)}>
-                    ✨ יכולות האפליקציה של סוכן העל
-                </InfoButton>
+        <InputWrapper>
+          <MainInput 
+            placeholder={isImprovementMode ? "מה שינית בטייק הזה? (אופציונלי)" : "כתוב כאן תיאור קצר: מה מטרת הסרטון? מה המסר? (אופציונלי)"}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+          <ActionButton 
+            onClick={handleGenerate} 
+            disabled={loading || !isReady}
+            $isReady={isReady}
+            $isLoading={loading}
+          >
+            {loading ? 'צוות המומחים צופה כעת בסרטון' : (isImprovementMode ? 'נתח שיפורים' : 'אקשן !')}
+          </ActionButton>
+          {selectedExperts.length < 3 && (
+            <ErrorMsg>נא לבחור לפחות 3 מומחים כדי להמשיך</ErrorMsg>
+          )}
+        </InputWrapper>
 
-                <h2 style={{ textAlign: 'center', color: goldColor }}>מה מקבל כל תחום?</h2>
-                <p style={{ textAlign: 'center', color: '#999', marginTop: '-15px' }}>לחץ על כל תחום כדי לגלות אילו מומחים ינתחו את הביצוע שלך</p>
-                <TrackGrid>
-                    {(Object.keys(TRACKS_DATA) as TrackType[]).map((key) => {
-                        const track = TRACKS_DATA[key];
-                        return (
-                            <TrackCard 
-                                key={key} 
-                                $selected={selectedTrack === key}
-                                onClick={() => handleTrackSelect(key)}
-                            >
-                                {track.icon}
-                                <h3>{track.label}</h3>
-                            </TrackCard>
-                        );
-                    })}
-                </TrackGrid>
-            </Section>
-            
-            {selectedTrack && (
-                <Section id="panel-config-section" style={{ paddingBottom: 0, paddingTop: '10px' }}>
-                    <PanelContainer>
-                        <PanelHeader>
-                            <h3>הנבחרת שלך ב{TRACKS_DATA[selectedTrack].label}: אלו המומחים ומה הם בודקים</h3>
-                            <PanelControls>
-                                <button onClick={() => selectTopExperts(3)}>3 המובילים</button>
-                                <button onClick={() => selectTopExperts(8)}>כל המומחים</button>
-                            </PanelControls>
-                        </PanelHeader>
-                        
-                        <ExpertsSelectionGrid>
-                            {TRACKS_DATA[selectedTrack].experts.map((exp) => {
-                                const isChecked = selectedExpertIds.includes(exp.id);
-                                return (
-                                    <ExpertCheckbox 
-                                        key={exp.id} 
-                                        $isActive={isChecked}
-                                        onClick={() => toggleExpert(exp.id)}
-                                    >
-                                        <CheckboxInput $checked={isChecked} />
-                                        <div>
-                                            <div style={{ fontWeight: 'bold', fontSize: '1rem', color: isChecked ? goldColor : '#eee', marginBottom: '6px' }}>{exp.name}</div>
-                                            <div style={{ fontSize: '0.9rem', color: '#bbb', lineHeight: '1.4' }}>{exp.role}</div>
-                                        </div>
-                                    </ExpertCheckbox>
-                                );
-                            })}
-                        </ExpertsSelectionGrid>
-                    </PanelContainer>
-                </Section>
-            )}
-
-            <Section id="upload-section">
-                <VideoUploadArea 
-                    $isDragging={isDragging}
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={handleDropVideo}
-                    onClick={() => videoInputRef.current?.click()}
-                >
-                    {videoFile && videoPreviewUrl ? (
-                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <video
-                                src={videoPreviewUrl}
-                                controls
-                                playsInline
-                                preload="metadata"
-                                style={{ 
-                                    width: '100%', 
-                                    maxHeight: '220px', 
-                                    borderRadius: '12px', 
-                                    border: `1px solid ${goldColor}`,
-                                    background: '#000',
-                                    objectFit: 'contain'
-                                }}
-                            />
-                            <p style={{ marginTop: '15px', color: goldColor, fontSize: '0.9rem', marginBottom: 0 }}>
-                                {videoFile.name} • לחץ להחלפה
-                            </p>
-                        </div>
-                    ) : (
-                        <>
-                            <div style={{ color: goldColor, marginBottom: '20px' }}>
-                                <VideoCameraIcon />
-                            </div>
-                            <h3 style={{ margin: '0 0 15px 0', fontSize: '1.5rem', color: '#fff' }}>
-                                העלה סרטון
-                            </h3>
-                            <p style={{ color: '#888', margin: 0 }}>
-                                גרור או לחץ להעלאת וידאו
-                            </p>
-                        </>
-                    )}
-                    <FileInput 
-                        type="file" 
-                        accept="video/*" 
-                        ref={videoInputRef}
-                        onChange={handleVideoSelect}
-                    />
-                </VideoUploadArea>
-
-                <ScriptUploadButton onClick={() => scriptInputRef.current?.click()}>
-                    <DocIcon />
-                    <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-                        {scriptFile ? scriptFile.name : "הוסף קובץ תסריט או PDF (לניתוח אודישן והנחיות)"}
-                    </span>
-                    <FileInput 
-                        type="file" 
-                        accept=".pdf,text/*,image/*" 
-                        ref={scriptInputRef}
-                        onChange={handleScriptSelect}
-                    />
-                </ScriptUploadButton>
-                
-                <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                    <InstructionsInput 
-                        placeholder="הוסף הנחיות, שאלות או תיאור למומחים (לדיוק מקסימלי)..."
-                        value={userInstructions}
-                        onChange={(e) => setUserInstructions(e.target.value)}
-                    />
+        {result && (
+          <ResponseArea id="results-area">
+            <div id="analysis-content">
+              {result.hook && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <SectionTitleExternal>
+                    <SubtleSparkleIcon /> טיפ זהב של הפאנל <SubtleSparkleIcon />
+                  </SectionTitleExternal>
+                  <CompactResultBox>
+                    <HookText>"{result.hook}"</HookText>
+                  </CompactResultBox>
                 </div>
+              )}
 
-                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-                    <InfoBadge>
-                        {loading ? "..." : `נתח פירוט מלא (${selectedExpertIds.length} מומחים)`}
-                    </InfoBadge>
-
-                    <ActionBigButton 
-                        disabled={!selectedTrack || !videoFile || loading || selectedExpertIds.length === 0}
-                        onClick={handleAnalyze}
-                    >
-                         {loading ? "מעבד..." : "אקשן !"}
-                    </ActionBigButton>
-                </div>
-            </Section>
-
-            {loading && (
-                <LoadingOverlay>
-                    <Spinner />
-                    <h2>המומחים צופים בביצוע שלך...</h2>
-                </LoadingOverlay>
-            )}
-
-            {result && (
-                <Section id="results-section">
+              <SectionLabel style={{ textAlign: 'center', display: 'block', marginTop: '20px' }}>ניתוח פאנל המומחים</SectionLabel>
+              
+              <ExpertsGrid>
+                {result.expertAnalysis?.map((expert, idx) => (
+                  <ExpertResultCard key={idx}>
+                    <h4>{expert.role} <ExpertScore>{expert.score}</ExpertScore></h4>
                     
-                    {result.verdict && (
-                        <VerdictSection className="verdict-box">
-                            <VerdictTitle>✨ השורה התחתונה ✨</VerdictTitle>
-                            <p style={{ fontSize: '1.2rem', lineHeight: '1.8', color: '#eee' }}>
-                                {typeof result.verdict === 'string' ? result.verdict : JSON.stringify(result.verdict)}
-                            </p>
-                        </VerdictSection>
-                    )}
-
-                    <h2 style={{ color: goldColor, borderBottom: `1px solid ${goldColor}`, paddingBottom: '15px', marginTop: '50px' }}>
-                        דוח פאנל המומחים
-                    </h2>
+                    <ExpertSectionTitle><EyeIcon /> זווית מקצועית</ExpertSectionTitle>
+                    <ExpertText>{expert.insight}</ExpertText>
                     
-                    <ResultsGrid>
-                        {result.experts?.map((expert: any, index: number) => (
-                            <ExpertCard key={index} className="expert-card">
-                                <ExpertHeader>
-                                    <ExpertTitle>{expert.title}</ExpertTitle>
-                                    <ScoreBadge $score={expert.score}>{expert.score}/100</ScoreBadge>
-                                </ExpertHeader>
-                                <ExpertAnalysis>
-                                    {expert.analysis}
-                                </ExpertAnalysis>
-                                {expert.tips && (
-                                    <TipsBox>
-                                        <h5>צעדים לשיפור:</h5>
-                                        <ul>
-                                            {Array.isArray(expert.tips) 
-                                                ? expert.tips.map((tip: string, i: number) => <li key={i}>{tip}</li>)
-                                                : <li>{expert.tips}</li>
-                                            }
-                                        </ul>
-                                    </TipsBox>
-                                )}
-                            </ExpertCard>
+                    <ExpertSectionTitle><BulbIcon /> טיפים לשיפור</ExpertSectionTitle>
+                    <ExpertText style={{ color: '#fff', fontWeight: 500 }}>{expert.tips}</ExpertText>
+                  </ExpertResultCard>
+                )) || <p style={{textAlign: 'center', color: '#666'}}>טוען ניתוח...</p>}
+              </ExpertsGrid>
+
+              {result.committee && (
+                <CommitteeSection>
+                  <SectionTitleExternal>
+                     <SubtleDocumentIcon /> סיכום ועדת המומחים
+                  </SectionTitleExternal>
+                  <CompactResultBox>
+                    <CommitteeText>{result.committee.summary}</CommitteeText>
+                  </CompactResultBox>
+                  
+                  {result.committee.finalTips && result.committee.finalTips.length > 0 && (
+                    <CommitteeTips>
+                      <h5>טיפים מנצחים לעתיד:</h5>
+                      <ul>
+                        {result.committee.finalTips.map((tip, i) => (
+                          <li key={i}>{tip}</li>
                         ))}
-                    </ResultsGrid>
+                      </ul>
+                    </CommitteeTips>
+                  )}
+                  
+                  <FinalScore>
+                    <span className="number">{averageScore}</span>
+                    <span className="label">ציון ויראליות משוקלל</span>
+                  </FinalScore>
+                </CommitteeSection>
+              )}
+            </div>
 
-                    <ActionButtonsContainer className="action-buttons-container">
-                        <ActionButton 
-                            $variant="primary" 
-                            onClick={handleImprovedTake}
-                            style={{ padding: '10px 25px', fontSize: '1rem', minWidth: '180px', maxWidth: '250px' }}
-                        >
-                            <VideoCameraIcon width="30" height="30" /> 
-                            <span style={{ marginLeft: '10px' }}>טייק משופר</span>
-                        </ActionButton>
-                        <ActionButton 
-                            $variant="outline" 
-                            onClick={handleNewTake}
-                            style={{ padding: '10px 25px', fontSize: '1rem', minWidth: '180px', maxWidth: '250px' }}
-                        >
-                            <RefreshIcon width="24" height="24" />
-                            <span style={{ marginLeft: '10px' }}>טייק חדש</span>
-                        </ActionButton>
-                    </ActionButtonsContainer>
+            <ActionButtonsContainer>
+              <PrimaryButton onClick={handleExportPdf} disabled={loading || !hasPremiumAccess}>
+                <PdfIcon />
+                יצוא ניתוח ל-PDF <PremiumBadge>פרימיום</PremiumBadge>
+              </PrimaryButton>
+              <SecondaryButton onClick={handleReset}>
+                <RefreshIcon />
+                התחל מחדש
+              </SecondaryButton>
+              <PrimaryButton onClick={handleUploadImprovedTake}>
+                <UploadIconSmall />
+                העלה טייק משופר
+              </PrimaryButton>
+            </ActionButtonsContainer>
 
-                </Section>
-            )}
-          </MainContainer>
-      </div>
-
-      {/* --- INFO MODAL (Displayed on top of everything when active) --- */}
-      {showInfoModal && (
-        <ModalOverlay onClick={() => setShowInfoModal(false)}>
-            <ModalContent onClick={e => e.stopPropagation()}>
-                <CloseModalButton onClick={() => setShowInfoModal(false)}>✕</CloseModalButton>
-                <h2 style={{ color: goldColor, marginTop: 0, textAlign: 'center' }}>יכולות האפליקציה של סוכן העל</h2>
-                <p style={{ textAlign: 'center', fontSize: '1.1rem', lineHeight: '1.6', color: '#ddd' }}>
-                    פשוט וקל<br/>
-                    מעלים סרטון, מצרפים קובץ הנחיות או תסריט (לדיוק מקסימלי),<br/>
-                    כותבים הנחיה, הוראות או שאלות למומחים (אופציונלי) ולוחצים על אקשן !
-                </p>
-
-                <ModalTabs>
-                    {(Object.keys(TRACKS_DATA) as TrackType[]).map(key => (
-                        <ModalTab 
-                            key={key} 
-                            $active={infoTab === key} 
-                            onClick={() => setInfoTab(key)}
-                        >
-                            {TRACKS_DATA[key].label}
-                        </ModalTab>
-                    ))}
-                </ModalTabs>
-
-                <ModalTabContent>
-                    <div style={{ marginBottom: '15px', fontStyle: 'italic', color: '#888', fontSize: '1.1rem' }}>
-                        {TRACKS_DATA[infoTab].uiDescription}
-                    </div>
-                    {TRACKS_DATA[infoTab].experts.map(expert => (
-                        <ModalExpertItem key={expert.id}>
-                            <strong>{expert.name}</strong>
-                            <span>{expert.role}</span>
-                        </ModalExpertItem>
-                    ))}
-                </ModalTabContent>
-            </ModalContent>
-        </ModalOverlay>
-      )}
-
-      {/* --- PARALLEL PRINT CONTENT (Always in DOM, visible ONLY on print) --- */}
-      {result && (
-          <div className="print-only">
-              <PrintLayout data={result} customLogo={customLogo} />
-          </div>
-      )}
+          </ResponseArea>
+        )}
+      </AppContainer>
     </>
   );
 };
 
-const root = createRoot(document.getElementById("root")!);
+const root = createRoot(document.getElementById('root')!);
 root.render(<App />);
