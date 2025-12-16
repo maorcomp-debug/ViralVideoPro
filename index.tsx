@@ -1693,8 +1693,7 @@ const App = () => {
     setLoading(true);
     
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
-const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
@@ -1800,7 +1799,7 @@ const ai = new GoogleGenAI({ apiKey });
       }
 
       const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
         contents: { parts },
         config: { 
           systemInstruction,
