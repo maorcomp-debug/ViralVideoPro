@@ -1580,21 +1580,29 @@ const App = () => {
     }
 
     const styles = `
-      body { direction: rtl; font-family: 'Assistant', sans-serif; background: #0b0b0b; color: #e0e0e0; padding: 20px; }
-      h1,h2,h3,h4,h5,h6 { color: #D4A043; margin: 0 0 10px; }
-      .export-wrapper { max-width: 900px; margin: 0 auto; }
-      .export-header { text-align: center; margin-bottom: 20px; }
-      .export-note { color: #888; font-size: 12px; margin-top: 4px; }
+      body { 
+        direction: rtl; 
+        font-family: 'Assistant', sans-serif; 
+        background: #050505; 
+        color: #e0e0e0; 
+        padding: 20px; 
+      }
+      .export-wrapper { max-width: 1000px; margin: 0 auto; }
+      .export-header { text-align: center; margin-bottom: 24px; }
+      .export-note { color: #999; font-size: 11px; margin-top: 4px; }
+      /* אל תציג כפתורים וקישורים */
       a, button { display: none !important; }
-      ul { padding-right: 20px; }
+      /* רשימות */
+      ul { padding-right: 20px; margin: 0; }
       li { margin-bottom: 6px; }
+      /* איקונים – קטנים ועדינים יותר */
+      svg { max-width: 18px; max-height: 18px; }
     `;
 
     const html = `
       <html dir="rtl">
         <head>
           <title>דו"ח ניתוח וידאו</title>
-          <style>${styles}</style>
         </head>
         <body>
           <div class="export-wrapper">
@@ -1610,6 +1618,21 @@ const App = () => {
 
     printWindow.document.write(html);
     printWindow.document.close();
+
+    // העתקה של כל ה-CSS מהאפליקציה כדי שהעיצוב ב-PDF יהיה זהה ככל האפשר למקור
+    try {
+      const headNodes = document.querySelectorAll('style, link[rel="stylesheet"]');
+      headNodes.forEach(node => {
+        printWindow.document.head.appendChild(node.cloneNode(true));
+      });
+
+      const styleTag = printWindow.document.createElement('style');
+      styleTag.textContent = styles;
+      printWindow.document.head.appendChild(styleTag);
+    } catch (e) {
+      console.error('Failed to clone styles into print window', e);
+    }
+
     printWindow.focus();
     printWindow.print();
     printWindow.close();
@@ -1649,8 +1672,7 @@ const App = () => {
     setLoading(true);
     
     try {
-     const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
-const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
