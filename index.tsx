@@ -23,6 +23,8 @@ interface AnalysisResult {
 }
 
 // --- Constants ---
+const MAX_VIDEO_SECONDS = 5 * 60; // 5 minutes
+const MAX_FILE_BYTES = 60 * 1024 * 1024; // 60MB
 
 const TRACK_DESCRIPTIONS: Record<string, string> = {
   actors: 'חדר האודישנים הראשי של הפקות הדרמה המובילות בישראל ובעולם אצלך בכיס. הסטנדרט הוא קולנועי וחסר פשרות.',
@@ -1453,16 +1455,51 @@ const App = () => {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
+    const resetInput = () => {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    if (selectedFile.size > MAX_FILE_BYTES) {
+      alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 60MB.");
+      resetInput();
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedFile);
+
+    const finalizeSelection = () => {
       setFile(selectedFile);
-      
-      const objectUrl = URL.createObjectURL(selectedFile);
       setPreviewUrl(objectUrl);
-      
       if (!isImprovementMode) {
         setResult(null);
       }
+    };
+
+    if (selectedFile.type.startsWith('video')) {
+      const videoEl = document.createElement('video');
+      videoEl.preload = 'metadata';
+      videoEl.src = objectUrl;
+
+      videoEl.onloadedmetadata = () => {
+        if (videoEl.duration > MAX_VIDEO_SECONDS) {
+          alert("הסרטון חורג מהמגבלה: עד 5 דקות או 60MB.");
+          URL.revokeObjectURL(objectUrl);
+          resetInput();
+          return;
+        }
+        finalizeSelection();
+      };
+
+      videoEl.onerror = () => {
+        alert("לא ניתן לקרוא את המטא-דאטה של הווידאו. נסה קובץ אחר.");
+        URL.revokeObjectURL(objectUrl);
+        resetInput();
+      };
+    } else {
+      finalizeSelection();
     }
   };
   
@@ -1692,9 +1729,8 @@ const App = () => {
       }
       
       if (file) {
-        // Reduced limit to 9.5MB to be safe for API and avoid RPC errors
-        if (file.size > 9.5 * 1024 * 1024) {
-           alert("הקובץ גדול מדי. המערכת תומכת בקבצים עד 9.5MB.");
+        if (file.size > MAX_FILE_BYTES) {
+           alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 60MB.");
            setLoading(false);
            return;
         }
@@ -1881,7 +1917,7 @@ const App = () => {
               <UploadTitle>
                 {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
               </UploadTitle>
-              <UploadSubtitle>בגודל קובץ עד 9.5MB</UploadSubtitle>
+              <UploadSubtitle>עד 5 דקות או 60MB</UploadSubtitle>
               
               <UploadButton>
                 {isImprovementMode ? 'בחר קובץ לשיפור' : 'העלה סרטון עכשיו'}
