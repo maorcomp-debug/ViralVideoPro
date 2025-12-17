@@ -1699,26 +1699,47 @@ const App = () => {
     });
   };
 
- const handleGenerate = async () => {
-    if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
-    
-    // Start playing video when analysis begins
-    if (videoRef.current) {
-        videoRef.current.muted = true;
-        videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
+ const handleAnalyze = async () => {
+  if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
+
+  setLoading(true);
+  try {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+    if (!apiKey) {
+      alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY.");
+      setLoading(false);
+      return;
     }
+    const ai = new GoogleGenAI({ apiKey });
 
-    setLoading(true);
-    
-    try {
-      const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
-      if (!apiKey) {
-        alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY בסביבת ההרצה.");
-        setLoading(false);
-        return;
+    const callModel = async (attempt = 1): Promise<any> => {
+      try {
+        return await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: { parts },
+          config: { systemInstruction, responseMimeType: "application/json" }
+        });
+      } catch (err: any) {
+        const code = err?.error?.code || err?.status;
+        if (code === 503 && attempt < 3) {
+          await new Promise(res => setTimeout(res, 2000 * attempt));
+          return callModel(attempt + 1);
+        }
+        throw err;
       }
+    };
 
-      const ai = new GoogleGenAI({ apiKey });
+    const response = await callModel();
+    // המשך כמו קודם...
+  } catch (error: any) {
+    const code = error?.error?.code || error?.status;
+    if (code === 429) alert("חרגת ממכסה, המתן או שדרג.");
+    else if (code === 503) alert("המודל עמוס, נסה שוב בעוד רגע.");
+    else alert("שגיאה בניתוח. בדוק חיבור/מפתח/עומס.");
+  } finally {
+    setLoading(false);
+  }
+};
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
