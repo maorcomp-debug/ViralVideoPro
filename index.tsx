@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import styled, { createGlobalStyle, keyframes, css } from 'styled-components';
 import { GoogleGenAI } from "@google/genai";
+import './index.css';
 
 // --- Types ---
 type TrackId = 'actors' | 'musicians' | 'creators' | 'influencers';
@@ -955,7 +956,7 @@ const ExpertText = styled.p`
   font-size: 0.95rem;
   line-height: 1.6;
   margin-bottom: 10px;
-`;
+  `;
 
 // -- Committee Section --
 
@@ -1699,7 +1700,7 @@ const App = () => {
     });
   };
 
- const handleGenerate = async () => {
+  const handleAnalyze = async () => {
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
     
     // Start playing video when analysis begins
@@ -1711,19 +1712,14 @@ const App = () => {
     setLoading(true);
     
     try {
-      const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
-        alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY בסביבת ההרצה.");
+        alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY.");
         setLoading(false);
         return;
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const expertPanel = selectedExperts.join(', ');
-
-      let extraContext = '';
-      if (isImprovementMode && previousResult) {
-        extraContext = `
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
@@ -1828,14 +1824,27 @@ const App = () => {
          }
       }
 
-      const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-        contents: { parts },
-        config: { 
-          systemInstruction,
-          responseMimeType: "application/json"
+      const callModel = async (attempt = 1): Promise<any> => {
+        try {
+          return await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts },
+            config: { 
+              systemInstruction,
+              responseMimeType: "application/json"
+            }
+          });
+        } catch (err: any) {
+          const code = err?.error?.code || err?.status;
+          if (code === 503 && attempt < 3) {
+            await new Promise(res => setTimeout(res, 2000 * attempt));
+            return callModel(attempt + 1);
+          }
+          throw err;
         }
-      });
+      };
+
+      const response = await callModel();
 
       // Robust JSON Parsing
       let jsonText = response.text || '{}';
@@ -1883,6 +1892,8 @@ const App = () => {
       setLoading(false);
     }
   };
+
+  const handleGenerate = handleAnalyze;
 
   const isReady = (!!prompt || !!file) && selectedExperts.length >= 3;
 
