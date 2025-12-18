@@ -1944,10 +1944,23 @@ const CoachGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
               </p>
             </div>
 
+            <div style={{ background: 'rgba(255, 193, 7, 0.15)', padding: '20px', borderRadius: '8px', border: '2px solid rgba(255, 193, 7, 0.5)', marginTop: '10px' }}>
+              <h4 style={{ color: '#FFC107', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ⚠️ אזהרה חשובה - שמירת נתונים
+              </h4>
+              <p style={{ color: '#ffeb3b', lineHeight: '1.8', margin: '0 0 10px 0', fontWeight: 600 }}>
+                כל הנתונים (מתאמנים, ניתוחים, השוואות) נשמרים מקומית בדפדפן שלך בלבד.
+              </p>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                <strong>אם תמחק את היסטוריית הדפדפן או תנקה את הנתונים, כל המידע יימחק ולא ניתן יהיה לשחזר אותו.</strong><br/>
+                מומלץ מאוד להשתמש בתכונת "ייצוא נתונים" כדי לשמור גיבוי של כל הנתונים במחשב שלך.
+              </p>
+            </div>
+
             <div style={{ background: 'rgba(212, 160, 67, 0.1)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.3)', marginTop: '10px' }}>
               <h4 style={{ color: '#D4A043', margin: '0 0 10px 0' }}>טיפים חשובים:</h4>
               <ul style={{ color: '#e0e0e0', lineHeight: '1.8', paddingRight: '20px', margin: 0 }}>
-                <li>כל הנתונים נשמרים מקומית בדפדפן - אין צורך בהרשמה או התחברות</li>
+                <li>השתמש ב"ייצוא נתונים" לשמירת גיבוי תקופתי של כל הנתונים</li>
                 <li>ניתן לשמור מספר בלתי מוגבל של מתאמנים וניתוחים</li>
                 <li>השוואות מאפשרות מעקב אחר התקדמות לאורך זמן</li>
                 <li>דוחות PDF מקצועיים מוכנים להדפסה או שליחה למתאמנים</li>
@@ -2167,6 +2180,7 @@ const CoachDashboardModal = ({
   trainees, 
   setTrainees,
   savedAnalyses,
+  setSavedAnalyses,
   onTraineeSelect,
   onViewAnalysis,
   onExportReport
@@ -2176,6 +2190,7 @@ const CoachDashboardModal = ({
   trainees: Trainee[];
   setTrainees: React.Dispatch<React.SetStateAction<Trainee[]>>;
   savedAnalyses: SavedAnalysis[];
+  setSavedAnalyses: React.Dispatch<React.SetStateAction<SavedAnalysis[]>>;
   onTraineeSelect?: (traineeId: string) => void;
   onViewAnalysis?: (analysis: SavedAnalysis) => void;
   onExportReport?: (traineeId: string) => void;
@@ -2246,6 +2261,93 @@ const CoachDashboardModal = ({
     return savedAnalyses.filter(a => a.traineeId === traineeId).length;
   };
 
+  // Export all data to JSON file
+  const handleExportData = () => {
+    try {
+      const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        trainees: trainees.map(t => ({
+          ...t,
+          createdAt: t.createdAt.toISOString()
+        })),
+        savedAnalyses: savedAnalyses.map(a => ({
+          ...a,
+          analysisDate: a.analysisDate.toISOString()
+        }))
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `viraly_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert('הנתונים יוצאו בהצלחה! הקובץ נשמר בתיקיית ההורדות שלך.');
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('אירעה שגיאה ביצוא הנתונים. נסה שוב.');
+    }
+  };
+
+  // Import data from JSON file
+  const handleImportData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event: any) => {
+        try {
+          const importedData = JSON.parse(event.target.result);
+          
+          if (!importedData.trainees || !Array.isArray(importedData.trainees)) {
+            throw new Error('פורמט קובץ לא תקין - חסר רשימת מתאמנים');
+          }
+
+          if (!importedData.savedAnalyses || !Array.isArray(importedData.savedAnalyses)) {
+            throw new Error('פורמט קובץ לא תקין - חסר רשימת ניתוחים');
+          }
+
+          const confirmMessage = `האם אתה בטוח שברצונך לייבא את הנתונים?\n\nזה יחליף את כל הנתונים הקיימים!\n\nמתאמנים: ${importedData.trainees.length}\nניתוחים: ${importedData.savedAnalyses.length}`;
+          
+          if (confirm(confirmMessage)) {
+            // Convert dates back to Date objects
+            const importedTrainees = importedData.trainees.map((t: any) => ({
+              ...t,
+              createdAt: new Date(t.createdAt || t.createdAt)
+            }));
+            
+            const importedAnalyses = importedData.savedAnalyses.map((a: any) => ({
+              ...a,
+              analysisDate: new Date(a.analysisDate || a.analysisDate)
+            }));
+
+            // Update state (will trigger localStorage sync via useEffect)
+            setTrainees(importedTrainees);
+            setSavedAnalyses(importedAnalyses);
+            
+            alert('הנתונים יובאו בהצלחה!');
+            onClose(); // Close modal to show updated data
+          }
+        } catch (error: any) {
+          console.error('Import error:', error);
+          alert(`אירעה שגיאה בייבוא הנתונים: ${error.message}`);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -2271,13 +2373,21 @@ const CoachDashboardModal = ({
                 </p>
               </div>
               {!isAddingTrainee && (
-                <CoachButton onClick={() => {
-                  setIsAddingTrainee(true);
-                  setEditingTrainee(null);
-                  setFormData({ name: '', email: '', phone: '', notes: '' });
-                }}>
-                  + הוסף מתאמן חדש
-                </CoachButton>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <CoachButton onClick={handleExportData}>
+                    ייצא נתונים
+                  </CoachButton>
+                  <CoachButton onClick={handleImportData}>
+                    ייבא נתונים
+                  </CoachButton>
+                  <CoachButton onClick={() => {
+                    setIsAddingTrainee(true);
+                    setEditingTrainee(null);
+                    setFormData({ name: '', email: '', phone: '', notes: '' });
+                  }}>
+                    + הוסף מתאמן חדש
+                  </CoachButton>
+                </div>
               )}
             </CoachHeader>
 
@@ -3509,6 +3619,7 @@ const App = () => {
           trainees={trainees}
           setTrainees={setTrainees}
           savedAnalyses={savedAnalyses}
+          setSavedAnalyses={setSavedAnalyses}
           onTraineeSelect={(traineeId) => {
             setSelectedTrainee(traineeId);
             setShowCoachDashboard(false);
