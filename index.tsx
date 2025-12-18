@@ -1790,14 +1790,16 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
        { role: 'תסריטאי רשת', desc: 'פאנץ\', הידוק מסרים, סטוריטלינג קצר.' },
     ],
     coach: [
-       { role: 'מאמן נוכחות מקצועית', desc: 'נוכחות בימתית, ביטחון עצמי, החזקת קהל, אנרגיה.' },
-       { role: 'מומחה דיבור והגשה', desc: 'דיקציה, שטף, אינטונציה, קצב דיבור, נשימה.' },
-       { role: 'אנליסט מסר ותוכן', desc: 'בהירות מסר, מבנה לוגי, שכנוע, העברת ערך.' },
-       { role: 'מאמן חיבור רגשי', desc: 'אותנטיות, אמפתיה, יצירת קשר עם קהל, רגש.' },
-       { role: 'מומחה שפת גוף מקצועית', desc: 'תנועות ידיים, יציבה, קשר עין, תנועה במרחב.' },
-       { role: 'אסטרטג התפתחות', desc: 'מעקב התקדמות, זיהוי נקודות חוזק וחולשה, מדידות.' },
-       { role: 'מאמן ביצועים', desc: 'אנרגיה, דינמיקה, מעברים חלקים, קצב.' },
-       { role: 'יועץ מותג אישי', desc: 'עקביות, ייחודיות, מיצוב מקצועי, תדמית.' },
+       { role: 'ניהול מתאמנים מקצועי', desc: 'מערכת ניהול מתאמנים מלאה - הוספה, עריכה, מחיקה, וניהול מידע אישי (שם, אימייל, טלפון, הערות).' },
+       { role: 'שמירת ניתוחים ומעקב', desc: 'שמירת כל הניתוחים עם שיוך למתאמן, מעקב התקדמות לאורך זמן, וצפייה בכל הניתוחים השמורים.' },
+       { role: 'השוואת ניתוחים מתקדמת', desc: 'השוואה בין ניתוחים שונים של מתאמנים או ניתוחים לאורך זמן - עד 4 ניתוחים במקביל עם טבלת השוואה מפורטת.' },
+       { role: 'הפקת דוחות PDF מקצועיים', desc: 'יצירת דוחות PDF מקצועיים ומפורטים לכל מתאמן - כולל כל הניתוחים, מגמות, סטטיסטיקות, והתפתחות לאורך זמן.' },
+       { role: 'בחירת תחום אימון גמישה', desc: 'בחירה בין 4 תחומי אימון: שחקנים, מוזיקאים, יוצרי תוכן, ומשפיענים - כל תחום עם מומחים ייעודיים.' },
+       { role: 'ניתוח מעמיק ומקצועי', desc: 'בחירה בין ניתוח רגיל לניתוח מעמיק - ניתוח מקצועי עם timecodes, מיקרו-ניתוח, השוואה לסטנדרטים מקצועיים, והמלצות מפורטות.' },
+       { role: 'בחירת מומחים מותאמת', desc: 'בחירה חופשית של המומחים הרצויים לכל תחום - 3 מומחים ראשונים כברירת מחדל, אפשרות לעבור בין "3 המובילים" ל"כל המומחים".' },
+       { role: 'שמירה מקומית מתקדמת', desc: 'כל הנתונים נשמרים מקומית בדפדפן - מתאמנים, ניתוחים, והשוואות נשארים בין הרצות.' },
+       { role: 'מעקב התקדמות ויזואלי', desc: 'צפייה בהתפתחות המתאמן לאורך זמן - מגמות, שיפורים, נקודות חוזק וחולשה, והמלצות מקצועיות.' },
+       { role: 'ממשק פרימיום מתקדם', desc: 'עיצוב פרימיום ייחודי, ניהול אינטואיטיבי, וכלים מקצועיים למאמנים וסוכנויות.' },
     ],
     influencers: [
        { role: 'מאסטר רטוריקה', desc: 'דיקציה, שטף דיבור, שכנוע והעברת מסר.' },
@@ -1815,8 +1817,8 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
     { id: 'actors', label: 'שחקנים ואודישנים' },
     { id: 'musicians', label: 'זמרים ומוזיקאים' },
     { id: 'creators', label: 'יוצרי תוכן וכוכבי רשת' },
-    { id: 'coach', label: 'מסלול פרימיום סטודיו ומאמנים' },
     { id: 'influencers', label: 'משפיענים ומותגים' },
+    { id: 'coach', label: 'מסלול פרימיום סטודיו ומאמנים' },
   ];
 
   return (
@@ -1855,6 +1857,103 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
                <ModalDesc>{item.desc}</ModalDesc>
              </ModalRow>
           )) || <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>תוכן בבנייה...</div>}
+        </ModalBody>
+      </ModalContent>
+    </ModalOverlay>
+  );
+};
+
+// --- Coach Guide Modal ---
+
+const CoachGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  if (!isOpen) return null;
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+        <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
+        <ModalHeader>
+          <ModalTitle>הסבר שימוש וניהול - מסלול פרימיום</ModalTitle>
+          <ModalSubtitle>
+            מדריך פשוט וברור לשימוש במסלול הפרימיום למאמנים וסוכנויות
+          </ModalSubtitle>
+        </ModalHeader>
+
+        <ModalBody>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 1: הוספת מתאמנים</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                לחץ על כפתור "ניהול מתאמנים" והוסף מתאמנים חדשים. לכל מתאמן תוכל להוסיף שם, אימייל, טלפון והערות. 
+                המתאמנים נשמרים אוטומטית בדפדפן שלך.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 2: בחירת תחום אימון</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                בחר את תחום האימון המתאים: שחקנים, מוזיקאים, יוצרי תוכן, או משפיענים. 
+                כל תחום כולל מומחים ייעודיים שיתאימו לניתוח המקצועי.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 3: בחירת מומחים</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                בחר את המומחים הרצויים לניתוח. כברירת מחדל נבחרים 3 המומחים הראשונים, 
+                אך תוכל לבחור מומחים ספציפיים או לעבור ל"כל המומחים" בלחיצה אחת.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 4: בחירת סוג ניתוח</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                בחר בין ניתוח רגיל (ממוקד וברור) לניתוח מעמיק (מפורט עם timecodes, מיקרו-ניתוח, 
+                והשוואה לסטנדרטים מקצועיים). הניתוח המעמיק מתאים למאמנים מקצועיים.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 5: בחירת מתאמן</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                בחר את המתאמן מהרשימה. זה חשוב כדי לשמור את הניתוח עם שיוך למתאמן הנכון.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 6: העלאת וידאו וניתוח</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                העלה את הוידאו (עד 5 דקות או 20MB), הוסף הנחיות אופציונליות, ולחץ על "אקשן!" 
+                כדי להתחיל את הניתוח. הניתוח יופיע תוך מספר שניות.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 7: שמירת הניתוח</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                לאחר קבלת הניתוח, לחץ על "שמור ניתוח למתאמן" כדי לשמור אותו. 
+                הניתוח יישמר עם שיוך למתאמן הנבחר ויהיה זמין לצפייה מאוחר יותר.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 8: השוואות ודוחות</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                השתמש ב"השוואת ניתוחים" כדי להשוות בין ניתוחים שונים, 
+                וב"יצא דוח PDF" במסך ניהול המתאמנים כדי ליצור דוח מקצועי עם כל הניתוחים והמגמות.
+              </p>
+            </div>
+
+            <div style={{ background: 'rgba(212, 160, 67, 0.1)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.3)', marginTop: '10px' }}>
+              <h4 style={{ color: '#D4A043', margin: '0 0 10px 0' }}>טיפים חשובים:</h4>
+              <ul style={{ color: '#e0e0e0', lineHeight: '1.8', paddingRight: '20px', margin: 0 }}>
+                <li>כל הנתונים נשמרים מקומית בדפדפן - אין צורך בהרשמה או התחברות</li>
+                <li>ניתן לשמור מספר בלתי מוגבל של מתאמנים וניתוחים</li>
+                <li>השוואות מאפשרות מעקב אחר התקדמות לאורך זמן</li>
+                <li>דוחות PDF מקצועיים מוכנים להדפסה או שליחה למתאמנים</li>
+              </ul>
+            </div>
+          </div>
         </ModalBody>
       </ModalContent>
     </ModalOverlay>
@@ -2469,6 +2568,7 @@ const App = () => {
   const [selectedTrainee, setSelectedTrainee] = useState<string | null>(null);
   const [showCoachDashboard, setShowCoachDashboard] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [showCoachGuide, setShowCoachGuide] = useState(false);
 
   // Sync savedAnalyses to localStorage
   useEffect(() => {
@@ -3432,6 +3532,11 @@ const App = () => {
           trainees={trainees}
         />
 
+        <CoachGuideModal
+          isOpen={showCoachGuide}
+          onClose={() => setShowCoachGuide(false)}
+        />
+
         <SectionLabel>בחר את מסלול הניתוח שלך:</SectionLabel>
         <Grid>
           {TRACKS.filter(track => !track.isPremium).map(track => (
@@ -3457,6 +3562,40 @@ const App = () => {
             </PremiumCoachCard>
           ))}
         </Grid>
+        
+        {activeTrack === 'coach' && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '20px' }}>
+            <button
+              onClick={() => setShowCoachGuide(true)}
+              style={{
+                background: 'transparent',
+                border: '1px solid #D4A043',
+                borderRadius: '20px',
+                padding: '8px 20px',
+                color: '#D4A043',
+                fontFamily: 'Assistant, sans-serif',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.3s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(212, 160, 67, 0.1)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <SparklesIcon />
+              הסבר שימוש וניהול פשוט
+            </button>
+          </div>
+        )}
         
         <TrackDescriptionText>
            {TRACK_DESCRIPTIONS[activeTrack]}
