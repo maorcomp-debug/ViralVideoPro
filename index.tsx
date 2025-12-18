@@ -1713,7 +1713,9 @@ const App = () => {
     
     try {
       // Corrected API key retrieval
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+     const const handleAnalyz = import.meta.env.VITE_GEMINI_API_KEY as string;
+const ai = new GoogleGenAI({ apiKey });
+
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
