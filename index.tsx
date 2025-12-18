@@ -1712,14 +1712,8 @@ const App = () => {
     setLoading(true);
     
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-      if (!apiKey) {
-        alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY.");
-        setLoading(false);
-        return;
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
+      // Corrected API key retrieval
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
@@ -1824,27 +1818,14 @@ const App = () => {
          }
       }
 
-      const callModel = async (attempt = 1): Promise<any> => {
-        try {
-          return await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: { parts },
-            config: { 
-              systemInstruction,
-              responseMimeType: "application/json"
-            }
-          });
-        } catch (err: any) {
-          const code = err?.error?.code || err?.status;
-          if (code === 503 && attempt < 3) {
-            await new Promise(res => setTimeout(res, 2000 * attempt));
-            return callModel(attempt + 1);
-          }
-          throw err;
+      const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+        contents: { parts },
+        config: { 
+          systemInstruction,
+          responseMimeType: "application/json"
         }
-      };
-
-      const response = await callModel();
+      });
 
       // Robust JSON Parsing
       let jsonText = response.text || '{}';
