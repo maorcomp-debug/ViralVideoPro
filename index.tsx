@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import styled, { createGlobalStyle, keyframes, css } from 'styled-components';
 import { GoogleGenAI } from "@google/genai";
+import './index.css';
 
 // --- Types ---
 type TrackId = 'actors' | 'musicians' | 'creators' | 'influencers';
@@ -23,6 +24,8 @@ interface AnalysisResult {
 }
 
 // --- Constants ---
+const MAX_VIDEO_SECONDS = 5 * 60; // 5 minutes
+const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20MB
 
 const TRACK_DESCRIPTIONS: Record<string, string> = {
   actors: 'חדר האודישנים הראשי של הפקות הדרמה המובילות בישראל ובעולם אצלך בכיס. הסטנדרט הוא קולנועי וחסר פשרות.',
@@ -53,6 +56,27 @@ const glowReady = keyframes`
   0% { box-shadow: 0 0 5px rgba(212, 160, 67, 0.3); border-color: rgba(212, 160, 67, 0.5); }
   50% { box-shadow: 0 0 25px rgba(212, 160, 67, 0.7); border-color: #D4A043; transform: scale(1.02); }
   100% { box-shadow: 0 0 5px rgba(212, 160, 67, 0.3); border-color: rgba(212, 160, 67, 0.5); }
+`;
+
+const breathingHigh = keyframes`
+  0% { 
+    box-shadow: 0 0 20px rgba(212, 160, 67, 0.6); 
+    transform: scale(1); 
+    filter: brightness(100%);
+    border-color: rgba(212, 160, 67, 0.5);
+  }
+  50% { 
+    box-shadow: 0 0 60px rgba(255, 215, 0, 0.8); 
+    transform: scale(1.02); 
+    filter: brightness(140%);
+    border-color: #fff;
+  }
+  100% { 
+    box-shadow: 0 0 20px rgba(212, 160, 67, 0.6); 
+    transform: scale(1); 
+    filter: brightness(100%);
+    border-color: rgba(212, 160, 67, 0.5);
+  }
 `;
 
 const GlobalStyle = createGlobalStyle`
@@ -100,6 +124,10 @@ const AppContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+
+  @media (max-width: 600px) {
+    padding: 20px 15px;
+  }
 `;
 
 // -- Header Section --
@@ -126,7 +154,11 @@ const Title = styled.h1`
   filter: drop-shadow(0 2px 10px rgba(212, 160, 67, 0.3));
   
   @media (max-width: 768px) {
-    font-size: 2.2rem;
+    font-size: 2.5rem;
+  }
+  @media (max-width: 480px) {
+    font-size: 2rem;
+    letter-spacing: 1px;
   }
 `;
 
@@ -136,6 +168,10 @@ const Subtitle = styled.h2`
   color: #D4A043;
   margin-bottom: 10px;
   font-weight: 400;
+
+  @media (max-width: 480px) {
+    font-size: 1.2rem;
+  }
 `;
 
 const Description = styled.p`
@@ -144,6 +180,7 @@ const Description = styled.p`
   max-width: 600px;
   line-height: 1.6;
   margin-bottom: 30px;
+  padding: 0 10px;
 `;
 
 const CTAButton = styled.button`
@@ -212,7 +249,7 @@ const ModalOverlay = styled.div`
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: 10px;
   animation: ${fadeIn} 0.3s ease-out;
 `;
 
@@ -220,7 +257,7 @@ const ModalContent = styled.div`
   background: #0a0a0a;
   border: 1px solid #D4A043;
   border-radius: 12px;
-  width: 100%;
+  width: 95%;
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
@@ -269,6 +306,10 @@ const ModalTabs = styled.div`
   border-bottom: 1px solid #D4A043;
   margin-top: 20px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
 const ModalTab = styled.button<{ $active: boolean }>`
@@ -339,6 +380,7 @@ const SectionLabel = styled.div`
   font-weight: 600;
   position: relative;
   display: inline-block;
+  text-align: center;
   
   &::after {
     content: '';
@@ -350,11 +392,58 @@ const SectionLabel = styled.div`
   }
 `;
 
-const SubLabel = styled.div`
-  color: #888;
+// -- Expert Selection Controls --
+
+const ExpertControlBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+  
+  @media (max-width: 650px) {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+`;
+
+const ExpertControlText = styled.div`
+  color: #ccc;
   font-size: 0.95rem;
-  margin-bottom: 25px;
-  text-align: center;
+  padding-right: 5px;
+
+  strong {
+    color: #D4A043;
+    font-weight: 600;
+  }
+`;
+
+const ExpertToggleGroup = styled.div`
+  display: flex;
+  background: rgba(255,255,255,0.05);
+  border-radius: 50px;
+  padding: 4px;
+  border: 1px solid #333;
+  gap: 5px;
+`;
+
+const ExpertToggleButton = styled.button<{ $active: boolean }>`
+  background: ${props => props.$active ? '#D4A043' : 'transparent'};
+  color: ${props => props.$active ? '#000' : '#888'};
+  border: none;
+  border-radius: 50px;
+  padding: 6px 18px;
+  font-size: 0.85rem;
+  font-family: 'Assistant', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+
+  &:hover {
+    color: ${props => props.$active ? '#000' : '#D4A043'};
+  }
 `;
 
 const Grid = styled.div`
@@ -364,7 +453,7 @@ const Grid = styled.div`
   width: 100%;
   margin-bottom: 30px;
   
-  @media (max-width: 768px) {
+  @media (max-width: 900px) {
     grid-template-columns: repeat(2, 1fr);
   }
 `;
@@ -409,17 +498,17 @@ const TrackCard = styled.div<{ $active: boolean }>`
 const FeatureCard = styled.div<{ $selected: boolean }>`
   background: ${props => props.$selected ? 'rgba(212, 160, 67, 0.1)' : '#0a0a0a'};
   border: 1px solid ${props => props.$selected ? '#D4A043' : '#222'};
-  border-radius: 12px; /* Matched radius */
+  border-radius: 12px;
   padding: 10px;
   text-align: center;
   transition: all 0.3s;
   display: flex;
   flex-direction: column;
-  justify-content: center; /* Center vertically like TrackCard */
+  justify-content: center;
   align-items: center;
   cursor: pointer;
   position: relative;
-  height: 100px; /* Matched height */
+  height: 100px;
 
   &:hover {
     border-color: #D4A043;
@@ -443,7 +532,7 @@ const FeatureCard = styled.div<{ $selected: boolean }>`
 
 const FeatureTitle = styled.h4<{ $selected: boolean }>`
   color: ${props => props.$selected ? '#D4A043' : '#ccc'};
-  font-size: 0.9rem; /* Adjusted for size */
+  font-size: 0.9rem;
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
@@ -451,7 +540,7 @@ const FeatureTitle = styled.h4<{ $selected: boolean }>`
 
 const FeatureDesc = styled.p`
   color: #e0e0e0;
-  font-size: 0.75rem; /* Smaller text */
+  font-size: 0.75rem;
   line-height: 1.1;
   margin: 5px 0 0 0;
   font-weight: 400;
@@ -480,6 +569,10 @@ const UploadContainer = styled.div<{ $hasFile?: boolean }>`
   position: relative;
   overflow: hidden;
   
+  @media (max-width: 480px) {
+    padding: ${props => props.$hasFile ? '0' : '30px 15px'};
+  }
+  
   &:hover {
     border-color: #D4A043;
     background: ${props => props.$hasFile ? '#000' : '#111'};
@@ -495,7 +588,7 @@ const UploadContent = styled.div`
 `;
 
 const UploadIcon = styled.div`
-  font-size: 50px; /* Slightly larger for the new icon */
+  font-size: 50px;
   color: #D4A043;
   margin-bottom: 15px;
   filter: drop-shadow(0 0 10px rgba(212, 160, 67, 0.2));
@@ -507,12 +600,14 @@ const UploadTitle = styled.h3`
   margin-bottom: 5px;
   font-family: 'Assistant', sans-serif;
   font-weight: 700;
+  text-align: center;
 `;
 
 const UploadSubtitle = styled.p`
   color: #666;
   font-size: 0.9rem;
   margin-bottom: 25px;
+  text-align: center;
 `;
 
 const FileInput = styled.input`
@@ -701,12 +796,15 @@ const ActionButton = styled.button<{ $isReady?: boolean; $isLoading?: boolean }>
 
   /* Loading state styles */
   ${props => props.$isLoading && css`
-    animation: ${shimmer} 1.5s infinite linear, ${pulse} 2s infinite;
-    background: linear-gradient(90deg, #b8862e, #e6be74, #b8862e);
+    animation: ${breathingHigh} 1.5s infinite ease-in-out;
+    background: linear-gradient(90deg, #D4A043, #FFF8DC, #D4A043);
     background-size: 200% auto;
     opacity: 1 !important;
     cursor: wait !important;
-    color: #222 !important;
+    color: #000 !important;
+    border-color: #fff;
+    text-shadow: none;
+    font-weight: 800;
   `}
 
   &:hover:not(:disabled) {
@@ -783,7 +881,7 @@ const HookText = styled.p`
 
 const ExpertsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 25px;
 `;
 
@@ -858,7 +956,7 @@ const ExpertText = styled.p`
   font-size: 0.95rem;
   line-height: 1.6;
   margin-bottom: 10px;
-`;
+  `;
 
 // -- Committee Section --
 
@@ -935,6 +1033,7 @@ const ActionButtonsContainer = styled.div`
   padding-top: 20px;
   border-top: 1px solid rgba(255,255,255,0.1);
   justify-content: center;
+  flex-wrap: wrap;
 
   @media (max-width: 600px) {
     flex-direction: column;
@@ -992,6 +1091,17 @@ const PrimaryButton = styled.button`
     opacity: 0.7;
     cursor: wait;
   }
+`;
+
+const PremiumBadge = styled.span`
+  background: rgba(212, 160, 67, 0.15);
+  color: #D4A043;
+  border: 1px solid rgba(212, 160, 67, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
 `;
 
 // --- SVGs ---
@@ -1053,7 +1163,7 @@ const BulbIcon = () => (
 );
 const SparklesIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z" />
   </svg>
 );
 
@@ -1130,47 +1240,18 @@ const HiddenLogoInput = styled.input`
 `;
 
 const StyledLogoImg = styled.img`
-  max-width: 250px;
-  max-height: 150px;
+  width: 100%;
+  height: auto;
+  max-width: 320px;
   object-fit: contain;
 `;
 
 const AppLogo = () => {
-  const [logoSrc, setLogoSrc] = useState<string>("Logo.png");
-  const [hasError, setHasError] = useState(false);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setLogoSrc(event.target.result as string);
-          setHasError(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  if (hasError) {
-    return (
-      <LogoContainer>
-        <LogoPlaceholder>
-          <div style={{ fontSize: '24px' }}>+</div>
-          <div style={{ fontSize: '12px' }}>העלה לוגו</div>
-          <HiddenLogoInput type="file" accept="image/*" onChange={handleFileChange} />
-        </LogoPlaceholder>
-      </LogoContainer>
-    );
-  }
-
   return (
     <LogoContainer>
       <StyledLogoImg 
-        src={logoSrc} 
-        alt="Logo" 
-        onError={() => setHasError(true)} 
+        src="/Logo.png" 
+        alt="Logo"
       />
     </LogoContainer>
   );
@@ -1335,6 +1416,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState('actors');
+  const [hasPremiumAccess] = useState(true); // Placeholder for future premium gating logic
   
   // Results
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -1344,6 +1426,7 @@ const App = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const defaults = EXPERTS_BY_TRACK[activeTrack].slice(0, 3).map(e => e.title);
@@ -1373,16 +1456,51 @@ const App = () => {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
+    const resetInput = () => {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    if (selectedFile.size > MAX_FILE_BYTES) {
+      alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 20MB.");
+      resetInput();
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedFile);
+
+    const finalizeSelection = () => {
       setFile(selectedFile);
-      
-      const objectUrl = URL.createObjectURL(selectedFile);
       setPreviewUrl(objectUrl);
-      
       if (!isImprovementMode) {
         setResult(null);
       }
+    };
+
+    if (selectedFile.type.startsWith('video')) {
+      const videoEl = document.createElement('video');
+      videoEl.preload = 'metadata';
+      videoEl.src = objectUrl;
+
+      videoEl.onloadedmetadata = () => {
+        if (videoEl.duration > MAX_VIDEO_SECONDS) {
+          alert("הסרטון חורג מהמגבלה: עד 5 דקות או 20MB.");
+          URL.revokeObjectURL(objectUrl);
+          resetInput();
+          return;
+        }
+        finalizeSelection();
+      };
+
+      videoEl.onerror = () => {
+        alert("לא ניתן לקרוא את המטא-דאטה של הווידאו. נסה קובץ אחר.");
+        URL.revokeObjectURL(objectUrl);
+        resetInput();
+      };
+    } else {
+      finalizeSelection();
     }
   };
   
@@ -1442,11 +1560,133 @@ const App = () => {
     }, 100);
   };
 
+  const handleExportPdf = () => {
+    if (!result) return;
+
+    if (!hasPremiumAccess) {
+      alert('יצוא ל-PDF זמין למנויי פרימיום בלבד.');
+      return;
+    }
+
+    const contentElement = document.getElementById('analysis-content');
+    if (!contentElement) {
+      alert('לא נמצא תוכן ניתוח לייצוא.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWindow) {
+      alert('נא לאפשר חלונות קופצים כדי לייצא ל-PDF.');
+      return;
+    }
+
+    const styles = `
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body { 
+        direction: rtl; 
+        font-family: 'Assistant', sans-serif; 
+        background: #050505 !important; 
+        color: #f5f5f5 !important; 
+        padding: 32px 32px 40px 32px;
+      }
+      h1,h2,h3,h4,h5,h6 {
+        font-family: 'Frank Ruhl Libre', serif;
+        color: #D4A043 !important;
+        margin: 0 0 10px;
+      }
+      p, li, span, div {
+        color: #e0e0e0;
+      }
+      .export-wrapper { max-width: 1000px; margin: 0 auto; }
+      .export-header { 
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px; 
+      }
+      .export-header-text {
+        text-align: right;
+        flex: 1;
+        margin-right: 16px;
+      }
+      .export-note { color: #999; font-size: 11px; margin-top: 4px; }
+      .export-logo-left {
+        flex: 0 0 auto;
+      }
+      .export-logo-left img {
+        max-width: 120px;
+        height: auto;
+      }
+      /* אל תציג כפתורים וקישורים */
+      a, button { display: none !important; }
+      /* רשימות */
+      ul { padding-right: 20px; margin: 0; }
+      li { margin-bottom: 6px; }
+      /* איקונים – קטנים ועדינים יותר */
+      svg { max-width: 16px; max-height: 16px; }
+    `;
+
+    const doc = printWindow.document;
+    doc.open();
+    doc.write(`
+      <html dir="rtl">
+        <head>
+          <title>דו"ח ניתוח וידאו</title>
+        </head>
+        <body>
+          <div class="export-wrapper">
+            <div class="export-header">
+              <div class="export-header-text">
+                <h2>דו"ח ניתוח - Video Director Pro</h2>
+                <div class="export-note">נוצר במסלול פרימיום • ${new Date().toLocaleString('he-IL')}</div>
+              </div>
+              <div class="export-logo-left">
+                <img src="/Logo.png" alt="Viraly Logo" />
+              </div>
+            </div>
+            ${contentElement.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+
+    // העתקה של כל ה-CSS מהאפליקציה כדי שהעיצוב ב-PDF יהיה נאמן למקור
+    try {
+      const headNodes = document.querySelectorAll('style, link[rel="stylesheet"]');
+      headNodes.forEach(node => {
+        doc.head.appendChild(node.cloneNode(true));
+      });
+
+      const styleTag = doc.createElement('style');
+      styleTag.textContent = styles;
+      doc.head.appendChild(styleTag);
+    } catch (e) {
+      console.error('Failed to clone styles into print window', e);
+    }
+
+    doc.close();
+
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
   const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: string; mimeType: string } }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64data = reader.result as string;
+        if (!base64data) {
+           reject(new Error("Failed to read file"));
+           return;
+        }
         const base64Content = base64data.split(',')[1];
         resolve({
           inlineData: {
@@ -1460,13 +1700,26 @@ const App = () => {
     });
   };
 
-  const handleGenerate = async () => {
+  const handleAnalyze = async () => {
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
     
+    // Start playing video when analysis begins
+    if (videoRef.current) {
+        videoRef.current.muted = true;
+        videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
+    }
+
     setLoading(true);
     
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+      if (!apiKey) {
+        alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY.");
+        setLoading(false);
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const expertPanel = selectedExperts.join(', ');
 
       let extraContext = '';
@@ -1537,11 +1790,17 @@ const App = () => {
       `;
 
       const parts = [];
-      if (prompt) parts.push({ text: prompt });
+      
+      // Force a text part if prompt is empty to ensure API stability
+      if (!prompt.trim()) {
+        parts.push({ text: "Please analyze the attached media based on the system instructions." });
+      } else {
+        parts.push({ text: prompt });
+      }
       
       if (file) {
-        if (file.size > 20 * 1024 * 1024) {
-           alert("הקובץ גדול מדי. נסה קובץ קטן מ-20MB.");
+        if (file.size > MAX_FILE_BYTES) {
+           alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 20MB.");
            setLoading(false);
            return;
         }
@@ -1550,6 +1809,9 @@ const App = () => {
           parts.push(imagePart);
         } catch (e) {
           console.error("File processing error", e);
+          alert("שגיאה בעיבוד הקובץ");
+          setLoading(false);
+          return;
         }
       }
 
@@ -1562,17 +1824,43 @@ const App = () => {
          }
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: { parts },
-        config: { 
-          systemInstruction,
-          responseMimeType: "application/json"
+      const callModel = async (attempt = 1): Promise<any> => {
+        try {
+          return await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts },
+            config: { 
+              systemInstruction,
+              responseMimeType: "application/json"
+            }
+          });
+        } catch (err: any) {
+          const code = err?.error?.code || err?.status;
+          if (code === 503 && attempt < 3) {
+            await new Promise(res => setTimeout(res, 2000 * attempt));
+            return callModel(attempt + 1);
+          }
+          throw err;
         }
-      });
+      };
 
-      const jsonText = response.text || '{}';
-      const parsedResult = JSON.parse(jsonText) as AnalysisResult;
+      const response = await callModel();
+
+      // Robust JSON Parsing
+      let jsonText = response.text || '{}';
+      // Clean potential markdown fencing from the model
+      jsonText = jsonText.replace(/```json|```/g, '').trim();
+      
+      let parsedResult: AnalysisResult;
+      try {
+        parsedResult = JSON.parse(jsonText) as AnalysisResult;
+      } catch (e) {
+        console.error("JSON Parse Error", e);
+        console.log("Raw Text:", jsonText);
+        alert("התקבלה תשובה לא תקינה מהמערכת. אנא נסה שוב.");
+        setLoading(false);
+        return;
+      }
       
       // Calculate average
       if (parsedResult.expertAnalysis && parsedResult.expertAnalysis.length > 0) {
@@ -1588,17 +1876,48 @@ const App = () => {
         if (resultsElement) {
           resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-      }, 100);
+      }, 200);
 
-    } catch (error) {
-      console.error("Error:", error);
-      alert("אירעה שגיאה בניתוח. אנא נסה שנית.");
+    } catch (error: any) {
+      console.error("API Error:", error);
+      const code = error?.error?.code || error?.status;
+      if (code === 429) {
+        alert("חרגת ממכסת הקריאות למודל Gemini בחשבון גוגל. יש להמתין לחידוש המכסה או לשדרג חבילה.");
+      } else if (code === 503) {
+        alert("המודל של Gemini כרגע עמוס (503). נסה שוב בעוד כמה דקות.");
+      } else {
+        alert("אירעה שגיאה בניתוח. ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGenerate = handleAnalyze;
+
   const isReady = (!!prompt || !!file) && selectedExperts.length >= 3;
+
+  const currentExpertsList = EXPERTS_BY_TRACK[activeTrack];
+  
+  const handleSetTop3 = () => {
+    const top3 = currentExpertsList.slice(0, 3).map(e => e.title);
+    setSelectedExperts(top3);
+  };
+
+  const handleSetAll = () => {
+    const all = currentExpertsList.map(e => e.title);
+    setSelectedExperts(all);
+  };
+
+  const isTop3 = () => {
+    const top3 = currentExpertsList.slice(0, 3).map(e => e.title);
+    if (selectedExperts.length !== 3) return false;
+    return top3.every(t => selectedExperts.includes(t));
+  };
+
+  const isAll = () => {
+    return selectedExperts.length === currentExpertsList.length;
+  };
 
   return (
     <>
@@ -1647,7 +1966,17 @@ const App = () => {
         </TrackDescriptionText>
 
         <SectionLabel>מי הם צוות המומחים שלך?</SectionLabel>
-        <SubLabel>בחר לפחות 3 מומחים (ועד 8) לניתוח המדויק ביותר עבורך</SubLabel>
+        
+        <ExpertControlBar>
+           <ExpertControlText>
+             הנבחרת שלך ב<strong>{TRACKS.find(t => t.id === activeTrack)?.label}</strong>: אלו המומחים ומה הם בודקים
+           </ExpertControlText>
+           <ExpertToggleGroup>
+              <ExpertToggleButton $active={isTop3()} onClick={handleSetTop3}>3 המובילים</ExpertToggleButton>
+              <ExpertToggleButton $active={isAll()} onClick={handleSetAll}>כל המומחים</ExpertToggleButton>
+           </ExpertToggleGroup>
+        </ExpertControlBar>
+
         <Grid>
           {EXPERTS_BY_TRACK[activeTrack].map((expert, i) => {
             const isSelected = selectedExperts.includes(expert.title);
@@ -1669,7 +1998,15 @@ const App = () => {
             <FullSizePreview>
               <RemoveFileBtn onClick={handleRemoveFile}>✕</RemoveFileBtn>
               {file?.type.startsWith('video') ? (
-                <video src={previewUrl} controls autoPlay muted />
+                <video
+                  ref={videoRef}
+                  src={previewUrl}
+                  controls
+                  muted
+                  playsInline
+                  webkit-playsinline="true"
+                  x5-playsinline="true"
+                />
               ) : (
                 <img src={previewUrl} alt="preview" />
               )}
@@ -1680,7 +2017,7 @@ const App = () => {
               <UploadTitle>
                 {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
               </UploadTitle>
-              <UploadSubtitle>בגודל קובץ עד 20MB</UploadSubtitle>
+              <UploadSubtitle>עד 5 דקות או 20MB</UploadSubtitle>
               
               <UploadButton>
                 {isImprovementMode ? 'בחר קובץ לשיפור' : 'העלה סרטון עכשיו'}
@@ -1731,7 +2068,7 @@ const App = () => {
             $isReady={isReady}
             $isLoading={loading}
           >
-            {loading ? 'צוות המומחים צופה כעת בסרטון...' : (isImprovementMode ? 'נתח שיפורים' : 'אקשן !')}
+            {loading ? 'צוות המומחים צופה כעת בסרטון' : (isImprovementMode ? 'נתח שיפורים' : 'אקשן !')}
           </ActionButton>
           {selectedExperts.length < 3 && (
             <ErrorMsg>נא לבחור לפחות 3 מומחים כדי להמשיך</ErrorMsg>
@@ -1740,62 +2077,67 @@ const App = () => {
 
         {result && (
           <ResponseArea id="results-area">
-            
-            {result.hook && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <SectionTitleExternal>
-                  <SubtleSparkleIcon /> טיפ זהב של הפאנל <SubtleSparkleIcon />
-                </SectionTitleExternal>
-                <CompactResultBox>
-                  <HookText>"{result.hook}"</HookText>
-                </CompactResultBox>
-              </div>
-            )}
+            <div id="analysis-content">
+              {result.hook && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <SectionTitleExternal>
+                    <SubtleSparkleIcon /> טיפ זהב של הפאנל <SubtleSparkleIcon />
+                  </SectionTitleExternal>
+                  <CompactResultBox>
+                    <HookText>"{result.hook}"</HookText>
+                  </CompactResultBox>
+                </div>
+              )}
 
-            <SectionLabel style={{ textAlign: 'center', display: 'block', marginTop: '20px' }}>ניתוח פאנל המומחים</SectionLabel>
-            
-            <ExpertsGrid>
-              {result.expertAnalysis.map((expert, idx) => (
-                <ExpertResultCard key={idx}>
-                  <h4>{expert.role} <ExpertScore>{expert.score}</ExpertScore></h4>
-                  
-                  <ExpertSectionTitle><EyeIcon /> זווית מקצועית</ExpertSectionTitle>
-                  <ExpertText>{expert.insight}</ExpertText>
-                  
-                  <ExpertSectionTitle><BulbIcon /> טיפים לשיפור</ExpertSectionTitle>
-                  <ExpertText style={{ color: '#fff', fontWeight: 500 }}>{expert.tips}</ExpertText>
-                </ExpertResultCard>
-              ))}
-            </ExpertsGrid>
+              <SectionLabel style={{ textAlign: 'center', display: 'block', marginTop: '20px' }}>ניתוח פאנל המומחים</SectionLabel>
+              
+              <ExpertsGrid>
+                {result.expertAnalysis?.map((expert, idx) => (
+                  <ExpertResultCard key={idx}>
+                    <h4>{expert.role} <ExpertScore>{expert.score}</ExpertScore></h4>
+                    
+                    <ExpertSectionTitle><EyeIcon /> זווית מקצועית</ExpertSectionTitle>
+                    <ExpertText>{expert.insight}</ExpertText>
+                    
+                    <ExpertSectionTitle><BulbIcon /> טיפים לשיפור</ExpertSectionTitle>
+                    <ExpertText style={{ color: '#fff', fontWeight: 500 }}>{expert.tips}</ExpertText>
+                  </ExpertResultCard>
+                )) || <p style={{textAlign: 'center', color: '#666'}}>טוען ניתוח...</p>}
+              </ExpertsGrid>
 
-            {result.committee && (
-              <CommitteeSection>
-                <SectionTitleExternal>
-                   <SubtleDocumentIcon /> סיכום ועדת המומחים
-                </SectionTitleExternal>
-                <CompactResultBox>
-                  <CommitteeText>{result.committee.summary}</CommitteeText>
-                </CompactResultBox>
-                
-                {result.committee.finalTips && result.committee.finalTips.length > 0 && (
-                  <CommitteeTips>
-                    <h5>טיפים מנצחים לעתיד:</h5>
-                    <ul>
-                      {result.committee.finalTips.map((tip, i) => (
-                        <li key={i}>{tip}</li>
-                      ))}
-                    </ul>
-                  </CommitteeTips>
-                )}
-                
-                <FinalScore>
-                  <span className="number">{averageScore}</span>
-                  <span className="label">ציון ויראליות משוקלל</span>
-                </FinalScore>
-              </CommitteeSection>
-            )}
-            
+              {result.committee && (
+                <CommitteeSection>
+                  <SectionTitleExternal>
+                     <SubtleDocumentIcon /> סיכום ועדת המומחים
+                  </SectionTitleExternal>
+                  <CompactResultBox>
+                    <CommitteeText>{result.committee.summary}</CommitteeText>
+                  </CompactResultBox>
+                  
+                  {result.committee.finalTips && result.committee.finalTips.length > 0 && (
+                    <CommitteeTips>
+                      <h5>טיפים מנצחים לעתיד:</h5>
+                      <ul>
+                        {result.committee.finalTips.map((tip, i) => (
+                          <li key={i}>{tip}</li>
+                        ))}
+                      </ul>
+                    </CommitteeTips>
+                  )}
+                  
+                  <FinalScore>
+                    <span className="number">{averageScore}</span>
+                    <span className="label">ציון ויראליות משוקלל</span>
+                  </FinalScore>
+                </CommitteeSection>
+              )}
+            </div>
+
             <ActionButtonsContainer>
+              <PrimaryButton onClick={handleExportPdf} disabled={loading || !hasPremiumAccess}>
+                <PdfIcon />
+                יצוא ניתוח ל-PDF <PremiumBadge>פרימיום</PremiumBadge>
+              </PrimaryButton>
               <SecondaryButton onClick={handleReset}>
                 <RefreshIcon />
                 התחל מחדש
