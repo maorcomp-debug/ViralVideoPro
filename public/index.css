@@ -1,0 +1,7 @@
+/* Minimal file to avoid 404 for /index.css; main styling is via styled-components */
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+
