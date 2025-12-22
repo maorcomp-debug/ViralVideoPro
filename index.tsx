@@ -74,8 +74,18 @@ interface CoachReport {
 }
 
 // --- Constants ---
-const MAX_VIDEO_SECONDS = 5 * 60; // 5 minutes
-const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20MB
+// Helper functions for dynamic limits based on track
+const getMaxVideoSeconds = (track: TrackId): number => {
+  return track === 'coach' ? 5 * 60 : 60; // 5 minutes for coach, 1 minute for others
+};
+
+const getMaxFileBytes = (track: TrackId): number => {
+  return track === 'coach' ? 40 * 1024 * 1024 : 10 * 1024 * 1024; // 40MB for coach, 10MB for others
+};
+
+const getUploadLimitText = (track: TrackId): string => {
+  return track === 'coach' ? 'עד 5 דקות או 40MB' : 'עד דקה או 10MB';
+};
 
 const TRACK_DESCRIPTIONS: Record<string, string> = {
   actors: 'חדר האודישנים הראשי של הפקות הדרמה המובילות בישראל ובעולם אצלך בכיס. הסטנדרט הוא קולנועי וחסר פשרות.',
@@ -358,17 +368,18 @@ const ModalCloseBtn = styled.button`
 
 const ModalTabs = styled.div`
   display: flex;
+  gap: 8px;
   border-bottom: 1px solid #D4A043;
   margin-top: 20px;
+  margin-bottom: 0;
+  padding-bottom: 15px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   position: sticky;
   top: 0;
   background: #0a0a0a;
   z-index: 10;
-  padding-top: 5px;
-  margin-top: 0;
-  margin-bottom: 0;
+  padding-top: 10px;
   
   &::-webkit-scrollbar {
     display: none;
@@ -376,16 +387,26 @@ const ModalTabs = styled.div`
   
   /* Smooth scroll for tabs */
   scroll-behavior: smooth;
+  
+  @media (max-width: 600px) {
+    gap: 6px;
+    padding-top: 8px;
+    padding-bottom: 12px;
+  }
 `;
 
 const ModalTab = styled.button<{ $active: boolean }>`
   flex: 1;
   min-width: fit-content;
-  background: ${props => props.$active ? 'linear-gradient(to top, rgba(212, 160, 67, 0.15), rgba(212, 160, 67, 0.05))' : 'transparent'};
-  border: none;
-  border-bottom: 3px solid ${props => props.$active ? '#D4A043' : 'transparent'};
-  color: ${props => props.$active ? '#D4A043' : '#888'};
-  padding: 15px 12px;
+  background: ${props => props.$active 
+    ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.2), rgba(212, 160, 67, 0.1))' 
+    : 'rgba(255, 255, 255, 0.03)'};
+  border: ${props => props.$active 
+    ? '2px solid #D4A043' 
+    : '1px solid rgba(212, 160, 67, 0.3)'};
+  border-radius: 8px;
+  color: ${props => props.$active ? '#D4A043' : '#aaa'};
+  padding: 12px 16px;
   font-weight: 700;
   font-family: 'Assistant', sans-serif;
   font-size: 0.9rem;
@@ -393,6 +414,13 @@ const ModalTab = styled.button<{ $active: boolean }>`
   transition: all 0.2s ease;
   white-space: nowrap;
   position: relative;
+  box-shadow: ${props => props.$active 
+    ? '0 2px 8px rgba(212, 160, 67, 0.3)' 
+    : 'none'};
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   
   /* Prevent text selection on mobile */
   -webkit-tap-highlight-color: transparent;
@@ -401,16 +429,23 @@ const ModalTab = styled.button<{ $active: boolean }>`
 
   &:hover {
     color: #D4A043;
-    background: ${props => props.$active ? 'linear-gradient(to top, rgba(212, 160, 67, 0.15), rgba(212, 160, 67, 0.05))' : 'rgba(212, 160, 67, 0.05)'};
+    border-color: #D4A043;
+    background: ${props => props.$active 
+      ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.25), rgba(212, 160, 67, 0.15))' 
+      : 'rgba(212, 160, 67, 0.08)'};
+    box-shadow: 0 2px 8px rgba(212, 160, 67, 0.2);
+    transform: translateY(-1px);
   }
   
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.98) translateY(0);
   }
   
   @media (max-width: 600px) {
-    padding: 12px 8px;
+    padding: 10px 12px;
     font-size: 0.85rem;
+    border-radius: 6px;
+    border-width: ${props => props.$active ? '2px' : '1px'};
   }
 `;
 
@@ -418,10 +453,19 @@ const TrackDescriptionText = styled.p`
   text-align: center;
   color: #999;
   font-size: 1rem;
-  margin: 25px auto 10px;
+  margin: 20px auto 15px;
   max-width: 750px;
   line-height: 1.5;
-  padding: 0 20px;
+  padding: 12px 20px;
+  background: rgba(212, 160, 67, 0.05);
+  border: 1px solid rgba(212, 160, 67, 0.15);
+  border-radius: 8px;
+  
+  @media (max-width: 600px) {
+    margin: 15px auto 12px;
+    padding: 10px 15px;
+    font-size: 0.95rem;
+  }
 `;
 
 const ModalBody = styled.div`
@@ -840,13 +884,35 @@ const ModalRole = styled.div`
   font-weight: 700;
   font-size: 1.1rem;
   margin-bottom: 5px;
-  text-align: right;
+  padding: 12px 15px;
+  background: rgba(212, 160, 67, 0.08);
+  border: 1px solid rgba(212, 160, 67, 0.2);
+  border-radius: 8px;
+  text-align: center;
+  position: relative;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  
+  @media (max-width: 600px) {
+    font-size: 1.2rem;
+    padding: 14px 16px;
+    border-width: 1.5px;
+    background: rgba(212, 160, 67, 0.12);
+  }
 `;
 
 const ModalDesc = styled.div`
   color: #e0e0e0;
   font-size: 0.95rem;
-  text-align: right;
+  text-align: center;
+  line-height: 1.6;
+  padding: 0 10px;
+  
+  @media (max-width: 600px) {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
 `;
 
 // -- Track Selection --
@@ -887,13 +953,20 @@ const ExpertControlBar = styled.div`
 `;
 
 const ExpertControlText = styled.div`
-  color: #ccc;
-  font-size: 0.95rem;
+  color: #e0e0e0;
+  font-size: 1rem;
   padding-right: 5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-family: 'Assistant', sans-serif;
 
   strong {
     color: #D4A043;
-    font-weight: 600;
+    font-weight: 700;
+  }
+
+  @media (max-width: 600px) {
+    font-size: 0.95rem;
   }
 `;
 
@@ -964,10 +1037,16 @@ const TrackCard = styled.div<{ $active: boolean }>`
   }
 
   span {
-    color: ${props => props.$active ? '#D4A043' : '#aaa'};
-    font-size: 0.9rem;
-    font-weight: 600;
+    color: ${props => props.$active ? '#D4A043' : '#e0e0e0'};
+    font-size: 1rem;
+    font-weight: 700;
     text-align: center;
+    text-shadow: ${props => props.$active ? '0 0 8px rgba(212, 160, 67, 0.5)' : 'none'};
+    letter-spacing: 0.5px;
+    
+    @media (max-width: 600px) {
+      font-size: 0.95rem;
+    }
   }
 `;
 
@@ -1096,23 +1175,39 @@ const FeatureCard = styled.div<{ $selected: boolean }>`
 `;
 
 const FeatureTitle = styled.h4<{ $selected: boolean }>`
-  color: ${props => props.$selected ? '#D4A043' : '#ccc'};
-  font-size: 0.9rem;
+  color: ${props => props.$selected ? '#D4A043' : '#e0e0e0'};
+  font-size: 1rem;
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
+  letter-spacing: 0.5px;
+  text-shadow: ${props => props.$selected ? '0 0 8px rgba(212, 160, 67, 0.5)' : 'none'};
+  
+  @media (max-width: 600px) {
+    font-size: 0.95rem;
+  }
 `;
 
-const FeatureDesc = styled.p`
-  color: #e0e0e0;
-  font-size: 0.75rem;
-  line-height: 1.1;
-  margin: 5px 0 0 0;
-  font-weight: 400;
+const FeatureDesc = styled.p<{ $selected?: boolean }>`
+  color: ${props => props.$selected ? '#e0e0e0' : '#d0d0d0'};
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 8px 0 0 0;
+  font-weight: 600;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  @media (max-width: 600px) {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-top: 6px;
+  }
 `;
 
 // -- Upload Section --
@@ -1900,13 +1995,14 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
     ]
   };
 
-  const tabs = [
+  const regularTabs = [
     { id: 'actors', label: 'שחקנים ואודישנים' },
     { id: 'musicians', label: 'זמרים ומוזיקאים' },
     { id: 'creators', label: 'יוצרי תוכן וכוכבי רשת' },
     { id: 'influencers', label: 'משפיענים ומותגים' },
-    { id: 'coach', label: 'מסלול פרימיום סטודיו ומאמנים' },
   ];
+  
+  const premiumTab = { id: 'coach', label: 'מסלול פרימיום סטודיו ומאמנים' };
 
   return (
     <ModalOverlay onClick={onClose}>
@@ -1922,7 +2018,7 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
         </ModalHeader>
         
         <ModalTabs>
-          {tabs.map(tab => (
+          {regularTabs.map(tab => (
             <ModalTab 
               key={tab.id} 
               $active={activeTab === tab.id}
@@ -1939,6 +2035,30 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
             </ModalTab>
           ))}
         </ModalTabs>
+        
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          marginTop: '15px',
+          marginBottom: '15px'
+        }}>
+          <ModalTab 
+            $active={activeTab === premiumTab.id}
+            onClick={() => {
+              setActiveTab(premiumTab.id);
+              const modalBody = document.querySelector('[data-modal-body]');
+              if (modalBody) {
+                modalBody.scrollTop = 0;
+              }
+            }}
+            style={{
+              maxWidth: '400px',
+              width: '100%'
+            }}
+          >
+            {premiumTab.label}
+          </ModalTab>
+        </div>
 
         <TrackDescriptionText>
            {TRACK_DESCRIPTIONS[activeTab]}
@@ -2823,8 +2943,12 @@ const App = () => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    if (selectedFile.size > MAX_FILE_BYTES) {
-      alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 20MB.");
+    const maxFileBytes = getMaxFileBytes(activeTrack);
+    const maxVideoSeconds = getMaxVideoSeconds(activeTrack);
+    const limitText = getUploadLimitText(activeTrack);
+
+    if (selectedFile.size > maxFileBytes) {
+      alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
       resetInput();
       return;
     }
@@ -2845,8 +2969,8 @@ const App = () => {
       videoEl.src = objectUrl;
 
       videoEl.onloadedmetadata = () => {
-        if (videoEl.duration > MAX_VIDEO_SECONDS) {
-          alert("הסרטון חורג מהמגבלה: עד 5 דקות או 20MB.");
+        if (videoEl.duration > maxVideoSeconds) {
+          alert(`הסרטון חורג מהמגבלה: ${limitText}.`);
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;
@@ -3382,6 +3506,66 @@ const App = () => {
         color: #555;
         font-weight: 700;
       }
+      /* Committee Tips styling using data attribute */
+      [data-pdf="committee-tips"] {
+        background: #f9f9f9 !important;
+        padding: 20px !important;
+        border-radius: 8px !important;
+        text-align: right !important;
+        max-width: 600px !important;
+        width: 100% !important;
+        margin: 20px auto 30px !important;
+        border: 1px dashed #ddd !important;
+      }
+      [data-pdf="committee-tips"] h5 {
+        color: #b8862e !important;
+        margin: 0 0 12px 0 !important;
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+        text-align: right !important;
+      }
+      [data-pdf="committee-tips"] ul {
+        padding-right: 24px !important;
+        margin: 0 !important;
+      }
+      [data-pdf="committee-tips"] li {
+        margin-bottom: 10px !important;
+        color: #2b2b2b !important;
+        line-height: 1.6 !important;
+        list-style-type: disc !important;
+      }
+      /* Final Score styling using data attribute */
+      [data-pdf="final-score"] {
+        display: inline-flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        margin: 20px auto !important;
+        width: 100% !important;
+        text-align: center !important;
+        padding: 10px 0 !important;
+      }
+      [data-pdf="final-score"] .number {
+        font-size: 3.5rem !important;
+        font-weight: 800 !important;
+        line-height: 1 !important;
+        color: #1a1a1a !important;
+        display: block !important;
+        margin-bottom: 8px;
+      }
+      [data-pdf="final-score"] .label {
+        color: #b8862e !important;
+        font-size: 0.95rem !important;
+        letter-spacing: 1.5px !important;
+        text-transform: uppercase !important;
+        font-weight: 700 !important;
+        display: block !important;
+      }
+      /* Committee Text styling - paragraphs inside CompactResultBox */
+      [class*="CompactResultBox"] p {
+        color: #2b2b2b !important;
+        line-height: 1.7 !important;
+        font-size: 1rem !important;
+      }
       /* אל תציג כפתורים וקישורים */
       a, button { display: none !important; }
       /* רשימות */
@@ -3573,8 +3757,10 @@ const App = () => {
       }
       
       if (file) {
-        if (file.size > MAX_FILE_BYTES) {
-           alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 20MB.");
+        const maxFileBytes = getMaxFileBytes(activeTrack);
+        const limitText = getUploadLimitText(activeTrack);
+        if (file.size > maxFileBytes) {
+           alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
            setLoading(false);
            return;
         }
@@ -3939,7 +4125,7 @@ const App = () => {
                 onClick={() => toggleExpert(expert.title)}
               >
                 <FeatureTitle $selected={isSelected}>{expert.title}</FeatureTitle>
-                <FeatureDesc>{expert.desc}</FeatureDesc>
+                <FeatureDesc $selected={isSelected}>{expert.desc}</FeatureDesc>
               </FeatureCard>
             );
           })}
@@ -3956,6 +4142,9 @@ const App = () => {
                   controls
                   muted
                   playsInline
+                  autoPlay
+                  loop
+                  preload="metadata"
                   webkit-playsinline="true"
                   x5-playsinline="true"
                 />
@@ -3969,7 +4158,7 @@ const App = () => {
               <UploadTitle>
                 {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
               </UploadTitle>
-              <UploadSubtitle>עד 5 דקות או 20MB</UploadSubtitle>
+              <UploadSubtitle>{getUploadLimitText(activeTrack)}</UploadSubtitle>
               
               <UploadButton>
                 {isImprovementMode ? 'בחר קובץ לשיפור' : 'העלה סרטון עכשיו'}
@@ -4067,7 +4256,7 @@ const App = () => {
                   </CompactResultBox>
                   
                   {result.committee.finalTips && result.committee.finalTips.length > 0 && (
-                    <CommitteeTips>
+                    <CommitteeTips data-pdf="committee-tips">
                       <h5>טיפים מנצחים לעתיד:</h5>
                       <ul>
                         {result.committee.finalTips.map((tip, i) => (
@@ -4077,7 +4266,7 @@ const App = () => {
                     </CommitteeTips>
                   )}
                   
-                  <FinalScore>
+                  <FinalScore data-pdf="final-score">
                     <span className="number">{averageScore}</span>
                     <span className="label">ציון ויראליות משוקלל</span>
                   </FinalScore>
