@@ -4170,17 +4170,22 @@ const App = () => {
           isActive: subData.status === 'active',
         });
       } else {
-        // Default free tier
+        // If no active subscription, use profile subscription_tier or default to free
+        const profileTier = userProfile?.subscription_tier as SubscriptionTier | undefined;
+        const defaultTier = profileTier && ['free', 'creator', 'pro', 'coach'].includes(profileTier) 
+          ? profileTier 
+          : 'free';
+        
         setSubscription({
-          tier: 'free',
-          billingPeriod: 'monthly',
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          tier: defaultTier,
+          billingPeriod: (userProfile?.subscription_period as 'monthly' | 'yearly') || 'monthly',
+          startDate: userProfile?.subscription_start_date ? new Date(userProfile.subscription_start_date) : new Date(),
+          endDate: userProfile?.subscription_end_date ? new Date(userProfile.subscription_end_date) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
           usage: {
             analysesUsed: 0,
-            lastResetDate: new Date(),
+            lastResetDate: userProfile?.subscription_start_date ? new Date(userProfile.subscription_start_date) : new Date(),
           },
-          isActive: true,
+          isActive: userProfile?.subscription_status === 'active' || false,
         });
       }
 
