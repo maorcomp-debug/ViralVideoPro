@@ -128,4 +128,3 @@ VITE_GEMINI_API_KEY=your-gemini-key
 - כל קבצי ה-Supabase (migrations, storage, webhooks) **חייבים** להיות ב-GitHub
 - הם מאפשרים לשחזר את המבנה המלא של המסד נתונים
 - Edge Functions גם צריכים להיות - הם חלק מהקוד
-
