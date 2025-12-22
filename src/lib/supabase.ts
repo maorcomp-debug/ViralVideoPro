@@ -1,13 +1,50 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials not found. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file');
+// Debug logging (only in development)
+if (import.meta.env.DEV) {
+  console.log('🔍 Loading Supabase configuration...');
+  console.log('VITE_SUPABASE_URL:', supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : '❌ MISSING');
+  console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 30)}...` : '❌ MISSING');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Supabase credentials not found!');
+  console.error('VITE_SUPABASE_URL:', supabaseUrl || 'MISSING');
+  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'MISSING');
+  console.error('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env.local file');
+  console.error('Make sure to restart the dev server after creating/updating .env.local');
+}
+
+// Validate URL format
+if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
+  console.error('❌ Invalid VITE_SUPABASE_URL format. Should start with https://');
+}
+
+// Validate key format (JWT tokens start with eyJ)
+if (supabaseAnonKey && !supabaseAnonKey.startsWith('eyJ')) {
+  console.warn('⚠️ VITE_SUPABASE_ANON_KEY format looks unusual (should start with eyJ...)');
+}
+
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce', // Use PKCE flow for better security and browser compatibility
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'viraly-video-director-pro'
+      }
+    }
+  }
+);
 
 // Database Types
 export interface Database {
