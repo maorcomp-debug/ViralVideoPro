@@ -1478,9 +1478,18 @@ const FullSizePreview = styled.div`
 
   video, img {
     width: 100%;
-    height: 100%;
+    height: auto;
+    max-height: 100%;
     object-fit: contain;
-    max-height: 500px;
+    display: block;
+  }
+  
+  @media (max-width: 600px) {
+    min-height: 250px;
+  }
+  
+  @media (max-width: 480px) {
+    min-height: 200px;
   }
 `;
 
@@ -5770,9 +5779,10 @@ const App = () => {
       return;
     }
     
-    // Start playing video when analysis begins
-    if (videoRef.current) {
+    // Start playing video when analysis begins (muted and loop)
+    if (videoRef.current && file?.type.startsWith('video')) {
         videoRef.current.muted = true;
+        videoRef.current.loop = true;
         videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
     }
 
@@ -6447,14 +6457,25 @@ const App = () => {
                   controls
                   muted
                   playsInline
-                  autoPlay
-                  loop
                   preload="metadata"
-                  webkit-playsinline="true"
-                  x5-playsinline="true"
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: '100%',
+                    objectFit: 'contain'
+                  }}
                 />
               ) : (
-                <img src={previewUrl} alt="preview" />
+                <img 
+                  src={previewUrl} 
+                  alt="preview" 
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
               )}
             </FullSizePreview>
           ) : (
