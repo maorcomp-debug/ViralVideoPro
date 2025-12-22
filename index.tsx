@@ -2,6 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import styled, { createGlobalStyle, keyframes, css } from 'styled-components';
 import { GoogleGenAI } from "@google/genai";
+import { supabase } from './src/lib/supabase';
+import {
+  getCurrentUserProfile,
+  getCurrentSubscription,
+  getUsageForCurrentPeriod,
+  uploadVideo,
+  saveVideoToDatabase,
+  saveAnalysis,
+  getTrainees,
+  saveTrainee,
+  getAnalyses
+} from './src/lib/supabase-helpers';
+import type { User } from '@supabase/supabase-js';
 
 // --- Types ---
 type TrackId = 'actors' | 'musicians' | 'creators' | 'coach' | 'influencers';
@@ -73,18 +86,177 @@ interface CoachReport {
   };
 }
 
+// --- Subscription & Pricing Types ---
+type SubscriptionTier = 'free' | 'creator' | 'pro' | 'coach';
+type BillingPeriod = 'monthly' | 'yearly';
+
+interface SubscriptionLimits {
+  maxAnalysesPerPeriod: number; // -1 for unlimited
+  maxVideoSeconds: number;
+  maxFileBytes: number;
+  features: {
+    saveHistory: boolean;
+    improvementTracking: boolean;
+    comparison: boolean;
+    advancedAnalysis: boolean;
+    traineeManagement: boolean;
+    pdfExport: boolean;
+    coachDashboard: boolean;
+    customExperts: boolean;
+  };
+}
+
+interface SubscriptionPlan {
+  id: SubscriptionTier;
+  name: string;
+  description: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  limits: SubscriptionLimits;
+  popular?: boolean;
+  badge?: string;
+}
+
+interface UserSubscription {
+  tier: SubscriptionTier;
+  billingPeriod: BillingPeriod;
+  startDate: Date;
+  endDate: Date;
+  usage: {
+    analysesUsed: number;
+    lastResetDate: Date;
+  };
+  isActive: boolean;
+}
+
+// --- Subscription Plans Configuration ---
+const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
+  free: {
+    id: 'free',
+    name: 'ניסיון',
+    description: 'טעימה חינמית להכרת הפלטפורמה',
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    limits: {
+      maxAnalysesPerPeriod: 2, // Total, not per period
+      maxVideoSeconds: 60, // 1 minute
+      maxFileBytes: 10 * 1024 * 1024, // 10MB
+      features: {
+        saveHistory: false,
+        improvementTracking: false,
+        comparison: false,
+        advancedAnalysis: false,
+        traineeManagement: false,
+        pdfExport: false,
+        coachDashboard: false,
+        customExperts: false,
+      },
+    },
+    badge: 'חינם',
+  },
+  creator: {
+    id: 'creator',
+    name: 'יוצרים',
+    description: 'מתאים ליוצרי תוכן מתחילים',
+    monthlyPrice: 49,
+    yearlyPrice: 490, // ~2 months free
+    limits: {
+      maxAnalysesPerPeriod: 10,
+      maxVideoSeconds: 3 * 60, // 3 minutes
+      maxFileBytes: 15 * 1024 * 1024, // 15MB
+      features: {
+        saveHistory: true,
+        improvementTracking: true,
+        comparison: false,
+        advancedAnalysis: false,
+        traineeManagement: false,
+        pdfExport: true,
+        coachDashboard: false,
+        customExperts: false,
+      },
+    },
+    popular: true,
+  },
+  pro: {
+    id: 'pro',
+    name: 'יוצרים באקסטרים',
+    description: 'למקצוענים שמחפשים את המקסימום',
+    monthlyPrice: 99,
+    yearlyPrice: 990, // ~2 months free
+    limits: {
+      maxAnalysesPerPeriod: 30,
+      maxVideoSeconds: 5 * 60, // 5 minutes
+      maxFileBytes: 40 * 1024 * 1024, // 40MB
+      features: {
+        saveHistory: true,
+        improvementTracking: true,
+        comparison: true,
+        advancedAnalysis: true,
+        traineeManagement: false,
+        pdfExport: true,
+        coachDashboard: false,
+        customExperts: true,
+      },
+    },
+  },
+  coach: {
+    id: 'coach',
+    name: 'מאמנים, סוכנויות ובתי ספר למשחק',
+    description: 'פלטפורמה מקצועית למאמנים וסטודיואים',
+    monthlyPrice: 199,
+    yearlyPrice: 1990, // ~2 months free
+    limits: {
+      maxAnalysesPerPeriod: -1, // Unlimited
+      maxVideoSeconds: 5 * 60, // 5 minutes
+      maxFileBytes: 40 * 1024 * 1024, // 40MB
+      features: {
+        saveHistory: true,
+        improvementTracking: true,
+        comparison: true,
+        advancedAnalysis: true,
+        traineeManagement: true,
+        pdfExport: true,
+        coachDashboard: true,
+        customExperts: true,
+      },
+    },
+    badge: 'PRO',
+  },
+};
+
 // --- Constants ---
-// Helper functions for dynamic limits based on track
-const getMaxVideoSeconds = (track: TrackId): number => {
-  return track === 'coach' ? 5 * 60 : 60; // 5 minutes for coach, 1 minute for others
+// Helper functions for dynamic limits based on track and subscription
+const getMaxVideoSeconds = (track: TrackId, subscription?: UserSubscription): number => {
+  if (subscription) {
+    return SUBSCRIPTION_PLANS[subscription.tier].limits.maxVideoSeconds;
+  }
+  return track === 'coach' ? 5 * 60 : 60; // Default: 5 minutes for coach, 1 minute for others
 };
 
-const getMaxFileBytes = (track: TrackId): number => {
-  return track === 'coach' ? 40 * 1024 * 1024 : 10 * 1024 * 1024; // 40MB for coach, 10MB for others
+const getMaxFileBytes = (track: TrackId, subscription?: UserSubscription): number => {
+  if (subscription) {
+    return SUBSCRIPTION_PLANS[subscription.tier].limits.maxFileBytes;
+  }
+  return track === 'coach' ? 40 * 1024 * 1024 : 10 * 1024 * 1024; // Default: 40MB for coach, 10MB for others
 };
 
-const getUploadLimitText = (track: TrackId): string => {
-  return track === 'coach' ? 'עד 5 דקות או 40MB' : 'עד דקה או 10MB';
+const getUploadLimitText = (track: TrackId, subscription?: UserSubscription): string => {
+  if (subscription) {
+    const plan = SUBSCRIPTION_PLANS[subscription.tier];
+    const seconds = plan.limits.maxVideoSeconds;
+    const mb = plan.limits.maxFileBytes / (1024 * 1024);
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      return `עד ${minutes} דקות או ${mb}MB`;
+    }
+    return `עד ${seconds} שניות או ${mb}MB`;
+  }
+  // Default limits (for free tier)
+  if (track === 'coach') {
+    return 'עד 5 דקות או 40MB';
+  }
+  // For free tier: 40 seconds or 1 minute
+  return 'עד 40 שניות או דקה';
 };
 
 const TRACK_DESCRIPTIONS: Record<string, string> = {
@@ -2386,6 +2558,461 @@ const ComparisonModal = ({
   );
 };
 
+// --- Subscription Modal ---
+const SubscriptionModal = ({
+  isOpen,
+  onClose,
+  currentSubscription,
+  onSelectPlan,
+  activeTrack,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentSubscription: UserSubscription | null;
+  onSelectPlan: (tier: SubscriptionTier, period: BillingPeriod) => void;
+  activeTrack?: TrackId;
+}) => {
+  const [selectedPeriods, setSelectedPeriods] = useState<Record<SubscriptionTier, BillingPeriod>>({
+    free: 'monthly',
+    creator: 'monthly',
+    pro: 'monthly',
+    coach: 'monthly',
+  });
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactFormData, setContactFormData] = useState({ name: '', email: '', message: '' });
+
+  if (!isOpen) return null;
+
+  const handlePeriodChange = (tier: SubscriptionTier, period: BillingPeriod) => {
+    setSelectedPeriods(prev => ({ ...prev, [tier]: period }));
+  };
+
+  const handleSelectPlan = (tier: SubscriptionTier) => {
+    onSelectPlan(tier, selectedPeriods[tier]);
+  };
+
+  const handleContactSubmit = () => {
+    if (!contactFormData.name || !contactFormData.email || !contactFormData.message) {
+      alert('נא למלא את כל השדות');
+      return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(contactFormData.email)) {
+      alert('נא להזין כתובת אימייל תקינה');
+      return;
+    }
+    
+    try {
+      const subject = encodeURIComponent('פנייה מ-Viraly Pro');
+      const body = encodeURIComponent(`שם: ${contactFormData.name}\nאימייל: ${contactFormData.email}\n\nהודעה:\n${contactFormData.message}`);
+      const mailtoLink = `mailto:viralypro@gmail.com?subject=${subject}&body=${body}`;
+      
+      // Try to open email client
+      const link = document.createElement('a');
+      link.href = mailtoLink;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Fallback: also try window.location
+      setTimeout(() => {
+        window.location.href = mailtoLink;
+      }, 100);
+      
+      alert('תוכנת המייל שלך נפתחה. אנא שלח את ההודעה מ-viralypro@gmail.com');
+      setShowContactForm(false);
+      setContactFormData({ name: '', email: '', message: '' });
+    } catch (error) {
+      console.error('Error opening email client:', error);
+      alert('אירעה שגיאה בפתיחת תוכנת המייל. נא לשלוח מייל ידנית ל-viralypro@gmail.com');
+    }
+  };
+
+  const faqItems = [
+    {
+      question: 'האם אני יכול לבטל את המנוי בכל עת?',
+      answer: 'כן, אתה יכול לבטל את המנוי בכל עת. המנוי יישאר פעיל עד סוף תקופת החיוב הנוכחית.',
+    },
+    {
+      question: 'מה קורה אם אני עובר את מכסת הניתוחים?',
+      answer: 'כשתגיע למכסה, תוכל לשדרג לחבילה גבוהה יותר או להמתין לחידוש החודשי. אנחנו לא מחייבים אוטומטית.',
+    },
+    {
+      question: 'האם יש התחייבות לתקופה מסוימת?',
+      answer: 'לא, כל החבילות הן חודשיות ללא התחייבות. אתה משלם רק על מה שאתה משתמש.',
+    },
+    {
+      question: 'איך עובד ניתוח הווידאו?',
+      answer: 'פשוט מעלים את הסרטון או התמונה, מוסיפים הקשר אם רוצים, וה-AI שלנו מנתח את התוכן עם 8 מומחים וירטואליים: במאי, מלהק, תסריטאי, מאמן משחק, צלם, עורך סאונד, סטייליסט ומפיק.',
+    },
+    {
+      question: 'האם אפשר לקבל החזר כספי?',
+      answer: 'כן, יש לנו מדיניות החזר של 7 ימים. אם אתה לא מרוצה, פנה אלינו ונחזיר לך את הכסף.',
+    },
+  ];
+
+  return (
+    <SubscriptionModalOverlay $isOpen={isOpen} onClick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}>
+      <SubscriptionModalContent>
+        <CloseModalButton onClick={onClose}>×</CloseModalButton>
+        <SubscriptionModalHeader>
+          <h2 style={{ fontSize: '3rem', marginBottom: '15px' }}>בחר את החבילה שלך</h2>
+          <p style={{ fontSize: '1.2rem', color: '#D4A043' }}>
+            שדרג את יכולות יצירת התוכן שלך עם ניתוחים מקצועיים ברמה הוליוודית
+          </p>
+        </SubscriptionModalHeader>
+
+        <PricingPlansGrid>
+          {(activeTrack === 'coach' 
+            ? [SUBSCRIPTION_PLANS.coach] 
+            : Object.values(SUBSCRIPTION_PLANS)
+          ).map(plan => {
+            const isCurrentPlan = currentSubscription?.tier === plan.id;
+            const isUpgrade = !currentSubscription || 
+              (currentSubscription.tier === 'free' && plan.id !== 'free') ||
+              (currentSubscription.tier === 'creator' && plan.id === 'pro') ||
+              (currentSubscription.tier === 'creator' && plan.id === 'coach') ||
+              (currentSubscription.tier === 'pro' && plan.id === 'coach');
+            
+            const selectedPeriod = selectedPeriods[plan.id];
+            const price = selectedPeriod === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
+            const analysesLimit = plan.limits.maxAnalysesPerPeriod === -1 
+              ? 'ללא הגבלה' 
+              : plan.limits.maxAnalysesPerPeriod === 2
+              ? `${plan.limits.maxAnalysesPerPeriod} ניתוחים בסך הכל`
+              : selectedPeriod === 'yearly'
+              ? `${plan.limits.maxAnalysesPerPeriod * 12} ניתוחים בשנה`
+              : `${plan.limits.maxAnalysesPerPeriod} ניתוחים בחודש`;
+            
+            const maxSeconds = plan.limits.maxVideoSeconds;
+            const maxMB = plan.limits.maxFileBytes / (1024 * 1024);
+            const durationText = maxSeconds >= 60 
+              ? `${Math.floor(maxSeconds / 60)} דקות`
+              : `${maxSeconds} שניות`;
+
+            return (
+              <PricingPlanCard 
+                key={plan.id}
+                $popular={plan.popular}
+                $isFree={plan.id === 'free'}
+              >
+                <PlanHeader>
+                  {plan.badge && (
+                    <PlanBadge $color={plan.id === 'coach' ? '#D4A043' : undefined}>
+                      {plan.badge}
+                    </PlanBadge>
+                  )}
+                  <PlanName>{plan.name}</PlanName>
+                  <PlanDescription>{plan.description}</PlanDescription>
+                </PlanHeader>
+
+                {plan.id !== 'free' && (
+                  <BillingToggle style={{ marginBottom: '20px', width: '100%' }}>
+                    <BillingToggleButton 
+                      $active={selectedPeriods[plan.id] === 'monthly'}
+                      onClick={() => handlePeriodChange(plan.id, 'monthly')}
+                    >
+                      חודשי
+                    </BillingToggleButton>
+                    <BillingToggleButton 
+                      $active={selectedPeriods[plan.id] === 'yearly'}
+                      onClick={() => handlePeriodChange(plan.id, 'yearly')}
+                    >
+                      שנתי
+                      <span style={{ fontSize: '0.8rem', marginRight: '5px', color: '#D4A043' }}>
+                        (חיסכון 17%)
+                      </span>
+                    </BillingToggleButton>
+                  </BillingToggle>
+                )}
+
+                <PlanPrice>
+                  {plan.id === 'free' ? (
+                    <>
+                      <PriceAmount>₪0</PriceAmount>
+                      <PricePeriod>לכל החיים</PricePeriod>
+                    </>
+                  ) : (
+                    <>
+                      <PriceAmount>
+                        ₪{price}
+                        <span className="currency">{selectedPeriod === 'yearly' ? '/שנה' : '/חודש'}</span>
+                      </PriceAmount>
+                      {selectedPeriod === 'yearly' && (
+                        <PricePeriod>
+                          ₪{Math.round(price / 12)}/חודש (חיסכון 17%)
+                        </PricePeriod>
+                      )}
+                    </>
+                  )}
+                </PlanPrice>
+
+                <PlanLimits>
+                  <LimitText>
+                    <strong>{analysesLimit}</strong>
+                  </LimitText>
+                  <LimitText>
+                    עד <strong>{durationText}</strong> או <strong>{maxMB}MB</strong>
+                  </LimitText>
+                </PlanLimits>
+
+                <PlanFeatures>
+                  <PlanFeature $disabled={!plan.limits.features.saveHistory}>
+                    שמירת היסטוריה
+                  </PlanFeature>
+                  <PlanFeature $disabled={!plan.limits.features.improvementTracking}>
+                    מעקב שיפור
+                  </PlanFeature>
+                  <PlanFeature $disabled={!plan.limits.features.comparison}>
+                    השוואה בין סרטונים
+                  </PlanFeature>
+                  <PlanFeature $disabled={!plan.limits.features.advancedAnalysis}>
+                    ניתוח מתקדם
+                  </PlanFeature>
+                  <PlanFeature $disabled={!plan.limits.features.pdfExport}>
+                    יצוא PDF
+                  </PlanFeature>
+                  {plan.id === 'coach' && (
+                    <>
+                      <PlanFeature $disabled={!plan.limits.features.traineeManagement}>
+                        ניהול מתאמנים
+                      </PlanFeature>
+                      <PlanFeature $disabled={!plan.limits.features.coachDashboard}>
+                        דשבורד מאמן
+                      </PlanFeature>
+                    </>
+                  )}
+                  <PlanFeature $disabled={!plan.limits.features.customExperts}>
+                    בחירת מומחים מותאמת
+                  </PlanFeature>
+                </PlanFeatures>
+
+                <SubscribeButton
+                  $popular={plan.popular}
+                  $isFree={plan.id === 'free'}
+                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={isCurrentPlan}
+                >
+                  {isCurrentPlan 
+                    ? 'החבילה הנוכחית שלך'
+                    : plan.id === 'free'
+                    ? 'התחל חינם'
+                    : isUpgrade
+                    ? 'שדרג עכשיו'
+                    : 'בחר חבילה'}
+                </SubscribeButton>
+              </PricingPlanCard>
+            );
+          })}
+        </PricingPlansGrid>
+
+        {/* 7-Day Refund Policy */}
+        <div style={{ 
+          background: 'rgba(212, 160, 67, 0.1)', 
+          padding: '30px', 
+          borderRadius: '15px', 
+          marginTop: '40px',
+          textAlign: 'center',
+          border: '1px solid rgba(212, 160, 67, 0.3)'
+        }}>
+          <h3 style={{ color: '#D4A043', fontSize: '2rem', margin: '0 0 15px 0', fontFamily: "'Frank Ruhl Libre', serif" }}>
+            אחריות 7 ימים - החזר מלא
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <p style={{ color: '#fff', fontSize: '1.1rem', margin: 0, lineHeight: '1.6' }}>
+              לא מרוצה? אנחנו מחזירים לך את הכסף בלי שאלות
+            </p>
+            <p style={{ color: '#D4A043', fontSize: '1.3rem', margin: 0, lineHeight: '1.6', fontWeight: 700 }}>
+              אנחנו בטוחים שתאהב את השירות
+            </p>
+          </div>
+        </div>
+
+        {/* FAQ Section */}
+        <div style={{ marginTop: '50px' }}>
+          <h3 style={{ 
+            color: '#D4A043', 
+            fontSize: '2rem', 
+            margin: '0 0 30px 0', 
+            textAlign: 'center',
+            fontFamily: "'Frank Ruhl Libre', serif" 
+          }}>
+            שאלות נפוצות
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            {faqItems.map((faq, index) => (
+              <div 
+                key={index}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(212, 160, 67, 0.2)',
+                  borderRadius: '10px',
+                  padding: '20px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s',
+                }}
+                onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <span style={{ 
+                    color: '#D4A043', 
+                    fontSize: '1.2rem',
+                    transform: expandedFaq === index ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s'
+                  }}>
+                    ▼
+                  </span>
+                  <h4 style={{ 
+                    color: '#fff', 
+                    margin: 0, 
+                    fontSize: '1.1rem',
+                    flex: 1,
+                    textAlign: 'right'
+                  }}>
+                    {faq.question}
+                  </h4>
+                </div>
+                {expandedFaq === index && (
+                  <p style={{ 
+                    color: '#ccc', 
+                    margin: '15px 0 0 35px', 
+                    lineHeight: '1.6',
+                    textAlign: 'right'
+                  }}>
+                    {faq.answer}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Contact Section */}
+        <div style={{ marginTop: '50px', textAlign: 'center' }}>
+          <h3 style={{ 
+            color: '#D4A043', 
+            fontSize: '1.8rem', 
+            margin: '0 0 20px 0',
+            fontFamily: "'Frank Ruhl Libre', serif"
+          }}>
+            שאלות נוספות או צורך בביטול?
+          </h3>
+          <p style={{ color: '#ccc', marginBottom: '20px' }}>
+            פנה אלינו במייל: <a href="mailto:viralypro@gmail.com" style={{ color: '#D4A043' }}>viralypro@gmail.com</a>
+          </p>
+          {!showContactForm ? (
+            <SubscribeButton 
+              onClick={() => setShowContactForm(true)}
+              $popular={false}
+              $isFree={false}
+              style={{ maxWidth: '300px', margin: '0 auto' }}
+            >
+              שלח לנו הודעה
+            </SubscribeButton>
+          ) : (
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              padding: '25px',
+              borderRadius: '10px',
+              maxWidth: '500px',
+              margin: '0 auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '15px'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>שם מלא</label>
+                <input
+                  type="text"
+                  placeholder="שם מלא"
+                  value={contactFormData.name}
+                  onChange={(e) => setContactFormData({ ...contactFormData, name: e.target.value })}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'rtl',
+                    textAlign: 'right'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>אימייל</label>
+                <input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={contactFormData.email}
+                  onChange={(e) => setContactFormData({ ...contactFormData, email: e.target.value })}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'ltr',
+                    textAlign: 'left'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>הודעה</label>
+                <textarea
+                  placeholder="הודעה"
+                  value={contactFormData.message}
+                  onChange={(e) => setContactFormData({ ...contactFormData, message: e.target.value })}
+                  rows={5}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'rtl',
+                    textAlign: 'right',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <SubscribeButton 
+                  onClick={handleContactSubmit}
+                  $popular={false}
+                  $isFree={false}
+                  style={{ flex: 1 }}
+                >
+                  שלח
+                </SubscribeButton>
+                <SubscribeButton 
+                  onClick={() => {
+                    setShowContactForm(false);
+                    setContactFormData({ name: '', email: '', message: '' });
+                  }}
+                  $popular={false}
+                  $isFree={true}
+                  style={{ flex: 1 }}
+                >
+                  ביטול
+                </SubscribeButton>
+              </div>
+            </div>
+          )}
+        </div>
+      </SubscriptionModalContent>
+    </SubscriptionModalOverlay>
+  );
+};
+
 // --- Coach Dashboard Modal ---
 
 const CoachDashboardModal = ({ 
@@ -2414,49 +3041,110 @@ const CoachDashboardModal = ({
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', notes: '' });
   const [viewingTraineeAnalyses, setViewingTraineeAnalyses] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Sync with localStorage
-    localStorage.setItem('viraly_coach_trainees', JSON.stringify(trainees));
-  }, [trainees]);
+  // Trainees are now managed via Supabase - no local sync needed
 
-  const handleSaveTrainee = () => {
+  const handleSaveTrainee = async () => {
     if (!formData.name.trim()) {
       alert('נא להזין שם מתאמן');
       return;
     }
 
-    if (editingTrainee) {
-      // Update existing
-      setTrainees(prev => prev.map(t => 
-        t.id === editingTrainee.id 
-          ? { ...t, ...formData, email: formData.email || undefined, phone: formData.phone || undefined, notes: formData.notes || undefined }
-          : t
-      ));
-      setEditingTrainee(null);
-    } else {
-      // Add new
-      const newTrainee: Trainee = {
-        id: `trainee_${Date.now()}`,
-        name: formData.name,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        notes: formData.notes || undefined,
-        createdAt: new Date(),
-        analyses: []
-      };
-      setTrainees(prev => [...prev, newTrainee]);
-      setIsAddingTrainee(false);
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      alert('יש להיכנס למערכת תחילה');
+      return;
     }
-    
-    setFormData({ name: '', email: '', phone: '', notes: '' });
+
+    try {
+      if (editingTrainee) {
+        // Update existing
+        const { error } = await supabase
+          .from('trainees')
+          .update({
+            name: formData.name,
+            email: formData.email || null,
+            phone: formData.phone || null,
+            notes: formData.notes || null,
+          })
+          .eq('id', editingTrainee.id)
+          .eq('coach_id', currentUser.id);
+
+        if (error) throw error;
+
+        setTrainees(prev => prev.map(t => 
+          t.id === editingTrainee.id 
+            ? { ...t, ...formData, email: formData.email || undefined, phone: formData.phone || undefined, notes: formData.notes || undefined }
+            : t
+        ));
+        setEditingTrainee(null);
+      } else {
+        // Add new
+        const newTraineeData = await saveTrainee({
+          name: formData.name,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          notes: formData.notes || undefined,
+        });
+
+        const newTrainee: Trainee = {
+          id: newTraineeData.id,
+          name: newTraineeData.name,
+          email: newTraineeData.email || undefined,
+          phone: newTraineeData.phone || undefined,
+          notes: newTraineeData.notes || undefined,
+          createdAt: new Date(newTraineeData.created_at),
+          analyses: []
+        };
+        setTrainees(prev => [...prev, newTrainee]);
+        setIsAddingTrainee(false);
+      }
+      
+      setFormData({ name: '', email: '', phone: '', notes: '' });
+    } catch (error) {
+      console.error('Error saving trainee:', error);
+      alert('אירעה שגיאה בשמירת המתאמן. נסה שוב.');
+    }
   };
 
-  const handleDeleteTrainee = (id: string) => {
-    if (confirm('האם אתה בטוח שברצונך למחוק מתאמן זה?')) {
+  const handleDeleteTrainee = async (id: string) => {
+    if (!confirm('האם אתה בטוח שברצונך למחוק מתאמן זה?')) return;
+
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      alert('יש להיכנס למערכת תחילה');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('trainees')
+        .delete()
+        .eq('id', id)
+        .eq('coach_id', currentUser.id);
+
+      if (error) throw error;
+
       setTrainees(prev => prev.filter(t => t.id !== id));
-      // Also remove saved analyses for this trainee
-      const updatedAnalyses = savedAnalyses.filter(a => a.traineeId !== id);
-      localStorage.setItem('viraly_coach_analyses', JSON.stringify(updatedAnalyses));
+      
+      // Reload analyses (they will be filtered automatically by trainee_id)
+      const updatedAnalyses = await getAnalyses();
+      setSavedAnalyses(updatedAnalyses.map(a => ({
+        id: a.id,
+        videoName: '',
+        videoUrl: '',
+        traineeId: a.trainee_id || undefined,
+        traineeName: undefined,
+        analysisDate: new Date(a.created_at),
+        result: a.result,
+        averageScore: a.average_score,
+        track: a.track as TrackId,
+        metadata: {
+          prompt: a.prompt || undefined,
+        },
+      })));
+    } catch (error) {
+      console.error('Error deleting trainee:', error);
+      alert('אירעה שגיאה במחיקת המתאמן. נסה שוב.');
     }
   };
 
@@ -2844,7 +3532,467 @@ const EXPERTS_BY_TRACK: Record<string, { title: string; desc: string }[]> = {
   ],
 };
 
+// --- Subscription Modal Styled Components ---
+const SubscriptionModalOverlay = styled.div<{ $isOpen: boolean }>`
+  display: ${props => props.$isOpen ? 'flex' : 'none'};
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+`;
+
+const SubscriptionModalContent = styled.div`
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+  border: 2px solid #D4A043;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 1200px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(212, 160, 67, 0.3);
+  animation: ${fadeIn} 0.3s ease;
+
+  @media (max-width: 768px) {
+    padding: 20px;
+    border-radius: 15px;
+  }
+`;
+
+const SubscriptionModalHeader = styled.div`
+  text-align: center;
+  margin-bottom: 40px;
+  
+  h2 {
+    color: #D4A043;
+    font-size: 2.5rem;
+    margin: 0 0 10px 0;
+    font-family: 'Frank Ruhl Libre', serif;
+  }
+  
+  p {
+    color: #ccc;
+    font-size: 1.1rem;
+    margin: 0;
+  }
+`;
+
+const PricingPlansGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+  margin-bottom: 30px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+`;
+
+const PricingPlanCard = styled.div<{ $popular?: boolean; $isFree?: boolean }>`
+  background: ${props => props.$popular 
+    ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.15) 0%, rgba(212, 160, 67, 0.05) 100%)'
+    : 'rgba(20, 20, 20, 0.8)'};
+  border: 2px solid ${props => props.$popular ? '#D4A043' : props.$isFree ? '#666' : '#333'};
+  border-radius: 15px;
+  padding: 30px 25px;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-5px);
+    border-color: ${props => props.$popular ? '#F5C842' : '#D4A043'};
+    box-shadow: 0 10px 30px rgba(212, 160, 67, 0.2);
+  }
+
+  ${props => props.$popular && `
+    &::before {
+      content: '${props.$popular ? 'הפופולרי' : ''}';
+      position: absolute;
+      top: -12px;
+      right: 20px;
+      background: #D4A043;
+      color: #000;
+      padding: 4px 15px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+  `}
+`;
+
+const PlanHeader = styled.div`
+  text-align: center;
+  margin-bottom: 25px;
+`;
+
+const PlanName = styled.h3`
+  color: #D4A043;
+  font-size: 1.8rem;
+  margin: 0 0 8px 0;
+  font-family: 'Frank Ruhl Libre', serif;
+`;
+
+const PlanBadge = styled.span<{ $color?: string }>`
+  display: inline-block;
+  background: ${props => props.$color || '#D4A043'};
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+`;
+
+const PlanDescription = styled.p`
+  color: #aaa;
+  font-size: 0.95rem;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+`;
+
+const PlanPrice = styled.div`
+  text-align: center;
+  margin-bottom: 25px;
+`;
+
+const PriceAmount = styled.div`
+  color: #fff;
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 5px;
+  
+  .currency {
+    font-size: 1.2rem;
+    margin-left: 5px;
+  }
+`;
+
+const PricePeriod = styled.div`
+  color: #888;
+  font-size: 0.9rem;
+`;
+
+const BillingToggle = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 30px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50px;
+  width: fit-content;
+  margin: 0 auto 30px;
+`;
+
+const BillingToggleButton = styled.button<{ $active: boolean }>`
+  background: ${props => props.$active ? '#D4A043' : 'transparent'};
+  color: ${props => props.$active ? '#000' : '#888'};
+  border: none;
+  padding: 8px 20px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  
+  &:hover {
+    background: ${props => props.$active ? '#F5C842' : 'rgba(212, 160, 67, 0.1)'};
+    color: ${props => props.$active ? '#000' : '#D4A043'};
+  }
+`;
+
+const PlanFeatures = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0 0 25px 0;
+`;
+
+const PlanFeature = styled.li<{ $disabled?: boolean }>`
+  color: ${props => props.$disabled ? '#555' : '#ccc'};
+  font-size: 0.95rem;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  
+  &::before {
+    content: '${props => props.$disabled ? '✗' : '✓'}';
+    color: ${props => props.$disabled ? '#666' : '#D4A043'};
+    font-weight: 700;
+    font-size: 1.2rem;
+  }
+`;
+
+const PlanLimits = styled.div`
+  background: rgba(255, 255, 255, 0.03);
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+`;
+
+const LimitText = styled.div`
+  color: #aaa;
+  font-size: 0.85rem;
+  margin: 5px 0;
+  
+  strong {
+    color: #D4A043;
+  }
+`;
+
+const SubscribeButton = styled.button<{ $popular?: boolean; $isFree?: boolean }>`
+  width: 100%;
+  background: ${props => props.$isFree 
+    ? 'rgba(255, 255, 255, 0.1)'
+    : props.$popular
+    ? 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)'
+    : '#D4A043'};
+  color: ${props => props.$isFree ? '#aaa' : '#000'};
+  border: none;
+  padding: 15px 25px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(212, 160, 67, 0.4);
+    background: ${props => props.$isFree 
+      ? 'rgba(255, 255, 255, 0.15)'
+      : 'linear-gradient(135deg, #F5C842 0%, #D4A043 100%)'};
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const CloseModalButton = styled.button`
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid #444;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.2);
+    border-color: #D4A043;
+  }
+`;
+
+// --- Auth Modal Component ---
+const AuthModal = ({ 
+  isOpen, 
+  onClose,
+  onAuthSuccess 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  onAuthSuccess: () => void;
+}) => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+
+        if (signUpError) throw signUpError;
+        
+        if (data.user) {
+          alert('נרשמת בהצלחה! נא לאשר את האימייל שלך.');
+          onAuthSuccess();
+          onClose();
+        }
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) throw signInError;
+        
+        onAuthSuccess();
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.message || 'אירעה שגיאה. נסה שוב.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <SubscriptionModalOverlay $isOpen={isOpen} onClick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}>
+      <SubscriptionModalContent style={{ maxWidth: '500px' }}>
+        <CloseModalButton onClick={onClose}>×</CloseModalButton>
+        <SubscriptionModalHeader>
+          <h2>{isSignUp ? 'הרשמה' : 'כניסה'}</h2>
+          <p>{isSignUp ? 'צור חשבון חדש' : 'היכנס לחשבון שלך'}</p>
+        </SubscriptionModalHeader>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {isSignUp && (
+            <div>
+              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                שם מלא
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(212, 160, 67, 0.3)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  direction: 'rtl',
+                }}
+              />
+            </div>
+          )}
+
+          <div>
+            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+              אימייל
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: '#fff',
+                fontSize: '1rem',
+                direction: 'ltr',
+                textAlign: 'left',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+              סיסמה
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: '#fff',
+                fontSize: '1rem',
+                direction: 'ltr',
+              }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ color: '#ff6b6b', textAlign: 'right', fontSize: '0.9rem' }}>
+              {error}
+            </div>
+          )}
+
+          <SubscribeButton
+            type="submit"
+            disabled={loading}
+            $popular={false}
+            $isFree={false}
+          >
+            {loading ? 'מעבד...' : (isSignUp ? 'הרשמה' : 'כניסה')}
+          </SubscribeButton>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setError(null);
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#D4A043',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              textDecoration: 'underline',
+            }}
+          >
+            {isSignUp ? 'יש לך כבר חשבון? התחבר' : 'אין לך חשבון? הירשם'}
+          </button>
+        </form>
+      </SubscriptionModalContent>
+    </SubscriptionModalOverlay>
+  );
+};
+
 const App = () => {
+  // Authentication State
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
   const [activeTrack, setActiveTrack] = useState<TrackId>('actors');
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -2854,7 +4002,14 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState('actors');
-  const [hasPremiumAccess] = useState(true); // Placeholder for future premium gating logic
+  
+  // Subscription State (from Supabase)
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [usage, setUsage] = useState<{ analysesUsed: number; periodStart: Date; periodEnd: Date } | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  
+  // Calculate premium access based on subscription
+  const hasPremiumAccess = subscription ? subscription.tier !== 'free' : false;
   
   // Results
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -2866,48 +4021,310 @@ const App = () => {
   const [coachMode, setCoachMode] = useState<'coach' | 'trainee' | null>(null);
   const [coachTrainingTrack, setCoachTrainingTrack] = useState<TrackId>('actors'); // תחום האימון שנבחר במסלול Coach
   const [analysisDepth, setAnalysisDepth] = useState<'standard' | 'deep'>('standard'); // סוג הניתוח: רגיל או מעמיק
-  const [trainees, setTrainees] = useState<Trainee[]>(() => {
-    try {
-      const saved = localStorage.getItem('viraly_coach_trainees');
-      return saved ? JSON.parse(saved).map((t: any) => ({
-        ...t,
-        createdAt: new Date(t.createdAt),
-        analyses: t.analyses || []
-      })) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>(() => {
-    try {
-      const saved = localStorage.getItem('viraly_coach_analyses');
-      return saved ? JSON.parse(saved).map((a: any) => ({
-        ...a,
-        analysisDate: new Date(a.analysisDate)
-      })) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Coach Edition State (from Supabase)
+  const [trainees, setTrainees] = useState<Trainee[]>([]);
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
   const [selectedTrainee, setSelectedTrainee] = useState<string | null>(null);
   const [showCoachDashboard, setShowCoachDashboard] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [showCoachGuide, setShowCoachGuide] = useState(false);
 
-  // Sync savedAnalyses to localStorage
-  useEffect(() => {
-    localStorage.setItem('viraly_coach_analyses', JSON.stringify(savedAnalyses));
-  }, [savedAnalyses]);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Initialize Supabase Auth
+  useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoadingAuth(false);
+      
+      if (session?.user) {
+        loadUserData(session.user);
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        loadUserData(session.user);
+      } else {
+        // Reset state on logout
+        setProfile(null);
+        setSubscription(null);
+        setUsage(null);
+        setTrainees([]);
+        setSavedAnalyses([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load user data from Supabase
+  const loadUserData = async (currentUser: User) => {
+    try {
+      // Load profile
+      const userProfile = await getCurrentUserProfile();
+      setProfile(userProfile);
+
+      // Load subscription
+      const subData = await getCurrentSubscription();
+      if (subData && subData.plans) {
+        const plan = subData.plans as any;
+        setSubscription({
+          tier: plan.tier,
+          billingPeriod: subData.billing_period as 'monthly' | 'yearly',
+          startDate: new Date(subData.start_date),
+          endDate: new Date(subData.end_date),
+          usage: {
+            analysesUsed: 0, // Will be loaded separately
+            lastResetDate: new Date(subData.start_date),
+          },
+          isActive: subData.status === 'active',
+        });
+      } else {
+        // Default free tier
+        setSubscription({
+          tier: 'free',
+          billingPeriod: 'monthly',
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          usage: {
+            analysesUsed: 0,
+            lastResetDate: new Date(),
+          },
+          isActive: true,
+        });
+      }
+
+      // Load usage
+      const usageData = await getUsageForCurrentPeriod();
+      if (usageData) {
+        setUsage(usageData);
+        if (subscription) {
+          setSubscription(prev => prev ? {
+            ...prev,
+            usage: {
+              analysesUsed: usageData.analysesUsed,
+              lastResetDate: usageData.periodStart,
+            },
+          } : null);
+        }
+      }
+
+      // Load trainees if coach
+      if (userProfile?.subscription_tier === 'coach') {
+        const traineesData = await getTrainees();
+        setTrainees(traineesData.map(t => ({
+          id: t.id,
+          name: t.name,
+          email: t.email || undefined,
+          phone: t.phone || undefined,
+          notes: t.notes || undefined,
+          createdAt: new Date(t.created_at),
+          analyses: [], // Will be loaded separately
+        })));
+      }
+
+      // Load analyses
+      const analysesData = await getAnalyses();
+      setSavedAnalyses(analysesData.map(a => ({
+        id: a.id,
+        videoName: '', // Will be loaded from video if exists
+        videoUrl: '',
+        traineeId: a.trainee_id || undefined,
+        traineeName: undefined, // Will be resolved from trainees
+        analysisDate: new Date(a.created_at),
+        result: a.result,
+        averageScore: a.average_score,
+        track: a.track as TrackId,
+        metadata: {
+          prompt: a.prompt || undefined,
+        },
+      })));
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
 
   useEffect(() => {
     const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
     const defaults = EXPERTS_BY_TRACK[trackToUse].slice(0, 3).map(e => e.title);
     setSelectedExperts(defaults);
   }, [activeTrack, coachTrainingTrack]);
+
+  // Subscription is now managed via Supabase - no local sync needed
+
+  // Reset usage counters monthly/yearly
+  useEffect(() => {
+    if (!subscription) return;
+    
+    const now = new Date();
+    const lastReset = new Date(subscription.usage.lastResetDate);
+    const periodDays = subscription.billingPeriod === 'monthly' ? 30 : 365;
+    
+    if (now.getTime() - lastReset.getTime() > periodDays * 24 * 60 * 60 * 1000) {
+      setSubscription(prev => prev ? {
+        ...prev,
+        usage: {
+          analysesUsed: 0,
+          lastResetDate: now,
+        },
+      } : null);
+    }
+  }, [subscription]);
+
+  // Subscription Management Functions
+  const handleSelectPlan = async (tier: SubscriptionTier, period: BillingPeriod) => {
+    if (!user) {
+      alert('יש להיכנס למערכת תחילה');
+      return;
+    }
+
+    try {
+      // Get plan from database
+      const { data: planData, error: planError } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('tier', tier)
+        .single();
+
+      if (planError || !planData) {
+        throw new Error('Plan not found');
+      }
+
+      const now = new Date();
+      const endDate = new Date(now);
+      
+      if (tier === 'free') {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      } else if (period === 'monthly') {
+        endDate.setMonth(endDate.getMonth() + 1);
+      } else {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      }
+
+      // Save subscription to Supabase
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .upsert({
+          user_id: user.id,
+          plan_id: planData.id,
+          status: 'active',
+          billing_period: period,
+          start_date: now.toISOString(),
+          end_date: endDate.toISOString(),
+        }, {
+          onConflict: 'user_id',
+        });
+
+      if (subError) throw subError;
+
+      // Update profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          subscription_tier: tier,
+          subscription_period: period,
+          subscription_start_date: now.toISOString(),
+          subscription_end_date: endDate.toISOString(),
+          subscription_status: 'active',
+        })
+        .eq('user_id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Update local state
+      const newSubscription: UserSubscription = {
+        tier,
+        billingPeriod: period,
+        startDate: now,
+        endDate,
+        usage: {
+          analysesUsed: subscription?.usage.analysesUsed || 0,
+          lastResetDate: now,
+        },
+        isActive: true,
+      };
+
+      setSubscription(newSubscription);
+      setShowSubscriptionModal(false);
+      
+      // TODO: In production, integrate with payment provider (Stripe, etc.)
+      alert(`החבילה ${SUBSCRIPTION_PLANS[tier].name} הופעלה בהצלחה!`);
+      
+      // Reload user data
+      if (user) {
+        await loadUserData(user);
+      }
+    } catch (error) {
+      console.error('Error saving subscription:', error);
+      alert('אירעה שגיאה בשמירת המנוי. נסה שוב.');
+    }
+  };
+
+  const checkSubscriptionLimits = (): { allowed: boolean; message?: string } => {
+    if (!subscription) {
+      return { allowed: false, message: 'יש לבחור חבילה תחילה' };
+    }
+
+    const plan = SUBSCRIPTION_PLANS[subscription.tier];
+    
+    // Check if subscription is active
+    if (!subscription.isActive || new Date() > subscription.endDate) {
+      return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+    }
+
+    // Check analysis limit (for free tier, it's total, not per period)
+    if (subscription.tier === 'free') {
+      if (subscription.usage.analysesUsed >= plan.limits.maxAnalysesPerPeriod) {
+        return { 
+          allowed: false, 
+          message: `סיימת את כל הניתוחים החינמיים. שדרג לחבילה כדי להמשיך` 
+        };
+      }
+    } else {
+      if (plan.limits.maxAnalysesPerPeriod !== -1 && 
+          subscription.usage.analysesUsed >= plan.limits.maxAnalysesPerPeriod) {
+        return { 
+          allowed: false, 
+          message: `סיימת את הניתוחים החודשיים. יתאפס בחודש הבא או שדרג לחבילה גבוהה יותר` 
+        };
+      }
+    }
+
+    return { allowed: true };
+  };
+
+  const incrementUsage = async () => {
+    // Usage is automatically tracked via analyses table
+    // Just update local state for immediate UI feedback
+    setSubscription(prev => prev ? {
+      ...prev,
+      usage: {
+        ...prev.usage,
+        analysesUsed: (prev.usage.analysesUsed || 0) + 1,
+      },
+    } : null);
+    
+    // Reload usage data from Supabase
+    if (user) {
+      const usageData = await getUsageForCurrentPeriod();
+      if (usageData) {
+        setUsage(usageData);
+      }
+    }
+  };
+
+  const canUseFeature = (feature: keyof SubscriptionLimits['features']): boolean => {
+    if (!subscription) return false;
+    const plan = SUBSCRIPTION_PLANS[subscription.tier];
+    return plan.limits.features[feature];
+  };
 
   const handleTrackChange = (id: string) => {
     setActiveTrack(id as TrackId);
@@ -2943,9 +4360,9 @@ const App = () => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    const maxFileBytes = getMaxFileBytes(activeTrack);
-    const maxVideoSeconds = getMaxVideoSeconds(activeTrack);
-    const limitText = getUploadLimitText(activeTrack);
+    const maxFileBytes = getMaxFileBytes(activeTrack, subscription || undefined);
+    const maxVideoSeconds = getMaxVideoSeconds(activeTrack, subscription || undefined);
+    const limitText = getUploadLimitText(activeTrack, subscription || undefined);
 
     if (selectedFile.size > maxFileBytes) {
       alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
@@ -3028,40 +4445,111 @@ const App = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSaveAnalysis = () => {
-    if (!result || activeTrack !== 'coach') return;
+  const handleSaveAnalysis = async () => {
+    if (!result || !user) return;
 
-    if (!selectedTrainee) {
+    if (activeTrack === 'coach' && !selectedTrainee) {
       alert('נא לבחור מתאמן לפני שמירת הניתוח');
       setShowCoachDashboard(true);
       return;
     }
 
-    const trainee = trainees.find(t => t.id === selectedTrainee);
-    if (!trainee) {
-      alert('מתאמן לא נמצא');
-      return;
-    }
+    try {
+      let videoId: string | null = null;
 
-    const savedAnalysis: SavedAnalysis = {
-      id: `analysis_${Date.now()}`,
-      videoName: file?.name || 'ניתוח ללא קובץ',
-      videoUrl: previewUrl || '',
-      traineeId: selectedTrainee,
-      traineeName: trainee.name,
-      analysisDate: new Date(),
-      result: result,
-      averageScore: averageScore,
-      track: activeTrack,
-      metadata: {
-        duration: undefined, // ניתן להוסיף בעתיד
-        fileSize: file?.size,
-        prompt: prompt || undefined
+      // Save video if exists
+      if (file) {
+        try {
+          // Upload video to storage
+          const uploadResult = await uploadVideo(file, user.id);
+          
+          // Get video duration
+          let duration: number | null = null;
+          if (file.type.startsWith('video')) {
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.src = previewUrl || '';
+            await new Promise((resolve) => {
+              video.onloadedmetadata = () => {
+                duration = Math.round(video.duration);
+                resolve(null);
+              };
+            });
+          }
+
+          // Save video to database
+          const videoData = await saveVideoToDatabase({
+            file_name: file.name,
+            file_path: uploadResult.path,
+            file_size: file.size,
+            duration_seconds: duration,
+            mime_type: file.type,
+          });
+          
+          videoId = videoData.id;
+        } catch (error) {
+          console.error('Error saving video:', error);
+          // Continue without video ID
+        }
       }
-    };
 
-    setSavedAnalyses(prev => [...prev, savedAnalysis]);
-    alert(`הניתוח נשמר בהצלחה עבור ${trainee.name}`);
+      // Save analysis to Supabase
+      const analysisData = await saveAnalysis({
+        video_id: videoId || undefined,
+        trainee_id: activeTrack === 'coach' ? selectedTrainee || undefined : undefined,
+        track: activeTrack,
+        coach_training_track: activeTrack === 'coach' ? coachTrainingTrack : undefined,
+        analysis_depth: activeTrack === 'coach' ? analysisDepth : undefined,
+        expert_panel: selectedExperts,
+        prompt: prompt || undefined,
+        result: result,
+        average_score: averageScore,
+      });
+
+      // Update local state
+      const trainee = trainees.find(t => t.id === selectedTrainee);
+      const savedAnalysis: SavedAnalysis = {
+        id: analysisData.id,
+        videoName: file?.name || 'ניתוח ללא קובץ',
+        videoUrl: previewUrl || '',
+        traineeId: selectedTrainee || undefined,
+        traineeName: trainee?.name,
+        analysisDate: new Date(analysisData.created_at),
+        result: result,
+        averageScore: averageScore,
+        track: activeTrack,
+        metadata: {
+          duration: undefined,
+          fileSize: file?.size,
+          prompt: prompt || undefined
+        }
+      };
+
+      setSavedAnalyses(prev => [...prev, savedAnalysis]);
+      alert(`הניתוח נשמר בהצלחה${trainee ? ` עבור ${trainee.name}` : ''}`);
+      
+      // Reload analyses from Supabase
+      if (user) {
+        const updatedAnalyses = await getAnalyses(activeTrack === 'coach' ? selectedTrainee || undefined : undefined);
+        setSavedAnalyses(updatedAnalyses.map(a => ({
+          id: a.id,
+          videoName: '',
+          videoUrl: '',
+          traineeId: a.trainee_id || undefined,
+          traineeName: undefined,
+          analysisDate: new Date(a.created_at),
+          result: a.result,
+          averageScore: a.average_score,
+          track: a.track as TrackId,
+          metadata: {
+            prompt: a.prompt || undefined,
+          },
+        })));
+      }
+    } catch (error) {
+      console.error('Error saving analysis:', error);
+      alert('אירעה שגיאה בשמירת הניתוח. נסה שוב.');
+    }
   };
 
   const handleUploadImprovedTake = () => {
@@ -3406,8 +4894,9 @@ const App = () => {
   const handleExportPdf = () => {
     if (!result) return;
 
-    if (!hasPremiumAccess) {
-      alert('יצוא ל-PDF זמין למנויי פרימיום בלבד.');
+    if (!canUseFeature('pdfExport')) {
+      alert('יצוא ל-PDF זמין לחבילות מנוי בלבד. יש לשדרג את החבילה.');
+      setShowSubscriptionModal(true);
       return;
     }
 
@@ -3636,6 +5125,21 @@ const App = () => {
   const handleGenerate = async () => {
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
     
+    // Check feature access for coach track - must have premium subscription
+    if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
+      alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
+      setShowSubscriptionModal(true);
+      return;
+    }
+    
+    // Check subscription limits
+    const limitCheck = checkSubscriptionLimits();
+    if (!limitCheck.allowed) {
+      alert(limitCheck.message || 'אין אפשרות לבצע ניתוח. יש לשדרג את החבילה.');
+      setShowSubscriptionModal(true);
+      return;
+    }
+    
     // Start playing video when analysis begins
     if (videoRef.current) {
         videoRef.current.muted = true;
@@ -3817,6 +5321,56 @@ const App = () => {
 
       setResult(parsedResult);
       
+      // Save to Supabase if user is authenticated
+      if (user && parsedResult) {
+        try {
+          let videoId: string | null = null;
+
+          // Save video if exists
+          if (file) {
+            try {
+              const uploadResult = await uploadVideo(file, user.id);
+              
+              let duration: number | null = null;
+              if (file.type.startsWith('video') && videoRef.current) {
+                duration = Math.round(videoRef.current.duration);
+              }
+
+              const videoData = await saveVideoToDatabase({
+                file_name: file.name,
+                file_path: uploadResult.path,
+                file_size: file.size,
+                duration_seconds: duration,
+                mime_type: file.type,
+              });
+              
+              videoId = videoData.id;
+            } catch (error) {
+              console.error('Error saving video:', error);
+            }
+          }
+
+          // Save analysis to Supabase
+          await saveAnalysis({
+            video_id: videoId || undefined,
+            trainee_id: activeTrack === 'coach' ? selectedTrainee || undefined : undefined,
+            track: activeTrack,
+            coach_training_track: activeTrack === 'coach' ? coachTrainingTrack : undefined,
+            analysis_depth: activeTrack === 'coach' ? analysisDepth : undefined,
+            expert_panel: selectedExperts,
+            prompt: prompt || undefined,
+            result: parsedResult,
+            average_score: Math.round(parsedResult.expertAnalysis.reduce((acc, curr) => acc + curr.score, 0) / parsedResult.expertAnalysis.length),
+          });
+        } catch (error) {
+          console.error('Error saving analysis to Supabase:', error);
+          // Don't show error to user - analysis was successful, just save failed
+        }
+      }
+      
+      // Increment usage counter after successful analysis
+      incrementUsage();
+      
       // Jump to results area immediately
       setTimeout(() => {
         const resultsElement = document.getElementById('results-area');
@@ -3865,12 +5419,72 @@ const App = () => {
     return selectedExperts.length === currentExpertsList.length;
   };
 
+  // Show loading screen while checking auth
+  if (loadingAuth) {
+    return (
+      <AppContainer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center', color: '#D4A043' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '20px' }}>טוען...</div>
+        </div>
+      </AppContainer>
+    );
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setSubscription(null);
+    setUsage(null);
+    setTrainees([]);
+    setSavedAnalyses([]);
+  };
+
   return (
     <>
       <GlobalStyle />
       <AppContainer>
         <Header>
-          <AppLogo />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
+            <AppLogo />
+            {user ? (
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <span style={{ color: '#D4A043', fontSize: '0.9rem' }}>
+                  {profile?.full_name || user.email}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    background: 'rgba(212, 160, 67, 0.2)',
+                    border: '1px solid #D4A043',
+                    color: '#D4A043',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  התנתק
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
+                  border: 'none',
+                  color: '#000',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                }}
+              >
+                התחבר / הרשם
+              </button>
+            )}
+          </div>
           <Title>Video Director Pro</Title>
           <Subtitle>בינת וידאו לשחקנים, זמרים ויוצרי תוכן</Subtitle>
           <Description>
@@ -3994,16 +5608,36 @@ const App = () => {
 
         {activeTrack === 'coach' && (
           <div style={{ textAlign: 'center', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <CoachButton onClick={() => setShowCoachDashboard(true)}>
-                <CoachIcon />
-                ניהול מתאמנים
-              </CoachButton>
-              <CoachButton onClick={() => setShowComparison(true)}>
-                <ComparisonIcon />
-                השוואת ניתוחים
-              </CoachButton>
-            </div>
+            {canUseFeature('traineeManagement') ? (
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <CoachButton onClick={() => setShowCoachDashboard(true)}>
+                  <CoachIcon />
+                  ניהול מתאמנים
+                </CoachButton>
+                {canUseFeature('comparison') && (
+                  <CoachButton onClick={() => setShowComparison(true)}>
+                    <ComparisonIcon />
+                    השוואת ניתוחים
+                  </CoachButton>
+                )}
+              </div>
+            ) : (
+              <div style={{ 
+                background: 'rgba(212, 160, 67, 0.1)', 
+                padding: '20px', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                maxWidth: '600px',
+                width: '100%'
+              }}>
+                <p style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.1rem', fontWeight: 600 }}>
+                  מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד
+                </p>
+                <CoachButton onClick={() => setShowSubscriptionModal(true)}>
+                  שדרג למסלול הפרימיום
+                </CoachButton>
+              </div>
+            )}
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', maxWidth: '800px' }}>
               <div style={{ background: 'rgba(212, 160, 67, 0.1)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.3)' }}>
@@ -4158,7 +5792,34 @@ const App = () => {
               <UploadTitle>
                 {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
               </UploadTitle>
-              <UploadSubtitle>{getUploadLimitText(activeTrack)}</UploadSubtitle>
+              <UploadSubtitle>
+                {getUploadLimitText(activeTrack, subscription || undefined)}
+                {subscription && (
+                  <span style={{ display: 'block', marginTop: '8px', fontSize: '0.85rem', color: '#D4A043' }}>
+                    חבילה: {SUBSCRIPTION_PLANS[subscription.tier].name}
+                    {subscription.usage.analysesUsed > 0 && SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod !== -1 && (
+                      <span> | נותרו {SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod - subscription.usage.analysesUsed} ניתוחים</span>
+                    )}
+                  </span>
+                )}
+                <button 
+                  onClick={() => setShowSubscriptionModal(true)}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '10px',
+                    background: 'rgba(212, 160, 67, 0.2)',
+                    border: '1px solid #D4A043',
+                    color: '#D4A043',
+                    padding: '6px 15px',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {subscription?.tier === 'free' ? 'שדרג חבילה' : 'נהל מנוי'}
+                </button>
+              </UploadSubtitle>
               
               <UploadButton>
                 {isImprovementMode ? 'בחר קובץ לשיפור' : 'העלה סרטון עכשיו'}
@@ -4275,11 +5936,14 @@ const App = () => {
             </div>
 
             <ActionButtonsContainer>
-              <PrimaryButton onClick={handleExportPdf} disabled={loading || !hasPremiumAccess}>
+              <PrimaryButton 
+                onClick={handleExportPdf} 
+                disabled={loading || !canUseFeature('pdfExport')}
+              >
                 <PdfIcon />
                 יצוא ניתוח ל-PDF <PremiumBadge>פרימיום</PremiumBadge>
               </PrimaryButton>
-              {activeTrack === 'coach' && (
+              {activeTrack === 'coach' && canUseFeature('traineeManagement') && (
                 <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee}>
                   💾 שמור ניתוח למתאמן
                 </PrimaryButton>
@@ -4297,6 +5961,22 @@ const App = () => {
           </ResponseArea>
         )}
       </AppContainer>
+      
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        currentSubscription={subscription}
+        onSelectPlan={handleSelectPlan}
+        activeTrack={activeTrack}
+      />
+      
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={() => {
+          // Auth state will be updated via onAuthStateChange
+        }}
+      />
     </>
   );
 };
