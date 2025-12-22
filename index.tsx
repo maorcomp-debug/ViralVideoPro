@@ -12,7 +12,12 @@ import {
   saveAnalysis,
   getTrainees,
   saveTrainee,
-  getAnalyses
+  getAnalyses,
+  isAdmin,
+  getAllUsers,
+  updateUserProfile,
+  deleteUser,
+  createUser
 } from './src/lib/supabase-helpers';
 import type { User } from '@supabase/supabase-js';
 
@@ -2249,6 +2254,471 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
   );
 };
 
+// --- Admin Panel Modal ---
+
+const AdminPanelModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ full_name?: string; email?: string; subscription_tier?: string; role?: string }>({});
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUser, setNewUser] = useState({ email: '', password: '', full_name: '', subscription_tier: 'free', role: 'user' });
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadUsers();
+    }
+  }, [isOpen]);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const allUsers = await getAllUsers();
+      setUsers(allUsers);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      setMessage({ type: 'error', text: 'שגיאה בטעינת המשתמשים' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (user: any) => {
+    setEditingUser(user.user_id);
+    setEditForm({
+      full_name: user.full_name || '',
+      email: user.email || '',
+      subscription_tier: user.subscription_tier || 'free',
+      role: user.role || 'user',
+    });
+  };
+
+  const handleSaveEdit = async (userId: string) => {
+    try {
+      await updateUserProfile(userId, editForm);
+      setMessage({ type: 'success', text: 'המשתמש עודכן בהצלחה' });
+      setEditingUser(null);
+      await loadUsers();
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      setMessage({ type: 'error', text: error.message || 'שגיאה בעדכון המשתמש' });
+    }
+  };
+
+  const handleDelete = async (userId: string, email: string) => {
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את המשתמש ${email}? פעולה זו לא ניתנת לביטול.`)) {
+      return;
+    }
+
+    try {
+      await deleteUser(userId);
+      setMessage({ type: 'success', text: 'המשתמש נמחק בהצלחה' });
+      await loadUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      setMessage({ type: 'error', text: error.message || 'שגיאה במחיקת המשתמש' });
+    }
+  };
+
+  const handleAddUser = async () => {
+    setMessage({ type: 'error', text: 'יצירת משתמשים חדשים דורשת Edge Function. אנא השתמש ב-Dashboard של Supabase ליצירת משתמשים.' });
+    return;
+    
+    // Note: This functionality requires an Edge Function with service role key.
+    // For now, users should be created via Supabase Dashboard or Auth UI.
+    /*
+    if (!newUser.email || !newUser.password) {
+      setMessage({ type: 'error', text: 'נא למלא אימייל וסיסמה' });
+      return;
+    }
+
+    try {
+      await createUser(newUser.email, newUser.password, {
+        full_name: newUser.full_name || undefined,
+        subscription_tier: newUser.subscription_tier as SubscriptionTier,
+        role: newUser.role,
+      });
+      setMessage({ type: 'success', text: 'המשתמש נוצר בהצלחה' });
+      setShowAddUser(false);
+      setNewUser({ email: '', password: '', full_name: '', subscription_tier: 'free', role: 'user' });
+      await loadUsers();
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      setMessage({ type: 'error', text: error.message || 'שגיאה ביצירת המשתמש' });
+    }
+    */
+  };
+
+  const getTierDisplayName = (tier: string) => {
+    return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.name || tier;
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1200px', maxHeight: '90vh' }}>
+        <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
+        <ModalHeader>
+          <ModalTitle>🔐 לוח בקרת מנהל</ModalTitle>
+          <ModalSubtitle>
+            ניהול משתמשים, הרשאות ודרגות
+          </ModalSubtitle>
+        </ModalHeader>
+
+        <ModalBody>
+          {message && (
+            <div style={{
+              padding: '15px',
+              marginBottom: '20px',
+              borderRadius: '8px',
+              background: message.type === 'success' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
+              border: `1px solid ${message.type === 'success' ? '#4CAF50' : '#F44336'}`,
+              color: message.type === 'success' ? '#4CAF50' : '#F44336',
+            }}>
+              {message.text}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+            <h3 style={{ color: '#D4A043', margin: 0 }}>
+              סך הכל {users.length} משתמשים
+            </h3>
+            <button
+              onClick={() => setShowAddUser(!showAddUser)}
+              style={{
+                background: '#D4A043',
+                border: 'none',
+                color: '#000',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: 700,
+              }}
+            >
+              + הוסף משתמש חדש
+            </button>
+          </div>
+
+          {showAddUser && (
+            <div style={{
+              background: 'rgba(212, 160, 67, 0.1)',
+              border: '1px solid #D4A043',
+              borderRadius: '8px',
+              padding: '20px',
+              marginBottom: '20px',
+            }}>
+              <h4 style={{ color: '#D4A043', margin: '0 0 15px 0' }}>יצירת משתמש חדש</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                <input
+                  type="email"
+                  placeholder="אימייל *"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  style={{
+                    background: '#1a1a1a',
+                    border: '1px solid #444',
+                    color: '#fff',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                  }}
+                />
+                <input
+                  type="password"
+                  placeholder="סיסמה *"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  style={{
+                    background: '#1a1a1a',
+                    border: '1px solid #444',
+                    color: '#fff',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="שם מלא"
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  style={{
+                    background: '#1a1a1a',
+                    border: '1px solid #444',
+                    color: '#fff',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                  }}
+                />
+                <select
+                  value={newUser.subscription_tier}
+                  onChange={(e) => setNewUser({ ...newUser, subscription_tier: e.target.value })}
+                  style={{
+                    background: '#1a1a1a',
+                    border: '1px solid #444',
+                    color: '#fff',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <option value="free">ניסיון</option>
+                  <option value="creator">יוצרים</option>
+                  <option value="pro">יוצרים באקסטרים</option>
+                  <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                </select>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  style={{
+                    background: '#1a1a1a',
+                    border: '1px solid #444',
+                    color: '#fff',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <option value="user">משתמש</option>
+                  <option value="admin">מנהל</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={handleAddUser}
+                  style={{
+                    background: '#D4A043',
+                    border: 'none',
+                    color: '#000',
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  צור משתמש
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddUser(false);
+                    setNewUser({ email: '', password: '', full_name: '', subscription_tier: 'free', role: 'user' });
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #666',
+                    color: '#ccc',
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          )}
+
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>טוען...</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#e0e0e0' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #D4A043' }}>
+                    <th style={{ padding: '12px', textAlign: 'right', color: '#D4A043' }}>אימייל</th>
+                    <th style={{ padding: '12px', textAlign: 'right', color: '#D4A043' }}>שם מלא</th>
+                    <th style={{ padding: '12px', textAlign: 'right', color: '#D4A043' }}>דרגה</th>
+                    <th style={{ padding: '12px', textAlign: 'right', color: '#D4A043' }}>תפקיד</th>
+                    <th style={{ padding: '12px', textAlign: 'right', color: '#D4A043' }}>תאריך רישום</th>
+                    <th style={{ padding: '12px', textAlign: 'right', color: '#D4A043' }}>פעולות</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.user_id} style={{ borderBottom: '1px solid #333' }}>
+                      <td style={{ padding: '12px' }}>
+                        {editingUser === user.user_id ? (
+                          <input
+                            type="email"
+                            value={editForm.email || ''}
+                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                            style={{
+                              background: '#1a1a1a',
+                              border: '1px solid #444',
+                              color: '#fff',
+                              padding: '6px',
+                              borderRadius: '4px',
+                              fontSize: '0.9rem',
+                              width: '100%',
+                            }}
+                          />
+                        ) : (
+                          user.email
+                        )}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        {editingUser === user.user_id ? (
+                          <input
+                            type="text"
+                            value={editForm.full_name || ''}
+                            onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                            style={{
+                              background: '#1a1a1a',
+                              border: '1px solid #444',
+                              color: '#fff',
+                              padding: '6px',
+                              borderRadius: '4px',
+                              fontSize: '0.9rem',
+                              width: '100%',
+                            }}
+                          />
+                        ) : (
+                          user.full_name || '-'
+                        )}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        {editingUser === user.user_id ? (
+                          <select
+                            value={editForm.subscription_tier || 'free'}
+                            onChange={(e) => setEditForm({ ...editForm, subscription_tier: e.target.value })}
+                            style={{
+                              background: '#1a1a1a',
+                              border: '1px solid #444',
+                              color: '#fff',
+                              padding: '6px',
+                              borderRadius: '4px',
+                              fontSize: '0.9rem',
+                              width: '100%',
+                            }}
+                          >
+                            <option value="free">ניסיון</option>
+                            <option value="creator">יוצרים</option>
+                            <option value="pro">יוצרים באקסטרים</option>
+                            <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                          </select>
+                        ) : (
+                          <span style={{
+                            color: user.subscription_tier === 'coach' ? '#D4A043' : user.subscription_tier === 'free' ? '#888' : '#e6be74',
+                            fontWeight: 600,
+                          }}>
+                            {getTierDisplayName(user.subscription_tier)}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        {editingUser === user.user_id ? (
+                          <select
+                            value={editForm.role || 'user'}
+                            onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                            style={{
+                              background: '#1a1a1a',
+                              border: '1px solid #444',
+                              color: '#fff',
+                              padding: '6px',
+                              borderRadius: '4px',
+                              fontSize: '0.9rem',
+                              width: '100%',
+                            }}
+                          >
+                            <option value="user">משתמש</option>
+                            <option value="admin">מנהל</option>
+                          </select>
+                        ) : (
+                          <span style={{
+                            color: user.role === 'admin' ? '#F44336' : '#888',
+                            fontWeight: user.role === 'admin' ? 700 : 400,
+                          }}>
+                            {user.role === 'admin' ? '🔐 מנהל' : 'משתמש'}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px', fontSize: '0.85rem', color: '#888' }}>
+                        {new Date(user.created_at).toLocaleDateString('he-IL')}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        {editingUser === user.user_id ? (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleSaveEdit(user.user_id)}
+                              style={{
+                                background: '#4CAF50',
+                                border: 'none',
+                                color: '#fff',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                              }}
+                            >
+                              שמור
+                            </button>
+                            <button
+                              onClick={() => setEditingUser(null)}
+                              style={{
+                                background: 'transparent',
+                                border: '1px solid #666',
+                                color: '#ccc',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                              }}
+                            >
+                              ביטול
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleEdit(user)}
+                              style={{
+                                background: 'rgba(212, 160, 67, 0.2)',
+                                border: '1px solid #D4A043',
+                                color: '#D4A043',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                              }}
+                            >
+                              ערוך
+                            </button>
+                            <button
+                              onClick={() => handleDelete(user.user_id, user.email)}
+                              style={{
+                                background: 'rgba(244, 67, 54, 0.2)',
+                                border: '1px solid #F44336',
+                                color: '#F44336',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                              }}
+                            >
+                              מחק
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </ModalBody>
+      </ModalContent>
+    </ModalOverlay>
+  );
+};
+
 // --- Coach Guide Modal ---
 
 const CoachGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -4075,6 +4545,8 @@ const App = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   const [activeTrack, setActiveTrack] = useState<TrackId>('actors');
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -4153,6 +4625,10 @@ const App = () => {
       // Load profile
       const userProfile = await getCurrentUserProfile();
       setProfile(userProfile);
+
+      // Check if user is admin
+      const adminStatus = await isAdmin();
+      setUserIsAdmin(adminStatus);
 
       // Load subscription
       const subData = await getCurrentSubscription();
@@ -5564,6 +6040,23 @@ const App = () => {
                     );
                   })()}
                 </div>
+                {userIsAdmin && (
+                  <button
+                    onClick={() => setShowAdminPanel(true)}
+                    style={{
+                      background: 'rgba(244, 67, 54, 0.2)',
+                      border: '1px solid #F44336',
+                      color: '#F44336',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                    }}
+                  >
+                    🔐 מנהל
+                  </button>
+                )}
                 <button
                   onClick={handleLogout}
                   style={{
@@ -6080,6 +6573,11 @@ const App = () => {
         currentSubscription={subscription}
         onSelectPlan={handleSelectPlan}
         activeTrack={activeTrack}
+      />
+      
+      <AdminPanelModal
+        isOpen={showAdminPanel}
+        onClose={() => setShowAdminPanel(false)}
       />
       
       <AuthModal

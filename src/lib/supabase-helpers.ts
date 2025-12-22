@@ -259,3 +259,86 @@ export async function getAnalyses(traineeId?: string) {
   return data || [];
 }
 
+// ============================================
+// ADMIN HELPER FUNCTIONS
+// ============================================
+
+export async function isAdmin(): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single();
+
+  return profile?.role === 'admin';
+}
+
+export async function getAllUsers() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching all users:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function updateUserProfile(userId: string, updates: {
+  subscription_tier?: string;
+  role?: string;
+  full_name?: string;
+  email?: string;
+}) {
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+}
+
+export async function deleteUser(userId: string) {
+  // Note: This only deletes the profile. To fully delete the auth user,
+  // you need to use an Edge Function with service role key.
+  // The profile deletion will be handled by RLS policies for admins.
+  const { error } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('user_id', userId);
+  
+  if (error) {
+    console.error('Error deleting user profile:', error);
+    throw error;
+  }
+  
+  // Note: The auth user will remain but without a profile.
+  // For full deletion, implement an Edge Function.
+}
+
+export async function createUser(email: string, password: string, profileData: {
+  full_name?: string;
+  subscription_tier?: string;
+  role?: string;
+}) {
+  // Note: Creating users with admin.createUser requires service role key.
+  // This function should be called from an Edge Function for security.
+  // For now, we'll throw an error indicating this needs to be implemented via Edge Function.
+  throw new Error('User creation via admin panel requires an Edge Function. Please implement create-user Edge Function with service role key.');
+  
+  // Example Edge Function implementation:
+  // Create a Supabase Edge Function that uses service role key to:
+  // 1. Create auth user with supabase.auth.admin.createUser()
+  // 2. Create profile with the provided data
+  // 3. Return the created user
+}
+
