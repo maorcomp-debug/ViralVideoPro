@@ -5464,17 +5464,83 @@ const App = () => {
       return;
     }
 
-    const contentElement = document.getElementById('analysis-content');
-    if (!contentElement) {
-      alert('לא נמצא תוכן ניתוח לייצוא.');
-      return;
-    }
-
     const printWindow = window.open('', '_blank', 'width=900,height=1200');
     if (!printWindow) {
       alert('נא לאפשר חלונות קופצים כדי לייצא ל-PDF.');
       return;
     }
+
+    // Build HTML content directly from result object to ensure all data is included
+    const buildAnalysisHTML = () => {
+      let html = '';
+
+      // Hook (Golden Tip)
+      if (result.hook) {
+        html += `
+          <div style="background: #fff9e6; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-right: 4px solid #b8862e;">
+            <h3 style="color: #b8862e; margin: 0 0 10px 0; font-size: 1.2rem;">✨ טיפ זהב של הפאנל</h3>
+            <p style="margin: 0; font-size: 1.1rem; font-weight: 600; line-height: 1.6;">"${result.hook}"</p>
+          </div>
+        `;
+      }
+
+      // Expert Analysis
+      if (result.expertAnalysis && result.expertAnalysis.length > 0) {
+        html += '<h3 class="section-title">ניתוח פאנל המומחים</h3>';
+        html += '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 25px;">';
+        
+        result.expertAnalysis.forEach((expert) => {
+          html += `
+            <div class="card">
+              <h4 style="color: #b8862e; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e6e6e6; display: flex; justify-content: space-between; align-items: center;">
+                ${expert.role}
+                <span class="score-badge">${expert.score}</span>
+              </h4>
+              <div style="margin-bottom: 15px;">
+                <strong class="subtle-label" style="display: block; margin-bottom: 8px;">זווית מקצועית:</strong>
+                <p style="margin: 0; line-height: 1.7;">${expert.insight}</p>
+              </div>
+              <div>
+                <strong class="subtle-label" style="display: block; margin-bottom: 8px;">טיפים לשיפור:</strong>
+                <p style="margin: 0; line-height: 1.7; font-weight: 500;">${expert.tips}</p>
+              </div>
+            </div>
+          `;
+        });
+        
+        html += '</div>';
+      }
+
+      // Committee Summary
+      if (result.committee) {
+        html += '<h3 class="section-title">סיכום ועדת המומחים</h3>';
+        html += '<div class="card" style="margin-bottom: 20px;">';
+        html += `<p style="margin: 0; line-height: 1.7; font-size: 1.05rem;">${result.committee.summary}</p>`;
+        html += '</div>';
+
+        // Committee Tips (Final Tips)
+        if (result.committee.finalTips && result.committee.finalTips.length > 0) {
+          html += `
+            <div data-pdf="committee-tips">
+              <h5>טיפים מנצחים לעתיד:</h5>
+              <ul>
+                ${result.committee.finalTips.map(tip => `<li>${tip}</li>`).join('')}
+              </ul>
+            </div>
+          `;
+        }
+      }
+
+      // Final Score
+      html += `
+        <div data-pdf="final-score">
+          <span class="number">${averageScore}</span>
+          <span class="label">ציון ויראליות משוקלל</span>
+        </div>
+      `;
+
+      return html;
+    };
 
     const styles = `
       @page {
@@ -5646,7 +5712,7 @@ const App = () => {
                 <img src="${window.location.origin}/Logo.png" alt="Viraly Logo" />
               </div>
             </div>
-            ${contentElement.innerHTML}
+            ${buildAnalysisHTML()}
           </div>
         </body>
       </html>
