@@ -316,6 +316,10 @@ const ModalContent = styled.div`
   box-shadow: 0 0 40px rgba(212, 160, 67, 0.2);
   display: flex;
   flex-direction: column;
+  
+  /* Smooth scrolling for mobile */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 `;
 
 const ModalHeader = styled.div`
@@ -358,26 +362,55 @@ const ModalTabs = styled.div`
   margin-top: 20px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: 0;
+  background: #0a0a0a;
+  z-index: 10;
+  padding-top: 5px;
+  margin-top: 0;
+  margin-bottom: 0;
+  
   &::-webkit-scrollbar {
     display: none;
   }
+  
+  /* Smooth scroll for tabs */
+  scroll-behavior: smooth;
 `;
 
 const ModalTab = styled.button<{ $active: boolean }>`
   flex: 1;
-  background: ${props => props.$active ? 'linear-gradient(to top, rgba(212, 160, 67, 0.1), transparent)' : 'transparent'};
+  min-width: fit-content;
+  background: ${props => props.$active ? 'linear-gradient(to top, rgba(212, 160, 67, 0.15), rgba(212, 160, 67, 0.05))' : 'transparent'};
   border: none;
   border-bottom: 3px solid ${props => props.$active ? '#D4A043' : 'transparent'};
   color: ${props => props.$active ? '#D4A043' : '#888'};
-  padding: 15px;
+  padding: 15px 12px;
   font-weight: 700;
   font-family: 'Assistant', sans-serif;
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
   white-space: nowrap;
+  position: relative;
+  
+  /* Prevent text selection on mobile */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 
   &:hover {
     color: #D4A043;
+    background: ${props => props.$active ? 'linear-gradient(to top, rgba(212, 160, 67, 0.15), rgba(212, 160, 67, 0.05))' : 'rgba(212, 160, 67, 0.05)'};
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  @media (max-width: 600px) {
+    padding: 12px 8px;
+    font-size: 0.85rem;
   }
 `;
 
@@ -394,6 +427,10 @@ const TrackDescriptionText = styled.p`
 const ModalBody = styled.div`
   padding: 25px;
   overflow-y: auto;
+  flex: 1;
+  /* Smooth scrolling for mobile */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 `;
 
 // -- Coach Dashboard Styles --
@@ -447,6 +484,12 @@ const TraineeGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
   margin-top: 20px;
+  
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-top: 15px;
+  }
 `;
 
 const TraineeCard = styled.div`
@@ -454,15 +497,22 @@ const TraineeCard = styled.div`
   border: 1px solid #333;
   border-top: 2px solid #D4A043;
   border-radius: 8px;
-  padding: 20px;
+  padding: 15px;
   position: relative;
   transition: all 0.3s;
   cursor: pointer;
+  overflow: hidden; /* Prevent content from overflowing */
+  width: 100%;
+  box-sizing: border-box;
 
   &:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 30px rgba(212, 160, 67, 0.2);
     border-color: #D4A043;
+  }
+  
+  @media (max-width: 600px) {
+    padding: 12px;
   }
 `;
 
@@ -483,28 +533,54 @@ const TraineeInfo = styled.div`
 `;
 
 const TraineeActions = styled.div`
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px solid #222;
+  width: 100%;
+  box-sizing: border-box;
+  
+  @media (max-width: 600px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
 `;
 
 const TraineeActionButton = styled.button`
-  flex: 1;
   background: transparent;
   border: 1px solid #444;
   color: #ccc;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  
   &:hover {
     border-color: #D4A043;
     color: #D4A043;
     background: rgba(212, 160, 67, 0.1);
+  }
+  
+  &:active {
+    transform: scale(0.98);
   }
 
   &.delete {
@@ -513,6 +589,17 @@ const TraineeActionButton = styled.button`
       color: #ff4d4d;
       background: rgba(255, 77, 77, 0.1);
     }
+  }
+  
+  @media (max-width: 600px) {
+    padding: 7px 8px;
+    font-size: 0.75rem;
+    border-radius: 5px;
+  }
+  
+  @media (max-width: 400px) {
+    padding: 8px 10px;
+    font-size: 0.8rem;
   }
 `;
 
@@ -1839,7 +1926,14 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
             <ModalTab 
               key={tab.id} 
               $active={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                // Smooth scroll to top of content when switching tabs
+                const modalBody = document.querySelector('[data-modal-body]');
+                if (modalBody) {
+                  modalBody.scrollTop = 0;
+                }
+              }}
             >
               {tab.label}
             </ModalTab>
@@ -1850,7 +1944,7 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
            {TRACK_DESCRIPTIONS[activeTab]}
         </TrackDescriptionText>
         
-        <ModalBody>
+        <ModalBody data-modal-body>
           {content[activeTab]?.map((item, idx) => (
              <ModalRow key={idx}>
                <ModalRole>{item.role}</ModalRole>
@@ -2488,7 +2582,7 @@ const CoachDashboardModal = ({
                             }}
                             style={{ background: 'rgba(212, 160, 67, 0.1)', borderColor: '#D4A043', color: '#D4A043' }}
                           >
-                            📄 יצא דוח PDF
+יצא דוח PDF
                           </TraineeActionButton>
                         )}
                         <TraineeActionButton 
