@@ -2,6 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import styled, { createGlobalStyle, keyframes, css } from 'styled-components';
 import { GoogleGenAI } from "@google/genai";
+import { supabase } from './src/lib/supabase';
+import {
+  getCurrentUserProfile,
+  getCurrentSubscription,
+  getUsageForCurrentPeriod,
+  uploadVideo,
+  saveVideoToDatabase,
+  saveAnalysis,
+  getTrainees,
+  saveTrainee,
+  getAnalyses
+} from './src/lib/supabase-helpers';
+import type { User } from '@supabase/supabase-js';
 
 // --- Types ---
 type TrackId = 'actors' | 'musicians' | 'creators' | 'coach' | 'influencers';
@@ -73,9 +86,178 @@ interface CoachReport {
   };
 }
 
+// --- Subscription & Pricing Types ---
+type SubscriptionTier = 'free' | 'creator' | 'pro' | 'coach';
+type BillingPeriod = 'monthly' | 'yearly';
+
+interface SubscriptionLimits {
+  maxAnalysesPerPeriod: number; // -1 for unlimited
+  maxVideoSeconds: number;
+  maxFileBytes: number;
+  features: {
+    saveHistory: boolean;
+    improvementTracking: boolean;
+    comparison: boolean;
+    advancedAnalysis: boolean;
+    traineeManagement: boolean;
+    pdfExport: boolean;
+    coachDashboard: boolean;
+    customExperts: boolean;
+  };
+}
+
+interface SubscriptionPlan {
+  id: SubscriptionTier;
+  name: string;
+  description: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  limits: SubscriptionLimits;
+  popular?: boolean;
+  badge?: string;
+}
+
+interface UserSubscription {
+  tier: SubscriptionTier;
+  billingPeriod: BillingPeriod;
+  startDate: Date;
+  endDate: Date;
+  usage: {
+    analysesUsed: number;
+    lastResetDate: Date;
+  };
+  isActive: boolean;
+}
+
+// --- Subscription Plans Configuration ---
+const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
+  free: {
+    id: 'free',
+    name: 'ניסיון',
+    description: 'טעימה חינמית להכרת הפלטפורמה',
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    limits: {
+      maxAnalysesPerPeriod: 2, // Total, not per period
+      maxVideoSeconds: 60, // 1 minute
+      maxFileBytes: 10 * 1024 * 1024, // 10MB
+      features: {
+        saveHistory: false,
+        improvementTracking: false,
+        comparison: false,
+        advancedAnalysis: false,
+        traineeManagement: false,
+        pdfExport: false,
+        coachDashboard: false,
+        customExperts: false,
+      },
+    },
+    badge: 'חינם',
+  },
+  creator: {
+    id: 'creator',
+    name: 'יוצרים',
+    description: 'מתאים ליוצרי תוכן מתחילים',
+    monthlyPrice: 49,
+    yearlyPrice: 490, // ~2 months free
+    limits: {
+      maxAnalysesPerPeriod: 10,
+      maxVideoSeconds: 3 * 60, // 3 minutes
+      maxFileBytes: 15 * 1024 * 1024, // 15MB
+      features: {
+        saveHistory: true,
+        improvementTracking: true,
+        comparison: false,
+        advancedAnalysis: false,
+        traineeManagement: false,
+        pdfExport: true,
+        coachDashboard: false,
+        customExperts: false,
+      },
+    },
+    popular: true,
+  },
+  pro: {
+    id: 'pro',
+    name: 'יוצרים באקסטרים',
+    description: 'למקצוענים שמחפשים את המקסימום',
+    monthlyPrice: 99,
+    yearlyPrice: 990, // ~2 months free
+    limits: {
+      maxAnalysesPerPeriod: 30,
+      maxVideoSeconds: 5 * 60, // 5 minutes
+      maxFileBytes: 40 * 1024 * 1024, // 40MB
+      features: {
+        saveHistory: true,
+        improvementTracking: true,
+        comparison: true,
+        advancedAnalysis: true,
+        traineeManagement: false,
+        pdfExport: true,
+        coachDashboard: false,
+        customExperts: true,
+      },
+    },
+  },
+  coach: {
+    id: 'coach',
+    name: 'מאמנים, סוכנויות ובתי ספר למשחק',
+    description: 'פלטפורמה מקצועית למאמנים וסטודיואים',
+    monthlyPrice: 199,
+    yearlyPrice: 1990, // ~2 months free
+    limits: {
+      maxAnalysesPerPeriod: -1, // Unlimited
+      maxVideoSeconds: 5 * 60, // 5 minutes
+      maxFileBytes: 40 * 1024 * 1024, // 40MB
+      features: {
+        saveHistory: true,
+        improvementTracking: true,
+        comparison: true,
+        advancedAnalysis: true,
+        traineeManagement: true,
+        pdfExport: true,
+        coachDashboard: true,
+        customExperts: true,
+      },
+    },
+    badge: 'PRO',
+  },
+};
+
 // --- Constants ---
-const MAX_VIDEO_SECONDS = 5 * 60; // 5 minutes
-const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20MB
+// Helper functions for dynamic limits based on track and subscription
+const getMaxVideoSeconds = (track: TrackId, subscription?: UserSubscription): number => {
+  if (subscription) {
+    return SUBSCRIPTION_PLANS[subscription.tier].limits.maxVideoSeconds;
+  }
+  return track === 'coach' ? 5 * 60 : 60; // Default: 5 minutes for coach, 1 minute for others
+};
+
+const getMaxFileBytes = (track: TrackId, subscription?: UserSubscription): number => {
+  if (subscription) {
+    return SUBSCRIPTION_PLANS[subscription.tier].limits.maxFileBytes;
+  }
+  return track === 'coach' ? 40 * 1024 * 1024 : 10 * 1024 * 1024; // Default: 40MB for coach, 10MB for others
+};
+
+const getUploadLimitText = (track: TrackId, subscription?: UserSubscription): string => {
+  if (subscription) {
+    const plan = SUBSCRIPTION_PLANS[subscription.tier];
+    const seconds = plan.limits.maxVideoSeconds;
+    const mb = plan.limits.maxFileBytes / (1024 * 1024);
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      return `עד ${minutes} דקות או ${mb}MB`;
+    }
+    return `עד ${seconds} שניות או ${mb}MB`;
+  }
+  // Default limits (for free tier)
+  if (track === 'coach') {
+    return 'עד 5 דקות או 40MB';
+  }
+  // For free tier: 40 seconds or 1 minute
+  return 'עד 40 שניות או דקה';
+};
 
 const TRACK_DESCRIPTIONS: Record<string, string> = {
   actors: 'חדר האודישנים הראשי של הפקות הדרמה המובילות בישראל ובעולם אצלך בכיס. הסטנדרט הוא קולנועי וחסר פשרות.',
@@ -316,6 +498,10 @@ const ModalContent = styled.div`
   box-shadow: 0 0 40px rgba(212, 160, 67, 0.2);
   display: flex;
   flex-direction: column;
+  
+  /* Smooth scrolling for mobile */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 `;
 
 const ModalHeader = styled.div`
@@ -354,30 +540,84 @@ const ModalCloseBtn = styled.button`
 
 const ModalTabs = styled.div`
   display: flex;
+  gap: 8px;
   border-bottom: 1px solid #D4A043;
   margin-top: 20px;
+  margin-bottom: 0;
+  padding-bottom: 15px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: 0;
+  background: #0a0a0a;
+  z-index: 10;
+  padding-top: 10px;
+  
   &::-webkit-scrollbar {
     display: none;
+  }
+  
+  /* Smooth scroll for tabs */
+  scroll-behavior: smooth;
+  
+  @media (max-width: 600px) {
+    gap: 6px;
+    padding-top: 8px;
+    padding-bottom: 12px;
   }
 `;
 
 const ModalTab = styled.button<{ $active: boolean }>`
   flex: 1;
-  background: ${props => props.$active ? 'linear-gradient(to top, rgba(212, 160, 67, 0.1), transparent)' : 'transparent'};
-  border: none;
-  border-bottom: 3px solid ${props => props.$active ? '#D4A043' : 'transparent'};
-  color: ${props => props.$active ? '#D4A043' : '#888'};
-  padding: 15px;
+  min-width: fit-content;
+  background: ${props => props.$active 
+    ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.2), rgba(212, 160, 67, 0.1))' 
+    : 'rgba(255, 255, 255, 0.03)'};
+  border: ${props => props.$active 
+    ? '2px solid #D4A043' 
+    : '1px solid rgba(212, 160, 67, 0.3)'};
+  border-radius: 8px;
+  color: ${props => props.$active ? '#D4A043' : '#aaa'};
+  padding: 12px 16px;
   font-weight: 700;
   font-family: 'Assistant', sans-serif;
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
   white-space: nowrap;
+  position: relative;
+  box-shadow: ${props => props.$active 
+    ? '0 2px 8px rgba(212, 160, 67, 0.3)' 
+    : 'none'};
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Prevent text selection on mobile */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 
   &:hover {
     color: #D4A043;
+    border-color: #D4A043;
+    background: ${props => props.$active 
+      ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.25), rgba(212, 160, 67, 0.15))' 
+      : 'rgba(212, 160, 67, 0.08)'};
+    box-shadow: 0 2px 8px rgba(212, 160, 67, 0.2);
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: scale(0.98) translateY(0);
+  }
+  
+  @media (max-width: 600px) {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    border-width: ${props => props.$active ? '2px' : '1px'};
   }
 `;
 
@@ -385,15 +625,28 @@ const TrackDescriptionText = styled.p`
   text-align: center;
   color: #999;
   font-size: 1rem;
-  margin: 25px auto 10px;
+  margin: 20px auto 15px;
   max-width: 750px;
   line-height: 1.5;
-  padding: 0 20px;
+  padding: 12px 20px;
+  background: rgba(212, 160, 67, 0.05);
+  border: 1px solid rgba(212, 160, 67, 0.15);
+  border-radius: 8px;
+  
+  @media (max-width: 600px) {
+    margin: 15px auto 12px;
+    padding: 10px 15px;
+    font-size: 0.95rem;
+  }
 `;
 
 const ModalBody = styled.div`
   padding: 25px;
   overflow-y: auto;
+  flex: 1;
+  /* Smooth scrolling for mobile */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 `;
 
 // -- Coach Dashboard Styles --
@@ -447,6 +700,12 @@ const TraineeGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
   margin-top: 20px;
+  
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-top: 15px;
+  }
 `;
 
 const TraineeCard = styled.div`
@@ -454,15 +713,22 @@ const TraineeCard = styled.div`
   border: 1px solid #333;
   border-top: 2px solid #D4A043;
   border-radius: 8px;
-  padding: 20px;
+  padding: 15px;
   position: relative;
   transition: all 0.3s;
   cursor: pointer;
+  overflow: hidden; /* Prevent content from overflowing */
+  width: 100%;
+  box-sizing: border-box;
 
   &:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 30px rgba(212, 160, 67, 0.2);
     border-color: #D4A043;
+  }
+  
+  @media (max-width: 600px) {
+    padding: 12px;
   }
 `;
 
@@ -483,28 +749,54 @@ const TraineeInfo = styled.div`
 `;
 
 const TraineeActions = styled.div`
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px solid #222;
+  width: 100%;
+  box-sizing: border-box;
+  
+  @media (max-width: 600px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
 `;
 
 const TraineeActionButton = styled.button`
-  flex: 1;
   background: transparent;
   border: 1px solid #444;
   color: #ccc;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  
   &:hover {
     border-color: #D4A043;
     color: #D4A043;
     background: rgba(212, 160, 67, 0.1);
+  }
+  
+  &:active {
+    transform: scale(0.98);
   }
 
   &.delete {
@@ -513,6 +805,17 @@ const TraineeActionButton = styled.button`
       color: #ff4d4d;
       background: rgba(255, 77, 77, 0.1);
     }
+  }
+  
+  @media (max-width: 600px) {
+    padding: 7px 8px;
+    font-size: 0.75rem;
+    border-radius: 5px;
+  }
+  
+  @media (max-width: 400px) {
+    padding: 8px 10px;
+    font-size: 0.8rem;
   }
 `;
 
@@ -753,13 +1056,35 @@ const ModalRole = styled.div`
   font-weight: 700;
   font-size: 1.1rem;
   margin-bottom: 5px;
-  text-align: right;
+  padding: 12px 15px;
+  background: rgba(212, 160, 67, 0.08);
+  border: 1px solid rgba(212, 160, 67, 0.2);
+  border-radius: 8px;
+  text-align: center;
+  position: relative;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  
+  @media (max-width: 600px) {
+    font-size: 1.2rem;
+    padding: 14px 16px;
+    border-width: 1.5px;
+    background: rgba(212, 160, 67, 0.12);
+  }
 `;
 
 const ModalDesc = styled.div`
   color: #e0e0e0;
   font-size: 0.95rem;
-  text-align: right;
+  text-align: center;
+  line-height: 1.6;
+  padding: 0 10px;
+  
+  @media (max-width: 600px) {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
 `;
 
 // -- Track Selection --
@@ -800,13 +1125,20 @@ const ExpertControlBar = styled.div`
 `;
 
 const ExpertControlText = styled.div`
-  color: #ccc;
-  font-size: 0.95rem;
+  color: #e0e0e0;
+  font-size: 1rem;
   padding-right: 5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-family: 'Assistant', sans-serif;
 
   strong {
     color: #D4A043;
-    font-weight: 600;
+    font-weight: 700;
+  }
+
+  @media (max-width: 600px) {
+    font-size: 0.95rem;
   }
 `;
 
@@ -877,10 +1209,16 @@ const TrackCard = styled.div<{ $active: boolean }>`
   }
 
   span {
-    color: ${props => props.$active ? '#D4A043' : '#aaa'};
-    font-size: 0.9rem;
-    font-weight: 600;
+    color: ${props => props.$active ? '#D4A043' : '#e0e0e0'};
+    font-size: 1rem;
+    font-weight: 700;
     text-align: center;
+    text-shadow: ${props => props.$active ? '0 0 8px rgba(212, 160, 67, 0.5)' : 'none'};
+    letter-spacing: 0.5px;
+    
+    @media (max-width: 600px) {
+      font-size: 0.95rem;
+    }
   }
 `;
 
@@ -1009,23 +1347,39 @@ const FeatureCard = styled.div<{ $selected: boolean }>`
 `;
 
 const FeatureTitle = styled.h4<{ $selected: boolean }>`
-  color: ${props => props.$selected ? '#D4A043' : '#ccc'};
-  font-size: 0.9rem;
+  color: ${props => props.$selected ? '#D4A043' : '#e0e0e0'};
+  font-size: 1rem;
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
+  letter-spacing: 0.5px;
+  text-shadow: ${props => props.$selected ? '0 0 8px rgba(212, 160, 67, 0.5)' : 'none'};
+  
+  @media (max-width: 600px) {
+    font-size: 0.95rem;
+  }
 `;
 
-const FeatureDesc = styled.p`
-  color: #e0e0e0;
-  font-size: 0.75rem;
-  line-height: 1.1;
-  margin: 5px 0 0 0;
-  font-weight: 400;
+const FeatureDesc = styled.p<{ $selected?: boolean }>`
+  color: ${props => props.$selected ? '#e0e0e0' : '#d0d0d0'};
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 8px 0 0 0;
+  font-weight: 600;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  @media (max-width: 600px) {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-top: 6px;
+  }
 `;
 
 // -- Upload Section --
@@ -1790,14 +2144,16 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
        { role: 'תסריטאי רשת', desc: 'פאנץ\', הידוק מסרים, סטוריטלינג קצר.' },
     ],
     coach: [
-       { role: 'מאמן נוכחות מקצועית', desc: 'נוכחות בימתית, ביטחון עצמי, החזקת קהל, אנרגיה.' },
-       { role: 'מומחה דיבור והגשה', desc: 'דיקציה, שטף, אינטונציה, קצב דיבור, נשימה.' },
-       { role: 'אנליסט מסר ותוכן', desc: 'בהירות מסר, מבנה לוגי, שכנוע, העברת ערך.' },
-       { role: 'מאמן חיבור רגשי', desc: 'אותנטיות, אמפתיה, יצירת קשר עם קהל, רגש.' },
-       { role: 'מומחה שפת גוף מקצועית', desc: 'תנועות ידיים, יציבה, קשר עין, תנועה במרחב.' },
-       { role: 'אסטרטג התפתחות', desc: 'מעקב התקדמות, זיהוי נקודות חוזק וחולשה, מדידות.' },
-       { role: 'מאמן ביצועים', desc: 'אנרגיה, דינמיקה, מעברים חלקים, קצב.' },
-       { role: 'יועץ מותג אישי', desc: 'עקביות, ייחודיות, מיצוב מקצועי, תדמית.' },
+       { role: 'ניהול מתאמנים מקצועי', desc: 'מערכת ניהול מתאמנים מלאה - הוספה, עריכה, מחיקה, וניהול מידע אישי (שם, אימייל, טלפון, הערות).' },
+       { role: 'שמירת ניתוחים ומעקב', desc: 'שמירת כל הניתוחים עם שיוך למתאמן, מעקב התקדמות לאורך זמן, וצפייה בכל הניתוחים השמורים.' },
+       { role: 'השוואת ניתוחים מתקדמת', desc: 'השוואה בין ניתוחים שונים של מתאמנים או ניתוחים לאורך זמן - עד 4 ניתוחים במקביל עם טבלת השוואה מפורטת.' },
+       { role: 'הפקת דוחות PDF מקצועיים', desc: 'יצירת דוחות PDF מקצועיים ומפורטים לכל מתאמן - כולל כל הניתוחים, מגמות, סטטיסטיקות, והתפתחות לאורך זמן.' },
+       { role: 'בחירת תחום אימון גמישה', desc: 'בחירה בין 4 תחומי אימון: שחקנים, מוזיקאים, יוצרי תוכן, ומשפיענים - כל תחום עם מומחים ייעודיים.' },
+       { role: 'ניתוח מעמיק ומקצועי', desc: 'בחירה בין ניתוח רגיל לניתוח מעמיק - ניתוח מקצועי עם timecodes, מיקרו-ניתוח, השוואה לסטנדרטים מקצועיים, והמלצות מפורטות.' },
+       { role: 'בחירת מומחים מותאמת', desc: 'בחירה חופשית של המומחים הרצויים לכל תחום - 3 מומחים ראשונים כברירת מחדל, אפשרות לעבור בין "3 המובילים" ל"כל המומחים".' },
+       { role: 'שמירה מקומית מתקדמת', desc: 'כל הנתונים נשמרים מקומית בדפדפן - מתאמנים, ניתוחים, והשוואות נשארים בין הרצות.' },
+       { role: 'מעקב התקדמות ויזואלי', desc: 'צפייה בהתפתחות המתאמן לאורך זמן - מגמות, שיפורים, נקודות חוזק וחולשה, והמלצות מקצועיות.' },
+       { role: 'ממשק פרימיום מתקדם', desc: 'עיצוב פרימיום ייחודי, ניהול אינטואיטיבי, וכלים מקצועיים למאמנים וסוכנויות.' },
     ],
     influencers: [
        { role: 'מאסטר רטוריקה', desc: 'דיקציה, שטף דיבור, שכנוע והעברת מסר.' },
@@ -1811,13 +2167,14 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
     ]
   };
 
-  const tabs = [
+  const regularTabs = [
     { id: 'actors', label: 'שחקנים ואודישנים' },
     { id: 'musicians', label: 'זמרים ומוזיקאים' },
     { id: 'creators', label: 'יוצרי תוכן וכוכבי רשת' },
-    { id: 'coach', label: 'מסלול פרימיום סטודיו ומאמנים' },
     { id: 'influencers', label: 'משפיענים ומותגים' },
   ];
+  
+  const premiumTab = { id: 'coach', label: 'מסלול פרימיום סטודיו ומאמנים' };
 
   return (
     <ModalOverlay onClick={onClose}>
@@ -1833,28 +2190,169 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
         </ModalHeader>
         
         <ModalTabs>
-          {tabs.map(tab => (
+          {regularTabs.map(tab => (
             <ModalTab 
               key={tab.id} 
               $active={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                // Smooth scroll to top of content when switching tabs
+                const modalBody = document.querySelector('[data-modal-body]');
+                if (modalBody) {
+                  modalBody.scrollTop = 0;
+                }
+              }}
             >
               {tab.label}
             </ModalTab>
           ))}
         </ModalTabs>
+        
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          marginTop: '15px',
+          marginBottom: '15px'
+        }}>
+          <ModalTab 
+            $active={activeTab === premiumTab.id}
+            onClick={() => {
+              setActiveTab(premiumTab.id);
+              const modalBody = document.querySelector('[data-modal-body]');
+              if (modalBody) {
+                modalBody.scrollTop = 0;
+              }
+            }}
+            style={{
+              maxWidth: '400px',
+              width: '100%'
+            }}
+          >
+            {premiumTab.label}
+          </ModalTab>
+        </div>
 
         <TrackDescriptionText>
            {TRACK_DESCRIPTIONS[activeTab]}
         </TrackDescriptionText>
         
-        <ModalBody>
+        <ModalBody data-modal-body>
           {content[activeTab]?.map((item, idx) => (
              <ModalRow key={idx}>
                <ModalRole>{item.role}</ModalRole>
                <ModalDesc>{item.desc}</ModalDesc>
              </ModalRow>
           )) || <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>תוכן בבנייה...</div>}
+        </ModalBody>
+      </ModalContent>
+    </ModalOverlay>
+  );
+};
+
+// --- Coach Guide Modal ---
+
+const CoachGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  if (!isOpen) return null;
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+        <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
+        <ModalHeader>
+          <ModalTitle>הסבר שימוש וניהול - מסלול פרימיום</ModalTitle>
+          <ModalSubtitle>
+            מדריך פשוט וברור לשימוש במסלול הפרימיום למאמנים וסוכנויות
+          </ModalSubtitle>
+        </ModalHeader>
+
+        <ModalBody>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 1: הוספת מתאמנים</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                לחץ על כפתור "ניהול מתאמנים" והוסף מתאמנים חדשים. לכל מתאמן תוכל להוסיף שם, אימייל, טלפון והערות. 
+                המתאמנים נשמרים אוטומטית בדפדפן שלך.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 2: בחירת תחום אימון</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                בחר את תחום האימון המתאים: שחקנים, מוזיקאים, יוצרי תוכן, או משפיענים. 
+                כל תחום כולל מומחים ייעודיים שיתאימו לניתוח המקצועי.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 3: בחירת מומחים</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                בחר את המומחים הרצויים לניתוח. כברירת מחדל נבחרים 3 המומחים הראשונים, 
+                אך תוכל לבחור מומחים ספציפיים או לעבור ל"כל המומחים" בלחיצה אחת.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 4: בחירת סוג ניתוח</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                בחר בין ניתוח רגיל (ממוקד וברור) לניתוח מעמיק (מפורט עם timecodes, מיקרו-ניתוח, 
+                והשוואה לסטנדרטים מקצועיים). הניתוח המעמיק מתאים למאמנים מקצועיים.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 5: בחירת מתאמן</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                בחר את המתאמן מהרשימה. זה חשוב כדי לשמור את הניתוח עם שיוך למתאמן הנכון.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 6: העלאת וידאו וניתוח</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                העלה את הוידאו (עד 5 דקות או 20MB), הוסף הנחיות אופציונליות, ולחץ על "אקשן!" 
+                כדי להתחיל את הניתוח. הניתוח יופיע תוך מספר שניות.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 7: שמירת הניתוח</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                לאחר קבלת הניתוח, לחץ על "שמור ניתוח למתאמן" כדי לשמור אותו. 
+                הניתוח יישמר עם שיוך למתאמן הנבחר ויהיה זמין לצפייה מאוחר יותר.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 8: השוואות ודוחות</h3>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                השתמש ב"השוואת ניתוחים" כדי להשוות בין ניתוחים שונים, 
+                וב"יצא דוח PDF" במסך ניהול המתאמנים כדי ליצור דוח מקצועי עם כל הניתוחים והמגמות.
+              </p>
+            </div>
+
+            <div style={{ background: 'rgba(255, 193, 7, 0.15)', padding: '20px', borderRadius: '8px', border: '2px solid rgba(255, 193, 7, 0.5)', marginTop: '10px' }}>
+              <h4 style={{ color: '#FFC107', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ⚠️ אזהרה חשובה - שמירת נתונים
+              </h4>
+              <p style={{ color: '#ffeb3b', lineHeight: '1.8', margin: '0 0 10px 0', fontWeight: 600 }}>
+                כל הנתונים (מתאמנים, ניתוחים, השוואות) נשמרים מקומית בדפדפן שלך בלבד.
+              </p>
+              <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
+                <strong>אם תמחק את היסטוריית הדפדפן או תנקה את הנתונים, כל המידע יימחק ולא ניתן יהיה לשחזר אותו.</strong><br/>
+                מומלץ מאוד להשתמש בתכונת "ייצוא נתונים" כדי לשמור גיבוי של כל הנתונים במחשב שלך.
+              </p>
+            </div>
+
+            <div style={{ background: 'rgba(212, 160, 67, 0.1)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.3)', marginTop: '10px' }}>
+              <h4 style={{ color: '#D4A043', margin: '0 0 10px 0' }}>טיפים חשובים:</h4>
+              <ul style={{ color: '#e0e0e0', lineHeight: '1.8', paddingRight: '20px', margin: 0 }}>
+                <li>השתמש ב"ייצוא נתונים" לשמירת גיבוי תקופתי של כל הנתונים</li>
+                <li>ניתן לשמור מספר בלתי מוגבל של מתאמנים וניתוחים</li>
+                <li>השוואות מאפשרות מעקב אחר התקדמות לאורך זמן</li>
+                <li>דוחות PDF מקצועיים מוכנים להדפסה או שליחה למתאמנים</li>
+              </ul>
+            </div>
+          </div>
         </ModalBody>
       </ModalContent>
     </ModalOverlay>
@@ -2060,6 +2558,461 @@ const ComparisonModal = ({
   );
 };
 
+// --- Subscription Modal ---
+const SubscriptionModal = ({
+  isOpen,
+  onClose,
+  currentSubscription,
+  onSelectPlan,
+  activeTrack,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentSubscription: UserSubscription | null;
+  onSelectPlan: (tier: SubscriptionTier, period: BillingPeriod) => void;
+  activeTrack?: TrackId;
+}) => {
+  const [selectedPeriods, setSelectedPeriods] = useState<Record<SubscriptionTier, BillingPeriod>>({
+    free: 'monthly',
+    creator: 'monthly',
+    pro: 'monthly',
+    coach: 'monthly',
+  });
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactFormData, setContactFormData] = useState({ name: '', email: '', message: '' });
+
+  if (!isOpen) return null;
+
+  const handlePeriodChange = (tier: SubscriptionTier, period: BillingPeriod) => {
+    setSelectedPeriods(prev => ({ ...prev, [tier]: period }));
+  };
+
+  const handleSelectPlan = (tier: SubscriptionTier) => {
+    onSelectPlan(tier, selectedPeriods[tier]);
+  };
+
+  const handleContactSubmit = () => {
+    if (!contactFormData.name || !contactFormData.email || !contactFormData.message) {
+      alert('נא למלא את כל השדות');
+      return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(contactFormData.email)) {
+      alert('נא להזין כתובת אימייל תקינה');
+      return;
+    }
+    
+    try {
+      const subject = encodeURIComponent('פנייה מ-Viraly Pro');
+      const body = encodeURIComponent(`שם: ${contactFormData.name}\nאימייל: ${contactFormData.email}\n\nהודעה:\n${contactFormData.message}`);
+      const mailtoLink = `mailto:viralypro@gmail.com?subject=${subject}&body=${body}`;
+      
+      // Try to open email client
+      const link = document.createElement('a');
+      link.href = mailtoLink;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Fallback: also try window.location
+      setTimeout(() => {
+        window.location.href = mailtoLink;
+      }, 100);
+      
+      alert('תוכנת המייל שלך נפתחה. אנא שלח את ההודעה מ-viralypro@gmail.com');
+      setShowContactForm(false);
+      setContactFormData({ name: '', email: '', message: '' });
+    } catch (error) {
+      console.error('Error opening email client:', error);
+      alert('אירעה שגיאה בפתיחת תוכנת המייל. נא לשלוח מייל ידנית ל-viralypro@gmail.com');
+    }
+  };
+
+  const faqItems = [
+    {
+      question: 'האם אני יכול לבטל את המנוי בכל עת?',
+      answer: 'כן, אתה יכול לבטל את המנוי בכל עת. המנוי יישאר פעיל עד סוף תקופת החיוב הנוכחית.',
+    },
+    {
+      question: 'מה קורה אם אני עובר את מכסת הניתוחים?',
+      answer: 'כשתגיע למכסה, תוכל לשדרג לחבילה גבוהה יותר או להמתין לחידוש החודשי. אנחנו לא מחייבים אוטומטית.',
+    },
+    {
+      question: 'האם יש התחייבות לתקופה מסוימת?',
+      answer: 'לא, כל החבילות הן חודשיות ללא התחייבות. אתה משלם רק על מה שאתה משתמש.',
+    },
+    {
+      question: 'איך עובד ניתוח הווידאו?',
+      answer: 'פשוט מעלים את הסרטון או התמונה, מוסיפים הקשר אם רוצים, וה-AI שלנו מנתח את התוכן עם 8 מומחים וירטואליים: במאי, מלהק, תסריטאי, מאמן משחק, צלם, עורך סאונד, סטייליסט ומפיק.',
+    },
+    {
+      question: 'האם אפשר לקבל החזר כספי?',
+      answer: 'כן, יש לנו מדיניות החזר של 7 ימים. אם אתה לא מרוצה, פנה אלינו ונחזיר לך את הכסף.',
+    },
+  ];
+
+  return (
+    <SubscriptionModalOverlay $isOpen={isOpen} onClick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}>
+      <SubscriptionModalContent>
+        <CloseModalButton onClick={onClose}>×</CloseModalButton>
+        <SubscriptionModalHeader>
+          <h2 style={{ fontSize: '3rem', marginBottom: '15px' }}>בחר את החבילה שלך</h2>
+          <p style={{ fontSize: '1.2rem', color: '#D4A043' }}>
+            שדרג את יכולות יצירת התוכן שלך עם ניתוחים מקצועיים ברמה הוליוודית
+          </p>
+        </SubscriptionModalHeader>
+
+        <PricingPlansGrid>
+          {(activeTrack === 'coach' 
+            ? [SUBSCRIPTION_PLANS.coach] 
+            : Object.values(SUBSCRIPTION_PLANS)
+          ).map(plan => {
+            const isCurrentPlan = currentSubscription?.tier === plan.id;
+            const isUpgrade = !currentSubscription || 
+              (currentSubscription.tier === 'free' && plan.id !== 'free') ||
+              (currentSubscription.tier === 'creator' && plan.id === 'pro') ||
+              (currentSubscription.tier === 'creator' && plan.id === 'coach') ||
+              (currentSubscription.tier === 'pro' && plan.id === 'coach');
+            
+            const selectedPeriod = selectedPeriods[plan.id];
+            const price = selectedPeriod === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
+            const analysesLimit = plan.limits.maxAnalysesPerPeriod === -1 
+              ? 'ללא הגבלה' 
+              : plan.limits.maxAnalysesPerPeriod === 2
+              ? `${plan.limits.maxAnalysesPerPeriod} ניתוחים בסך הכל`
+              : selectedPeriod === 'yearly'
+              ? `${plan.limits.maxAnalysesPerPeriod * 12} ניתוחים בשנה`
+              : `${plan.limits.maxAnalysesPerPeriod} ניתוחים בחודש`;
+            
+            const maxSeconds = plan.limits.maxVideoSeconds;
+            const maxMB = plan.limits.maxFileBytes / (1024 * 1024);
+            const durationText = maxSeconds >= 60 
+              ? `${Math.floor(maxSeconds / 60)} דקות`
+              : `${maxSeconds} שניות`;
+
+            return (
+              <PricingPlanCard 
+                key={plan.id}
+                $popular={plan.popular}
+                $isFree={plan.id === 'free'}
+              >
+                <PlanHeader>
+                  {plan.badge && (
+                    <PlanBadge $color={plan.id === 'coach' ? '#D4A043' : undefined}>
+                      {plan.badge}
+                    </PlanBadge>
+                  )}
+                  <PlanName>{plan.name}</PlanName>
+                  <PlanDescription>{plan.description}</PlanDescription>
+                </PlanHeader>
+
+                {plan.id !== 'free' && (
+                  <BillingToggle style={{ marginBottom: '20px', width: '100%' }}>
+                    <BillingToggleButton 
+                      $active={selectedPeriods[plan.id] === 'monthly'}
+                      onClick={() => handlePeriodChange(plan.id, 'monthly')}
+                    >
+                      חודשי
+                    </BillingToggleButton>
+                    <BillingToggleButton 
+                      $active={selectedPeriods[plan.id] === 'yearly'}
+                      onClick={() => handlePeriodChange(plan.id, 'yearly')}
+                    >
+                      שנתי
+                      <span style={{ fontSize: '0.8rem', marginRight: '5px', color: '#D4A043' }}>
+                        (חיסכון 17%)
+                      </span>
+                    </BillingToggleButton>
+                  </BillingToggle>
+                )}
+
+                <PlanPrice>
+                  {plan.id === 'free' ? (
+                    <>
+                      <PriceAmount>₪0</PriceAmount>
+                      <PricePeriod>לכל החיים</PricePeriod>
+                    </>
+                  ) : (
+                    <>
+                      <PriceAmount>
+                        ₪{price}
+                        <span className="currency">{selectedPeriod === 'yearly' ? '/שנה' : '/חודש'}</span>
+                      </PriceAmount>
+                      {selectedPeriod === 'yearly' && (
+                        <PricePeriod>
+                          ₪{Math.round(price / 12)}/חודש (חיסכון 17%)
+                        </PricePeriod>
+                      )}
+                    </>
+                  )}
+                </PlanPrice>
+
+                <PlanLimits>
+                  <LimitText>
+                    <strong>{analysesLimit}</strong>
+                  </LimitText>
+                  <LimitText>
+                    עד <strong>{durationText}</strong> או <strong>{maxMB}MB</strong>
+                  </LimitText>
+                </PlanLimits>
+
+                <PlanFeatures>
+                  <PlanFeature $disabled={!plan.limits.features.saveHistory}>
+                    שמירת היסטוריה
+                  </PlanFeature>
+                  <PlanFeature $disabled={!plan.limits.features.improvementTracking}>
+                    מעקב שיפור
+                  </PlanFeature>
+                  <PlanFeature $disabled={!plan.limits.features.comparison}>
+                    השוואה בין סרטונים
+                  </PlanFeature>
+                  <PlanFeature $disabled={!plan.limits.features.advancedAnalysis}>
+                    ניתוח מתקדם
+                  </PlanFeature>
+                  <PlanFeature $disabled={!plan.limits.features.pdfExport}>
+                    יצוא PDF
+                  </PlanFeature>
+                  {plan.id === 'coach' && (
+                    <>
+                      <PlanFeature $disabled={!plan.limits.features.traineeManagement}>
+                        ניהול מתאמנים
+                      </PlanFeature>
+                      <PlanFeature $disabled={!plan.limits.features.coachDashboard}>
+                        דשבורד מאמן
+                      </PlanFeature>
+                    </>
+                  )}
+                  <PlanFeature $disabled={!plan.limits.features.customExperts}>
+                    בחירת מומחים מותאמת
+                  </PlanFeature>
+                </PlanFeatures>
+
+                <SubscribeButton
+                  $popular={plan.popular}
+                  $isFree={plan.id === 'free'}
+                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={isCurrentPlan}
+                >
+                  {isCurrentPlan 
+                    ? 'החבילה הנוכחית שלך'
+                    : plan.id === 'free'
+                    ? 'התחל חינם'
+                    : isUpgrade
+                    ? 'שדרג עכשיו'
+                    : 'בחר חבילה'}
+                </SubscribeButton>
+              </PricingPlanCard>
+            );
+          })}
+        </PricingPlansGrid>
+
+        {/* 7-Day Refund Policy */}
+        <div style={{ 
+          background: 'rgba(212, 160, 67, 0.1)', 
+          padding: '30px', 
+          borderRadius: '15px', 
+          marginTop: '40px',
+          textAlign: 'center',
+          border: '1px solid rgba(212, 160, 67, 0.3)'
+        }}>
+          <h3 style={{ color: '#D4A043', fontSize: '2rem', margin: '0 0 15px 0', fontFamily: "'Frank Ruhl Libre', serif" }}>
+            אחריות 7 ימים - החזר מלא
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <p style={{ color: '#fff', fontSize: '1.1rem', margin: 0, lineHeight: '1.6' }}>
+              לא מרוצה? אנחנו מחזירים לך את הכסף בלי שאלות
+            </p>
+            <p style={{ color: '#D4A043', fontSize: '1.3rem', margin: 0, lineHeight: '1.6', fontWeight: 700 }}>
+              אנחנו בטוחים שתאהב את השירות
+            </p>
+          </div>
+        </div>
+
+        {/* FAQ Section */}
+        <div style={{ marginTop: '50px' }}>
+          <h3 style={{ 
+            color: '#D4A043', 
+            fontSize: '2rem', 
+            margin: '0 0 30px 0', 
+            textAlign: 'center',
+            fontFamily: "'Frank Ruhl Libre', serif" 
+          }}>
+            שאלות נפוצות
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            {faqItems.map((faq, index) => (
+              <div 
+                key={index}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(212, 160, 67, 0.2)',
+                  borderRadius: '10px',
+                  padding: '20px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s',
+                }}
+                onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <span style={{ 
+                    color: '#D4A043', 
+                    fontSize: '1.2rem',
+                    transform: expandedFaq === index ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s'
+                  }}>
+                    ▼
+                  </span>
+                  <h4 style={{ 
+                    color: '#fff', 
+                    margin: 0, 
+                    fontSize: '1.1rem',
+                    flex: 1,
+                    textAlign: 'right'
+                  }}>
+                    {faq.question}
+                  </h4>
+                </div>
+                {expandedFaq === index && (
+                  <p style={{ 
+                    color: '#ccc', 
+                    margin: '15px 0 0 35px', 
+                    lineHeight: '1.6',
+                    textAlign: 'right'
+                  }}>
+                    {faq.answer}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Contact Section */}
+        <div style={{ marginTop: '50px', textAlign: 'center' }}>
+          <h3 style={{ 
+            color: '#D4A043', 
+            fontSize: '1.8rem', 
+            margin: '0 0 20px 0',
+            fontFamily: "'Frank Ruhl Libre', serif"
+          }}>
+            שאלות נוספות או צורך בביטול?
+          </h3>
+          <p style={{ color: '#ccc', marginBottom: '20px' }}>
+            פנה אלינו במייל: <a href="mailto:viralypro@gmail.com" style={{ color: '#D4A043' }}>viralypro@gmail.com</a>
+          </p>
+          {!showContactForm ? (
+            <SubscribeButton 
+              onClick={() => setShowContactForm(true)}
+              $popular={false}
+              $isFree={false}
+              style={{ maxWidth: '300px', margin: '0 auto' }}
+            >
+              שלח לנו הודעה
+            </SubscribeButton>
+          ) : (
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              padding: '25px',
+              borderRadius: '10px',
+              maxWidth: '500px',
+              margin: '0 auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '15px'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>שם מלא</label>
+                <input
+                  type="text"
+                  placeholder="שם מלא"
+                  value={contactFormData.name}
+                  onChange={(e) => setContactFormData({ ...contactFormData, name: e.target.value })}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'rtl',
+                    textAlign: 'right'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>אימייל</label>
+                <input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={contactFormData.email}
+                  onChange={(e) => setContactFormData({ ...contactFormData, email: e.target.value })}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'ltr',
+                    textAlign: 'left'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>הודעה</label>
+                <textarea
+                  placeholder="הודעה"
+                  value={contactFormData.message}
+                  onChange={(e) => setContactFormData({ ...contactFormData, message: e.target.value })}
+                  rows={5}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'rtl',
+                    textAlign: 'right',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <SubscribeButton 
+                  onClick={handleContactSubmit}
+                  $popular={false}
+                  $isFree={false}
+                  style={{ flex: 1 }}
+                >
+                  שלח
+                </SubscribeButton>
+                <SubscribeButton 
+                  onClick={() => {
+                    setShowContactForm(false);
+                    setContactFormData({ name: '', email: '', message: '' });
+                  }}
+                  $popular={false}
+                  $isFree={true}
+                  style={{ flex: 1 }}
+                >
+                  ביטול
+                </SubscribeButton>
+              </div>
+            </div>
+          )}
+        </div>
+      </SubscriptionModalContent>
+    </SubscriptionModalOverlay>
+  );
+};
+
 // --- Coach Dashboard Modal ---
 
 const CoachDashboardModal = ({ 
@@ -2068,6 +3021,7 @@ const CoachDashboardModal = ({
   trainees, 
   setTrainees,
   savedAnalyses,
+  setSavedAnalyses,
   onTraineeSelect,
   onViewAnalysis,
   onExportReport
@@ -2077,6 +3031,7 @@ const CoachDashboardModal = ({
   trainees: Trainee[];
   setTrainees: React.Dispatch<React.SetStateAction<Trainee[]>>;
   savedAnalyses: SavedAnalysis[];
+  setSavedAnalyses: React.Dispatch<React.SetStateAction<SavedAnalysis[]>>;
   onTraineeSelect?: (traineeId: string) => void;
   onViewAnalysis?: (analysis: SavedAnalysis) => void;
   onExportReport?: (traineeId: string) => void;
@@ -2086,49 +3041,110 @@ const CoachDashboardModal = ({
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', notes: '' });
   const [viewingTraineeAnalyses, setViewingTraineeAnalyses] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Sync with localStorage
-    localStorage.setItem('viraly_coach_trainees', JSON.stringify(trainees));
-  }, [trainees]);
+  // Trainees are now managed via Supabase - no local sync needed
 
-  const handleSaveTrainee = () => {
+  const handleSaveTrainee = async () => {
     if (!formData.name.trim()) {
       alert('נא להזין שם מתאמן');
       return;
     }
 
-    if (editingTrainee) {
-      // Update existing
-      setTrainees(prev => prev.map(t => 
-        t.id === editingTrainee.id 
-          ? { ...t, ...formData, email: formData.email || undefined, phone: formData.phone || undefined, notes: formData.notes || undefined }
-          : t
-      ));
-      setEditingTrainee(null);
-    } else {
-      // Add new
-      const newTrainee: Trainee = {
-        id: `trainee_${Date.now()}`,
-        name: formData.name,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        notes: formData.notes || undefined,
-        createdAt: new Date(),
-        analyses: []
-      };
-      setTrainees(prev => [...prev, newTrainee]);
-      setIsAddingTrainee(false);
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      alert('יש להיכנס למערכת תחילה');
+      return;
     }
-    
-    setFormData({ name: '', email: '', phone: '', notes: '' });
+
+    try {
+      if (editingTrainee) {
+        // Update existing
+        const { error } = await supabase
+          .from('trainees')
+          .update({
+            name: formData.name,
+            email: formData.email || null,
+            phone: formData.phone || null,
+            notes: formData.notes || null,
+          })
+          .eq('id', editingTrainee.id)
+          .eq('coach_id', currentUser.id);
+
+        if (error) throw error;
+
+        setTrainees(prev => prev.map(t => 
+          t.id === editingTrainee.id 
+            ? { ...t, ...formData, email: formData.email || undefined, phone: formData.phone || undefined, notes: formData.notes || undefined }
+            : t
+        ));
+        setEditingTrainee(null);
+      } else {
+        // Add new
+        const newTraineeData = await saveTrainee({
+          name: formData.name,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          notes: formData.notes || undefined,
+        });
+
+        const newTrainee: Trainee = {
+          id: newTraineeData.id,
+          name: newTraineeData.name,
+          email: newTraineeData.email || undefined,
+          phone: newTraineeData.phone || undefined,
+          notes: newTraineeData.notes || undefined,
+          createdAt: new Date(newTraineeData.created_at),
+          analyses: []
+        };
+        setTrainees(prev => [...prev, newTrainee]);
+        setIsAddingTrainee(false);
+      }
+      
+      setFormData({ name: '', email: '', phone: '', notes: '' });
+    } catch (error) {
+      console.error('Error saving trainee:', error);
+      alert('אירעה שגיאה בשמירת המתאמן. נסה שוב.');
+    }
   };
 
-  const handleDeleteTrainee = (id: string) => {
-    if (confirm('האם אתה בטוח שברצונך למחוק מתאמן זה?')) {
+  const handleDeleteTrainee = async (id: string) => {
+    if (!confirm('האם אתה בטוח שברצונך למחוק מתאמן זה?')) return;
+
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      alert('יש להיכנס למערכת תחילה');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('trainees')
+        .delete()
+        .eq('id', id)
+        .eq('coach_id', currentUser.id);
+
+      if (error) throw error;
+
       setTrainees(prev => prev.filter(t => t.id !== id));
-      // Also remove saved analyses for this trainee
-      const updatedAnalyses = savedAnalyses.filter(a => a.traineeId !== id);
-      localStorage.setItem('viraly_coach_analyses', JSON.stringify(updatedAnalyses));
+      
+      // Reload analyses (they will be filtered automatically by trainee_id)
+      const updatedAnalyses = await getAnalyses();
+      setSavedAnalyses(updatedAnalyses.map(a => ({
+        id: a.id,
+        videoName: '',
+        videoUrl: '',
+        traineeId: a.trainee_id || undefined,
+        traineeName: undefined,
+        analysisDate: new Date(a.created_at),
+        result: a.result,
+        averageScore: a.average_score,
+        track: a.track as TrackId,
+        metadata: {
+          prompt: a.prompt || undefined,
+        },
+      })));
+    } catch (error) {
+      console.error('Error deleting trainee:', error);
+      alert('אירעה שגיאה במחיקת המתאמן. נסה שוב.');
     }
   };
 
@@ -2145,6 +3161,93 @@ const CoachDashboardModal = ({
 
   const getTraineeAnalysesCount = (traineeId: string) => {
     return savedAnalyses.filter(a => a.traineeId === traineeId).length;
+  };
+
+  // Export all data to JSON file
+  const handleExportData = () => {
+    try {
+      const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        trainees: trainees.map(t => ({
+          ...t,
+          createdAt: t.createdAt.toISOString()
+        })),
+        savedAnalyses: savedAnalyses.map(a => ({
+          ...a,
+          analysisDate: a.analysisDate.toISOString()
+        }))
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `viraly_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert('הנתונים יוצאו בהצלחה! הקובץ נשמר בתיקיית ההורדות שלך.');
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('אירעה שגיאה ביצוא הנתונים. נסה שוב.');
+    }
+  };
+
+  // Import data from JSON file
+  const handleImportData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event: any) => {
+        try {
+          const importedData = JSON.parse(event.target.result);
+          
+          if (!importedData.trainees || !Array.isArray(importedData.trainees)) {
+            throw new Error('פורמט קובץ לא תקין - חסר רשימת מתאמנים');
+          }
+
+          if (!importedData.savedAnalyses || !Array.isArray(importedData.savedAnalyses)) {
+            throw new Error('פורמט קובץ לא תקין - חסר רשימת ניתוחים');
+          }
+
+          const confirmMessage = `האם אתה בטוח שברצונך לייבא את הנתונים?\n\nזה יחליף את כל הנתונים הקיימים!\n\nמתאמנים: ${importedData.trainees.length}\nניתוחים: ${importedData.savedAnalyses.length}`;
+          
+          if (confirm(confirmMessage)) {
+            // Convert dates back to Date objects
+            const importedTrainees = importedData.trainees.map((t: any) => ({
+              ...t,
+              createdAt: new Date(t.createdAt || t.createdAt)
+            }));
+            
+            const importedAnalyses = importedData.savedAnalyses.map((a: any) => ({
+              ...a,
+              analysisDate: new Date(a.analysisDate || a.analysisDate)
+            }));
+
+            // Update state (will trigger localStorage sync via useEffect)
+            setTrainees(importedTrainees);
+            setSavedAnalyses(importedAnalyses);
+            
+            alert('הנתונים יובאו בהצלחה!');
+            onClose(); // Close modal to show updated data
+          }
+        } catch (error: any) {
+          console.error('Import error:', error);
+          alert(`אירעה שגיאה בייבוא הנתונים: ${error.message}`);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   if (!isOpen) return null;
@@ -2172,13 +3275,21 @@ const CoachDashboardModal = ({
                 </p>
               </div>
               {!isAddingTrainee && (
-                <CoachButton onClick={() => {
-                  setIsAddingTrainee(true);
-                  setEditingTrainee(null);
-                  setFormData({ name: '', email: '', phone: '', notes: '' });
-                }}>
-                  + הוסף מתאמן חדש
-                </CoachButton>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <CoachButton onClick={handleExportData}>
+                    ייצא נתונים
+                  </CoachButton>
+                  <CoachButton onClick={handleImportData}>
+                    ייבא נתונים
+                  </CoachButton>
+                  <CoachButton onClick={() => {
+                    setIsAddingTrainee(true);
+                    setEditingTrainee(null);
+                    setFormData({ name: '', email: '', phone: '', notes: '' });
+                  }}>
+                    + הוסף מתאמן חדש
+                  </CoachButton>
+                </div>
               )}
             </CoachHeader>
 
@@ -2279,7 +3390,7 @@ const CoachDashboardModal = ({
                             }}
                             style={{ background: 'rgba(212, 160, 67, 0.1)', borderColor: '#D4A043', color: '#D4A043' }}
                           >
-                            📄 יצא דוח PDF
+יצא דוח PDF
                           </TraineeActionButton>
                         )}
                         <TraineeActionButton 
@@ -2421,7 +3532,467 @@ const EXPERTS_BY_TRACK: Record<string, { title: string; desc: string }[]> = {
   ],
 };
 
+// --- Subscription Modal Styled Components ---
+const SubscriptionModalOverlay = styled.div<{ $isOpen: boolean }>`
+  display: ${props => props.$isOpen ? 'flex' : 'none'};
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+`;
+
+const SubscriptionModalContent = styled.div`
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+  border: 2px solid #D4A043;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 1200px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(212, 160, 67, 0.3);
+  animation: ${fadeIn} 0.3s ease;
+
+  @media (max-width: 768px) {
+    padding: 20px;
+    border-radius: 15px;
+  }
+`;
+
+const SubscriptionModalHeader = styled.div`
+  text-align: center;
+  margin-bottom: 40px;
+  
+  h2 {
+    color: #D4A043;
+    font-size: 2.5rem;
+    margin: 0 0 10px 0;
+    font-family: 'Frank Ruhl Libre', serif;
+  }
+  
+  p {
+    color: #ccc;
+    font-size: 1.1rem;
+    margin: 0;
+  }
+`;
+
+const PricingPlansGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+  margin-bottom: 30px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+`;
+
+const PricingPlanCard = styled.div<{ $popular?: boolean; $isFree?: boolean }>`
+  background: ${props => props.$popular 
+    ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.15) 0%, rgba(212, 160, 67, 0.05) 100%)'
+    : 'rgba(20, 20, 20, 0.8)'};
+  border: 2px solid ${props => props.$popular ? '#D4A043' : props.$isFree ? '#666' : '#333'};
+  border-radius: 15px;
+  padding: 30px 25px;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-5px);
+    border-color: ${props => props.$popular ? '#F5C842' : '#D4A043'};
+    box-shadow: 0 10px 30px rgba(212, 160, 67, 0.2);
+  }
+
+  ${props => props.$popular && `
+    &::before {
+      content: '${props.$popular ? 'הפופולרי' : ''}';
+      position: absolute;
+      top: -12px;
+      right: 20px;
+      background: #D4A043;
+      color: #000;
+      padding: 4px 15px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+  `}
+`;
+
+const PlanHeader = styled.div`
+  text-align: center;
+  margin-bottom: 25px;
+`;
+
+const PlanName = styled.h3`
+  color: #D4A043;
+  font-size: 1.8rem;
+  margin: 0 0 8px 0;
+  font-family: 'Frank Ruhl Libre', serif;
+`;
+
+const PlanBadge = styled.span<{ $color?: string }>`
+  display: inline-block;
+  background: ${props => props.$color || '#D4A043'};
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+`;
+
+const PlanDescription = styled.p`
+  color: #aaa;
+  font-size: 0.95rem;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+`;
+
+const PlanPrice = styled.div`
+  text-align: center;
+  margin-bottom: 25px;
+`;
+
+const PriceAmount = styled.div`
+  color: #fff;
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 5px;
+  
+  .currency {
+    font-size: 1.2rem;
+    margin-left: 5px;
+  }
+`;
+
+const PricePeriod = styled.div`
+  color: #888;
+  font-size: 0.9rem;
+`;
+
+const BillingToggle = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 30px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50px;
+  width: fit-content;
+  margin: 0 auto 30px;
+`;
+
+const BillingToggleButton = styled.button<{ $active: boolean }>`
+  background: ${props => props.$active ? '#D4A043' : 'transparent'};
+  color: ${props => props.$active ? '#000' : '#888'};
+  border: none;
+  padding: 8px 20px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  
+  &:hover {
+    background: ${props => props.$active ? '#F5C842' : 'rgba(212, 160, 67, 0.1)'};
+    color: ${props => props.$active ? '#000' : '#D4A043'};
+  }
+`;
+
+const PlanFeatures = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0 0 25px 0;
+`;
+
+const PlanFeature = styled.li<{ $disabled?: boolean }>`
+  color: ${props => props.$disabled ? '#555' : '#ccc'};
+  font-size: 0.95rem;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  
+  &::before {
+    content: '${props => props.$disabled ? '✗' : '✓'}';
+    color: ${props => props.$disabled ? '#666' : '#D4A043'};
+    font-weight: 700;
+    font-size: 1.2rem;
+  }
+`;
+
+const PlanLimits = styled.div`
+  background: rgba(255, 255, 255, 0.03);
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+`;
+
+const LimitText = styled.div`
+  color: #aaa;
+  font-size: 0.85rem;
+  margin: 5px 0;
+  
+  strong {
+    color: #D4A043;
+  }
+`;
+
+const SubscribeButton = styled.button<{ $popular?: boolean; $isFree?: boolean }>`
+  width: 100%;
+  background: ${props => props.$isFree 
+    ? 'rgba(255, 255, 255, 0.1)'
+    : props.$popular
+    ? 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)'
+    : '#D4A043'};
+  color: ${props => props.$isFree ? '#aaa' : '#000'};
+  border: none;
+  padding: 15px 25px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(212, 160, 67, 0.4);
+    background: ${props => props.$isFree 
+      ? 'rgba(255, 255, 255, 0.15)'
+      : 'linear-gradient(135deg, #F5C842 0%, #D4A043 100%)'};
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const CloseModalButton = styled.button`
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid #444;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.2);
+    border-color: #D4A043;
+  }
+`;
+
+// --- Auth Modal Component ---
+const AuthModal = ({ 
+  isOpen, 
+  onClose,
+  onAuthSuccess 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  onAuthSuccess: () => void;
+}) => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+
+        if (signUpError) throw signUpError;
+        
+        if (data.user) {
+          alert('נרשמת בהצלחה! נא לאשר את האימייל שלך.');
+          onAuthSuccess();
+          onClose();
+        }
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) throw signInError;
+        
+        onAuthSuccess();
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.message || 'אירעה שגיאה. נסה שוב.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <SubscriptionModalOverlay $isOpen={isOpen} onClick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}>
+      <SubscriptionModalContent style={{ maxWidth: '500px' }}>
+        <CloseModalButton onClick={onClose}>×</CloseModalButton>
+        <SubscriptionModalHeader>
+          <h2>{isSignUp ? 'הרשמה' : 'כניסה'}</h2>
+          <p>{isSignUp ? 'צור חשבון חדש' : 'היכנס לחשבון שלך'}</p>
+        </SubscriptionModalHeader>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {isSignUp && (
+            <div>
+              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                שם מלא
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(212, 160, 67, 0.3)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  direction: 'rtl',
+                }}
+              />
+            </div>
+          )}
+
+          <div>
+            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+              אימייל
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: '#fff',
+                fontSize: '1rem',
+                direction: 'ltr',
+                textAlign: 'left',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+              סיסמה
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: '#fff',
+                fontSize: '1rem',
+                direction: 'ltr',
+              }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ color: '#ff6b6b', textAlign: 'right', fontSize: '0.9rem' }}>
+              {error}
+            </div>
+          )}
+
+          <SubscribeButton
+            type="submit"
+            disabled={loading}
+            $popular={false}
+            $isFree={false}
+          >
+            {loading ? 'מעבד...' : (isSignUp ? 'הרשמה' : 'כניסה')}
+          </SubscribeButton>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setError(null);
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#D4A043',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              textDecoration: 'underline',
+            }}
+          >
+            {isSignUp ? 'יש לך כבר חשבון? התחבר' : 'אין לך חשבון? הירשם'}
+          </button>
+        </form>
+      </SubscriptionModalContent>
+    </SubscriptionModalOverlay>
+  );
+};
+
 const App = () => {
+  // Authentication State
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
   const [activeTrack, setActiveTrack] = useState<TrackId>('actors');
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -2431,7 +4002,14 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState('actors');
-  const [hasPremiumAccess] = useState(true); // Placeholder for future premium gating logic
+  
+  // Subscription State (from Supabase)
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [usage, setUsage] = useState<{ analysesUsed: number; periodStart: Date; periodEnd: Date } | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  
+  // Calculate premium access based on subscription
+  const hasPremiumAccess = subscription ? subscription.tier !== 'free' : false;
   
   // Results
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -2443,47 +4021,310 @@ const App = () => {
   const [coachMode, setCoachMode] = useState<'coach' | 'trainee' | null>(null);
   const [coachTrainingTrack, setCoachTrainingTrack] = useState<TrackId>('actors'); // תחום האימון שנבחר במסלול Coach
   const [analysisDepth, setAnalysisDepth] = useState<'standard' | 'deep'>('standard'); // סוג הניתוח: רגיל או מעמיק
-  const [trainees, setTrainees] = useState<Trainee[]>(() => {
-    try {
-      const saved = localStorage.getItem('viraly_coach_trainees');
-      return saved ? JSON.parse(saved).map((t: any) => ({
-        ...t,
-        createdAt: new Date(t.createdAt),
-        analyses: t.analyses || []
-      })) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>(() => {
-    try {
-      const saved = localStorage.getItem('viraly_coach_analyses');
-      return saved ? JSON.parse(saved).map((a: any) => ({
-        ...a,
-        analysisDate: new Date(a.analysisDate)
-      })) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Coach Edition State (from Supabase)
+  const [trainees, setTrainees] = useState<Trainee[]>([]);
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
   const [selectedTrainee, setSelectedTrainee] = useState<string | null>(null);
   const [showCoachDashboard, setShowCoachDashboard] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
-
-  // Sync savedAnalyses to localStorage
-  useEffect(() => {
-    localStorage.setItem('viraly_coach_analyses', JSON.stringify(savedAnalyses));
-  }, [savedAnalyses]);
+  const [showCoachGuide, setShowCoachGuide] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Initialize Supabase Auth
+  useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoadingAuth(false);
+      
+      if (session?.user) {
+        loadUserData(session.user);
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        loadUserData(session.user);
+      } else {
+        // Reset state on logout
+        setProfile(null);
+        setSubscription(null);
+        setUsage(null);
+        setTrainees([]);
+        setSavedAnalyses([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load user data from Supabase
+  const loadUserData = async (currentUser: User) => {
+    try {
+      // Load profile
+      const userProfile = await getCurrentUserProfile();
+      setProfile(userProfile);
+
+      // Load subscription
+      const subData = await getCurrentSubscription();
+      if (subData && subData.plans) {
+        const plan = subData.plans as any;
+        setSubscription({
+          tier: plan.tier,
+          billingPeriod: subData.billing_period as 'monthly' | 'yearly',
+          startDate: new Date(subData.start_date),
+          endDate: new Date(subData.end_date),
+          usage: {
+            analysesUsed: 0, // Will be loaded separately
+            lastResetDate: new Date(subData.start_date),
+          },
+          isActive: subData.status === 'active',
+        });
+      } else {
+        // Default free tier
+        setSubscription({
+          tier: 'free',
+          billingPeriod: 'monthly',
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          usage: {
+            analysesUsed: 0,
+            lastResetDate: new Date(),
+          },
+          isActive: true,
+        });
+      }
+
+      // Load usage
+      const usageData = await getUsageForCurrentPeriod();
+      if (usageData) {
+        setUsage(usageData);
+        if (subscription) {
+          setSubscription(prev => prev ? {
+            ...prev,
+            usage: {
+              analysesUsed: usageData.analysesUsed,
+              lastResetDate: usageData.periodStart,
+            },
+          } : null);
+        }
+      }
+
+      // Load trainees if coach
+      if (userProfile?.subscription_tier === 'coach') {
+        const traineesData = await getTrainees();
+        setTrainees(traineesData.map(t => ({
+          id: t.id,
+          name: t.name,
+          email: t.email || undefined,
+          phone: t.phone || undefined,
+          notes: t.notes || undefined,
+          createdAt: new Date(t.created_at),
+          analyses: [], // Will be loaded separately
+        })));
+      }
+
+      // Load analyses
+      const analysesData = await getAnalyses();
+      setSavedAnalyses(analysesData.map(a => ({
+        id: a.id,
+        videoName: '', // Will be loaded from video if exists
+        videoUrl: '',
+        traineeId: a.trainee_id || undefined,
+        traineeName: undefined, // Will be resolved from trainees
+        analysisDate: new Date(a.created_at),
+        result: a.result,
+        averageScore: a.average_score,
+        track: a.track as TrackId,
+        metadata: {
+          prompt: a.prompt || undefined,
+        },
+      })));
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
 
   useEffect(() => {
     const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
     const defaults = EXPERTS_BY_TRACK[trackToUse].slice(0, 3).map(e => e.title);
     setSelectedExperts(defaults);
   }, [activeTrack, coachTrainingTrack]);
+
+  // Subscription is now managed via Supabase - no local sync needed
+
+  // Reset usage counters monthly/yearly
+  useEffect(() => {
+    if (!subscription) return;
+    
+    const now = new Date();
+    const lastReset = new Date(subscription.usage.lastResetDate);
+    const periodDays = subscription.billingPeriod === 'monthly' ? 30 : 365;
+    
+    if (now.getTime() - lastReset.getTime() > periodDays * 24 * 60 * 60 * 1000) {
+      setSubscription(prev => prev ? {
+        ...prev,
+        usage: {
+          analysesUsed: 0,
+          lastResetDate: now,
+        },
+      } : null);
+    }
+  }, [subscription]);
+
+  // Subscription Management Functions
+  const handleSelectPlan = async (tier: SubscriptionTier, period: BillingPeriod) => {
+    if (!user) {
+      alert('יש להיכנס למערכת תחילה');
+      return;
+    }
+
+    try {
+      // Get plan from database
+      const { data: planData, error: planError } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('tier', tier)
+        .single();
+
+      if (planError || !planData) {
+        throw new Error('Plan not found');
+      }
+
+      const now = new Date();
+      const endDate = new Date(now);
+      
+      if (tier === 'free') {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      } else if (period === 'monthly') {
+        endDate.setMonth(endDate.getMonth() + 1);
+      } else {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      }
+
+      // Save subscription to Supabase
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .upsert({
+          user_id: user.id,
+          plan_id: planData.id,
+          status: 'active',
+          billing_period: period,
+          start_date: now.toISOString(),
+          end_date: endDate.toISOString(),
+        }, {
+          onConflict: 'user_id',
+        });
+
+      if (subError) throw subError;
+
+      // Update profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          subscription_tier: tier,
+          subscription_period: period,
+          subscription_start_date: now.toISOString(),
+          subscription_end_date: endDate.toISOString(),
+          subscription_status: 'active',
+        })
+        .eq('user_id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Update local state
+      const newSubscription: UserSubscription = {
+        tier,
+        billingPeriod: period,
+        startDate: now,
+        endDate,
+        usage: {
+          analysesUsed: subscription?.usage.analysesUsed || 0,
+          lastResetDate: now,
+        },
+        isActive: true,
+      };
+
+      setSubscription(newSubscription);
+      setShowSubscriptionModal(false);
+      
+      // TODO: In production, integrate with payment provider (Stripe, etc.)
+      alert(`החבילה ${SUBSCRIPTION_PLANS[tier].name} הופעלה בהצלחה!`);
+      
+      // Reload user data
+      if (user) {
+        await loadUserData(user);
+      }
+    } catch (error) {
+      console.error('Error saving subscription:', error);
+      alert('אירעה שגיאה בשמירת המנוי. נסה שוב.');
+    }
+  };
+
+  const checkSubscriptionLimits = (): { allowed: boolean; message?: string } => {
+    if (!subscription) {
+      return { allowed: false, message: 'יש לבחור חבילה תחילה' };
+    }
+
+    const plan = SUBSCRIPTION_PLANS[subscription.tier];
+    
+    // Check if subscription is active
+    if (!subscription.isActive || new Date() > subscription.endDate) {
+      return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+    }
+
+    // Check analysis limit (for free tier, it's total, not per period)
+    if (subscription.tier === 'free') {
+      if (subscription.usage.analysesUsed >= plan.limits.maxAnalysesPerPeriod) {
+        return { 
+          allowed: false, 
+          message: `סיימת את כל הניתוחים החינמיים. שדרג לחבילה כדי להמשיך` 
+        };
+      }
+    } else {
+      if (plan.limits.maxAnalysesPerPeriod !== -1 && 
+          subscription.usage.analysesUsed >= plan.limits.maxAnalysesPerPeriod) {
+        return { 
+          allowed: false, 
+          message: `סיימת את הניתוחים החודשיים. יתאפס בחודש הבא או שדרג לחבילה גבוהה יותר` 
+        };
+      }
+    }
+
+    return { allowed: true };
+  };
+
+  const incrementUsage = async () => {
+    // Usage is automatically tracked via analyses table
+    // Just update local state for immediate UI feedback
+    setSubscription(prev => prev ? {
+      ...prev,
+      usage: {
+        ...prev.usage,
+        analysesUsed: (prev.usage.analysesUsed || 0) + 1,
+      },
+    } : null);
+    
+    // Reload usage data from Supabase
+    if (user) {
+      const usageData = await getUsageForCurrentPeriod();
+      if (usageData) {
+        setUsage(usageData);
+      }
+    }
+  };
+
+  const canUseFeature = (feature: keyof SubscriptionLimits['features']): boolean => {
+    if (!subscription) return false;
+    const plan = SUBSCRIPTION_PLANS[subscription.tier];
+    return plan.limits.features[feature];
+  };
 
   const handleTrackChange = (id: string) => {
     setActiveTrack(id as TrackId);
@@ -2519,8 +4360,12 @@ const App = () => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    if (selectedFile.size > MAX_FILE_BYTES) {
-      alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 20MB.");
+    const maxFileBytes = getMaxFileBytes(activeTrack, subscription || undefined);
+    const maxVideoSeconds = getMaxVideoSeconds(activeTrack, subscription || undefined);
+    const limitText = getUploadLimitText(activeTrack, subscription || undefined);
+
+    if (selectedFile.size > maxFileBytes) {
+      alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
       resetInput();
       return;
     }
@@ -2541,8 +4386,8 @@ const App = () => {
       videoEl.src = objectUrl;
 
       videoEl.onloadedmetadata = () => {
-        if (videoEl.duration > MAX_VIDEO_SECONDS) {
-          alert("הסרטון חורג מהמגבלה: עד 5 דקות או 20MB.");
+        if (videoEl.duration > maxVideoSeconds) {
+          alert(`הסרטון חורג מהמגבלה: ${limitText}.`);
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;
@@ -2600,40 +4445,111 @@ const App = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSaveAnalysis = () => {
-    if (!result || activeTrack !== 'coach') return;
+  const handleSaveAnalysis = async () => {
+    if (!result || !user) return;
 
-    if (!selectedTrainee) {
+    if (activeTrack === 'coach' && !selectedTrainee) {
       alert('נא לבחור מתאמן לפני שמירת הניתוח');
       setShowCoachDashboard(true);
       return;
     }
 
-    const trainee = trainees.find(t => t.id === selectedTrainee);
-    if (!trainee) {
-      alert('מתאמן לא נמצא');
-      return;
-    }
+    try {
+      let videoId: string | null = null;
 
-    const savedAnalysis: SavedAnalysis = {
-      id: `analysis_${Date.now()}`,
-      videoName: file?.name || 'ניתוח ללא קובץ',
-      videoUrl: previewUrl || '',
-      traineeId: selectedTrainee,
-      traineeName: trainee.name,
-      analysisDate: new Date(),
-      result: result,
-      averageScore: averageScore,
-      track: activeTrack,
-      metadata: {
-        duration: undefined, // ניתן להוסיף בעתיד
-        fileSize: file?.size,
-        prompt: prompt || undefined
+      // Save video if exists
+      if (file) {
+        try {
+          // Upload video to storage
+          const uploadResult = await uploadVideo(file, user.id);
+          
+          // Get video duration
+          let duration: number | null = null;
+          if (file.type.startsWith('video')) {
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.src = previewUrl || '';
+            await new Promise((resolve) => {
+              video.onloadedmetadata = () => {
+                duration = Math.round(video.duration);
+                resolve(null);
+              };
+            });
+          }
+
+          // Save video to database
+          const videoData = await saveVideoToDatabase({
+            file_name: file.name,
+            file_path: uploadResult.path,
+            file_size: file.size,
+            duration_seconds: duration,
+            mime_type: file.type,
+          });
+          
+          videoId = videoData.id;
+        } catch (error) {
+          console.error('Error saving video:', error);
+          // Continue without video ID
+        }
       }
-    };
 
-    setSavedAnalyses(prev => [...prev, savedAnalysis]);
-    alert(`הניתוח נשמר בהצלחה עבור ${trainee.name}`);
+      // Save analysis to Supabase
+      const analysisData = await saveAnalysis({
+        video_id: videoId || undefined,
+        trainee_id: activeTrack === 'coach' ? selectedTrainee || undefined : undefined,
+        track: activeTrack,
+        coach_training_track: activeTrack === 'coach' ? coachTrainingTrack : undefined,
+        analysis_depth: activeTrack === 'coach' ? analysisDepth : undefined,
+        expert_panel: selectedExperts,
+        prompt: prompt || undefined,
+        result: result,
+        average_score: averageScore,
+      });
+
+      // Update local state
+      const trainee = trainees.find(t => t.id === selectedTrainee);
+      const savedAnalysis: SavedAnalysis = {
+        id: analysisData.id,
+        videoName: file?.name || 'ניתוח ללא קובץ',
+        videoUrl: previewUrl || '',
+        traineeId: selectedTrainee || undefined,
+        traineeName: trainee?.name,
+        analysisDate: new Date(analysisData.created_at),
+        result: result,
+        averageScore: averageScore,
+        track: activeTrack,
+        metadata: {
+          duration: undefined,
+          fileSize: file?.size,
+          prompt: prompt || undefined
+        }
+      };
+
+      setSavedAnalyses(prev => [...prev, savedAnalysis]);
+      alert(`הניתוח נשמר בהצלחה${trainee ? ` עבור ${trainee.name}` : ''}`);
+      
+      // Reload analyses from Supabase
+      if (user) {
+        const updatedAnalyses = await getAnalyses(activeTrack === 'coach' ? selectedTrainee || undefined : undefined);
+        setSavedAnalyses(updatedAnalyses.map(a => ({
+          id: a.id,
+          videoName: '',
+          videoUrl: '',
+          traineeId: a.trainee_id || undefined,
+          traineeName: undefined,
+          analysisDate: new Date(a.created_at),
+          result: a.result,
+          averageScore: a.average_score,
+          track: a.track as TrackId,
+          metadata: {
+            prompt: a.prompt || undefined,
+          },
+        })));
+      }
+    } catch (error) {
+      console.error('Error saving analysis:', error);
+      alert('אירעה שגיאה בשמירת הניתוח. נסה שוב.');
+    }
   };
 
   const handleUploadImprovedTake = () => {
@@ -2978,8 +4894,9 @@ const App = () => {
   const handleExportPdf = () => {
     if (!result) return;
 
-    if (!hasPremiumAccess) {
-      alert('יצוא ל-PDF זמין למנויי פרימיום בלבד.');
+    if (!canUseFeature('pdfExport')) {
+      alert('יצוא ל-PDF זמין לחבילות מנוי בלבד. יש לשדרג את החבילה.');
+      setShowSubscriptionModal(true);
       return;
     }
 
@@ -3078,6 +4995,66 @@ const App = () => {
         color: #555;
         font-weight: 700;
       }
+      /* Committee Tips styling using data attribute */
+      [data-pdf="committee-tips"] {
+        background: #f9f9f9 !important;
+        padding: 20px !important;
+        border-radius: 8px !important;
+        text-align: right !important;
+        max-width: 600px !important;
+        width: 100% !important;
+        margin: 20px auto 30px !important;
+        border: 1px dashed #ddd !important;
+      }
+      [data-pdf="committee-tips"] h5 {
+        color: #b8862e !important;
+        margin: 0 0 12px 0 !important;
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+        text-align: right !important;
+      }
+      [data-pdf="committee-tips"] ul {
+        padding-right: 24px !important;
+        margin: 0 !important;
+      }
+      [data-pdf="committee-tips"] li {
+        margin-bottom: 10px !important;
+        color: #2b2b2b !important;
+        line-height: 1.6 !important;
+        list-style-type: disc !important;
+      }
+      /* Final Score styling using data attribute */
+      [data-pdf="final-score"] {
+        display: inline-flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        margin: 20px auto !important;
+        width: 100% !important;
+        text-align: center !important;
+        padding: 10px 0 !important;
+      }
+      [data-pdf="final-score"] .number {
+        font-size: 3.5rem !important;
+        font-weight: 800 !important;
+        line-height: 1 !important;
+        color: #1a1a1a !important;
+        display: block !important;
+        margin-bottom: 8px;
+      }
+      [data-pdf="final-score"] .label {
+        color: #b8862e !important;
+        font-size: 0.95rem !important;
+        letter-spacing: 1.5px !important;
+        text-transform: uppercase !important;
+        font-weight: 700 !important;
+        display: block !important;
+      }
+      /* Committee Text styling - paragraphs inside CompactResultBox */
+      [class*="CompactResultBox"] p {
+        color: #2b2b2b !important;
+        line-height: 1.7 !important;
+        font-size: 1rem !important;
+      }
       /* אל תציג כפתורים וקישורים */
       a, button { display: none !important; }
       /* רשימות */
@@ -3147,6 +5124,21 @@ const App = () => {
 
   const handleGenerate = async () => {
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
+    
+    // Check feature access for coach track - must have premium subscription
+    if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
+      alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
+      setShowSubscriptionModal(true);
+      return;
+    }
+    
+    // Check subscription limits
+    const limitCheck = checkSubscriptionLimits();
+    if (!limitCheck.allowed) {
+      alert(limitCheck.message || 'אין אפשרות לבצע ניתוח. יש לשדרג את החבילה.');
+      setShowSubscriptionModal(true);
+      return;
+    }
     
     // Start playing video when analysis begins
     if (videoRef.current) {
@@ -3269,8 +5261,10 @@ const App = () => {
       }
       
       if (file) {
-        if (file.size > MAX_FILE_BYTES) {
-           alert("הקובץ גדול מדי. מגבלה: עד 5 דקות או 20MB.");
+        const maxFileBytes = getMaxFileBytes(activeTrack);
+        const limitText = getUploadLimitText(activeTrack);
+        if (file.size > maxFileBytes) {
+           alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
            setLoading(false);
            return;
         }
@@ -3327,6 +5321,56 @@ const App = () => {
 
       setResult(parsedResult);
       
+      // Save to Supabase if user is authenticated
+      if (user && parsedResult) {
+        try {
+          let videoId: string | null = null;
+
+          // Save video if exists
+          if (file) {
+            try {
+              const uploadResult = await uploadVideo(file, user.id);
+              
+              let duration: number | null = null;
+              if (file.type.startsWith('video') && videoRef.current) {
+                duration = Math.round(videoRef.current.duration);
+              }
+
+              const videoData = await saveVideoToDatabase({
+                file_name: file.name,
+                file_path: uploadResult.path,
+                file_size: file.size,
+                duration_seconds: duration,
+                mime_type: file.type,
+              });
+              
+              videoId = videoData.id;
+            } catch (error) {
+              console.error('Error saving video:', error);
+            }
+          }
+
+          // Save analysis to Supabase
+          await saveAnalysis({
+            video_id: videoId || undefined,
+            trainee_id: activeTrack === 'coach' ? selectedTrainee || undefined : undefined,
+            track: activeTrack,
+            coach_training_track: activeTrack === 'coach' ? coachTrainingTrack : undefined,
+            analysis_depth: activeTrack === 'coach' ? analysisDepth : undefined,
+            expert_panel: selectedExperts,
+            prompt: prompt || undefined,
+            result: parsedResult,
+            average_score: Math.round(parsedResult.expertAnalysis.reduce((acc, curr) => acc + curr.score, 0) / parsedResult.expertAnalysis.length),
+          });
+        } catch (error) {
+          console.error('Error saving analysis to Supabase:', error);
+          // Don't show error to user - analysis was successful, just save failed
+        }
+      }
+      
+      // Increment usage counter after successful analysis
+      incrementUsage();
+      
       // Jump to results area immediately
       setTimeout(() => {
         const resultsElement = document.getElementById('results-area');
@@ -3375,12 +5419,72 @@ const App = () => {
     return selectedExperts.length === currentExpertsList.length;
   };
 
+  // Show loading screen while checking auth
+  if (loadingAuth) {
+    return (
+      <AppContainer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center', color: '#D4A043' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '20px' }}>טוען...</div>
+        </div>
+      </AppContainer>
+    );
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setSubscription(null);
+    setUsage(null);
+    setTrainees([]);
+    setSavedAnalyses([]);
+  };
+
   return (
     <>
       <GlobalStyle />
       <AppContainer>
         <Header>
-          <AppLogo />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
+            <AppLogo />
+            {user ? (
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <span style={{ color: '#D4A043', fontSize: '0.9rem' }}>
+                  {profile?.full_name || user.email}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    background: 'rgba(212, 160, 67, 0.2)',
+                    border: '1px solid #D4A043',
+                    color: '#D4A043',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  התנתק
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
+                  border: 'none',
+                  color: '#000',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                }}
+              >
+                התחבר / הרשם
+              </button>
+            )}
+          </div>
           <Title>Video Director Pro</Title>
           <Subtitle>בינת וידאו לשחקנים, זמרים ויוצרי תוכן</Subtitle>
           <Description>
@@ -3409,6 +5513,7 @@ const App = () => {
           trainees={trainees}
           setTrainees={setTrainees}
           savedAnalyses={savedAnalyses}
+          setSavedAnalyses={setSavedAnalyses}
           onTraineeSelect={(traineeId) => {
             setSelectedTrainee(traineeId);
             setShowCoachDashboard(false);
@@ -3430,6 +5535,11 @@ const App = () => {
           onClose={() => setShowComparison(false)}
           savedAnalyses={savedAnalyses}
           trainees={trainees}
+        />
+
+        <CoachGuideModal
+          isOpen={showCoachGuide}
+          onClose={() => setShowCoachGuide(false)}
         />
 
         <SectionLabel>בחר את מסלול הניתוח שלך:</SectionLabel>
@@ -3458,22 +5568,76 @@ const App = () => {
           ))}
         </Grid>
         
+        {activeTrack === 'coach' && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '20px' }}>
+            <button
+              onClick={() => setShowCoachGuide(true)}
+              style={{
+                background: 'transparent',
+                border: '1px solid #D4A043',
+                borderRadius: '20px',
+                padding: '8px 20px',
+                color: '#D4A043',
+                fontFamily: 'Assistant, sans-serif',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.3s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(212, 160, 67, 0.1)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <SparklesIcon />
+              הסבר שימוש וניהול פשוט
+            </button>
+          </div>
+        )}
+        
         <TrackDescriptionText>
            {TRACK_DESCRIPTIONS[activeTrack]}
         </TrackDescriptionText>
 
         {activeTrack === 'coach' && (
           <div style={{ textAlign: 'center', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <CoachButton onClick={() => setShowCoachDashboard(true)}>
-                <CoachIcon />
-                ניהול מתאמנים
-              </CoachButton>
-              <CoachButton onClick={() => setShowComparison(true)}>
-                <ComparisonIcon />
-                השוואת ניתוחים
-              </CoachButton>
-            </div>
+            {canUseFeature('traineeManagement') ? (
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <CoachButton onClick={() => setShowCoachDashboard(true)}>
+                  <CoachIcon />
+                  ניהול מתאמנים
+                </CoachButton>
+                {canUseFeature('comparison') && (
+                  <CoachButton onClick={() => setShowComparison(true)}>
+                    <ComparisonIcon />
+                    השוואת ניתוחים
+                  </CoachButton>
+                )}
+              </div>
+            ) : (
+              <div style={{ 
+                background: 'rgba(212, 160, 67, 0.1)', 
+                padding: '20px', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                maxWidth: '600px',
+                width: '100%'
+              }}>
+                <p style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.1rem', fontWeight: 600 }}>
+                  מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד
+                </p>
+                <CoachButton onClick={() => setShowSubscriptionModal(true)}>
+                  שדרג למסלול הפרימיום
+                </CoachButton>
+              </div>
+            )}
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', maxWidth: '800px' }}>
               <div style={{ background: 'rgba(212, 160, 67, 0.1)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.3)' }}>
@@ -3595,7 +5759,7 @@ const App = () => {
                 onClick={() => toggleExpert(expert.title)}
               >
                 <FeatureTitle $selected={isSelected}>{expert.title}</FeatureTitle>
-                <FeatureDesc>{expert.desc}</FeatureDesc>
+                <FeatureDesc $selected={isSelected}>{expert.desc}</FeatureDesc>
               </FeatureCard>
             );
           })}
@@ -3612,6 +5776,9 @@ const App = () => {
                   controls
                   muted
                   playsInline
+                  autoPlay
+                  loop
+                  preload="metadata"
                   webkit-playsinline="true"
                   x5-playsinline="true"
                 />
@@ -3625,7 +5792,34 @@ const App = () => {
               <UploadTitle>
                 {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
               </UploadTitle>
-              <UploadSubtitle>עד 5 דקות או 20MB</UploadSubtitle>
+              <UploadSubtitle>
+                {getUploadLimitText(activeTrack, subscription || undefined)}
+                {subscription && (
+                  <span style={{ display: 'block', marginTop: '8px', fontSize: '0.85rem', color: '#D4A043' }}>
+                    חבילה: {SUBSCRIPTION_PLANS[subscription.tier].name}
+                    {subscription.usage.analysesUsed > 0 && SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod !== -1 && (
+                      <span> | נותרו {SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod - subscription.usage.analysesUsed} ניתוחים</span>
+                    )}
+                  </span>
+                )}
+                <button 
+                  onClick={() => setShowSubscriptionModal(true)}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '10px',
+                    background: 'rgba(212, 160, 67, 0.2)',
+                    border: '1px solid #D4A043',
+                    color: '#D4A043',
+                    padding: '6px 15px',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {subscription?.tier === 'free' ? 'שדרג חבילה' : 'נהל מנוי'}
+                </button>
+              </UploadSubtitle>
               
               <UploadButton>
                 {isImprovementMode ? 'בחר קובץ לשיפור' : 'העלה סרטון עכשיו'}
@@ -3723,7 +5917,7 @@ const App = () => {
                   </CompactResultBox>
                   
                   {result.committee.finalTips && result.committee.finalTips.length > 0 && (
-                    <CommitteeTips>
+                    <CommitteeTips data-pdf="committee-tips">
                       <h5>טיפים מנצחים לעתיד:</h5>
                       <ul>
                         {result.committee.finalTips.map((tip, i) => (
@@ -3733,7 +5927,7 @@ const App = () => {
                     </CommitteeTips>
                   )}
                   
-                  <FinalScore>
+                  <FinalScore data-pdf="final-score">
                     <span className="number">{averageScore}</span>
                     <span className="label">ציון ויראליות משוקלל</span>
                   </FinalScore>
@@ -3742,11 +5936,14 @@ const App = () => {
             </div>
 
             <ActionButtonsContainer>
-              <PrimaryButton onClick={handleExportPdf} disabled={loading || !hasPremiumAccess}>
+              <PrimaryButton 
+                onClick={handleExportPdf} 
+                disabled={loading || !canUseFeature('pdfExport')}
+              >
                 <PdfIcon />
                 יצוא ניתוח ל-PDF <PremiumBadge>פרימיום</PremiumBadge>
               </PrimaryButton>
-              {activeTrack === 'coach' && (
+              {activeTrack === 'coach' && canUseFeature('traineeManagement') && (
                 <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee}>
                   💾 שמור ניתוח למתאמן
                 </PrimaryButton>
@@ -3764,6 +5961,22 @@ const App = () => {
           </ResponseArea>
         )}
       </AppContainer>
+      
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        currentSubscription={subscription}
+        onSelectPlan={handleSelectPlan}
+        activeTrack={activeTrack}
+      />
+      
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={() => {
+          // Auth state will be updated via onAuthStateChange
+        }}
+      />
     </>
   );
 };
