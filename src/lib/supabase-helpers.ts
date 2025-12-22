@@ -25,28 +25,45 @@ export async function getCurrentSubscription() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .select(`
-      *,
-      plans (*)
-    `)
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+  try {
+    // First, get the subscription
+    const { data: subscription, error: subError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (error) {
-    if (error.code === 'PGRST116') {
+    if (subError) {
+      console.error('Error fetching subscription:', subError);
+      return null;
+    }
+
+    if (!subscription) {
       // No subscription found - return free tier
       return null;
     }
-    console.error('Error fetching subscription:', error);
+
+    // Then, get the plan separately
+    const { data: plan, error: planError } = await supabase
+      .from('plans')
+      .select('*')
+      .eq('id', subscription.plan_id)
+      .single();
+
+    if (planError) {
+      console.error('Error fetching plan:', planError);
+      // Return subscription without plan if plan fetch fails
+      return { ...subscription, plans: null };
+    }
+
+    return { ...subscription, plans: plan };
+  } catch (error) {
+    console.error('Error in getCurrentSubscription:', error);
     return null;
   }
-
-  return data;
 }
 
 export async function getUsageForCurrentPeriod() {

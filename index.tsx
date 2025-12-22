@@ -4159,7 +4159,7 @@ const App = () => {
       if (subData && subData.plans) {
         const plan = subData.plans as any;
         setSubscription({
-          tier: plan.tier,
+          tier: plan.tier as 'free' | 'creator' | 'pro' | 'coach',
           billingPeriod: subData.billing_period as 'monthly' | 'yearly',
           startDate: new Date(subData.start_date),
           endDate: new Date(subData.end_date),
@@ -5532,9 +5532,33 @@ const App = () => {
             <AppLogo />
             {user ? (
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <span style={{ color: '#D4A043', fontSize: '0.9rem' }}>
-                  {profile?.full_name || user.email}
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
+                    {profile?.full_name || user.email}
+                  </span>
+                  {(() => {
+                    const currentTier = subscription?.tier || profile?.subscription_tier || 'free';
+                    const tierName = SUBSCRIPTION_PLANS[currentTier as SubscriptionTier]?.name || 'ניסיון';
+                    return (
+                      <span style={{ 
+                        color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: currentTier === 'free' 
+                          ? 'rgba(136, 136, 136, 0.15)' 
+                          : currentTier === 'coach'
+                          ? 'rgba(212, 160, 67, 0.15)'
+                          : 'rgba(230, 190, 116, 0.15)',
+                        border: `1px solid ${currentTier === 'free' ? 'rgba(136, 136, 136, 0.3)' : currentTier === 'coach' ? 'rgba(212, 160, 67, 0.3)' : 'rgba(230, 190, 116, 0.3)'}`,
+                        letterSpacing: '0.5px'
+                      }}>
+                        {tierName}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <button
                   onClick={handleLogout}
                   style={{

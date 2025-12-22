@@ -6,16 +6,25 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
 // Debug logging (only in development)
 if (import.meta.env.DEV) {
   console.log('🔍 Loading Supabase configuration...');
-  console.log('VITE_SUPABASE_URL:', supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : '❌ MISSING');
-  console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 30)}...` : '❌ MISSING');
+  console.log('Full VITE_SUPABASE_URL from env:', import.meta.env.VITE_SUPABASE_URL || 'NOT FOUND');
+  console.log('Full VITE_SUPABASE_ANON_KEY from env:', import.meta.env.VITE_SUPABASE_ANON_KEY ? `${import.meta.env.VITE_SUPABASE_ANON_KEY.substring(0, 50)}...` : 'NOT FOUND');
+  console.log('Trimmed VITE_SUPABASE_URL:', supabaseUrl || '❌ MISSING');
+  console.log('Trimmed VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 50)}...` : '❌ MISSING');
+  console.log('URL length:', supabaseUrl?.length || 0);
+  console.log('Key length:', supabaseAnonKey?.length || 0);
 }
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ Supabase credentials not found!');
-  console.error('VITE_SUPABASE_URL:', supabaseUrl || 'MISSING');
-  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'MISSING');
-  console.error('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env.local file');
-  console.error('Make sure to restart the dev server after creating/updating .env.local');
+  console.error('Raw VITE_SUPABASE_URL from env:', import.meta.env.VITE_SUPABASE_URL || 'NOT FOUND');
+  console.error('Raw VITE_SUPABASE_ANON_KEY from env:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'FOUND' : 'NOT FOUND');
+  console.error('Trimmed VITE_SUPABASE_URL:', supabaseUrl || 'MISSING');
+  console.error('Trimmed VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'FOUND' : 'MISSING');
+  console.error('⚠️ Please check:');
+  console.error('1. .env.local file exists in project root');
+  console.error('2. File contains VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+  console.error('3. Dev server was restarted after creating/updating .env.local');
+  console.error('4. Variables start with VITE_ prefix (required by Vite)');
 }
 
 // Validate URL format
