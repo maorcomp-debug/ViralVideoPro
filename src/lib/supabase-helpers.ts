@@ -11,7 +11,7 @@ export async function getCurrentUserProfile() {
     .from('profiles')
     .select('*')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error fetching profile:', error);
