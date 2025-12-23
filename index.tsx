@@ -2712,12 +2712,17 @@ const AdminPanelModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 
   const loadUsers = async () => {
     setLoading(true);
+    setMessage(null);
     try {
       const allUsers = await getAllUsers();
+      console.log('Loaded users:', allUsers);
       setUsers(allUsers);
-    } catch (error) {
+      if (allUsers.length === 0) {
+        setMessage({ type: 'error', text: 'לא נמצאו משתמשים במערכת' });
+      }
+    } catch (error: any) {
       console.error('Error loading users:', error);
-      setMessage({ type: 'error', text: 'שגיאה בטעינת המשתמשים' });
+      setMessage({ type: 'error', text: `שגיאה בטעינת המשתמשים: ${error.message || 'שגיאה לא ידועה'}` });
     } finally {
       setLoading(false);
     }
@@ -2965,6 +2970,10 @@ const AdminPanelModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 
           {loading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>טוען...</div>
+          ) : users.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+              לא נמצאו משתמשים במערכת
+            </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', color: '#e0e0e0' }}>
