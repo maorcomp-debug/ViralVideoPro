@@ -288,11 +288,12 @@ CREATE TRIGGER update_trainees_updated_at BEFORE UPDATE ON public.trainees
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (user_id, email, subscription_tier)
+    INSERT INTO public.profiles (user_id, email, subscription_tier, full_name)
     VALUES (
         NEW.id,
         NEW.email,
-        'free'
+        'free',
+        COALESCE(NEW.raw_user_meta_data->>'full_name', NULL)
     );
     RETURN NEW;
 END;
