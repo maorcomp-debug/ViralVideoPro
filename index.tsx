@@ -143,7 +143,7 @@ const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     monthlyPrice: 0,
     yearlyPrice: 0,
     limits: {
-      maxAnalysesPerPeriod: 2, // Total, not per period
+      maxAnalysesPerPeriod: 2, // 2 analyses per month
       maxVideoSeconds: 60, // 1 minute
       maxFileBytes: 10 * 1024 * 1024, // 10MB
       features: {
@@ -4674,19 +4674,18 @@ const App = () => {
         });
       }
 
-      // Load usage
+      // Load usage and update subscription state
       const usageData = await getUsageForCurrentPeriod();
       if (usageData) {
         setUsage(usageData);
-        if (subscription) {
-          setSubscription(prev => prev ? {
-            ...prev,
-            usage: {
-              analysesUsed: usageData.analysesUsed,
-              lastResetDate: usageData.periodStart,
-            },
-          } : null);
-        }
+        // Update subscription with current usage
+        setSubscription(prev => prev ? {
+          ...prev,
+          usage: {
+            analysesUsed: usageData.analysesUsed,
+            lastResetDate: usageData.periodStart,
+          },
+        } : null);
       }
 
       // Load trainees if coach
@@ -4840,7 +4839,7 @@ const App = () => {
     }
   };
 
-  const checkSubscriptionLimits = (): { allowed: boolean; message?: string } => {
+  const checkSubscriptionLimits = async (): Promise<{ allowed: boolean; message?: string }> => {
     if (!subscription) {
       return { allowed: false, message: 'יש לבחור חבילה תחילה' };
     }
@@ -4852,20 +4851,36 @@ const App = () => {
       return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
     }
 
-    // Check analysis limit (for free tier, it's total, not per period)
+    // Get current usage from database (always fresh)
+    const currentUsage = await getUsageForCurrentPeriod();
+    if (!currentUsage) {
+      return { allowed: false, message: 'שגיאה בטעינת נתוני שימוש' };
+    }
+
+    const analysesUsed = currentUsage.analysesUsed;
+    const limit = plan.limits.maxAnalysesPerPeriod;
+
+    // Check analysis limit based on tier
     if (subscription.tier === 'free') {
-      if (subscription.usage.analysesUsed >= plan.limits.maxAnalysesPerPeriod) {
+      // Free tier: 2 analyses per month (resets monthly)
+      if (analysesUsed >= limit) {
+        const now = new Date();
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return { 
           allowed: false, 
-          message: `סיימת את כל הניתוחים החינמיים. שדרג לחבילה כדי להמשיך` 
+          message: `סיימת את 2 הניתוחים החינמיים לחודש זה. הניתוחים יתאפסו בעוד ${daysLeft} ימים (תחילת חודש) או שדרג לחבילה כדי להמשיך` 
         };
       }
+    } else if (limit === -1) {
+      // Unlimited (coach tier)
+      return { allowed: true };
     } else {
-      if (plan.limits.maxAnalysesPerPeriod !== -1 && 
-          subscription.usage.analysesUsed >= plan.limits.maxAnalysesPerPeriod) {
+      // Paid tiers: check within subscription period
+      if (analysesUsed >= limit) {
         return { 
           allowed: false, 
-          message: `סיימת את הניתוחים החודשיים. יתאפס בחודש הבא או שדרג לחבילה גבוהה יותר` 
+          message: `סיימת את הניתוחים בתקופת המנוי. יתאפס בתקופת החיוב הבאה או שדרג לחבילה גבוהה יותר` 
         };
       }
     }
@@ -5772,7 +5787,7 @@ const App = () => {
     }
     
     // Check subscription limits
-    const limitCheck = checkSubscriptionLimits();
+    const limitCheck = await checkSubscriptionLimits();
     if (!limitCheck.allowed) {
       alert(limitCheck.message || 'אין אפשרות לבצע ניתוח. יש לשדרג את החבילה.');
       setShowSubscriptionModal(true);

@@ -71,20 +71,42 @@ export async function getUsageForCurrentPeriod() {
   if (!user) return null;
 
   const { data: subscription } = await getCurrentSubscription();
-  if (!subscription) {
-    // Free tier - count total analyses
-    const { data: analyses } = await supabase
+  
+  // Get user profile to check subscription_tier
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('user_id', user.id)
+    .single();
+
+  const userTier = profile?.subscription_tier || 'free';
+  
+  // For free tier: count analyses in current month (2 analyses per month limit)
+  if (!subscription || userTier === 'free') {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const { count, error } = await supabase
       .from('analyses')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
+
+    if (error) {
+      console.error('Error fetching usage:', error);
+      return null;
+    }
 
     return {
-      analysesUsed: analyses?.length || 0,
-      periodStart: new Date(0),
-      periodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // Far future
+      analysesUsed: count || 0,
+      periodStart: monthStart,
+      periodEnd: monthEnd,
     };
   }
 
+  // For paid subscriptions: count analyses in subscription period
   const periodStart = new Date(subscription.start_date);
   const periodEnd = new Date(subscription.end_date);
 
