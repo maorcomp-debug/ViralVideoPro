@@ -67,17 +67,22 @@ export async function getCurrentSubscription() {
 }
 
 export async function getUsageForCurrentPeriod() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  const { data: subscription } = await getCurrentSubscription();
-  
-  // Get user profile to check subscription_tier
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('subscription_tier')
-    .eq('user_id', user.id)
-    .maybeSingle();
+    const subscription = await getCurrentSubscription();
+    
+    // Get user profile to check subscription_tier
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Error fetching profile for usage:', profileError);
+    }
 
   const userTier = profile?.subscription_tier || 'free';
   
@@ -107,6 +112,11 @@ export async function getUsageForCurrentPeriod() {
   }
 
   // For paid subscriptions: count analyses in subscription period
+  if (!subscription) {
+    // This should not happen due to check above, but safety check
+    return null;
+  }
+  
   const periodStart = new Date(subscription.start_date);
   const periodEnd = new Date(subscription.end_date);
 
@@ -127,6 +137,10 @@ export async function getUsageForCurrentPeriod() {
     periodStart,
     periodEnd,
   };
+  } catch (error) {
+    console.error('Error in getUsageForCurrentPeriod:', error);
+    return null;
+  }
 }
 
 export async function uploadVideo(file: File, userId: string) {
