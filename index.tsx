@@ -260,8 +260,8 @@ const getUploadLimitText = (track: TrackId, subscription?: UserSubscription): st
   if (track === 'coach') {
     return 'עד 5 דקות או 40MB';
   }
-  // For free tier: 40 seconds or 1 minute
-  return 'עד 40 שניות או דקה';
+  // For free tier: 60 seconds (1 minute) or 10MB
+  return 'עד דקה או 10MB';
 };
 
 const TRACK_DESCRIPTIONS: Record<string, string> = {
@@ -2788,7 +2788,7 @@ const CoachGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
             <div>
               <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem' }}>שלב 6: העלאת וידאו וניתוח</h3>
               <p style={{ color: '#e0e0e0', lineHeight: '1.8', margin: 0 }}>
-                העלה את הוידאו (עד 5 דקות או 20MB), הוסף הנחיות אופציונליות, ולחץ על "אקשן!" 
+                העלה את הוידאו (המגבלות משתנות לפי החבילה), הוסף הנחיות אופציונליות, ולחץ על "אקשן!" 
                 כדי להתחיל את הניתוח. הניתוח יופיע תוך מספר שניות.
               </p>
             </div>
@@ -5924,12 +5924,25 @@ const App = () => {
       }
       
       if (file) {
-        const maxFileBytes = getMaxFileBytes(activeTrack);
-        const limitText = getUploadLimitText(activeTrack);
+        const maxFileBytes = getMaxFileBytes(activeTrack, subscription || undefined);
+        const maxVideoSeconds = getMaxVideoSeconds(activeTrack, subscription || undefined);
+        const limitText = getUploadLimitText(activeTrack, subscription || undefined);
+        
+        // Check file size
         if (file.size > maxFileBytes) {
            alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
            setLoading(false);
            return;
+        }
+        
+        // Check video duration if it's a video file
+        if (file.type.startsWith('video') && videoRef.current) {
+          const duration = videoRef.current.duration || 0;
+          if (duration > maxVideoSeconds) {
+            alert(`הסרטון חורג מהמגבלה: ${limitText}.`);
+            setLoading(false);
+            return;
+          }
         }
         try {
           const imagePart = await fileToGenerativePart(file);
