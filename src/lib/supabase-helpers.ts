@@ -286,16 +286,26 @@ export async function getAnalyses(traineeId?: string) {
 // ============================================
 
 export async function isAdmin(): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle();
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-  return profile?.role === 'admin';
+    if (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+
+    return profile?.role === 'admin';
+  } catch (error) {
+    console.error('Error in isAdmin:', error);
+    return false;
+  }
 }
 
 export async function getAllUsers() {
