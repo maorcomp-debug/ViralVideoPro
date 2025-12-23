@@ -4,14 +4,36 @@
 
 כמנהל (admin), תוכל לערוך את כל הפרופילים ב-Table Editor של Supabase, כולל:
 
-### שדות שניתן לערוך:
-- **full_name** - שם מלא של המשתמש
-- **subscription_tier** - דרגת החבילה (`free`, `creator`, `pro`, `coach`)
-- **subscription_period** - תקופת החיוב (`monthly`, `yearly`)
-- **subscription_status** - סטטוס המנוי (`active`, `inactive`, `cancelled`)
-- **subscription_start_date** - תאריך התחלת המנוי
-- **subscription_end_date** - תאריך סיום המנוי
-- **role** - תפקיד המשתמש (`user`, `admin`)
+### שדות שניתן לערוך (עם רשימות נפתחות):
+
+השדות הבאים מציגים **רשימות נפתחות (dropdowns)** בעת עריכה:
+
+- **subscription_tier** - דרגת החבילה:
+  - `free` - ניסיון (חינם)
+  - `creator` - יוצרים
+  - `pro` - יוצרים באקסטרים
+  - `coach` - מאמנים, סוכנויות ובתי ספר למשחק
+
+- **subscription_period** - תקופת החיוב:
+  - `monthly` - חודשי
+  - `yearly` - שנתי
+  - `NULL` - ניתן להשאיר ריק לחבילת חינם
+
+- **subscription_status** - סטטוס המנוי:
+  - `active` - פעיל
+  - `inactive` - לא פעיל
+  - `cancelled` - בוטל
+  - `NULL` - ניתן להשאיר ריק
+
+- **role** - תפקיד המשתמש:
+  - `user` - משתמש
+  - `admin` - מנהל
+
+### שדות נוספים שניתן לערוך:
+- **full_name** - שם מלא של המשתמש (שדה טקסט רגיל)
+- **subscription_start_date** - תאריך התחלת המנוי (תאריך/שעה)
+- **subscription_end_date** - תאריך סיום המנוי (תאריך/שעה)
+- **email** - כתובת אימייל
 
 ### איך לערוך:
 
@@ -19,12 +41,13 @@
 2. בחר את הפרויקט שלך
 3. לך ל-**Table Editor** > **profiles**
 4. מצא את המשתמש שברצונך לערוך
-5. לחץ על השורה לעריכה
+5. לחץ על השורה לעריכה (או לחץ על התא הספציפי)
 6. עדכן את השדות הרצויים:
-   - **subscription_tier**: בחר מתוך `free`, `creator`, `pro`, `coach`
-   - **subscription_period**: בחר מתוך `monthly`, `yearly` או השאר `null`
-   - **subscription_status**: בחר מתוך `active`, `inactive`, `cancelled` או השאר `null`
-7. לחץ על **Save** או **Update**
+   - **subscription_tier**: לחץ על השדה ותופיע רשימה נפתחת עם כל החבילות - בחר את הרצויה
+   - **subscription_period**: לחץ על השדה ותופיע רשימה נפתחת - בחר `monthly` או `yearly`, או השאר ריק (NULL) לחבילת חינם
+   - **subscription_status**: לחץ על השדה ותופיע רשימה נפתחת - בחר את הסטטוס הרצוי, או השאר ריק
+   - **role**: לחץ על השדה ותופיע רשימה נפתחת - בחר `user` או `admin`
+7. לחץ על **Save changes** (או **Esc** לביטול)
 
 ### הערות חשובות:
 
