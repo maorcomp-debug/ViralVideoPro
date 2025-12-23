@@ -16,6 +16,7 @@ import {
   isAdmin,
   getAllUsers,
   updateUserProfile,
+  updateCurrentUserProfile,
   deleteUser,
   createUser
 } from './src/lib/supabase-helpers';
@@ -2257,6 +2258,435 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
                <ModalDesc>{item.desc}</ModalDesc>
              </ModalRow>
           )) || <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>תוכן בבנייה...</div>}
+        </ModalBody>
+      </ModalContent>
+    </ModalOverlay>
+  );
+};
+
+// --- Settings Modal ---
+
+const SettingsModal = ({ 
+  isOpen, 
+  onClose, 
+  user, 
+  profile, 
+  subscription,
+  usage,
+  onProfileUpdate,
+  onOpenSubscriptionModal
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  user: User | null;
+  profile: any;
+  subscription: UserSubscription | null;
+  usage: { analysesUsed: number; periodStart: Date; periodEnd: Date } | null;
+  onProfileUpdate: () => void;
+  onOpenSubscriptionModal: () => void;
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'subscription'>('profile');
+  const [formData, setFormData] = useState({
+    full_name: profile?.full_name || '',
+  });
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  useEffect(() => {
+    if (isOpen && profile) {
+      setFormData({
+        full_name: profile?.full_name || '',
+      });
+    }
+  }, [isOpen, profile]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      await updateCurrentUserProfile({
+        full_name: formData.full_name.trim(),
+      });
+      setMessage({ type: 'success', text: 'הפרופיל עודכן בהצלחה' });
+      onProfileUpdate();
+      setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      setMessage({ type: 'error', text: error.message || 'שגיאה בעדכון הפרופיל' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setMessage({ type: 'error', text: 'הסיסמאות אינן תואמות' });
+      setLoading(false);
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setMessage({ type: 'error', text: 'הסיסמה חייבת להכיל לפחות 6 תווים' });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage({ type: 'success', text: 'הסיסמה עודכנה בהצלחה' });
+      setPasswordData({
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      setMessage({ type: 'error', text: error.message || 'שגיאה בעדכון הסיסמה' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTierDisplayName = (tier: string) => {
+    return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.name || tier;
+  };
+
+  const getMaxAnalyses = () => {
+    const tier = subscription?.tier || profile?.subscription_tier || 'free';
+    return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.limits.maxAnalysesPerPeriod || 2;
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '90vh' }}>
+        <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
+        <ModalHeader>
+          <ModalTitle>⚙️ הגדרות</ModalTitle>
+          <ModalSubtitle>
+            ניהול הפרופיל והחשבון שלך
+          </ModalSubtitle>
+        </ModalHeader>
+
+        <ModalBody>
+          {/* Tabs */}
+          <div style={{
+            display: 'flex',
+            gap: '10px',
+            marginBottom: '20px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          }}>
+            <button
+              onClick={() => setActiveTab('profile')}
+              style={{
+                background: activeTab === 'profile' ? 'rgba(212, 160, 67, 0.2)' : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'profile' ? '2px solid #D4A043' : '2px solid transparent',
+                color: activeTab === 'profile' ? '#D4A043' : '#ccc',
+                padding: '10px 20px',
+                cursor: 'pointer',
+                fontSize: '0.95rem',
+                fontWeight: activeTab === 'profile' ? 700 : 400,
+                transition: 'all 0.3s',
+              }}
+            >
+              פרטים אישיים
+            </button>
+            <button
+              onClick={() => setActiveTab('password')}
+              style={{
+                background: activeTab === 'password' ? 'rgba(212, 160, 67, 0.2)' : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'password' ? '2px solid #D4A043' : '2px solid transparent',
+                color: activeTab === 'password' ? '#D4A043' : '#ccc',
+                padding: '10px 20px',
+                cursor: 'pointer',
+                fontSize: '0.95rem',
+                fontWeight: activeTab === 'password' ? 700 : 400,
+                transition: 'all 0.3s',
+              }}
+            >
+              שינוי סיסמה
+            </button>
+            <button
+              onClick={() => setActiveTab('subscription')}
+              style={{
+                background: activeTab === 'subscription' ? 'rgba(212, 160, 67, 0.2)' : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'subscription' ? '2px solid #D4A043' : '2px solid transparent',
+                color: activeTab === 'subscription' ? '#D4A043' : '#ccc',
+                padding: '10px 20px',
+                cursor: 'pointer',
+                fontSize: '0.95rem',
+                fontWeight: activeTab === 'subscription' ? 700 : 400,
+                transition: 'all 0.3s',
+              }}
+            >
+              מנוי
+            </button>
+          </div>
+
+          {message && (
+            <div style={{
+              padding: '15px',
+              marginBottom: '20px',
+              borderRadius: '8px',
+              background: message.type === 'success' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
+              border: `1px solid ${message.type === 'success' ? '#4CAF50' : '#F44336'}`,
+              color: message.type === 'success' ? '#4CAF50' : '#F44336',
+            }}>
+              {message.text}
+            </div>
+          )}
+
+          {/* Profile Tab */}
+          {activeTab === 'profile' && (
+            <form onSubmit={handleUpdateProfile}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  color: '#D4A043',
+                  marginBottom: '8px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}>
+                  אימייל
+                </label>
+                <input
+                  type="email"
+                  value={user?.email || ''}
+                  disabled
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '8px',
+                    color: '#888',
+                    fontSize: '1rem',
+                    cursor: 'not-allowed',
+                  }}
+                />
+                <small style={{ color: '#888', fontSize: '0.85rem', display: 'block', marginTop: '5px' }}>
+                  האימייל לא ניתן לשינוי
+                </small>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  color: '#D4A043',
+                  marginBottom: '8px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}>
+                  שם מלא
+                </label>
+                <input
+                  type="text"
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  placeholder="הכנס שם מלא"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: loading ? 'rgba(212, 160, 67, 0.5)' : 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#000',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s',
+                }}
+              >
+                {loading ? 'שומר...' : 'שמור שינויים'}
+              </button>
+            </form>
+          )}
+
+          {/* Password Tab */}
+          {activeTab === 'password' && (
+            <form onSubmit={handleUpdatePassword}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  color: '#D4A043',
+                  marginBottom: '8px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}>
+                  סיסמה חדשה
+                </label>
+                <input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  placeholder="הכנס סיסמה חדשה (לפחות 6 תווים)"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  color: '#D4A043',
+                  marginBottom: '8px',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}>
+                  אימות סיסמה
+                </label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  placeholder="הכנס שוב את הסיסמה החדשה"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: loading ? 'rgba(212, 160, 67, 0.5)' : 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#000',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s',
+                }}
+              >
+                {loading ? 'מעדכן...' : 'עדכן סיסמה'}
+              </button>
+            </form>
+          )}
+
+          {/* Subscription Tab */}
+          {activeTab === 'subscription' && (
+            <div>
+              <div style={{
+                padding: '20px',
+                background: 'rgba(212, 160, 67, 0.1)',
+                borderRadius: '8px',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                marginBottom: '20px',
+              }}>
+                <h3 style={{ color: '#D4A043', marginTop: 0, marginBottom: '15px' }}>
+                  פרטי המנוי שלך
+                </h3>
+                <div style={{ color: '#fff', lineHeight: '1.8' }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <strong>חבילה:</strong> {subscription ? getTierDisplayName(subscription.tier) : getTierDisplayName(profile?.subscription_tier || 'free')}
+                  </div>
+                  {subscription && (
+                    <>
+                      <div style={{ marginBottom: '10px' }}>
+                        <strong>תקופת חיוב:</strong> {subscription.billingPeriod === 'monthly' ? 'חודשי' : 'שנתי'}
+                      </div>
+                      <div style={{ marginBottom: '10px' }}>
+                        <strong>תאריך התחלה:</strong> {subscription.startDate.toLocaleDateString('he-IL')}
+                      </div>
+                      <div style={{ marginBottom: '10px' }}>
+                        <strong>תאריך סיום:</strong> {subscription.endDate.toLocaleDateString('he-IL')}
+                      </div>
+                      <div style={{ marginBottom: '10px' }}>
+                        <strong>סטטוס:</strong> {subscription.isActive ? 'פעיל' : 'לא פעיל'}
+                      </div>
+                    </>
+                  )}
+                  {usage && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <strong>ניתוחים שבוצעו בתקופה הנוכחית:</strong> {usage.analysesUsed} / {
+                        getMaxAnalyses() === -1 ? 'ללא הגבלה' : getMaxAnalyses().toString()
+                      }
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  onClose();
+                  setTimeout(() => {
+                    onOpenSubscriptionModal();
+                  }, 100);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#000',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                ניהול מנוי / שדרוג
+              </button>
+            </div>
+          )}
         </ModalBody>
       </ModalContent>
     </ModalOverlay>
@@ -4556,6 +4986,7 @@ const App = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   const [activeTrack, setActiveTrack] = useState<TrackId>('actors');
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -6152,6 +6583,21 @@ const App = () => {
                     );
                   })()}
                 </div>
+                <button
+                  onClick={() => setShowSettingsModal(true)}
+                  style={{
+                    background: 'rgba(212, 160, 67, 0.2)',
+                    border: '1px solid #D4A043',
+                    color: '#D4A043',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  ⚙️ הגדרות
+                </button>
                 {userIsAdmin && (
                   <button
                     onClick={() => setShowAdminPanel(true)}
@@ -6696,6 +7142,21 @@ const App = () => {
         currentSubscription={subscription}
         onSelectPlan={handleSelectPlan}
         activeTrack={activeTrack}
+      />
+      
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        user={user}
+        profile={profile}
+        subscription={subscription}
+        usage={usage}
+        onProfileUpdate={async () => {
+          if (user) {
+            await loadUserData(user);
+          }
+        }}
+        onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
       />
       
       <AdminPanelModal

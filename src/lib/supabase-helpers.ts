@@ -353,6 +353,23 @@ export async function updateUserProfile(userId: string, updates: {
   }
 }
 
+export async function updateCurrentUserProfile(updates: {
+  full_name?: string;
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('user_id', user.id);
+
+  if (error) {
+    console.error('Error updating current user profile:', error);
+    throw error;
+  }
+}
+
 export async function deleteUser(userId: string) {
   // Note: This only deletes the profile. To fully delete the auth user,
   // you need to use an Edge Function with service role key.
