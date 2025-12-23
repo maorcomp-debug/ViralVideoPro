@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import styled, { createGlobalStyle, keyframes, css } from 'styled-components';
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from './src/lib/supabase';
@@ -2116,7 +2117,7 @@ const AppLogo = () => {
     <LogoContainer>
       <StyledLogoImg 
         src="/Logo.png" 
-        alt="Logo"
+        alt="Logo" 
       />
     </LogoContainer>
   );
@@ -2264,11 +2265,9 @@ const CapabilitiesModal = ({ isOpen, onClose, activeTab, setActiveTab }: { isOpe
   );
 };
 
-// --- Settings Modal ---
+// --- Settings Page ---
 
-const SettingsModal = ({ 
-  isOpen, 
-  onClose, 
+const SettingsPage = ({ 
   user, 
   profile, 
   subscription,
@@ -2276,8 +2275,6 @@ const SettingsModal = ({
   onProfileUpdate,
   onOpenSubscriptionModal
 }: { 
-  isOpen: boolean; 
-  onClose: () => void;
   user: User | null;
   profile: any;
   subscription: UserSubscription | null;
@@ -2285,6 +2282,7 @@ const SettingsModal = ({
   onProfileUpdate: () => void;
   onOpenSubscriptionModal: () => void;
 }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'subscription'>('profile');
@@ -2297,12 +2295,12 @@ const SettingsModal = ({
   });
 
   useEffect(() => {
-    if (isOpen && profile) {
+    if (profile) {
       setFormData({
         full_name: profile?.full_name || '',
       });
     }
-  }, [isOpen, profile]);
+  }, [profile]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2377,20 +2375,30 @@ const SettingsModal = ({
     return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.limits.maxAnalysesPerPeriod || 2;
   };
 
-  if (!isOpen) return null;
-
   return (
-    <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '90vh' }}>
-        <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
-        <ModalHeader>
-          <ModalTitle>⚙️ הגדרות</ModalTitle>
-          <ModalSubtitle>
-            ניהול הפרופיל והחשבון שלך
-          </ModalSubtitle>
-        </ModalHeader>
-
-        <ModalBody>
+    <AppContainer>
+      <Header>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '20px' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              background: 'rgba(212, 160, 67, 0.2)',
+              border: '1px solid #D4A043',
+              color: '#D4A043',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+            }}
+          >
+            ← חזרה
+          </button>
+          <h1 style={{ color: '#D4A043', margin: 0, fontSize: '2rem' }}>⚙️ הגדרות</h1>
+          <div style={{ width: '100px' }}></div>
+        </div>
+      </Header>
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '40px 20px', color: '#fff' }}>
           {/* Tabs */}
           <div style={{
             display: 'flex',
@@ -2666,7 +2674,7 @@ const SettingsModal = ({
               </div>
               <button
                 onClick={() => {
-                  onClose();
+                  navigate('/');
                   setTimeout(() => {
                     onOpenSubscriptionModal();
                   }, 100);
@@ -2687,15 +2695,15 @@ const SettingsModal = ({
               </button>
             </div>
           )}
-        </ModalBody>
-      </ModalContent>
-    </ModalOverlay>
+      </div>
+    </AppContainer>
   );
 };
 
-// --- Admin Panel Modal ---
+// --- Admin Panel Page ---
 
-const AdminPanelModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const AdminPage = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingUser, setEditingUser] = useState<string | null>(null);
@@ -2705,10 +2713,8 @@ const AdminPanelModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      loadUsers();
-    }
-  }, [isOpen]);
+    loadUsers();
+  }, []);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -2798,20 +2804,30 @@ const AdminPanelModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
     return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.name || tier;
   };
 
-  if (!isOpen) return null;
-
   return (
-    <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1200px', maxHeight: '90vh' }}>
-        <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
-        <ModalHeader>
-          <ModalTitle>🔐 לוח בקרת מנהל</ModalTitle>
-          <ModalSubtitle>
-            ניהול משתמשים, הרשאות ודרגות
-          </ModalSubtitle>
-        </ModalHeader>
-
-        <ModalBody>
+    <AppContainer>
+      <Header>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '20px' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              background: 'rgba(212, 160, 67, 0.2)',
+              border: '1px solid #D4A043',
+              color: '#D4A043',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+            }}
+          >
+            ← חזרה
+          </button>
+          <h1 style={{ color: '#D4A043', margin: 0, fontSize: '2rem' }}>🔐 לוח בקרת מנהל</h1>
+          <div style={{ width: '100px' }}></div>
+        </div>
+      </Header>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '40px 20px', color: '#fff' }}>
           {message && (
             <div style={{
               padding: '15px',
@@ -3161,9 +3177,8 @@ const AdminPanelModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
               </table>
             </div>
           )}
-        </ModalBody>
-      </ModalContent>
-    </ModalOverlay>
+      </div>
+    </AppContainer>
   );
 };
 
@@ -4988,6 +5003,10 @@ const AuthModal = ({
 };
 
 const App = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentPath = location.pathname;
+  
   // Authentication State
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -4996,6 +5015,13 @@ const App = () => {
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
+  // Determine current page from route
+  const isHomePage = currentPath === '/';
+  const isSettingsPage = currentPath === '/settings';
+  const isAdminPage = currentPath === '/admin';
+  const isAnalysisPage = currentPath.startsWith('/analysis');
+  const isCreatorPage = currentPath === '/creator';
   
   const [activeTrack, setActiveTrack] = useState<TrackId>('actors');
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -5405,9 +5431,9 @@ const App = () => {
       resetInput();
       return;
     }
-
-    const objectUrl = URL.createObjectURL(selectedFile);
-
+      
+      const objectUrl = URL.createObjectURL(selectedFile);
+      
     const finalizeSelection = () => {
       setFile(selectedFile);
       setPreviewUrl(objectUrl);
@@ -6177,9 +6203,9 @@ const App = () => {
           <div class="export-wrapper">
             <div class="export-header">
               <div class="export-header-text">
-                <h2>דו"ח ניתוח - Video Director Pro</h2>
-                <div class="export-note">נוצר במסלול פרימיום • ${new Date().toLocaleString('he-IL')}</div>
-              </div>
+              <h2>דו"ח ניתוח - Video Director Pro</h2>
+              <div class="export-note">נוצר במסלול פרימיום • ${new Date().toLocaleString('he-IL')}</div>
+            </div>
               <div class="export-logo-left">
                 <img src="${window.location.origin}/Logo.png" alt="Viraly Logo" />
               </div>
@@ -6405,7 +6431,7 @@ const App = () => {
       }
 
       const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash",
         contents: { parts },
         config: { 
           systemInstruction,
@@ -6556,13 +6582,46 @@ const App = () => {
     setSavedAnalyses([]);
   };
 
+  // Render different pages based on route
+  if (isSettingsPage) {
+    return (
+      <>
+        <GlobalStyle />
+        <SettingsPage
+          user={user}
+          profile={profile}
+          subscription={subscription}
+          usage={usage}
+          onProfileUpdate={async () => {
+            if (user) {
+              await loadUserData(user);
+            }
+          }}
+          onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
+        />
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={() => setShowSubscriptionModal(false)}
+          currentSubscription={subscription}
+          onSelectPlan={handleSelectPlan}
+          activeTrack={activeTrack}
+        />
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onAuthSuccess={() => {}}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <GlobalStyle />
       <AppContainer>
         <Header>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
-            <AppLogo />
+          <AppLogo />
             {user ? (
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
@@ -6593,7 +6652,7 @@ const App = () => {
                   })()}
                 </div>
                 <button
-                  onClick={() => setShowSettingsModal(true)}
+                  onClick={() => navigate('/settings')}
                   style={{
                     background: 'rgba(212, 160, 67, 0.2)',
                     border: '1px solid #D4A043',
@@ -6609,7 +6668,7 @@ const App = () => {
                 </button>
                 {userIsAdmin && (
                   <button
-                    onClick={() => setShowAdminPanel(true)}
+                    onClick={() => navigate('/admin')}
                     style={{
                       background: 'rgba(244, 67, 54, 0.2)',
                       border: '1px solid #F44336',
@@ -7153,26 +7212,6 @@ const App = () => {
         activeTrack={activeTrack}
       />
       
-      <SettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        user={user}
-        profile={profile}
-        subscription={subscription}
-        usage={usage}
-        onProfileUpdate={async () => {
-          if (user) {
-            await loadUserData(user);
-          }
-        }}
-        onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
-      />
-      
-      <AdminPanelModal
-        isOpen={showAdminPanel}
-        onClose={() => setShowAdminPanel(false)}
-      />
-      
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
@@ -7184,5 +7223,20 @@ const App = () => {
   );
 };
 
+// Main Router Component
+const AppRouter = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/settings" element={<App />} />
+        <Route path="/admin" element={<App />} />
+        <Route path="/analysis/:analysisId?" element={<App />} />
+        <Route path="/creator" element={<App />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
 const root = createRoot(document.getElementById('root')!);
-root.render(<App />);
+root.render(<AppRouter />);
