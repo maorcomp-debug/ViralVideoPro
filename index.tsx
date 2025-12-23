@@ -4661,6 +4661,11 @@ const App = () => {
           ? profileTier 
           : 'free';
         
+        // For free tier, always set as active (free tier never expires)
+        const isActiveStatus = defaultTier === 'free' 
+          ? true 
+          : (userProfile?.subscription_status === 'active' || false);
+        
         setSubscription({
           tier: defaultTier,
           billingPeriod: (userProfile?.subscription_period as 'monthly' | 'yearly') || 'monthly',
@@ -4670,7 +4675,7 @@ const App = () => {
             analysesUsed: 0,
             lastResetDate: userProfile?.subscription_start_date ? new Date(userProfile.subscription_start_date) : new Date(),
           },
-          isActive: userProfile?.subscription_status === 'active' || false,
+          isActive: isActiveStatus,
         });
       }
 
@@ -4846,9 +4851,12 @@ const App = () => {
 
     const plan = SUBSCRIPTION_PLANS[subscription.tier];
     
-    // Check if subscription is active
-    if (!subscription.isActive || new Date() > subscription.endDate) {
-      return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+    // For free tier, always allow (we only check usage limits)
+    // For paid tiers, check if subscription is active
+    if (subscription.tier !== 'free') {
+      if (!subscription.isActive || new Date() > subscription.endDate) {
+        return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+      }
     }
 
     // Get current usage from database (always fresh)

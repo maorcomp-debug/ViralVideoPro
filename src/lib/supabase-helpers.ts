@@ -77,7 +77,7 @@ export async function getUsageForCurrentPeriod() {
     .from('profiles')
     .select('subscription_tier')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   const userTier = profile?.subscription_tier || 'free';
   
@@ -293,7 +293,7 @@ export async function isAdmin(): Promise<boolean> {
     .from('profiles')
     .select('role')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   return profile?.role === 'admin';
 }
