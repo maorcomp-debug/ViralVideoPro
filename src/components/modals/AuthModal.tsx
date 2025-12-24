@@ -337,10 +337,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <AuthModalOverlay $isOpen={isOpen} onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <AuthModalContent>
+    <AuthModalOverlay 
+      $isOpen={isOpen} 
+      onMouseDown={(e) => {
+        // Only close if clicking directly on the overlay, not on child elements
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <AuthModalContent
+        onMouseDown={(e) => {
+          // Prevent clicks inside modal from closing it
+          e.stopPropagation();
+        }}
+      >
         <AuthCloseButton onClick={onClose}>×</AuthCloseButton>
         <AuthModalHeader>
           <h2>{isSignUp ? 'הרשמה' : 'כניסה'}</h2>
