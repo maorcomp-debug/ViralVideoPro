@@ -4242,13 +4242,12 @@ const App = () => {
                   background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
                   border: 'none',
                   color: '#000',
-                  opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
-                  cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
                   padding: '10px 20px',
                   borderRadius: '8px',
-                  cursor: 'pointer',
                   fontSize: '1rem',
                   fontWeight: 700,
+                  opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
+                  cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
                 }}
               >
                 התחבר / הרשם
