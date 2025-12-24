@@ -126,6 +126,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testPackageTier, setTestPackageTier] = useState<SubscriptionTier>('free');
+  
+  // Check if current email is test account
+  const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,27 +338,66 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {isSignUp && (
             <>
-              <div>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                  שם מלא
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(212, 160, 67, 0.3)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#fff',
-                    fontSize: '1rem',
-                    direction: 'rtl',
-                  }}
-                />
-              </div>
+              {isTestAccount ? (
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                    בחר חבילה לבדיקה
+                  </label>
+                  <select
+                    value={testPackageTier}
+                    onChange={(e) => setTestPackageTier(e.target.value as SubscriptionTier)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(212, 160, 67, 0.3)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      color: '#fff',
+                      fontSize: '1rem',
+                      direction: 'rtl',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="free">חבילת ניסיון (חינם)</option>
+                    <option value="creator">חבילת יוצרים</option>
+                    <option value="pro">חבילת יוצרים באקסטרים</option>
+                    <option value="coach">חבילת מאמנים</option>
+                  </select>
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '10px', 
+                    background: 'rgba(212, 160, 67, 0.1)', 
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    color: '#D4A043',
+                    textAlign: 'right'
+                  }}>
+                    שם הכניסה יהיה: חבילת {SUBSCRIPTION_PLANS[testPackageTier].name}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                    שם מלא
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(212, 160, 67, 0.3)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      color: '#fff',
+                      fontSize: '1rem',
+                      direction: 'rtl',
+                    }}
+                  />
+                </div>
+              )}
               <div>
                 <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
                   מספר טלפון <span style={{ color: '#ff6b6b' }}>*</span>
