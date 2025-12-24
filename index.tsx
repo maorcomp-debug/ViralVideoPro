@@ -2478,9 +2478,10 @@ const App = () => {
 
   useEffect(() => {
     const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
-    const defaults = EXPERTS_BY_TRACK[trackToUse].slice(0, 3).map(e => e.title);
+    const maxExperts = getMaxExperts();
+    const defaults = EXPERTS_BY_TRACK[trackToUse].slice(0, Math.min(3, maxExperts)).map(e => e.title);
     setSelectedExperts(defaults);
-  }, [activeTrack, coachTrainingTrack]);
+  }, [activeTrack, coachTrainingTrack, subscription]);
 
   // Subscription is now managed via Supabase - no local sync needed
 
@@ -2670,7 +2671,72 @@ const App = () => {
     return plan.limits.features[feature];
   };
 
+  // Check if a track is available for the current user
+  const isTrackAvailable = (trackId: TrackId): boolean => {
+    if (!profile || !subscription) {
+      // If no profile/subscription, only allow the primary track for free tier
+      return trackId === profile?.selected_primary_track;
+    }
+
+    // Coach track always requires traineeManagement feature
+    if (trackId === 'coach') {
+      return canUseFeature('traineeManagement');
+    }
+
+    const tier = subscription.tier;
+
+    // Free tier: only selected_primary_track is available
+    if (tier === 'free') {
+      return trackId === profile.selected_primary_track;
+    }
+
+    // Creator tier: up to 2 tracks from selected_tracks array
+    if (tier === 'creator') {
+      const selectedTracks = profile.selected_tracks || [];
+      return selectedTracks.includes(trackId);
+    }
+
+    // Pro and Coach tiers: all tracks available (except coach requires feature)
+    return true;
+  };
+
+  // Get available tracks for current user
+  const getAvailableTracks = (): TrackId[] => {
+    if (!profile || !subscription) return [];
+    
+    const tier = subscription.tier;
+    
+    if (tier === 'free') {
+      return profile.selected_primary_track ? [profile.selected_primary_track as TrackId] : [];
+    }
+    
+    if (tier === 'creator') {
+      return (profile.selected_tracks || []) as TrackId[];
+    }
+    
+    // Pro and Coach: all tracks (except coach if no feature)
+    const allTracks: TrackId[] = ['actors', 'musicians', 'creators', 'influencers'];
+    if (canUseFeature('traineeManagement')) {
+      allTracks.push('coach');
+    }
+    return allTracks;
+  };
+
+  // Get max number of experts allowed for current subscription
+  const getMaxExperts = (): number => {
+    if (!subscription) return 3; // Default to 3 for free
+    if (subscription.tier === 'free') return 3;
+    // Creator, Pro, Coach all get 8 experts
+    return 8;
+  };
+
   const handleTrackChange = (id: string) => {
+    // Check if track is available before allowing change
+    if (!isTrackAvailable(id as TrackId)) {
+      alert('תחום זה אינו זמין בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
+      setShowSubscriptionModal(true);
+      return;
+    }
     setActiveTrack(id as TrackId);
     setResult(null);
     setPreviousResult(null);
@@ -2686,11 +2752,16 @@ const App = () => {
   };
 
   const toggleExpert = (title: string) => {
+    const maxExperts = getMaxExperts();
     setSelectedExperts(prev => {
       if (prev.includes(title)) {
         return prev.filter(t => t !== title);
       } else {
-        if (prev.length >= 8) return prev;
+        if (prev.length >= maxExperts) {
+          alert(`מקסימום ${maxExperts} מומחים זמינים בחבילה שלך. יש לשדרג את החבילה לבחור מומחים נוספים.`);
+          setShowSubscriptionModal(true);
+          return prev;
+        }
         return [...prev, title];
       }
     });
@@ -3829,7 +3900,14 @@ const App = () => {
   };
 
   const handleSetAll = () => {
-    const all = currentExpertsList.map(e => e.title);
+    const maxExperts = getMaxExperts();
+    if (maxExperts < 8 && !canUseFeature('customExperts')) {
+      alert('8 מומחים זמינים בחבילות מנוי בלבד. יש לשדרג את החבילה.');
+      setShowSubscriptionModal(true);
+      return;
+    }
+    // Limit to maxExperts or all if available
+    const all = currentExpertsList.slice(0, maxExperts).map(e => e.title);
     setSelectedExperts(all);
   };
 
@@ -4096,28 +4174,60 @@ const App = () => {
 
         <SectionLabel>בחר את מסלול הניתוח שלך:</SectionLabel>
         <Grid>
-          {TRACKS.filter(track => !track.isPremium).map(track => (
-            <TrackCard 
-              key={track.id} 
-              $active={activeTrack === track.id}
-              onClick={() => handleTrackChange(track.id)}
-            >
-              {track.icon}
-              <span>{track.label}</span>
-            </TrackCard>
-          ))}
-          {TRACKS.filter(track => track.isPremium).map(track => (
-            <PremiumCoachCard
-              key={track.id}
-              $active={activeTrack === track.id}
-              onClick={() => handleTrackChange(track.id)}
-            >
-              {track.icon}
-              <div className="coach-line1">מסלול פרימיום</div>
-              <div className="coach-line2">סטודיו ומאמנים</div>
-              <div className="coach-line3">Coach Edition</div>
-            </PremiumCoachCard>
-          ))}
+          {TRACKS.filter(track => !track.isPremium).map(track => {
+            const isAvailable = isTrackAvailable(track.id as TrackId);
+            return (
+              <TrackCard 
+                key={track.id} 
+                $active={activeTrack === track.id}
+                onClick={() => handleTrackChange(track.id)}
+                style={{
+                  opacity: isAvailable ? 1 : 0.5,
+                  cursor: isAvailable ? 'pointer' : 'not-allowed',
+                  position: 'relative'
+                }}
+                title={!isAvailable ? 'תחום זה זמין בחבילות מנוי בלבד. שדרג את החבילה לבחור תחומים נוספים.' : ''}
+              >
+                {track.icon}
+                <span>{track.label}</span>
+                {!isAvailable && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '8px',
+                    left: '8px',
+                    background: 'rgba(212, 160, 67, 0.2)',
+                    color: '#D4A043',
+                    fontSize: '0.7rem',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontWeight: 600
+                  }}>
+                    פרימיום
+                  </span>
+                )}
+              </TrackCard>
+            );
+          })}
+          {TRACKS.filter(track => track.isPremium).map(track => {
+            const isAvailable = isTrackAvailable(track.id as TrackId);
+            return (
+              <PremiumCoachCard
+                key={track.id}
+                $active={activeTrack === track.id}
+                onClick={() => handleTrackChange(track.id)}
+                style={{
+                  opacity: isAvailable ? 1 : 0.5,
+                  cursor: isAvailable ? 'pointer' : 'not-allowed'
+                }}
+                title={!isAvailable ? 'מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. שדרג למסלול הפרימיום.' : ''}
+              >
+                {track.icon}
+                <div className="coach-line1">מסלול פרימיום</div>
+                <div className="coach-line2">סטודיו ומאמנים</div>
+                <div className="coach-line3">Coach Edition</div>
+              </PremiumCoachCard>
+            );
+          })}
         </Grid>
         
         {activeTrack === 'coach' && (
@@ -4297,18 +4407,36 @@ const App = () => {
            </ExpertControlText>
            <ExpertToggleGroup>
               <ExpertToggleButton $active={isTop3()} onClick={handleSetTop3}>3 המובילים</ExpertToggleButton>
-              <ExpertToggleButton $active={isAll()} onClick={handleSetAll}>כל המומחים</ExpertToggleButton>
+              <ExpertToggleButton 
+                $active={isAll()} 
+                onClick={handleSetAll}
+                disabled={!canUseFeature('customExperts')}
+                style={{
+                  opacity: !canUseFeature('customExperts') ? 0.5 : 1,
+                  cursor: !canUseFeature('customExperts') ? 'not-allowed' : 'pointer'
+                }}
+                title={!canUseFeature('customExperts') ? `${getMaxExperts()} מומחים זמינים בחבילות מנוי בלבד. שדרג את החבילה.` : ''}
+              >
+                {getMaxExperts()} מומחים
+              </ExpertToggleButton>
            </ExpertToggleGroup>
         </ExpertControlBar>
 
         <Grid>
           {EXPERTS_BY_TRACK[activeTrack === 'coach' ? coachTrainingTrack : activeTrack].map((expert, i) => {
             const isSelected = selectedExperts.includes(expert.title);
+            const maxExperts = getMaxExperts();
+            const isDisabled = !isSelected && selectedExperts.length >= maxExperts;
             return (
               <FeatureCard 
                 key={i} 
                 $selected={isSelected}
-                onClick={() => toggleExpert(expert.title)}
+                onClick={() => !isDisabled && toggleExpert(expert.title)}
+                style={{
+                  opacity: isDisabled ? 0.5 : 1,
+                  cursor: isDisabled ? 'not-allowed' : 'pointer'
+                }}
+                title={isDisabled ? `מקסימום ${maxExperts} מומחים זמינים בחבילה שלך. שדרג את החבילה לבחור מומחים נוספים.` : ''}
               >
                 <FeatureTitle $selected={isSelected}>{expert.title}</FeatureTitle>
                 <FeatureDesc $selected={isSelected}>{expert.desc}</FeatureDesc>
@@ -4515,9 +4643,18 @@ const App = () => {
                 <RefreshIcon />
                 התחל מחדש
               </SecondaryButton>
-              <PrimaryButton onClick={handleUploadImprovedTake}>
+              <PrimaryButton 
+                onClick={handleUploadImprovedTake}
+                disabled={!canUseFeature('improvementTracking')}
+                style={{
+                  opacity: !canUseFeature('improvementTracking') ? 0.5 : 1,
+                  cursor: !canUseFeature('improvementTracking') ? 'not-allowed' : 'pointer'
+                }}
+                title={!canUseFeature('improvementTracking') ? 'העלאת טייק משופר זמינה בחבילות מנוי בלבד. שדרג את החבילה.' : ''}
+              >
                 <UploadIconSmall />
                 העלה טייק משופר
+                {!canUseFeature('improvementTracking') && <PremiumBadge>פרימיום</PremiumBadge>}
               </PrimaryButton>
             </ActionButtonsContainer>
 
