@@ -133,22 +133,29 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
   const isTestAccount = userEmail?.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
 
   const handleSubmit = async () => {
+    // Prevent double submission
+    if (loading) return;
+    
     setLoading(true);
     try {
       // For test accounts or regular users, update subscription_tier
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ subscription_tier: selectedTier })
-          .eq('user_id', user.id);
-        
-        if (updateError) {
-          console.error('Error updating subscription tier:', updateError);
-          alert('שגיאה בעדכון החבילה. נסה שוב.');
-          setLoading(false);
-          return;
-        }
+      if (!user) {
+        alert('שגיאה: משתמש לא מחובר');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ subscription_tier: selectedTier })
+        .eq('user_id', user.id);
+      
+      if (updateError) {
+        console.error('Error updating subscription tier:', updateError);
+        alert('שגיאה בעדכון החבילה. נסה שוב.');
+        setLoading(false);
+        return;
       }
 
       onSelect(selectedTier);

@@ -275,6 +275,9 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
   };
 
   const handleSubmit = async () => {
+    // Prevent double submission
+    if (loading) return;
+    
     if (selectedTracks.length === 0) {
       setError('אנא בחר תחום ניתוח');
       return;

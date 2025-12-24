@@ -2353,10 +2353,23 @@ const App = () => {
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Helper function to reset all user-related state
+  const resetUserState = () => {
+    setProfile(null);
+    setSubscription(null);
+    setUsage(null);
+    setTrainees([]);
+    setSavedAnalyses([]);
+    setHasShownPackageModal(false);
+    setHasShownTrackModal(false);
+    setUserIsAdmin(false);
+  };
+
   // Initialize Supabase Auth
   useEffect(() => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
+    let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
     
     // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
     timeoutId = setTimeout(() => {
@@ -2366,7 +2379,7 @@ const App = () => {
       }
     }, 5000); // 5 second timeout
     
-    // Check initial session
+    // Check initial session (only once on mount)
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
         if (timeoutId) clearTimeout(timeoutId);
@@ -2381,13 +2394,8 @@ const App = () => {
         setUser(session?.user ?? null);
         setLoadingAuth(false);
         
-        if (session?.user) {
-          // Load user data in background, don't block rendering
-          loadUserData(session.user).catch(err => {
-            console.error('Error loading user data:', err);
-            // Don't block UI if user data loading fails
-          });
-        }
+        // Don't load user data here - let onAuthStateChange handle it to avoid duplicates
+        // onAuthStateChange will fire immediately after getSession returns a session
       })
       .catch((error) => {
         if (timeoutId) clearTimeout(timeoutId);
@@ -2397,29 +2405,32 @@ const App = () => {
         }
       });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Listen for auth changes (this handles both initial session and subsequent changes)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       
+      // Update user state
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // Prevent duplicate loadUserData calls
+        if (isLoadingUserData) {
+          console.log('⚠️ loadUserData already in progress, skipping duplicate call');
+          return;
+        }
+        
+        isLoadingUserData = true;
         try {
           await loadUserData(session.user);
         } catch (err) {
           console.error('Error loading user data in auth state change:', err);
           // Don't block UI if user data loading fails
+        } finally {
+          isLoadingUserData = false;
         }
       } else {
-        // Reset state on logout
-        setProfile(null);
-        setSubscription(null);
-        setUsage(null);
-        setTrainees([]);
-        setSavedAnalyses([]);
-        // Reset modal flags on logout
-        setHasShownPackageModal(false);
-        setHasShownTrackModal(false);
+        // User logged out - reset all state
+        resetUserState();
       }
     });
 
@@ -2430,11 +2441,26 @@ const App = () => {
     };
   }, []);
 
-  // Load user data from Supabase
+  // Load user data from Supabase (with protection against duplicate calls)
   const loadUserData = async (currentUser: User) => {
     try {
+      // Verify user is still authenticated before loading data
+      const { data: { user: verifiedUser } } = await supabase.auth.getUser();
+      if (!verifiedUser || verifiedUser.id !== currentUser.id) {
+        console.warn('User changed or logged out during loadUserData');
+        return;
+      }
+
       // Load profile
       const userProfile = await getCurrentUserProfile();
+      
+      // Verify user is still authenticated after profile load
+      const { data: { user: verifiedUser2 } } = await supabase.auth.getUser();
+      if (!verifiedUser2 || verifiedUser2.id !== currentUser.id) {
+        console.warn('User changed or logged out during loadUserData');
+        return;
+      }
+      
       setProfile(userProfile);
 
       // Check if user needs to select a package/track (new user without selected_primary_track)
@@ -2655,9 +2681,13 @@ const App = () => {
       
               // Reload user data after a short delay to ensure DB update
               if (user) {
+                // Use a longer delay to ensure DB consistency
                 setTimeout(async () => {
-                  await loadUserData(user);
-                }, 200);
+                  const { data: { user: currentUser } } = await supabase.auth.getUser();
+                  if (currentUser && currentUser.id === user.id) {
+                    await loadUserData(currentUser);
+                  }
+                }, 500);
               }
     } catch (error) {
       console.error('Error saving subscription:', error);
@@ -4041,17 +4071,18 @@ const App = () => {
     
     setLoggingOut(true);
     try {
-      // Sign out from Supabase (this will trigger onAuthStateChange which will reset state)
-      await supabase.auth.signOut();
-      // Reset state immediately for better UX
+      // Sign out from Supabase (this will trigger onAuthStateChange which will reset state via resetUserState)
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Error during signOut:', error);
+        // Still reset state even if signOut fails
+      }
+      
+      // Reset state immediately for better UX (onAuthStateChange will also reset, but this ensures immediate feedback)
       setUser(null);
-      setProfile(null);
-      setSubscription(null);
-      setUsage(null);
-      setTrainees([]);
-      setSavedAnalyses([]);
-      setHasShownPackageModal(false);
-      setHasShownTrackModal(false);
+      resetUserState();
+      
       // Navigate to home page if on other pages
       if (location.pathname !== '/') {
         navigate('/');
@@ -4060,11 +4091,7 @@ const App = () => {
       console.error('Error during logout:', error);
       // Still reset state even if signOut fails
       setUser(null);
-      setProfile(null);
-      setSubscription(null);
-      setUsage(null);
-      setTrainees([]);
-      setSavedAnalyses([]);
+      resetUserState();
     } finally {
       setLoggingOut(false);
     }
@@ -4849,9 +4876,13 @@ const App = () => {
               });
               // Reload user data after a short delay to ensure DB update
               if (user) {
+                // Use a longer delay to ensure DB consistency
                 setTimeout(async () => {
-                  await loadUserData(user);
-                }, 200);
+                  const { data: { user: currentUser } } = await supabase.auth.getUser();
+                  if (currentUser && currentUser.id === user.id) {
+                    await loadUserData(currentUser);
+                  }
+                }, 500);
               }
             } catch (err) {
               console.error('Error setting tracks for pro/coach tier:', err);

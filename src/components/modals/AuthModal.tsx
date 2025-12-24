@@ -177,6 +177,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (loading) {
+      return;
+    }
+    
     setError(null);
     setLoading(true);
 
@@ -593,8 +599,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <AuthButton
             type="submit"
             disabled={loading}
+            onClick={(e) => {
+              // Prevent double submission if form is already submitting
+              if (loading) {
+                e.preventDefault();
+                return;
+              }
+            }}
           >
-            {loading ? 'מעבד...' : (isSignUp ? 'הרשמה' : 'כניסה')}
+            {loading ? (isSignUp ? 'נרשם...' : 'מתחבר...') : (isSignUp ? 'הרשמה' : 'כניסה')}
           </AuthButton>
 
           <button
