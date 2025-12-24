@@ -373,7 +373,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <option value="free">🎁 חבילת ניסיון (חינם)</option>
                     <option value="creator">⭐ חבילת יוצרים</option>
                     <option value="pro">💎 חבילת יוצרים באקסטרים</option>
-                    <option value="coach">🏆 חבילת מאמנים</option>
+                    <option value="coach">🏆 חבילת מאמנים, סוכנויות ובתי ספר למשחק</option>
                   </select>
                   <div style={{ 
                     marginTop: '8px', 
