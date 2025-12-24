@@ -4200,7 +4200,7 @@ const App = () => {
                 onClick={() => handleTrackChange(track.id)}
                 style={{
                   opacity: isAvailable ? 1 : 0.5,
-                  cursor: isAvailable ? 'pointer' : 'not-allowed',
+                  cursor: 'pointer', // Allow clicking for browsing even if not available
                   position: 'relative'
                 }}
                 title={!isAvailable ? 'תחום זה זמין בחבילות מנוי בלבד. שדרג את החבילה לבחור תחומים נוספים.' : ''}
