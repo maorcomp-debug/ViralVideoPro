@@ -2295,6 +2295,7 @@ const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
