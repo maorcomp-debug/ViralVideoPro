@@ -2743,17 +2743,8 @@ const App = () => {
   };
 
   const handleTrackChange = (id: string) => {
-    // Allow switching tracks for browsing, but show message if not available
+    // Always allow switching tracks for browsing - users can see all tracks but usage is blocked
     const trackId = id as TrackId;
-    if (!isTrackAvailable(trackId)) {
-      // Allow switching but show upgrade message
-      const confirmSwitch = window.confirm('תחום זה אינו כלול בחבילה שלך. אתה יכול לדפדף ולראות את התחום, אבל לא תוכל לבצע ניתוח. לשדרג את החבילה?');
-      if (confirmSwitch) {
-        setShowSubscriptionModal(true);
-        return; // Don't switch if user wants to upgrade
-      }
-      // User chose to browse anyway - allow switching
-    }
     setActiveTrack(trackId);
     setResult(null);
     setPreviousResult(null);
