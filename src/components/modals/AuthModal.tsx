@@ -354,17 +354,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }
           
           // Check if email confirmation is required
-          if (data.user.email_confirmed_at) {
+          // Fetch fresh user data to check email_confirmed_at
+          const { data: { user: freshUser }, error: userFetchError } = await supabase.auth.getUser();
+          
+          if (userFetchError) {
+            console.error('Error fetching user after signup:', userFetchError);
+          }
+          
+          if (freshUser?.email_confirmed_at || data.user.email_confirmed_at) {
             // User is already confirmed, log them in
             console.log('✅ User email already confirmed');
             alert('נרשמת בהצלחה!');
             onAuthSuccess();
             onClose();
           } else {
-            // Email confirmation required
+            // Email confirmation required - don't allow login until email is confirmed
             console.log('📧 Email confirmation required. Confirmation email should be sent.');
-            alert('נרשמת בהצלחה! אנא בדוק את תיבת הדואר שלך כדי לאשר את האימייל.');
-            onAuthSuccess();
+            // Sign out the user to prevent login without confirmation
+            await supabase.auth.signOut();
+            alert('נרשמת בהצלחה! אנא בדוק את תיבת הדואר שלך כדי לאשר את האימייל. לא תוכל להתחבר עד שתאשר את האימייל.');
             onClose();
           }
         } else {
