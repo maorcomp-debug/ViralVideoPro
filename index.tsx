@@ -2596,23 +2596,7 @@ const App = () => {
         endDate.setFullYear(endDate.getFullYear() + 1);
       }
 
-      // Save subscription to Supabase
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .upsert({
-          user_id: user.id,
-          plan_id: planData.id,
-          status: 'active',
-          billing_period: period,
-          start_date: now.toISOString(),
-          end_date: endDate.toISOString(),
-        }, {
-          onConflict: 'user_id',
-        });
-
-      if (subError) throw subError;
-
-      // Update profile
+      // Update profile first (this is critical for the app to work)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -2624,7 +2608,29 @@ const App = () => {
         })
         .eq('user_id', user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw profileError;
+      }
+
+      // Save subscription to Supabase (this is secondary, non-critical if it fails)
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .upsert({
+          user_id: user.id,
+          plan_id: planData.id,
+          status: 'active',
+          billing_period: period,
+          start_date: now.toISOString(),
+          end_date: endDate.toISOString(),
+        }, {
+          onConflict: 'user_id,plan_id',
+        });
+
+      if (subError) {
+        console.warn('Warning: Subscription table update failed (profile was updated successfully):', subError);
+        // Don't throw - profile was updated successfully, subscription table is secondary
+      }
 
       // Update local state
       const newSubscription: UserSubscription = {
