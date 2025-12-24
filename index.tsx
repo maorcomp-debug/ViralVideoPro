@@ -2736,13 +2736,18 @@ const App = () => {
   };
 
   const handleTrackChange = (id: string) => {
-    // Check if track is available before allowing change
-    if (!isTrackAvailable(id as TrackId)) {
-      alert('תחום זה אינו זמין בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
-      setShowSubscriptionModal(true);
-      return;
+    // Allow switching tracks for browsing, but show message if not available
+    const trackId = id as TrackId;
+    if (!isTrackAvailable(trackId)) {
+      // Allow switching but show upgrade message
+      const confirmSwitch = window.confirm('תחום זה אינו כלול בחבילה שלך. אתה יכול לדפדף ולראות את התחום, אבל לא תוכל לבצע ניתוח. לשדרג את החבילה?');
+      if (confirmSwitch) {
+        setShowSubscriptionModal(true);
+        return; // Don't switch if user wants to upgrade
+      }
+      // User chose to browse anyway - allow switching
     }
-    setActiveTrack(id as TrackId);
+    setActiveTrack(trackId);
     setResult(null);
     setPreviousResult(null);
     setIsImprovementMode(false);
@@ -4222,9 +4227,9 @@ const App = () => {
                 onClick={() => handleTrackChange(track.id)}
                 style={{
                   opacity: isAvailable ? 1 : 0.5,
-                  cursor: isAvailable ? 'pointer' : 'not-allowed'
+                  cursor: 'pointer' // Allow clicking for browsing even if not available
                 }}
-                title={!isAvailable ? 'מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. שדרג למסלול הפרימיום.' : ''}
+                title={!isAvailable ? 'מסלול הפרימיום אינו כלול בחבילה שלך. תוכל לדפדף ולראות, אבל לא לבצע ניתוח. לחץ לשדרג.' : ''}
               >
                 {track.icon}
                 <div className="coach-line1">מסלול פרימיום</div>
