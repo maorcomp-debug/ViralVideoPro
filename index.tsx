@@ -2370,6 +2370,9 @@ const App = () => {
         setUsage(null);
         setTrainees([]);
         setSavedAnalyses([]);
+        // Reset modal flags on logout
+        setHasShownPackageModal(false);
+        setHasShownTrackModal(false);
       }
     });
 
