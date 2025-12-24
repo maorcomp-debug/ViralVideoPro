@@ -3947,6 +3947,7 @@ const App = () => {
                 </button>
                 {userIsAdmin && (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -3954,10 +3955,18 @@ const App = () => {
                       console.log('🔍 App: Current path:', location.pathname);
                       console.log('🔍 App: Navigate function:', typeof navigate);
                       try {
-                        navigate('/admin');
+                        navigate('/admin', { replace: false });
                         console.log('✅ App: Navigate called successfully');
+                        // Fallback: if navigate doesn't work, use window.location
+                        setTimeout(() => {
+                          if (window.location.pathname !== '/admin') {
+                            console.log('⚠️ App: Navigate did not change path, using window.location');
+                            window.location.href = '/admin';
+                          }
+                        }, 500);
                       } catch (error) {
                         console.error('❌ App: Error navigating:', error);
+                        window.location.href = '/admin';
                       }
                     }}
                     style={{
@@ -3969,6 +3978,8 @@ const App = () => {
                       cursor: 'pointer',
                       fontSize: '0.9rem',
                       fontWeight: 700,
+                      position: 'relative',
+                      zIndex: 10,
                     }}
                   >
                     🔐 מנהל
