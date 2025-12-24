@@ -3616,6 +3616,13 @@ const App = () => {
   const handleGenerate = async () => {
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
     
+    // Check if current track is available for user's subscription
+    if (!isTrackAvailable(activeTrack)) {
+      alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
+      setShowSubscriptionModal(true);
+      return;
+    }
+    
     // Check feature access for coach track - must have premium subscription
     if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
       alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
