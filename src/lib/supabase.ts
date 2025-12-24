@@ -65,6 +65,10 @@ export interface Database {
           user_id: string;
           full_name: string | null;
           email: string;
+          phone: string | null;
+          selected_tracks: string[] | null;
+          selected_primary_track: 'actors' | 'musicians' | 'creators' | 'influencers' | 'coach' | null;
+          role: 'user' | 'admin';
           created_at: string;
           updated_at: string;
           subscription_tier: 'free' | 'creator' | 'pro' | 'coach';
