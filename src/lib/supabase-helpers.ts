@@ -21,6 +21,46 @@ export async function getCurrentUserProfile() {
   return data;
 }
 
+export async function checkEmailExists(email: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('email', email.trim().toLowerCase())
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking email:', error);
+      return false;
+    }
+
+    return data !== null;
+  } catch (error) {
+    console.error('Error in checkEmailExists:', error);
+    return false;
+  }
+}
+
+export async function checkPhoneExists(phone: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('phone')
+      .eq('phone', phone.trim())
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking phone:', error);
+      return false;
+    }
+
+    return data !== null;
+  } catch (error) {
+    console.error('Error in checkPhoneExists:', error);
+    return false;
+  }
+}
+
 export async function getCurrentSubscription() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -216,7 +256,6 @@ export async function saveTrainee(traineeData: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
-
   const { data, error } = await supabase
     .from('trainees')
     .insert({
@@ -240,7 +279,8 @@ export async function getAnalyses(traineeId?: string) {
 
   let query = supabase
     .from('analyses')
-    .select('*');
+    .select('*')
+    .eq('user_id', user.id);
 
   if (traineeId) {
     query = query.eq('trainee_id', traineeId);
@@ -440,6 +480,9 @@ export async function updateUserProfile(userId: string, updates: {
   subscription_status?: string;
   subscription_start_date?: string;
   subscription_end_date?: string;
+  phone?: string;
+  selected_tracks?: string[];
+  selected_primary_track?: string;
 }) {
   const { error } = await supabase
     .from('profiles')
@@ -454,6 +497,9 @@ export async function updateUserProfile(userId: string, updates: {
 
 export async function updateCurrentUserProfile(updates: {
   full_name?: string;
+  phone?: string;
+  selected_tracks?: string[];
+  selected_primary_track?: string;
 }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');

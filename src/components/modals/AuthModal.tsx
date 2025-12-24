@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
+import { checkEmailExists, checkPhoneExists } from '../../lib/supabase-helpers';
 
 // --- Auth Modal Styled Components ---
 const AuthModalOverlay = styled.div<{ $isOpen: boolean }>`
@@ -120,6 +121,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,9 +132,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       if (isSignUp) {
+        // Validate phone format (basic validation - Israeli phone number)
+        const phoneRegex = /^0[2-9]\d{7,8}$/;
+        const cleanPhone = phone.trim().replace(/\D/g, ''); // Remove non-digits
+        
+        if (!cleanPhone || cleanPhone.length < 9) {
+          setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
+          setLoading(false);
+          return;
+        }
+
+        // Check if email already exists
+        const emailExists = await checkEmailExists(email.trim());
+        if (emailExists) {
+          setError('כתובת האימייל כבר רשומה במערכת. נסה להתחבר במקום או השתמש באימייל אחר.');
+          setLoading(false);
+          return;
+        }
+
+        // Check if phone already exists
+        const phoneExists = await checkPhoneExists(cleanPhone);
+        if (phoneExists) {
+          setError('מספר הטלפון כבר רשום במערכת. נסה להתחבר במקום או השתמש במספר טלפון אחר.');
+          setLoading(false);
+          return;
+        }
+
         const redirectUrl = window.location.origin;
         console.log('🔐 Attempting sign up...');
         console.log('Email:', email.trim());
+        console.log('Phone:', cleanPhone);
         console.log('Redirect URL:', redirectUrl);
         console.log('Current location:', window.location.href);
         
@@ -142,6 +171,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           options: {
             data: {
               full_name: fullName.trim(),
+              phone: cleanPhone,
             },
             emailRedirectTo: redirectUrl,
           },
@@ -263,27 +293,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {isSignUp && (
-            <div>
-              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                שם מלא
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(212, 160, 67, 0.3)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  color: '#fff',
-                  fontSize: '1rem',
-                  direction: 'rtl',
-                }}
-              />
-            </div>
+            <>
+              <div>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                  שם מלא
+                </label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'rtl',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                  מספר טלפון <span style={{ color: '#ff6b6b' }}>*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0501234567"
+                  required
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'ltr',
+                    textAlign: 'left',
+                  }}
+                />
+                <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
+                  מספר טלפון ישראלי (10 ספרות)
+                </div>
+              </div>
+            </>
           )}
 
           <div>
