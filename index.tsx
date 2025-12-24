@@ -2355,10 +2355,20 @@ const App = () => {
   // Initialize Supabase Auth
   useEffect(() => {
     let mounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
+    timeoutId = setTimeout(() => {
+      if (mounted) {
+        console.warn('getSession timeout - setting loadingAuth to false');
+        setLoadingAuth(false);
+      }
+    }, 5000); // 5 second timeout
     
     // Check initial session
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
+        if (timeoutId) clearTimeout(timeoutId);
         if (!mounted) return;
         
         if (error) {
@@ -2379,6 +2389,7 @@ const App = () => {
         }
       })
       .catch((error) => {
+        if (timeoutId) clearTimeout(timeoutId);
         console.error('Error in getSession:', error);
         if (mounted) {
           setLoadingAuth(false);
