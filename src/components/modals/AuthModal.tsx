@@ -222,42 +222,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           
           // Translate common error messages to Hebrew (for non-test accounts or other errors)
           let errorMessage = signUpError.message;
+          
+          // Handle 401 Unauthorized - could be user already exists or API key issue
+          if (signUpError.status === 401) {
+            console.error('401 Error - Possible causes:');
+            console.error('1. User already exists');
+            console.error('2. Invalid API key');
+            console.error('3. Email confirmation required');
             
-            // Handle 401 Unauthorized - could be user already exists or API key issue
-            if (signUpError.status === 401) {
-              console.error('401 Error - Possible causes:');
-              console.error('1. User already exists');
-              console.error('2. Invalid API key');
-              console.error('3. Email confirmation required');
-              
-              // Check if it's because user already exists
-              if (signUpError.message.includes('already registered') || 
-                  signUpError.message.includes('already exists') ||
-                  signUpError.message.includes('User already registered') ||
-                  signUpError.message.toLowerCase().includes('user')) {
-                errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
-              } else if (signUpError.message.includes('Invalid API key') || 
-                         signUpError.message.includes('JWT') ||
-                         signUpError.message.includes('api')) {
-                errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local והפעל מחדש את השרת.';
-              } else {
-                errorMessage = 'שגיאת הרשאה (401). המשתמש כבר קיים או שיש בעיה בהגדרות. נסה להתחבר במקום.';
-              }
-            } else if (signUpError.message.includes('Invalid API key') || signUpError.message.includes('JWT')) {
-              errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local';
-            } else if (signUpError.message.includes('User already registered') || 
-                       signUpError.message.includes('already exists')) {
+            // Check if it's because user already exists
+            if (signUpError.message.includes('already registered') || 
+                signUpError.message.includes('already exists') ||
+                signUpError.message.includes('User already registered') ||
+                signUpError.message.toLowerCase().includes('user')) {
               errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
-            } else if (signUpError.message.includes('Password') || signUpError.message.includes('password')) {
-              errorMessage = 'הסיסמה חלשה מדי. נסה סיסמה חזקה יותר (לפחות 6 תווים).';
-            } else if (signUpError.message.includes('email') || signUpError.message.includes('Email')) {
-              errorMessage = 'כתובת האימייל לא תקינה או כבר קיימת במערכת.';
-            } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('too many')) {
-              errorMessage = 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.';
+            } else if (signUpError.message.includes('Invalid API key') || 
+                       signUpError.message.includes('JWT') ||
+                       signUpError.message.includes('api')) {
+              errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local והפעל מחדש את השרת.';
+            } else {
+              errorMessage = 'שגיאת הרשאה (401). המשתמש כבר קיים או שיש בעיה בהגדרות. נסה להתחבר במקום.';
             }
-            
-            throw new Error(errorMessage);
+          } else if (signUpError.message.includes('Invalid API key') || signUpError.message.includes('JWT')) {
+            errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local';
+          } else if (signUpError.message.includes('User already registered') || 
+                     signUpError.message.includes('already exists')) {
+            errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
+          } else if (signUpError.message.includes('Password') || signUpError.message.includes('password')) {
+            errorMessage = 'הסיסמה חלשה מדי. נסה סיסמה חזקה יותר (לפחות 6 תווים).';
+          } else if (signUpError.message.includes('email') || signUpError.message.includes('Email')) {
+            errorMessage = 'כתובת האימייל לא תקינה או כבר קיימת במערכת.';
+          } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('too many')) {
+            errorMessage = 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.';
           }
+          
+          throw new Error(errorMessage);
+        }
         
         if (data.user) {
           // For test accounts, update subscription_tier immediately
