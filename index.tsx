@@ -4034,14 +4034,41 @@ const App = () => {
     );
   }
 
+  const [loggingOut, setLoggingOut] = useState(false);
+  
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setSubscription(null);
-    setUsage(null);
-    setTrainees([]);
-    setSavedAnalyses([]);
+    // Prevent double-click
+    if (loggingOut) return;
+    
+    setLoggingOut(true);
+    try {
+      // Sign out from Supabase (this will trigger onAuthStateChange which will reset state)
+      await supabase.auth.signOut();
+      // Reset state immediately for better UX
+      setUser(null);
+      setProfile(null);
+      setSubscription(null);
+      setUsage(null);
+      setTrainees([]);
+      setSavedAnalyses([]);
+      setHasShownPackageModal(false);
+      setHasShownTrackModal(false);
+      // Navigate to home page if on other pages
+      if (location.pathname !== '/') {
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still reset state even if signOut fails
+      setUser(null);
+      setProfile(null);
+      setSubscription(null);
+      setUsage(null);
+      setTrainees([]);
+      setSavedAnalyses([]);
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   // Render different pages based on route
@@ -4186,17 +4213,19 @@ const App = () => {
                 )}
                 <button
                   onClick={handleLogout}
+                  disabled={loggingOut}
                   style={{
                     background: 'rgba(212, 160, 67, 0.2)',
                     border: '1px solid #D4A043',
                     color: '#D4A043',
                     padding: '8px 16px',
                     borderRadius: '8px',
-                    cursor: 'pointer',
+                    cursor: loggingOut ? 'not-allowed' : 'pointer',
                     fontSize: '0.9rem',
+                    opacity: loggingOut ? 0.6 : 1,
                   }}
                 >
-                  התנתק
+                  {loggingOut ? 'מתנתק...' : 'התנתק'}
                 </button>
               </div>
             ) : (

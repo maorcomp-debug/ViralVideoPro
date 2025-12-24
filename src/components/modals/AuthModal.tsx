@@ -194,16 +194,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         // For test account email, skip uniqueness checks (allow multiple registrations)
         if (!isTestAccount) {
-          // Check if email already exists
-          const emailExists = await checkEmailExists(email.trim());
+          // Check uniqueness in parallel for better performance
+          const [emailExists, phoneExists] = await Promise.all([
+            checkEmailExists(email.trim()),
+            checkPhoneExists(cleanPhone)
+          ]);
+          
           if (emailExists) {
             setError('כתובת האימייל כבר רשומה במערכת. נסה להתחבר במקום או השתמש באימייל אחר.');
             setLoading(false);
             return;
           }
 
-          // Check if phone already exists
-          const phoneExists = await checkPhoneExists(cleanPhone);
           if (phoneExists) {
             setError('מספר הטלפון כבר רשום במערכת. נסה להתחבר במקום או השתמש במספר טלפון אחר.');
             setLoading(false);
