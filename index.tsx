@@ -4203,7 +4203,7 @@ const App = () => {
                   cursor: 'pointer', // Allow clicking for browsing even if not available
                   position: 'relative'
                 }}
-                title={!isAvailable ? 'תחום זה זמין בחבילות מנוי בלבד. שדרג את החבילה לבחור תחומים נוספים.' : ''}
+                title={!isAvailable ? 'תחום זה אינו כלול בחבילה שלך. תוכל לדפדף ולראות, אבל לא לבצע ניתוח. לחץ לשדרג.' : ''}
               >
                 {track.icon}
                 <span>{track.label}</span>
