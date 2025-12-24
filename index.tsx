@@ -2393,9 +2393,13 @@ const App = () => {
       setProfile(userProfile);
 
       // Check if user needs to select a package/track (new user without selected_primary_track)
-      if (userProfile && !userProfile.selected_primary_track) {
+      // Only show if user is logged in and profile exists but no primary track selected
+      if (userProfile && !userProfile.selected_primary_track && currentUser) {
         // Show package selection first for new users
-        setShowPackageSelectionModal(true);
+        // Use setTimeout to ensure modal shows after render
+        setTimeout(() => {
+          setShowPackageSelectionModal(true);
+        }, 300);
       }
 
       // Check if user is admin
