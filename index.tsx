@@ -2372,21 +2372,26 @@ const App = () => {
     let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
     
     // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
+    // Increased timeout to 10 seconds to account for slower networks
     timeoutId = setTimeout(() => {
       if (mounted) {
-        console.warn('getSession timeout - setting loadingAuth to false');
+        console.warn('⚠️ getSession taking longer than expected (>10s). Setting loadingAuth to false to prevent UI freeze.');
         setLoadingAuth(false);
+        // Still allow onAuthStateChange to handle the session when it eventually loads
       }
-    }, 5000); // 5 second timeout
+    }, 10000); // 10 second timeout (increased from 5)
     
     // Check initial session (only once on mount)
-    supabase.auth.getSession()
+    // Wrap in Promise.race to handle timeout more gracefully
+    const sessionPromise = supabase.auth.getSession();
+    
+    sessionPromise
       .then(({ data: { session }, error }) => {
         if (timeoutId) clearTimeout(timeoutId);
         if (!mounted) return;
         
         if (error) {
-          console.error('Error getting session:', error);
+          console.error('❌ Error getting session:', error);
           setLoadingAuth(false);
           return;
         }
@@ -2399,7 +2404,7 @@ const App = () => {
       })
       .catch((error) => {
         if (timeoutId) clearTimeout(timeoutId);
-        console.error('Error in getSession:', error);
+        console.error('❌ Error in getSession promise:', error);
         if (mounted) {
           setLoadingAuth(false);
         }
