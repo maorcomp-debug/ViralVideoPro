@@ -2354,22 +2354,50 @@ const App = () => {
 
   // Initialize Supabase Auth
   useEffect(() => {
+    let mounted = true;
+    
     // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoadingAuth(false);
-      
-      if (session?.user) {
-        loadUserData(session.user);
-      }
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoadingAuth(false);
+          return;
+        }
+        
+        setUser(session?.user ?? null);
+        setLoadingAuth(false);
+        
+        if (session?.user) {
+          // Load user data in background, don't block rendering
+          loadUserData(session.user).catch(err => {
+            console.error('Error loading user data:', err);
+            // Don't block UI if user data loading fails
+          });
+        }
+      })
+      .catch((error) => {
+        console.error('Error in getSession:', error);
+        if (mounted) {
+          setLoadingAuth(false);
+        }
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+      
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        await loadUserData(session.user);
+        try {
+          await loadUserData(session.user);
+        } catch (err) {
+          console.error('Error loading user data in auth state change:', err);
+          // Don't block UI if user data loading fails
+        }
       } else {
         // Reset state on logout
         setProfile(null);
@@ -2383,7 +2411,10 @@ const App = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Load user data from Supabase
