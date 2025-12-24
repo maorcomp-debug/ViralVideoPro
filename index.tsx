@@ -10,6 +10,7 @@ import { AuthModal } from './src/components/modals/AuthModal';
 import { CapabilitiesModal } from './src/components/modals/CapabilitiesModal';
 import { CoachGuideModal } from './src/components/modals/CoachGuideModal';
 import { TrackSelectionModal } from './src/components/modals/TrackSelectionModal';
+import { PackageSelectionModal } from './src/components/modals/PackageSelectionModal';
 import { AppContainer, Header } from './src/styles/components';
 import {
   ModalOverlay,
@@ -31,6 +32,7 @@ import { supabase } from './src/lib/supabase';
 import {
   getCurrentUserProfile,
   getCurrentSubscription,
+  updateCurrentUserProfile,
   getUsageForCurrentPeriod,
   uploadVideo,
   saveVideoToDatabase,
@@ -2334,6 +2336,8 @@ const App = () => {
   const [showComparison, setShowComparison] = useState(false);
   const [showCoachGuide, setShowCoachGuide] = useState(false);
   const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
+  const [showPackageSelectionModal, setShowPackageSelectionModal] = useState(false);
+  const [pendingSubscriptionTier, setPendingSubscriptionTier] = useState<SubscriptionTier | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -2377,9 +2381,10 @@ const App = () => {
       const userProfile = await getCurrentUserProfile();
       setProfile(userProfile);
 
-      // Check if user needs to select a track (new user without selected_primary_track)
-      if (userProfile && !userProfile.selected_primary_track && userProfile.subscription_tier === 'free') {
-        setShowTrackSelectionModal(true);
+      // Check if user needs to select a package/track (new user without selected_primary_track)
+      if (userProfile && !userProfile.selected_primary_track) {
+        // Show package selection first for new users
+        setShowPackageSelectionModal(true);
       }
 
       // Check if user is admin
@@ -4678,14 +4683,51 @@ const App = () => {
         }}
       />
       
+      <PackageSelectionModal
+        isOpen={showPackageSelectionModal}
+        onClose={() => {
+          // Don't allow closing without selection
+        }}
+        onSelect={async (tier) => {
+          setPendingSubscriptionTier(tier);
+          setShowPackageSelectionModal(false);
+          
+          // Reload user data to get updated subscription tier
+          if (user) {
+            await loadUserData(user);
+          }
+          
+          // For free and creator tiers, show track selection
+          if (tier === 'free' || tier === 'creator') {
+            setShowTrackSelectionModal(true);
+          } else {
+            // For pro and coach, set all 4 tracks automatically
+            const allTracks: TrackId[] = ['actors', 'musicians', 'creators', 'influencers'];
+            try {
+              await updateCurrentUserProfile({
+                selected_primary_track: allTracks[0],
+                selected_tracks: allTracks,
+              });
+              // Reload user data
+              if (user) {
+                await loadUserData(user);
+              }
+            } catch (err) {
+              console.error('Error setting tracks for pro/coach tier:', err);
+            }
+          }
+        }}
+        userEmail={user?.email}
+      />
+      
       <TrackSelectionModal
         isOpen={showTrackSelectionModal}
         onClose={() => {
           // Don't allow closing without selection - user must choose a track
-          // The modal will close after selection via onSelect
         }}
-        onSelect={async (trackId) => {
-          setActiveTrack(trackId);
+        subscriptionTier={pendingSubscriptionTier || subscription?.tier || 'free'}
+        onSelect={async (trackIds) => {
+          setActiveTrack(trackIds[0]);
           setShowTrackSelectionModal(false);
           // Reload user data to get updated profile
           if (user) {

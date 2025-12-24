@@ -3,7 +3,42 @@ import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { updateCurrentUserProfile } from '../../lib/supabase-helpers';
 import { fadeIn } from '../../styles/globalStyles';
-import type { TrackId } from '../../types';
+import type { TrackId, SubscriptionTier } from '../../types';
+
+// Track Icons (SVG matching index.tsx)
+const TheaterMasksIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '48px', height: '48px' }}>
+    <path d="M2 10.5C2 5.8 5.8 2 10.5 2h3C18.2 2 22 5.8 22 10.5v1c0 4.7-3.8 8.5-8.5 8.5h-3C5.8 20 2 16.2 2 11.5v-1z" />
+    <path d="M8 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+    <path d="M16 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+    <path d="M12 16c-2.5 0-4-2-4-2s1.5-2 4-2 4 2 4 2-1.5 2-4 2z" />
+  </svg>
+);
+
+const MusicNoteIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '48px', height: '48px' }}>
+    <path d="M9 18V5l12-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="18" cy="16" r="3" />
+  </svg>
+);
+
+const PhoneStarIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '48px', height: '48px' }}>
+    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+    <path d="M12 18h.01" />
+    <path d="M14.5 9.5l-2.5-1.5-2.5 1.5 1-3-2.5-1.5h3l1.5-3 1.5 3h3l-2.5 1.5 1 3z" style={{ fill: 'currentColor', stroke: 'none' }} opacity="0.5"/>
+  </svg>
+);
+
+const MicrophoneIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '48px', height: '48px' }}>
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <line x1="12" y1="19" x2="12" y2="23" />
+    <line x1="8" y1="23" x2="16" y2="23" />
+  </svg>
+);
 
 // --- Track Selection Modal Styled Components ---
 const ModalOverlay = styled.div<{ $isOpen: boolean }>`
@@ -96,9 +131,17 @@ const TrackCard = styled.div<{ $selected: boolean; $disabled?: boolean }>`
 `;
 
 const TrackIcon = styled.div`
-  font-size: 3rem;
   margin-bottom: 15px;
   text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #D4A043;
+  
+  svg {
+    width: 48px;
+    height: 48px;
+  }
 `;
 
 const TrackName = styled.h3`
@@ -170,7 +213,8 @@ const InfoMessage = styled.div`
 interface TrackSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (trackId: TrackId) => void;
+  onSelect: (trackIds: TrackId[]) => void;
+  subscriptionTier: SubscriptionTier;
 }
 
 // Track definitions (matching the ones in index.tsx)
@@ -179,45 +223,65 @@ const TRACKS = [
     id: 'actors' as TrackId, 
     label: 'שחקנים ואודישנים',
     description: 'חדר האודישנים הראשי של הפקות הדרמה המובילות',
-    icon: '🎭'
+    icon: TheaterMasksIcon
   },
   { 
     id: 'musicians' as TrackId, 
     label: 'זמרים ומוזיקאים',
     description: 'פאנל השופטים של תוכניות המוזיקה הגדולות',
-    icon: '🎵'
+    icon: MusicNoteIcon
   },
   { 
     id: 'creators' as TrackId, 
     label: 'יוצרי תוכן וכוכבי רשת',
     description: 'האלגוריתם של הרשתות החברתיות (טיקטוק/רילס/יוטיוב)',
-    icon: '⭐'
+    icon: PhoneStarIcon
   },
   { 
     id: 'influencers' as TrackId, 
     label: 'משפיענים ומותגים',
     description: 'חדר האסטרטגיה של המותגים הגדולים ומשרדי הפרסום',
-    icon: '🎤'
+    icon: MicrophoneIcon
   },
 ];
 
 export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
   isOpen,
   onClose,
-  onSelect
+  onSelect,
+  subscriptionTier
 }) => {
-  const [selectedTrack, setSelectedTrack] = useState<TrackId | null>(null);
+  const [selectedTracks, setSelectedTracks] = useState<TrackId[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Determine max tracks allowed based on subscription tier
+  const maxTracks = subscriptionTier === 'free' ? 1 : subscriptionTier === 'creator' ? 2 : 4;
+
   const handleSelectTrack = (trackId: TrackId) => {
-    setSelectedTrack(trackId);
     setError(null);
+    
+    if (selectedTracks.includes(trackId)) {
+      // Deselect track
+      setSelectedTracks(prev => prev.filter(id => id !== trackId));
+    } else {
+      // Select track if under limit
+      if (selectedTracks.length < maxTracks) {
+        setSelectedTracks(prev => [...prev, trackId]);
+      } else {
+        setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
+      }
+    }
   };
 
   const handleSubmit = async () => {
-    if (!selectedTrack) {
+    if (selectedTracks.length === 0) {
       setError('אנא בחר תחום ניתוח');
+      return;
+    }
+
+    if (selectedTracks.length > maxTracks) {
+      setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
       return;
     }
 
@@ -225,14 +289,15 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
     setError(null);
 
     try {
-      // Update user profile with selected track
+      // Update user profile with selected tracks
+      const primaryTrack = selectedTracks[0];
       await updateCurrentUserProfile({
-        selected_primary_track: selectedTrack,
-        selected_tracks: [selectedTrack], // For free tier, only one track
+        selected_primary_track: primaryTrack,
+        selected_tracks: selectedTracks,
       });
 
-      // Call onSelect callback
-      onSelect(selectedTrack);
+      // Call onSelect callback with all selected tracks
+      onSelect(selectedTracks);
       
       // Close modal
       onClose();
@@ -255,29 +320,41 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
         <ModalHeader>
           <h2>בחר תחום ניתוח</h2>
           <p>
-            כחלק מחבילת הניסיון, אנא בחר תחום אחד לניתוח. תוכל לשדרג את החבילה מאוחר יותר לבחור תחומים נוספים.
+            {subscriptionTier === 'free' 
+              ? 'כחלק מחבילת הניסיון, אנא בחר תחום אחד לניתוח. תוכל לשדרג את החבילה מאוחר יותר לבחור תחומים נוספים.'
+              : subscriptionTier === 'creator'
+              ? 'בחר עד שני תחומי ניתוח. תוכל לשדרג את החבילה מאוחר יותר לכל התחומים.'
+              : 'בחר תחומי ניתוח (עד 4 תחומים).'}
           </p>
         </ModalHeader>
 
         <InfoMessage>
-          💡 כל תחום כולל פאנל מומחים מותאם אישית. ניתן לשדרג בעתיד לבחור תחומים נוספים.
+          {subscriptionTier === 'free' && '💡 כל תחום כולל פאנל מומחים מותאם אישית. ניתן לשדרג בעתיד לבחור תחומים נוספים.'}
+          {subscriptionTier === 'creator' && `💡 ניתן לבחור עד 2 תחומים. נבחרו: ${selectedTracks.length}/${maxTracks}`}
+          {subscriptionTier !== 'free' && subscriptionTier !== 'creator' && '💡 כל התחומים זמינים לך!'}
         </InfoMessage>
 
         <TracksGrid>
-          {TRACKS.map((track) => (
-            <TrackCard
-              key={track.id}
-              $selected={selectedTrack === track.id}
-              onClick={() => handleSelectTrack(track.id)}
-            >
-              {selectedTrack === track.id && (
-                <SelectedBadge>✓ נבחר</SelectedBadge>
-              )}
-              <TrackIcon>{track.icon}</TrackIcon>
-              <TrackName>{track.label}</TrackName>
-              <TrackDescription>{track.description}</TrackDescription>
-            </TrackCard>
-          ))}
+          {TRACKS.map((track) => {
+            const TrackIconComponent = track.icon;
+            const isSelected = selectedTracks.includes(track.id);
+            return (
+              <TrackCard
+                key={track.id}
+                $selected={isSelected}
+                onClick={() => handleSelectTrack(track.id)}
+              >
+                {isSelected && (
+                  <SelectedBadge>✓ נבחר</SelectedBadge>
+                )}
+                <TrackIcon>
+                  <TrackIconComponent />
+                </TrackIcon>
+                <TrackName>{track.label}</TrackName>
+                <TrackDescription>{track.description}</TrackDescription>
+              </TrackCard>
+            );
+          })}
         </TracksGrid>
 
         {error && (
@@ -297,9 +374,9 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
 
         <SubmitButton
           onClick={handleSubmit}
-          disabled={!selectedTrack || loading}
+          disabled={selectedTracks.length === 0 || loading}
         >
-          {loading ? 'שומר...' : 'אשר בחירה והמשך'}
+          {loading ? 'שומר...' : `אשר בחירה והמשך (${selectedTracks.length}/${maxTracks})`}
         </SubmitButton>
       </ModalContent>
     </ModalOverlay>
