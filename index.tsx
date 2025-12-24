@@ -2671,6 +2671,8 @@ const App = () => {
   };
 
   const canUseFeature = (feature: keyof SubscriptionLimits['features']): boolean => {
+    // Admin email gets all features
+    if (user?.email === 'viralypro@gmail.com') return true;
     if (!subscription) return false;
     const plan = SUBSCRIPTION_PLANS[subscription.tier];
     return plan.limits.features[feature];
@@ -2678,6 +2680,9 @@ const App = () => {
 
   // Check if a track is available for the current user
   const isTrackAvailable = (trackId: TrackId): boolean => {
+    // Admin email gets all tracks
+    if (user?.email === 'viralypro@gmail.com') return true;
+    
     if (!profile || !subscription) {
       // If no profile/subscription, only allow the primary track for free tier
       return trackId === profile?.selected_primary_track;
@@ -2729,6 +2734,8 @@ const App = () => {
 
   // Get max number of experts allowed for current subscription
   const getMaxExperts = (): number => {
+    // Admin email gets 8 experts
+    if (user?.email === 'viralypro@gmail.com') return 8;
     if (!subscription) return 3; // Default to 3 for free
     if (subscription.tier === 'free') return 3;
     // Creator, Pro, Coach all get 8 experts

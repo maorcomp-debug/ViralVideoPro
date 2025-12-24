@@ -2,6 +2,7 @@ import type { SubscriptionTier, SubscriptionPlan, UserSubscription, TrackId } fr
 
 // Test account email - allows multiple registrations with different package names
 export const TEST_ACCOUNT_EMAIL = 'maorcomp@gmail.com';
+export const ADMIN_EMAIL = 'viralypro@gmail.com';
 
 // --- Subscription Plans Configuration ---
 export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
