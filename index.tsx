@@ -4432,7 +4432,7 @@ const App = () => {
                 }}
                 title={!canUseFeature('customExperts') ? `${getMaxExperts()} מומחים זמינים בחבילות מנוי בלבד. שדרג את החבילה.` : ''}
               >
-                {getMaxExperts()} מומחים
+                כל המומחים ({getMaxExperts()})
               </ExpertToggleButton>
            </ExpertToggleGroup>
         </ExpertControlBar>
