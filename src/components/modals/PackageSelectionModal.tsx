@@ -182,10 +182,10 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
           value={selectedTier}
           onChange={(e) => setSelectedTier(e.target.value as SubscriptionTier)}
         >
-          <option value="free">🎁 חבילת ניסיון (חינם)</option>
-          <option value="creator">⭐ חבילת יוצרים</option>
-          <option value="pro">💎 חבילת יוצרים באקסטרים</option>
-          <option value="coach">🏆 חבילת מאמנים, סוכנויות ובתי ספר למשחק</option>
+          <option value="free">חבילת ניסיון (חינם)</option>
+          <option value="creator">חבילת יוצרים</option>
+          <option value="pro">חבילת יוצרים באקסטרים</option>
+          <option value="coach">חבילת מאמנים, סוכנויות ובתי ספר למשחק</option>
         </PackageSelect>
 
         <InfoMessage>
