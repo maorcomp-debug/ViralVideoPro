@@ -4430,7 +4430,7 @@ const App = () => {
                   opacity: !canUseFeature('customExperts') ? 0.5 : 1,
                   cursor: !canUseFeature('customExperts') ? 'not-allowed' : 'pointer'
                 }}
-                title={!canUseFeature('customExperts') ? `${getMaxExperts()} מומחים זמינים בחבילות מנוי בלבד. שדרג את החבילה.` : ''}
+                title={!canUseFeature('customExperts') ? `מקסימום ${getMaxExperts()} מומחים זמינים בחבילה שלך. שדרג את החבילה לבחור מומחים נוספים.` : ''}
               >
                 כל המומחים ({getMaxExperts()})
               </ExpertToggleButton>
