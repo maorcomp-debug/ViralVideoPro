@@ -202,13 +202,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           console.error('Error code:', signUpError.status);
           console.error('Error details:', JSON.stringify(signUpError, null, 2));
           
-          // For test accounts, allow duplicate email errors to pass (Supabase might still create the user)
-          if (isTestAccount && signUpError.message?.includes('already registered')) {
-            console.log('Test account registration - duplicate email allowed, checking if user was created anyway');
-            // Don't throw error - continue to check if user was created
-          } else {
-            // Translate common error messages to Hebrew
-            let errorMessage = signUpError.message;
+          // For test accounts, handle duplicate email gracefully
+          // Supabase may allow multiple users with same email if configured, or may return error
+          // We'll allow the error for test accounts and let Supabase handle it
+          if (isTestAccount) {
+            console.log('Test account registration - duplicate email may occur, Supabase will handle it');
+            // For test accounts, we don't throw on "already registered" - let Supabase handle duplicates
+            if (signUpError.message?.includes('already registered') || 
+                signUpError.message?.includes('already exists') ||
+                signUpError.message?.includes('User already registered')) {
+              // This is expected for test accounts - allow multiple registrations with different passwords
+              console.log('Test account: Multiple registrations with same email allowed (different passwords per package)');
+              // Don't throw - check if user was created anyway or show message
+              setError('המשתמש כבר קיים עם סיסמה אחרת. נסה סיסמה שונה או התחבר עם הסיסמה הקיימת.');
+              setLoading(false);
+              return;
+            }
+          }
+          
+          // Translate common error messages to Hebrew (for non-test accounts or other errors)
+          let errorMessage = signUpError.message;
             
             // Handle 401 Unauthorized - could be user already exists or API key issue
             if (signUpError.status === 401) {
