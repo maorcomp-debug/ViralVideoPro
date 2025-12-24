@@ -4685,9 +4685,15 @@ const App = () => {
               <PrimaryButton 
                 onClick={handleExportPdf} 
                 disabled={loading || !canUseFeature('pdfExport')}
+                style={{
+                  opacity: !canUseFeature('pdfExport') ? 0.5 : 1,
+                  cursor: !canUseFeature('pdfExport') ? 'not-allowed' : 'pointer'
+                }}
+                title={!canUseFeature('pdfExport') ? 'יצוא ל-PDF זמין בחבילות מנוי בלבד. שדרג את החבילה.' : ''}
               >
-                <PdfIcon />
-                יצוא ניתוח ל-PDF <PremiumBadge>פרימיום</PremiumBadge>
+                {!canUseFeature('pdfExport') ? <NoEntryIcon /> : <PdfIcon />}
+                יצוא ניתוח ל-PDF
+                {!canUseFeature('pdfExport') && <PremiumBadge>פרימיום</PremiumBadge>}
               </PrimaryButton>
               {activeTrack === 'coach' && canUseFeature('traineeManagement') && (
                 <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee}>
