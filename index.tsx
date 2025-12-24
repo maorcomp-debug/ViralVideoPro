@@ -4034,8 +4034,6 @@ const App = () => {
       </AppContainer>
     );
   }
-
-  const [loggingOut, setLoggingOut] = useState(false);
   
   const handleLogout = async () => {
     // Prevent double-click
