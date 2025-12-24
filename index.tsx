@@ -2356,11 +2356,22 @@ const App = () => {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const previousUser = user;
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        loadUserData(session.user);
+        await loadUserData(session.user);
+        // If this is a new user (just signed up), check if they need package selection
+        if (!previousUser && session.user) {
+          // Wait a bit for profile to be created by trigger
+          setTimeout(async () => {
+            const userProfile = await getCurrentUserProfile();
+            if (userProfile && !userProfile.selected_primary_track) {
+              setShowPackageSelectionModal(true);
+            }
+          }, 500);
+        }
       } else {
         // Reset state on logout
         setProfile(null);
@@ -3937,13 +3948,13 @@ const App = () => {
 
   const handleSetAll = () => {
     const maxExperts = getMaxExperts();
-    if (maxExperts < 8 && !canUseFeature('customExperts')) {
+    if (maxExperts < 8) {
       alert('8 מומחים זמינים בחבילות מנוי בלבד. יש לשדרג את החבילה.');
       setShowSubscriptionModal(true);
       return;
     }
-    // Limit to maxExperts or all if available
-    const all = currentExpertsList.slice(0, maxExperts).map(e => e.title);
+    // Set all 8 experts
+    const all = currentExpertsList.slice(0, 8).map(e => e.title);
     setSelectedExperts(all);
   };
 
@@ -4239,7 +4250,7 @@ const App = () => {
                     borderRadius: '4px',
                     fontWeight: 600
                   }}>
-                    {subscription?.tier === 'free' ? 'לא בחבילה' : subscription?.tier === 'creator' ? 'שדרג' : 'פרימיום'}
+                    לא בחבילה
                   </span>
                 )}
               </TrackCard>
@@ -4448,14 +4459,14 @@ const App = () => {
               <ExpertToggleButton 
                 $active={isAll()} 
                 onClick={handleSetAll}
-                disabled={!canUseFeature('customExperts')}
+                disabled={getMaxExperts() < 8}
                 style={{
-                  opacity: !canUseFeature('customExperts') ? 0.5 : 1,
-                  cursor: !canUseFeature('customExperts') ? 'not-allowed' : 'pointer'
+                  opacity: getMaxExperts() < 8 ? 0.5 : 1,
+                  cursor: getMaxExperts() < 8 ? 'not-allowed' : 'pointer'
                 }}
-                title={!canUseFeature('customExperts') ? `מקסימום ${getMaxExperts()} מומחים זמינים בחבילה שלך. שדרג את החבילה לבחור מומחים נוספים.` : ''}
+                title={getMaxExperts() < 8 ? '8 מומחים זמינים בחבילות מנוי בלבד. שדרג את החבילה.' : ''}
               >
-                כל המומחים ({getMaxExperts()})
+                8 מומחים
               </ExpertToggleButton>
            </ExpertToggleGroup>
         </ExpertControlBar>
