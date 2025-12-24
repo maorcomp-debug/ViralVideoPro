@@ -3628,6 +3628,13 @@ const App = () => {
   const handleGenerate = async () => {
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
     
+    // Check if user is logged in
+    if (!user) {
+      alert('עליך להרשם תחילה כדי לבצע ניתוח.');
+      setShowAuthModal(true);
+      return;
+    }
+    
     // Check if current track is available for user's subscription
     if (!isTrackAvailable(activeTrack)) {
       alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
