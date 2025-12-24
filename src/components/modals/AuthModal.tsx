@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
 import { checkEmailExists, checkPhoneExists } from '../../lib/supabase-helpers';
+import { TEST_ACCOUNT_EMAIL, SUBSCRIPTION_PLANS } from '../../constants';
+import type { SubscriptionTier } from '../../types';
 
 // --- Auth Modal Styled Components ---
 const AuthModalOverlay = styled.div<{ $isOpen: boolean }>`
@@ -142,36 +144,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           return;
         }
 
-        // Check if email already exists
-        const emailExists = await checkEmailExists(email.trim());
-        if (emailExists) {
-          setError('כתובת האימייל כבר רשומה במערכת. נסה להתחבר במקום או השתמש באימייל אחר.');
-          setLoading(false);
-          return;
-        }
+        // For test account email, skip uniqueness checks (allow multiple registrations)
+        if (!isTestAccount) {
+          // Check if email already exists
+          const emailExists = await checkEmailExists(email.trim());
+          if (emailExists) {
+            setError('כתובת האימייל כבר רשומה במערכת. נסה להתחבר במקום או השתמש באימייל אחר.');
+            setLoading(false);
+            return;
+          }
 
-        // Check if phone already exists
-        const phoneExists = await checkPhoneExists(cleanPhone);
-        if (phoneExists) {
-          setError('מספר הטלפון כבר רשום במערכת. נסה להתחבר במקום או השתמש במספר טלפון אחר.');
-          setLoading(false);
-          return;
+          // Check if phone already exists
+          const phoneExists = await checkPhoneExists(cleanPhone);
+          if (phoneExists) {
+            setError('מספר הטלפון כבר רשום במערכת. נסה להתחבר במקום או השתמש במספר טלפון אחר.');
+            setLoading(false);
+            return;
+          }
         }
 
         const redirectUrl = window.location.origin;
         console.log('🔐 Attempting sign up...');
         console.log('Email:', email.trim());
         console.log('Phone:', cleanPhone);
+        console.log('Is test account:', isTestAccount);
+        console.log('Test package tier:', isTestAccount ? testPackageTier : 'N/A');
         console.log('Redirect URL:', redirectUrl);
         console.log('Current location:', window.location.href);
+        
+        // For test accounts, set full_name to package name
+        let displayName = fullName.trim();
+        if (isTestAccount) {
+          displayName = `חבילת ${SUBSCRIPTION_PLANS[testPackageTier].name}`;
+        }
         
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
             data: {
-              full_name: fullName.trim(),
+              full_name: displayName,
               phone: cleanPhone,
+              test_package_tier: isTestAccount ? testPackageTier : undefined, // Store package tier for test accounts
             },
             emailRedirectTo: redirectUrl,
           },
@@ -184,46 +198,72 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           console.error('Error code:', signUpError.status);
           console.error('Error details:', JSON.stringify(signUpError, null, 2));
           
-          // Translate common error messages to Hebrew
-          let errorMessage = signUpError.message;
-          
-          // Handle 401 Unauthorized - could be user already exists or API key issue
-          if (signUpError.status === 401) {
-            console.error('401 Error - Possible causes:');
-            console.error('1. User already exists');
-            console.error('2. Invalid API key');
-            console.error('3. Email confirmation required');
+          // For test accounts, allow duplicate email errors to pass (Supabase might still create the user)
+          if (isTestAccount && signUpError.message?.includes('already registered')) {
+            console.log('Test account registration - duplicate email allowed, checking if user was created anyway');
+            // Don't throw error - continue to check if user was created
+          } else {
+            // Translate common error messages to Hebrew
+            let errorMessage = signUpError.message;
             
-            // Check if it's because user already exists
-            if (signUpError.message.includes('already registered') || 
-                signUpError.message.includes('already exists') ||
-                signUpError.message.includes('User already registered') ||
-                signUpError.message.toLowerCase().includes('user')) {
+            // Handle 401 Unauthorized - could be user already exists or API key issue
+            if (signUpError.status === 401) {
+              console.error('401 Error - Possible causes:');
+              console.error('1. User already exists');
+              console.error('2. Invalid API key');
+              console.error('3. Email confirmation required');
+              
+              // Check if it's because user already exists
+              if (signUpError.message.includes('already registered') || 
+                  signUpError.message.includes('already exists') ||
+                  signUpError.message.includes('User already registered') ||
+                  signUpError.message.toLowerCase().includes('user')) {
+                errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
+              } else if (signUpError.message.includes('Invalid API key') || 
+                         signUpError.message.includes('JWT') ||
+                         signUpError.message.includes('api')) {
+                errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local והפעל מחדש את השרת.';
+              } else {
+                errorMessage = 'שגיאת הרשאה (401). המשתמש כבר קיים או שיש בעיה בהגדרות. נסה להתחבר במקום.';
+              }
+            } else if (signUpError.message.includes('Invalid API key') || signUpError.message.includes('JWT')) {
+              errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local';
+            } else if (signUpError.message.includes('User already registered') || 
+                       signUpError.message.includes('already exists')) {
               errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
-            } else if (signUpError.message.includes('Invalid API key') || 
-                       signUpError.message.includes('JWT') ||
-                       signUpError.message.includes('api')) {
-              errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local והפעל מחדש את השרת.';
-            } else {
-              errorMessage = 'שגיאת הרשאה (401). המשתמש כבר קיים או שיש בעיה בהגדרות. נסה להתחבר במקום.';
+            } else if (signUpError.message.includes('Password') || signUpError.message.includes('password')) {
+              errorMessage = 'הסיסמה חלשה מדי. נסה סיסמה חזקה יותר (לפחות 6 תווים).';
+            } else if (signUpError.message.includes('email') || signUpError.message.includes('Email')) {
+              errorMessage = 'כתובת האימייל לא תקינה או כבר קיימת במערכת.';
+            } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('too many')) {
+              errorMessage = 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.';
             }
-          } else if (signUpError.message.includes('Invalid API key') || signUpError.message.includes('JWT')) {
-            errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local';
-          } else if (signUpError.message.includes('User already registered') || 
-                     signUpError.message.includes('already exists')) {
-            errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
-          } else if (signUpError.message.includes('Password') || signUpError.message.includes('password')) {
-            errorMessage = 'הסיסמה חלשה מדי. נסה סיסמה חזקה יותר (לפחות 6 תווים).';
-          } else if (signUpError.message.includes('email') || signUpError.message.includes('Email')) {
-            errorMessage = 'כתובת האימייל לא תקינה או כבר קיימת במערכת.';
-          } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('too many')) {
-            errorMessage = 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.';
+            
+            throw new Error(errorMessage);
           }
-          
-          throw new Error(errorMessage);
         }
         
         if (data.user) {
+          // For test accounts, update subscription_tier immediately
+          if (isTestAccount && data.user.id) {
+            try {
+              const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ subscription_tier: testPackageTier })
+                .eq('user_id', data.user.id);
+              
+              if (updateError) {
+                console.error('Error updating test account subscription tier:', updateError);
+                // Continue anyway - user can update manually
+              } else {
+                console.log(`Test account subscription tier set to: ${testPackageTier}`);
+              }
+            } catch (err) {
+              console.error('Error updating test account profile:', err);
+              // Continue anyway
+            }
+          }
+          
           // Check if email confirmation is required
           if (data.user.email_confirmed_at) {
             // User is already confirmed, log them in
@@ -351,7 +391,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                // Reset package tier when email changes (if not test account)
+                if (e.target.value.trim().toLowerCase() !== TEST_ACCOUNT_EMAIL.toLowerCase()) {
+                  setTestPackageTier('free');
+                }
+              }}
               required
               style={{
                 width: '100%',
@@ -365,6 +411,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 textAlign: 'left',
               }}
             />
+            {isTestAccount && (
+              <div style={{ 
+                marginTop: '5px', 
+                fontSize: '0.85rem', 
+                color: '#D4A043',
+                textAlign: 'right',
+                fontStyle: 'italic'
+              }}>
+                📧 מייל בדיקות - ניתן לרישום מרובה עם חבילות שונות
+              </div>
+            )}
           </div>
 
           <div>
