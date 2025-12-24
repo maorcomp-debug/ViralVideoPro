@@ -68,90 +68,73 @@ export async function getCurrentSubscription() {
 
 export async function getUsageForCurrentPeriod() {
   try {
+    const subscription = await getCurrentSubscription();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const subscription = await getCurrentSubscription();
-    
-    // Get user profile to check subscription_tier
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('subscription_tier')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    if (!subscription || !subscription.plans) {
+      // Free tier - count analyses in current calendar month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    if (profileError) {
-      console.error('Error fetching profile for usage:', profileError);
+      const { count, error } = await supabase
+        .from('analyses')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', monthStart.toISOString())
+        .lte('created_at', monthEnd.toISOString());
+
+      if (error) {
+        console.error('Error counting analyses:', error);
+        return null;
+      }
+
+      return {
+        analysesUsed: count || 0,
+        periodStart: monthStart,
+        periodEnd: monthEnd,
+      };
     }
 
-  const userTier = profile?.subscription_tier || 'free';
-  
-  // For free tier: count analyses in current month (2 analyses per month limit)
-  if (!subscription || userTier === 'free') {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-
+    // Paid tier - count analyses in subscription period
     const { count, error } = await supabase
       .from('analyses')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString());
+      .gte('created_at', subscription.start_date)
+      .lte('created_at', subscription.end_date);
 
     if (error) {
-      console.error('Error fetching usage:', error);
+      console.error('Error counting analyses:', error);
       return null;
     }
 
     return {
       analysesUsed: count || 0,
-      periodStart: monthStart,
-      periodEnd: monthEnd,
+      periodStart: new Date(subscription.start_date),
+      periodEnd: new Date(subscription.end_date),
     };
-  }
-
-  // For paid subscriptions: count analyses in subscription period
-  if (!subscription) {
-    // This should not happen due to check above, but safety check
-    return null;
-  }
-  
-  const periodStart = new Date(subscription.start_date);
-  const periodEnd = new Date(subscription.end_date);
-
-  const { count, error } = await supabase
-    .from('analyses')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .gte('created_at', periodStart.toISOString())
-    .lte('created_at', periodEnd.toISOString());
-
-  if (error) {
-    console.error('Error fetching usage:', error);
-    return null;
-  }
-
-  return {
-    analysesUsed: count || 0,
-    periodStart,
-    periodEnd,
-  };
   } catch (error) {
     console.error('Error in getUsageForCurrentPeriod:', error);
     return null;
   }
 }
 
+// ============================================
+// VIDEO & ANALYSIS FUNCTIONS
+// ============================================
+
 export async function uploadVideo(file: File, userId: string) {
   const fileExt = file.name.split('.').pop();
   const fileName = `${userId}/${Date.now()}.${fileExt}`;
+  const filePath = `videos/${fileName}`;
 
   const { data, error } = await supabase.storage
     .from('videos')
-    .upload(fileName, file, {
+    .upload(filePath, file, {
       cacheControl: '3600',
-      upsert: false,
+      upsert: false
     });
 
   if (error) {
@@ -159,22 +142,14 @@ export async function uploadVideo(file: File, userId: string) {
     throw error;
   }
 
-  // Get public URL (will be signed URL for private bucket)
-  const { data: urlData } = supabase.storage
-    .from('videos')
-    .getPublicUrl(data.path);
-
-  return {
-    path: data.path,
-    url: urlData.publicUrl,
-  };
+  return { path: filePath, data };
 }
 
 export async function saveVideoToDatabase(videoData: {
   file_name: string;
   file_path: string;
   file_size: number;
-  duration_seconds: number | null;
+  duration_seconds?: number | null;
   mime_type: string;
 }) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -228,23 +203,9 @@ export async function saveAnalysis(analysisData: {
   return data;
 }
 
-export async function getTrainees() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
-  const { data, error } = await supabase
-    .from('trainees')
-    .select('*')
-    .eq('coach_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching trainees:', error);
-    return [];
-  }
-
-  return data || [];
-}
+// ============================================
+// COACH EDITION FUNCTIONS
+// ============================================
 
 export async function saveTrainee(traineeData: {
   name: string;
@@ -254,6 +215,7 @@ export async function saveTrainee(traineeData: {
 }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
+
 
   const { data, error } = await supabase
     .from('trainees')
@@ -278,8 +240,7 @@ export async function getAnalyses(traineeId?: string) {
 
   let query = supabase
     .from('analyses')
-    .select('*')
-    .eq('user_id', user.id);
+    .select('*');
 
   if (traineeId) {
     query = query.eq('trainee_id', traineeId);
@@ -295,14 +256,41 @@ export async function getAnalyses(traineeId?: string) {
   return data || [];
 }
 
+export async function getTrainees() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('trainees')
+    .select('*')
+    .eq('coach_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching trainees:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
 // ============================================
-// ADMIN HELPER FUNCTIONS
+// ADMIN FUNCTIONS
 // ============================================
 
 export async function isAdmin(): Promise<boolean> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      console.error('❌ isAdmin: Error getting user:', userError);
+      return false;
+    }
+    
+    if (!user) {
+      console.warn('⚠️ isAdmin: No user found');
+      return false;
+    }
 
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -311,29 +299,136 @@ export async function isAdmin(): Promise<boolean> {
       .maybeSingle();
 
     if (error) {
-      console.error('Error checking admin status:', error);
+      console.error('❌ isAdmin: Error checking admin status:', error);
       return false;
     }
 
-    return profile?.role === 'admin';
+    const isAdminUser = profile?.role === 'admin';
+    
+    return isAdminUser;
   } catch (error) {
-    console.error('Error in isAdmin:', error);
+    console.error('❌ isAdmin: Exception:', error);
     return false;
   }
 }
 
 export async function getAllUsers() {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching all users:', error);
-    return [];
+    if (error) {
+      console.error('Error fetching all users:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getAllUsers:', error);
+    throw error;
   }
+}
 
-  return data || [];
+export async function getAllAnalyses() {
+  try {
+    const { data, error } = await supabase
+      .from('analyses')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching all analyses:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getAllAnalyses:', error);
+    throw error;
+  }
+}
+
+export async function getAllVideos() {
+  try {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching all videos:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getAllVideos:', error);
+    throw error;
+  }
+}
+
+export async function getUserAnalyses(userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('analyses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user analyses:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getUserAnalyses:', error);
+    throw error;
+  }
+}
+
+export async function getUserVideos(userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user videos:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getUserVideos:', error);
+    throw error;
+  }
+}
+
+export async function getUserUsageStats(userId: string) {
+  try {
+    const { count: analysesCount } = await supabase
+      .from('analyses')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    const { count: videosCount } = await supabase
+      .from('videos')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    return {
+      totalAnalyses: analysesCount || 0,
+      totalVideos: videosCount || 0,
+    };
+  } catch (error: any) {
+    console.error('Error in getUserUsageStats:', error);
+    return { totalAnalyses: 0, totalVideos: 0 };
+  }
 }
 
 export async function updateUserProfile(userId: string, updates: {
@@ -341,6 +436,10 @@ export async function updateUserProfile(userId: string, updates: {
   role?: string;
   full_name?: string;
   email?: string;
+  subscription_period?: string;
+  subscription_status?: string;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
 }) {
   const { error } = await supabase
     .from('profiles')
@@ -397,11 +496,73 @@ export async function createUser(email: string, password: string, profileData: {
   // This function should be called from an Edge Function for security.
   // For now, we'll throw an error indicating this needs to be implemented via Edge Function.
   throw new Error('User creation via admin panel requires an Edge Function. Please implement create-user Edge Function with service role key.');
-  
-  // Example Edge Function implementation:
-  // Create a Supabase Edge Function that uses service role key to:
-  // 1. Create auth user with supabase.auth.admin.createUser()
-  // 2. Create profile with the provided data
-  // 3. Return the created user
 }
 
+// ============================================
+// ADMIN STATISTICS FUNCTIONS
+// ============================================
+
+export async function getAdminStats() {
+  try {
+    // Get total counts
+    const { count: totalUsers } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true });
+
+    const { count: totalAnalyses } = await supabase
+      .from('analyses')
+      .select('id', { count: 'exact', head: true });
+
+    const { count: totalVideos } = await supabase
+      .from('videos')
+      .select('id', { count: 'exact', head: true });
+
+    // Get tier distribution
+    const { data: tierData } = await supabase
+      .from('profiles')
+      .select('subscription_tier');
+
+    const tierDistribution = tierData?.reduce((acc: any, profile: any) => {
+      acc[profile.subscription_tier] = (acc[profile.subscription_tier] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
+    // Get role distribution
+    const { data: roleData } = await supabase
+      .from('profiles')
+      .select('role');
+
+    const roleDistribution = roleData?.reduce((acc: any, profile: any) => {
+      acc[profile.role] = (acc[profile.role] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
+    // Get recent registrations (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { count: recentUsers } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo.toISOString());
+
+    return {
+      totalUsers: totalUsers || 0,
+      totalAnalyses: totalAnalyses || 0,
+      totalVideos: totalVideos || 0,
+      recentUsers: recentUsers || 0,
+      tierDistribution,
+      roleDistribution,
+    };
+  } catch (error: any) {
+    console.error('Error in getAdminStats:', error);
+    return {
+      totalUsers: 0,
+      totalAnalyses: 0,
+      totalVideos: 0,
+      recentUsers: 0,
+      tierDistribution: {},
+      roleDistribution: {},
+    };
+  }
+}

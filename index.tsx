@@ -42,7 +42,13 @@ import {
   updateUserProfile,
   updateCurrentUserProfile,
   deleteUser,
-  createUser
+  createUser,
+  getAllAnalyses,
+  getAllVideos,
+  getUserAnalyses,
+  getUserVideos,
+  getUserUsageStats,
+  getAdminStats,
 } from './src/lib/supabase-helpers';
 import type { User } from '@supabase/supabase-js';
 import type {

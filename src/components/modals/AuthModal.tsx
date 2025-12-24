@@ -1,0 +1,370 @@
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import { supabase } from '../../lib/supabase';
+import { fadeIn } from '../../styles/globalStyles';
+
+// --- Auth Modal Styled Components ---
+const AuthModalOverlay = styled.div<{ $isOpen: boolean }>`
+  display: ${props => props.$isOpen ? 'flex' : 'none'};
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+`;
+
+const AuthModalContent = styled.div`
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+  border: 2px solid #D4A043;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(212, 160, 67, 0.3);
+  animation: ${fadeIn} 0.3s ease;
+  position: relative;
+
+  @media (max-width: 768px) {
+    padding: 20px;
+    border-radius: 15px;
+  }
+`;
+
+const AuthModalHeader = styled.div`
+  text-align: center;
+  margin-bottom: 30px;
+  
+  h2 {
+    color: #D4A043;
+    font-size: 2rem;
+    margin: 0 0 10px 0;
+    font-family: 'Frank Ruhl Libre', serif;
+  }
+  
+  p {
+    color: #ccc;
+    font-size: 1rem;
+    margin: 0;
+  }
+`;
+
+const AuthButton = styled.button`
+  width: 100%;
+  background: #D4A043;
+  color: #000;
+  border: none;
+  padding: 15px 25px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(212, 160, 67, 0.4);
+    background: #F5C842;
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const AuthCloseButton = styled.button`
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid #444;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  z-index: 10;
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.2);
+    border-color: #D4A043;
+  }
+`;
+
+interface AuthModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAuthSuccess: () => void;
+}
+
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  onAuthSuccess
+}) => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const redirectUrl = window.location.origin;
+        console.log('🔐 Attempting sign up...');
+        console.log('Email:', email.trim());
+        console.log('Redirect URL:', redirectUrl);
+        console.log('Current location:', window.location.href);
+        
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+            },
+            emailRedirectTo: redirectUrl,
+          },
+        });
+        
+        console.log('Sign up response:', { data, error: signUpError });
+
+        if (signUpError) {
+          console.error('Sign up error:', signUpError);
+          console.error('Error code:', signUpError.status);
+          console.error('Error details:', JSON.stringify(signUpError, null, 2));
+          
+          // Translate common error messages to Hebrew
+          let errorMessage = signUpError.message;
+          
+          // Handle 401 Unauthorized - could be user already exists or API key issue
+          if (signUpError.status === 401) {
+            console.error('401 Error - Possible causes:');
+            console.error('1. User already exists');
+            console.error('2. Invalid API key');
+            console.error('3. Email confirmation required');
+            
+            // Check if it's because user already exists
+            if (signUpError.message.includes('already registered') || 
+                signUpError.message.includes('already exists') ||
+                signUpError.message.includes('User already registered') ||
+                signUpError.message.toLowerCase().includes('user')) {
+              errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
+            } else if (signUpError.message.includes('Invalid API key') || 
+                       signUpError.message.includes('JWT') ||
+                       signUpError.message.includes('api')) {
+              errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local והפעל מחדש את השרת.';
+            } else {
+              errorMessage = 'שגיאת הרשאה (401). המשתמש כבר קיים או שיש בעיה בהגדרות. נסה להתחבר במקום.';
+            }
+          } else if (signUpError.message.includes('Invalid API key') || signUpError.message.includes('JWT')) {
+            errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local';
+          } else if (signUpError.message.includes('User already registered') || 
+                     signUpError.message.includes('already exists')) {
+            errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
+          } else if (signUpError.message.includes('Password') || signUpError.message.includes('password')) {
+            errorMessage = 'הסיסמה חלשה מדי. נסה סיסמה חזקה יותר (לפחות 6 תווים).';
+          } else if (signUpError.message.includes('email') || signUpError.message.includes('Email')) {
+            errorMessage = 'כתובת האימייל לא תקינה או כבר קיימת במערכת.';
+          } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('too many')) {
+            errorMessage = 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.';
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        if (data.user) {
+          // Check if email confirmation is required
+          if (data.user.email_confirmed_at) {
+            // User is already confirmed, log them in
+            alert('נרשמת בהצלחה!');
+            onAuthSuccess();
+            onClose();
+          } else {
+            // Email confirmation required
+            alert('נרשמת בהצלחה! אנא בדוק את תיבת הדואר שלך כדי לאשר את האימייל.');
+            onAuthSuccess();
+            onClose();
+          }
+        } else {
+          throw new Error('לא ניתן ליצור משתמש. נסה שוב.');
+        }
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (signInError) {
+          console.error('Sign in error:', signInError);
+          console.error('Error code:', signInError.status);
+          
+          let errorMessage = signInError.message;
+          
+          if (signInError.status === 401) {
+            if (signInError.message.includes('Invalid login credentials') || 
+                signInError.message.includes('invalid')) {
+              errorMessage = 'אימייל או סיסמה שגויים. נסה שוב.';
+            } else {
+              errorMessage = 'שגיאת הרשאה. בדוק את האימייל והסיסמה.';
+            }
+          } else if (signInError.message.includes('Email not confirmed')) {
+            errorMessage = 'נא לאשר את האימייל שלך לפני הכניסה. בדוק את תיבת הדואר.';
+          } else if (signInError.message.includes('email')) {
+            errorMessage = 'כתובת האימייל לא תקינה.';
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        onAuthSuccess();
+        onClose();
+      }
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      setError(err.message || 'אירעה שגיאה. נסה שוב.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AuthModalOverlay $isOpen={isOpen} onClick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}>
+      <AuthModalContent>
+        <AuthCloseButton onClick={onClose}>×</AuthCloseButton>
+        <AuthModalHeader>
+          <h2>{isSignUp ? 'הרשמה' : 'כניסה'}</h2>
+          <p>{isSignUp ? 'צור חשבון חדש' : 'היכנס לחשבון שלך'}</p>
+        </AuthModalHeader>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {isSignUp && (
+            <div>
+              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                שם מלא
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(212, 160, 67, 0.3)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  direction: 'rtl',
+                }}
+              />
+            </div>
+          )}
+
+          <div>
+            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+              אימייל
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: '#fff',
+                fontSize: '1rem',
+                direction: 'ltr',
+                textAlign: 'left',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+              סיסמה
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: '#fff',
+                fontSize: '1rem',
+                direction: 'ltr',
+              }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ color: '#ff6b6b', textAlign: 'right', fontSize: '0.9rem' }}>
+              {error}
+            </div>
+          )}
+
+          <AuthButton
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? 'מעבד...' : (isSignUp ? 'הרשמה' : 'כניסה')}
+          </AuthButton>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setError(null);
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#D4A043',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              textDecoration: 'underline',
+            }}
+          >
+            {isSignUp ? 'יש לך כבר חשבון? התחבר' : 'אין לך חשבון? הירשם'}
+          </button>
+        </form>
+      </AuthModalContent>
+    </AuthModalOverlay>
+  );
+};
+
