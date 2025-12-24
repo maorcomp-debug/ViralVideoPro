@@ -258,7 +258,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             
             throw new Error(errorMessage);
           }
-        }
         
         if (data.user) {
           // For test accounts, update subscription_tier immediately
