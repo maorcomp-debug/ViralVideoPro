@@ -4730,14 +4730,12 @@ const App = () => {
           setPendingSubscriptionTier(tier);
           setShowPackageSelectionModal(false);
           
-          // Reload user data to get updated subscription tier
-          if (user) {
-            await loadUserData(user);
-          }
-          
           // For free and creator tiers, show track selection
           if (tier === 'free' || tier === 'creator') {
-            setShowTrackSelectionModal(true);
+            if (!hasShownTrackModal) {
+              setHasShownTrackModal(true);
+              setShowTrackSelectionModal(true);
+            }
           } else {
             // For pro and coach, set all 4 tracks automatically
             const allTracks: TrackId[] = ['actors', 'musicians', 'creators', 'influencers'];
@@ -4746,9 +4744,11 @@ const App = () => {
                 selected_primary_track: allTracks[0],
                 selected_tracks: allTracks,
               });
-              // Reload user data
+              // Reload user data after a short delay to ensure DB update
               if (user) {
-                await loadUserData(user);
+                setTimeout(async () => {
+                  await loadUserData(user);
+                }, 200);
               }
             } catch (err) {
               console.error('Error setting tracks for pro/coach tier:', err);
