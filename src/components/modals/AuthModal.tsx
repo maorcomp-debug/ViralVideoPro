@@ -108,6 +108,50 @@ const AuthCloseButton = styled.button`
   }
 `;
 
+const PackageSelect = styled.select`
+  width: 100%;
+  background: rgba(30, 30, 30, 0.95) !important;
+  border: 1px solid rgba(212, 160, 67, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  color: #fff;
+  font-size: 1rem;
+  direction: rtl;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23D4A043' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 12px center;
+  padding-left: 40px;
+  transition: all 0.3s;
+
+  &:hover {
+    border-color: rgba(212, 160, 67, 0.5);
+    background-color: rgba(40, 40, 40, 0.95) !important;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #D4A043;
+    box-shadow: 0 0 0 2px rgba(212, 160, 67, 0.2);
+  }
+
+  option {
+    background: rgba(30, 30, 30, 0.95);
+    color: #fff;
+    padding: 10px;
+    direction: rtl;
+  }
+
+  option:hover {
+    background: rgba(212, 160, 67, 0.2);
+  }
+
+  option:checked {
+    background: rgba(212, 160, 67, 0.3);
+  }
+`;
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -398,26 +442,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
                     בחר חבילה לבדיקה
                   </label>
-                  <select
+                  <PackageSelect
                     value={testPackageTier}
                     onChange={(e) => setTestPackageTier(e.target.value as SubscriptionTier)}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '1px solid rgba(212, 160, 67, 0.3)',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      color: '#fff',
-                      fontSize: '1rem',
-                      direction: 'rtl',
-                      cursor: 'pointer'
-                    }}
                   >
-                    <option value="free">🎁 חבילת ניסיון (חינם)</option>
-                    <option value="creator">⭐ חבילת יוצרים</option>
-                    <option value="pro">💎 חבילת יוצרים באקסטרים</option>
-                    <option value="coach">🏆 חבילת מאמנים, סוכנויות ובתי ספר למשחק</option>
-                  </select>
+                    <option value="free">חבילת ניסיון (חינם)</option>
+                    <option value="creator">חבילת יוצרים</option>
+                    <option value="pro">חבילת יוצרים באקסטרים</option>
+                    <option value="coach">חבילת מאמנים, סוכנויות ובתי ספר למשחק</option>
+                  </PackageSelect>
                   <div style={{ 
                     marginTop: '8px', 
                     padding: '10px', 
