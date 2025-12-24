@@ -2371,21 +2371,19 @@ const App = () => {
     let timeoutId: NodeJS.Timeout | null = null;
     let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
     
+    // Try to get session quickly, but don't block UI if it takes too long
     // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
-    // Increased timeout to 10 seconds to account for slower networks
     timeoutId = setTimeout(() => {
       if (mounted) {
-        console.warn('⚠️ getSession taking longer than expected (>10s). Setting loadingAuth to false to prevent UI freeze.');
+        console.warn('⚠️ getSession timeout (>8s) - allowing UI to render. Session will be handled by onAuthStateChange.');
         setLoadingAuth(false);
         // Still allow onAuthStateChange to handle the session when it eventually loads
       }
-    }, 10000); // 10 second timeout (increased from 5)
+    }, 8000); // 8 second timeout - balance between waiting and UX
     
     // Check initial session (only once on mount)
-    // Wrap in Promise.race to handle timeout more gracefully
-    const sessionPromise = supabase.auth.getSession();
-    
-    sessionPromise
+    // This is non-blocking - if it takes too long, timeout will unblock the UI
+    supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
         if (timeoutId) clearTimeout(timeoutId);
         if (!mounted) return;
@@ -2396,6 +2394,7 @@ const App = () => {
           return;
         }
         
+        // Update user state immediately if session exists
         setUser(session?.user ?? null);
         setLoadingAuth(false);
         
