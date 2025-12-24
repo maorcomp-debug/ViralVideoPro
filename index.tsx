@@ -3947,9 +3947,18 @@ const App = () => {
                 </button>
                 {userIsAdmin && (
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       console.log('🔍 App: Admin button clicked, navigating to /admin');
-                      navigate('/admin');
+                      console.log('🔍 App: Current path:', location.pathname);
+                      console.log('🔍 App: Navigate function:', typeof navigate);
+                      try {
+                        navigate('/admin');
+                        console.log('✅ App: Navigate called successfully');
+                      } catch (error) {
+                        console.error('❌ App: Error navigating:', error);
+                      }
                     }}
                     style={{
                       background: 'rgba(244, 67, 54, 0.2)',
