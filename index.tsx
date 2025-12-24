@@ -2338,6 +2338,8 @@ const App = () => {
   const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
   const [showPackageSelectionModal, setShowPackageSelectionModal] = useState(false);
   const [pendingSubscriptionTier, setPendingSubscriptionTier] = useState<SubscriptionTier | null>(null);
+  const [hasShownPackageModal, setHasShownPackageModal] = useState(false);
+  const [hasShownTrackModal, setHasShownTrackModal] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -2383,12 +2385,11 @@ const App = () => {
 
       // Check if user needs to select a package/track (new user without selected_primary_track)
       // Only show if user is logged in and profile exists but no primary track selected
-      if (userProfile && !userProfile.selected_primary_track && currentUser) {
+      // Prevent showing multiple times with hasShownPackageModal flag
+      if (userProfile && !userProfile.selected_primary_track && currentUser && !hasShownPackageModal) {
         // Show package selection first for new users
-        // Use setTimeout to ensure modal shows after render
-        setTimeout(() => {
-          setShowPackageSelectionModal(true);
-        }, 300);
+        setHasShownPackageModal(true);
+        setShowPackageSelectionModal(true);
       }
 
       // Check if user is admin
@@ -4766,9 +4767,11 @@ const App = () => {
         onSelect={async (trackIds) => {
           setActiveTrack(trackIds[0]);
           setShowTrackSelectionModal(false);
-          // Reload user data to get updated profile
+          // Reload user data after a short delay to ensure DB update
           if (user) {
-            await loadUserData(user);
+            setTimeout(async () => {
+              await loadUserData(user);
+            }, 200);
           }
         }}
       />

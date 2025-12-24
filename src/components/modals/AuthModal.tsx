@@ -311,27 +311,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
-          // Wait a moment for trigger to create profile
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          // Verify profile was created
-          try {
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', data.user.id)
-              .maybeSingle();
-
-            if (profileError) {
-              console.error('❌ Error checking profile creation:', profileError);
-            } else if (profileData) {
-              console.log('✅ Profile created successfully:', profileData);
-            } else {
-              console.warn('⚠️ Profile not found after user creation. Trigger may not have fired.');
-            }
-          } catch (profileCheckError) {
-            console.error('❌ Error checking profile:', profileCheckError);
-          }
+          // Profile will be created by trigger - no need to wait or check immediately
+          // The profile check will happen in loadUserData after auth state changes
 
           // For test accounts, update subscription_tier immediately
           if (isTestAccount && data.user.id) {
@@ -354,14 +335,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }
           
           // Check if email confirmation is required
-          // Fetch fresh user data to check email_confirmed_at
-          const { data: { user: freshUser }, error: userFetchError } = await supabase.auth.getUser();
-          
-          if (userFetchError) {
-            console.error('Error fetching user after signup:', userFetchError);
-          }
-          
-          if (freshUser?.email_confirmed_at || data.user.email_confirmed_at) {
+          if (data.user.email_confirmed_at) {
             // User is already confirmed, log them in
             console.log('✅ User email already confirmed');
             alert('נרשמת בהצלחה!');
