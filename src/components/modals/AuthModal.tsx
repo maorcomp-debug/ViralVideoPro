@@ -399,6 +399,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           throw new Error(errorMessage);
         }
         
+        // Sign in successful
         onAuthSuccess();
         onClose();
       }
