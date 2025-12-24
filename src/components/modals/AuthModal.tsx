@@ -260,6 +260,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
         
         if (data.user) {
+          console.log('✅ User created successfully:', {
+            id: data.user.id,
+            email: data.user.email,
+            email_confirmed_at: data.user.email_confirmed_at,
+            created_at: data.user.created_at
+          });
+
+          // Wait a moment for trigger to create profile
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Verify profile was created
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .maybeSingle();
+
+            if (profileError) {
+              console.error('❌ Error checking profile creation:', profileError);
+            } else if (profileData) {
+              console.log('✅ Profile created successfully:', profileData);
+            } else {
+              console.warn('⚠️ Profile not found after user creation. Trigger may not have fired.');
+            }
+          } catch (profileCheckError) {
+            console.error('❌ Error checking profile:', profileCheckError);
+          }
+
           // For test accounts, update subscription_tier immediately
           if (isTestAccount && data.user.id) {
             try {
@@ -272,7 +301,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 console.error('Error updating test account subscription tier:', updateError);
                 // Continue anyway - user can update manually
               } else {
-                console.log(`Test account subscription tier set to: ${testPackageTier}`);
+                console.log(`✅ Test account subscription tier set to: ${testPackageTier}`);
               }
             } catch (err) {
               console.error('Error updating test account profile:', err);
@@ -283,16 +312,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           // Check if email confirmation is required
           if (data.user.email_confirmed_at) {
             // User is already confirmed, log them in
+            console.log('✅ User email already confirmed');
             alert('נרשמת בהצלחה!');
             onAuthSuccess();
             onClose();
           } else {
             // Email confirmation required
+            console.log('📧 Email confirmation required. Confirmation email should be sent.');
             alert('נרשמת בהצלחה! אנא בדוק את תיבת הדואר שלך כדי לאשר את האימייל.');
             onAuthSuccess();
             onClose();
           }
         } else {
+          console.error('❌ User creation failed - no user data returned');
           throw new Error('לא ניתן ליצור משתמש. נסה שוב.');
         }
       } else {
