@@ -2357,21 +2357,10 @@ const App = () => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const previousUser = user;
       setUser(session?.user ?? null);
       
       if (session?.user) {
         await loadUserData(session.user);
-        // If this is a new user (just signed up), check if they need package selection
-        if (!previousUser && session.user) {
-          // Wait a bit for profile to be created by trigger
-          setTimeout(async () => {
-            const userProfile = await getCurrentUserProfile();
-            if (userProfile && !userProfile.selected_primary_track) {
-              setShowPackageSelectionModal(true);
-            }
-          }, 500);
-        }
       } else {
         // Reset state on logout
         setProfile(null);
