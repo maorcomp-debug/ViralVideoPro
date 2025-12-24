@@ -9,6 +9,7 @@ import { SubscriptionModal } from './src/components/modals/SubscriptionModal';
 import { AuthModal } from './src/components/modals/AuthModal';
 import { CapabilitiesModal } from './src/components/modals/CapabilitiesModal';
 import { CoachGuideModal } from './src/components/modals/CoachGuideModal';
+import { TrackSelectionModal } from './src/components/modals/TrackSelectionModal';
 import { AppContainer, Header } from './src/styles/components';
 import {
   ModalOverlay,
@@ -2332,6 +2333,7 @@ const App = () => {
   const [showCoachDashboard, setShowCoachDashboard] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [showCoachGuide, setShowCoachGuide] = useState(false);
+  const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -2374,6 +2376,11 @@ const App = () => {
       // Load profile
       const userProfile = await getCurrentUserProfile();
       setProfile(userProfile);
+
+      // Check if user needs to select a track (new user without selected_primary_track)
+      if (userProfile && !userProfile.selected_primary_track && userProfile.subscription_tier === 'free') {
+        setShowTrackSelectionModal(true);
+      }
 
       // Check if user is admin
       const adminStatus = await isAdmin();
@@ -4531,6 +4538,22 @@ const App = () => {
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={() => {
           // Auth state will be updated via onAuthStateChange
+        }}
+      />
+      
+      <TrackSelectionModal
+        isOpen={showTrackSelectionModal}
+        onClose={() => {
+          // Don't allow closing without selection - user must choose a track
+          // The modal will close after selection via onSelect
+        }}
+        onSelect={async (trackId) => {
+          setActiveTrack(trackId);
+          setShowTrackSelectionModal(false);
+          // Reload user data to get updated profile
+          if (user) {
+            await loadUserData(user);
+          }
         }}
       />
     </>
