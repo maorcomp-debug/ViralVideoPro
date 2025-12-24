@@ -2593,10 +2593,12 @@ const App = () => {
       // TODO: In production, integrate with payment provider (Stripe, etc.)
       alert(`החבילה ${SUBSCRIPTION_PLANS[tier].name} הופעלה בהצלחה!`);
       
-      // Reload user data
-      if (user) {
-        await loadUserData(user);
-      }
+              // Reload user data after a short delay to ensure DB update
+              if (user) {
+                setTimeout(async () => {
+                  await loadUserData(user);
+                }, 200);
+              }
     } catch (error) {
       console.error('Error saving subscription:', error);
       alert('אירעה שגיאה בשמירת המנוי. נסה שוב.');
