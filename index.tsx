@@ -2678,10 +2678,13 @@ const App = () => {
     return plan.limits.features[feature];
   };
 
-  // Check if a track is available for the current user
+  // Check if a track is available for the current user (for usage, not display)
   const isTrackAvailable = (trackId: TrackId): boolean => {
+    // If no user logged in, allow viewing but not using
+    if (!user) return false;
+    
     // Admin email gets all tracks
-    if (user?.email === 'viralypro@gmail.com') return true;
+    if (user.email === 'viralypro@gmail.com') return true;
     
     if (!profile || !subscription) {
       // If no profile/subscription, only allow the primary track for free tier
@@ -2708,6 +2711,17 @@ const App = () => {
 
     // Pro and Coach tiers: all tracks available (except coach requires feature)
     return true;
+  };
+  
+  // Check if track should show premium badge/opacity (only for logged in users)
+  const shouldShowTrackRestrictions = (trackId: TrackId): boolean => {
+    // Don't show restrictions if user is not logged in
+    if (!user) return false;
+    
+    // Admin email has no restrictions
+    if (user.email === 'viralypro@gmail.com') return false;
+    
+    return !isTrackAvailable(trackId);
   };
 
   // Get available tracks for current user
@@ -4224,6 +4238,7 @@ const App = () => {
             );
           })}
           {TRACKS.filter(track => track.isPremium).map(track => {
+            const showRestrictions = shouldShowTrackRestrictions(track.id as TrackId);
             const isAvailable = isTrackAvailable(track.id as TrackId);
             return (
               <PremiumCoachCard
@@ -4231,10 +4246,10 @@ const App = () => {
                 $active={activeTrack === track.id}
                 onClick={() => handleTrackChange(track.id)}
                 style={{
-                  opacity: isAvailable ? 1 : 0.5,
-                  cursor: 'pointer' // Allow clicking for browsing even if not available
+                  opacity: showRestrictions ? 0.5 : 1,
+                  cursor: 'pointer'
                 }}
-                title={!isAvailable ? 'מסלול הפרימיום אינו כלול בחבילה שלך. תוכל לדפדף ולראות, אבל לא לבצע ניתוח. לחץ לשדרג.' : ''}
+                title={showRestrictions ? 'מסלול הפרימיום אינו כלול בחבילה שלך. תוכל לדפדף ולראות, אבל לא לבצע ניתוח. לחץ לשדרג.' : ''}
               >
                 {track.icon}
                 <div className="coach-line1">מסלול פרימיום</div>
