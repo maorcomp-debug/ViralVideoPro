@@ -2690,9 +2690,9 @@ const App = () => {
     // Admin email gets all tracks
     if (user.email === 'viralypro@gmail.com') return true;
     
+    // If profile or subscription haven't loaded yet, don't block tracks (wait for data to load)
     if (!profile || !subscription) {
-      // If no profile/subscription, only allow the primary track for free tier
-      return trackId === profile?.selected_primary_track;
+      return true; // Don't show restrictions until data is loaded
     }
 
     // Coach track always requires traineeManagement feature

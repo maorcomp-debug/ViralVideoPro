@@ -400,18 +400,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
 
         // Additional safety check: Verify email is confirmed before allowing login
-        if (signInData?.user && !signInData.user.email_confirmed_at) {
-          console.warn('⚠️ Attempted login with unconfirmed email. Signing out user.');
-          // Sign out the user if email is not confirmed
-          await supabase.auth.signOut();
-          throw new Error('נא לאשר את האימייל שלך לפני הכניסה. בדוק את תיבת הדואר שלך ואשר את האימייל.');
+        // Need to fetch fresh user data because signInWithPassword doesn't always return email_confirmed_at
+        if (signInData?.user) {
+          const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+          
+          if (userError) {
+            console.error('Error fetching user after sign in:', userError);
+            throw new Error('שגיאה בבדיקת פרטי המשתמש. נסה שוב.');
+          }
+          
+          if (currentUser && !currentUser.email_confirmed_at) {
+            console.warn('⚠️ Attempted login with unconfirmed email. Signing out user.');
+            await supabase.auth.signOut();
+            throw new Error('נא לאשר את האימייל שלך לפני הכניסה. בדוק את תיבת הדואר שלך ואשר את האימייל.');
+          }
+          
+          console.log('✅ User logged in successfully:', {
+            email: currentUser?.email || signInData.user.email,
+            email_confirmed: currentUser?.email_confirmed_at ? 'Yes' : 'No'
+          });
         }
         
-        // Sign in successful
-        console.log('✅ User logged in successfully:', {
-          email: signInData?.user?.email,
-          email_confirmed: signInData?.user?.email_confirmed_at ? 'Yes' : 'No'
-        });
         onAuthSuccess();
         onClose();
       }
