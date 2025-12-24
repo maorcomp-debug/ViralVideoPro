@@ -4204,6 +4204,7 @@ const App = () => {
         <SectionLabel>בחר את מסלול הניתוח שלך:</SectionLabel>
         <Grid>
           {TRACKS.filter(track => !track.isPremium).map(track => {
+            const showRestrictions = shouldShowTrackRestrictions(track.id as TrackId);
             const isAvailable = isTrackAvailable(track.id as TrackId);
             return (
               <TrackCard 
@@ -4211,15 +4212,15 @@ const App = () => {
                 $active={activeTrack === track.id}
                 onClick={() => handleTrackChange(track.id)}
                 style={{
-                  opacity: isAvailable ? 1 : 0.5,
-                  cursor: 'pointer', // Allow clicking for browsing even if not available
+                  opacity: showRestrictions ? 0.5 : 1,
+                  cursor: 'pointer',
                   position: 'relative'
                 }}
-                title={!isAvailable ? 'תחום זה אינו כלול בחבילה שלך. תוכל לדפדף ולראות, אבל לא לבצע ניתוח. לחץ לשדרג.' : ''}
+                title={showRestrictions ? 'תחום זה אינו כלול בחבילה שלך. תוכל לדפדף ולראות, אבל לא לבצע ניתוח. לחץ לשדרג.' : ''}
               >
                 {track.icon}
                 <span>{track.label}</span>
-                {!isAvailable && (
+                {showRestrictions && (
                   <span style={{
                     position: 'absolute',
                     top: '8px',
@@ -4231,7 +4232,7 @@ const App = () => {
                     borderRadius: '4px',
                     fontWeight: 600
                   }}>
-                    פרימיום
+                    {subscription?.tier === 'free' ? 'לא בחבילה' : subscription?.tier === 'creator' ? 'שדרג' : 'פרימיום'}
                   </span>
                 )}
               </TrackCard>
