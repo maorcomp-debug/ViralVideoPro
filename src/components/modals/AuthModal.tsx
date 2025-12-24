@@ -372,7 +372,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           throw new Error('לא ניתן ליצור משתמש. נסה שוב.');
         }
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
@@ -398,8 +398,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           
           throw new Error(errorMessage);
         }
+
+        // Additional safety check: Verify email is confirmed before allowing login
+        if (signInData?.user && !signInData.user.email_confirmed_at) {
+          console.warn('⚠️ Attempted login with unconfirmed email. Signing out user.');
+          // Sign out the user if email is not confirmed
+          await supabase.auth.signOut();
+          throw new Error('נא לאשר את האימייל שלך לפני הכניסה. בדוק את תיבת הדואר שלך ואשר את האימייל.');
+        }
         
         // Sign in successful
+        console.log('✅ User logged in successfully:', {
+          email: signInData?.user?.email,
+          email_confirmed: signInData?.user?.email_confirmed_at ? 'Yes' : 'No'
+        });
         onAuthSuccess();
         onClose();
       }
