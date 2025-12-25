@@ -696,6 +696,51 @@ export const AdminPage: React.FC = () => {
     return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.name || tier;
   };
 
+  const loadAnnouncements = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllAnnouncements();
+      setAnnouncements(data);
+    } catch (error: any) {
+      console.error('Error loading announcements:', error);
+      setMessage({ type: 'error', text: 'שגיאה בטעינת העדכונים' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!announcementForm.title.trim() || !announcementForm.message.trim()) {
+      setMessage({ type: 'error', text: 'נא למלא את כל השדות' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await createAnnouncement({
+        title: announcementForm.title.trim(),
+        message: announcementForm.message.trim(),
+        target_all: announcementForm.target_all,
+        target_tier: announcementForm.target_all ? undefined : announcementForm.target_tier,
+      });
+      setMessage({ type: 'success', text: `העדכון נשלח בהצלחה ל-${(result as any).sent || 0} משתמשים` });
+      setAnnouncementForm({
+        title: '',
+        message: '',
+        target_all: true,
+        target_tier: [],
+      });
+      await loadAnnouncements();
+      setTimeout(() => setMessage(null), 5000);
+    } catch (error: any) {
+      console.error('Error sending announcement:', error);
+      setMessage({ type: 'error', text: error.message || 'שגיאה בשליחת העדכון' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter users based on search and filters
   const filteredUsers = users.filter(user => {
     const matchesSearch = searchQuery === '' || 
