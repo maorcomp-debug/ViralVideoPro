@@ -186,17 +186,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setLoading(true);
 
-    try {
-      if (isSignUp) {
-        // Validate phone format (basic validation - Israeli phone number)
-        const phoneRegex = /^0[2-9]\d{7,8}$/;
-        const cleanPhone = phone.trim().replace(/\D/g, ''); // Remove non-digits
-        
-        if (!cleanPhone || cleanPhone.length < 9) {
-          setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
-          setLoading(false);
-          return;
-        }
+      try {
+        if (isSignUp) {
+          // Validate full name (must contain first name and last name - at least 2 words)
+          const trimmedFullName = fullName.trim();
+          const nameWords = trimmedFullName.split(/\s+/).filter(word => word.length > 0);
+          
+          if (!trimmedFullName || trimmedFullName.length < 3) {
+            setError('אנא הזן שם מלא (שם פרטי ומשפחה)');
+            setLoading(false);
+            return;
+          }
+          
+          if (nameWords.length < 2) {
+            setError('אנא הזן שם מלא הכולל שם פרטי ושם משפחה');
+            setLoading(false);
+            return;
+          }
+          
+          // Validate phone format (basic validation - Israeli phone number)
+          const phoneRegex = /^0[2-9]\d{7,8}$/;
+          const cleanPhone = phone.trim().replace(/\D/g, ''); // Remove non-digits
+          
+          if (!cleanPhone || cleanPhone.length < 9) {
+            setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
+            setLoading(false);
+            return;
+          }
 
         // For test account email, skip uniqueness checks (allow multiple registrations)
         if (!isTestAccount) {
