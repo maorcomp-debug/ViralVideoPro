@@ -43,7 +43,6 @@ import {
   isAdmin,
   getAllUsers,
   updateUserProfile,
-  updateCurrentUserProfile,
   deleteUser,
   createUser,
   getAllAnalyses,
