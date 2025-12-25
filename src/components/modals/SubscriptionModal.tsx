@@ -514,9 +514,15 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       </PlanFeature>
                     </>
                   )}
-                  <PlanFeature $disabled={!plan.limits.features.customExperts}>
-                    בחירת מומחים מותאמת
-                  </PlanFeature>
+                  {plan.id === 'creator' ? (
+                    <PlanFeature $disabled={false}>
+                      אפשרות לבחירת תחום ניתוח נוסף
+                    </PlanFeature>
+                  ) : (
+                    <PlanFeature $disabled={!plan.limits.features.customExperts}>
+                      בחירת מומחים מותאמת
+                    </PlanFeature>
+                  )}
                 </PlanFeatures>
 
                 <SubscribeButton
