@@ -344,6 +344,10 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
     if (showTrackSelection && selectedTrack && onSelectTrack) {
       onSelectTrack(selectedTrack);
     }
+    // If user skipped track selection in creator tier, show message
+    if (showTrackSelection && !selectedTrack && newTier === 'creator' && oldTier === 'free') {
+      alert('תוכל לבחור תחום ניתוח נוסף מאוחר יותר מההגדרות > עדכונים');
+    }
     onClose();
   };
 

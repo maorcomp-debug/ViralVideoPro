@@ -215,6 +215,8 @@ interface TrackSelectionModalProps {
   onClose: () => void;
   onSelect: (trackIds: TrackId[]) => void;
   subscriptionTier: SubscriptionTier;
+  existingTracks?: TrackId[]; // For adding additional tracks (not replacing)
+  mode?: 'replace' | 'add'; // 'replace' = select all tracks, 'add' = add to existing
 }
 
 // Track definitions (matching the ones in index.tsx)
@@ -249,27 +251,51 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
   isOpen,
   onClose,
   onSelect,
-  subscriptionTier
+  subscriptionTier,
+  existingTracks = [],
+  mode = 'replace'
 }) => {
-  const [selectedTracks, setSelectedTracks] = useState<TrackId[]>([]);
+  // If mode is 'add', start with existing tracks selected
+  const [selectedTracks, setSelectedTracks] = useState<TrackId[]>(
+    mode === 'add' ? [...existingTracks] : []
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Determine max tracks allowed based on subscription tier
   const maxTracks = subscriptionTier === 'free' ? 1 : subscriptionTier === 'creator' ? 2 : 4;
+  
+  // If in 'add' mode, calculate how many more tracks can be added
+  const remainingSlots = mode === 'add' ? maxTracks - existingTracks.length : maxTracks;
 
   const handleSelectTrack = (trackId: TrackId) => {
     setError(null);
     
+    // In 'add' mode, don't allow deselecting existing tracks
+    if (mode === 'add' && existingTracks.includes(trackId)) {
+      setError('לא ניתן להסיר תחום קיים. בחר תחום נוסף.');
+      return;
+    }
+    
     if (selectedTracks.includes(trackId)) {
-      // Deselect track
+      // Deselect track (only if not existing in 'add' mode)
       setSelectedTracks(prev => prev.filter(id => id !== trackId));
     } else {
       // Select track if under limit
-      if (selectedTracks.length < maxTracks) {
-        setSelectedTracks(prev => [...prev, trackId]);
+      if (mode === 'add') {
+        // In 'add' mode, check remaining slots
+        if (selectedTracks.length - existingTracks.length < remainingSlots) {
+          setSelectedTracks(prev => [...prev, trackId]);
+        } else {
+          setError(`ניתן להוסיף עד ${remainingSlots} ${remainingSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'} בחבילה זו`);
+        }
       } else {
-        setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
+        // In 'replace' mode, use normal logic
+        if (selectedTracks.length < maxTracks) {
+          setSelectedTracks(prev => [...prev, trackId]);
+        } else {
+          setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
+        }
       }
     }
   };
@@ -278,14 +304,29 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
     // Prevent double submission
     if (loading) return;
     
-    if (selectedTracks.length === 0) {
-      setError('אנא בחר תחום ניתוח');
-      return;
-    }
+    if (mode === 'add') {
+      // In 'add' mode, check if at least one new track was selected
+      const newTracks = selectedTracks.filter(t => !existingTracks.includes(t));
+      if (newTracks.length === 0) {
+        setError('אנא בחר תחום נוסף להוספה');
+        return;
+      }
+      
+      if (selectedTracks.length > maxTracks) {
+        setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
+        return;
+      }
+    } else {
+      // In 'replace' mode, normal validation
+      if (selectedTracks.length === 0) {
+        setError('אנא בחר תחום ניתוח');
+        return;
+      }
 
-    if (selectedTracks.length > maxTracks) {
-      setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
-      return;
+      if (selectedTracks.length > maxTracks) {
+        setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -321,9 +362,11 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
     }}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
-          <h2>בחר תחום ניתוח</h2>
+          <h2>{mode === 'add' ? 'הוסף תחום ניתוח נוסף' : 'בחר תחום ניתוח'}</h2>
           <p>
-            {subscriptionTier === 'free' 
+            {mode === 'add' 
+              ? `בחר תחום נוסף להוספה לחבילה שלך. ניתן להוסיף עד ${remainingSlots} ${remainingSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}.`
+              : subscriptionTier === 'free' 
               ? 'כחלק מחבילת הניסיון, אנא בחר תחום אחד לניתוח. תוכל לשדרג את החבילה מאוחר יותר לבחור תחומים נוספים.'
               : subscriptionTier === 'creator'
               ? 'בחר עד שני תחומי ניתוח. תוכל לשדרג את החבילה מאוחר יותר לכל התחומים.'
@@ -332,23 +375,41 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
         </ModalHeader>
 
         <InfoMessage>
-          {subscriptionTier === 'free' && '💡 כל תחום כולל פאנל מומחים מותאם אישית. ניתן לשדרג בעתיד לבחור תחומים נוספים.'}
-          {subscriptionTier === 'creator' && `💡 ניתן לבחור עד 2 תחומים. נבחרו: ${selectedTracks.length}/${maxTracks}`}
-          {subscriptionTier !== 'free' && subscriptionTier !== 'creator' && '💡 כל התחומים זמינים לך!'}
+          {mode === 'add' && `💡 תחומים קיימים שלך: ${existingTracks.length}. ניתן להוסיף עוד ${remainingSlots} ${remainingSlots === 1 ? 'תחום' : 'תחומים'}.`}
+          {mode === 'replace' && subscriptionTier === 'free' && '💡 כל תחום כולל פאנל מומחים מותאם אישית. ניתן לשדרג בעתיד לבחור תחומים נוספים.'}
+          {mode === 'replace' && subscriptionTier === 'creator' && `💡 ניתן לבחור עד 2 תחומים. נבחרו: ${selectedTracks.length}/${maxTracks}`}
+          {mode === 'replace' && subscriptionTier !== 'free' && subscriptionTier !== 'creator' && '💡 כל התחומים זמינים לך!'}
         </InfoMessage>
 
         <TracksGrid>
           {TRACKS.map((track) => {
             const TrackIconComponent = track.icon;
             const isSelected = selectedTracks.includes(track.id);
+            const isExisting = mode === 'add' && existingTracks.includes(track.id);
+            const isDisabled = mode === 'add' && remainingSlots === 0 && !isExisting && !isSelected;
+            
             return (
               <TrackCard
                 key={track.id}
                 $selected={isSelected}
-                onClick={() => handleSelectTrack(track.id)}
+                $disabled={isDisabled}
+                onClick={() => !isDisabled && handleSelectTrack(track.id)}
               >
                 {isSelected && (
-                  <SelectedBadge>✓ נבחר</SelectedBadge>
+                  <SelectedBadge>{isExisting ? '✓ קיים' : '✓ נבחר'}</SelectedBadge>
+                )}
+                {isExisting && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '15px',
+                    left: '15px',
+                    background: '#4CAF50',
+                    color: '#fff',
+                    padding: '5px 12px',
+                    borderRadius: '20px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                  }}>נוכחי</div>
                 )}
                 <TrackIcon>
                   <TrackIconComponent />
@@ -377,9 +438,19 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
 
         <SubmitButton
           onClick={handleSubmit}
-          disabled={selectedTracks.length === 0 || loading}
+          disabled={
+            loading || 
+            (mode === 'add' 
+              ? selectedTracks.length === existingTracks.length 
+              : selectedTracks.length === 0)
+          }
         >
-          {loading ? 'שומר...' : `אשר בחירה והמשך (${selectedTracks.length}/${maxTracks})`}
+          {loading 
+            ? 'שומר...' 
+            : mode === 'add'
+            ? `הוסף תחום נוסף (${selectedTracks.length - existingTracks.length} חדש${selectedTracks.length - existingTracks.length > 0 ? 'ים' : ''}/${remainingSlots})`
+            : `אשר בחירה והמשך (${selectedTracks.length}/${maxTracks})`
+          }
         </SubmitButton>
       </ModalContent>
     </ModalOverlay>

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { updateCurrentUserProfile, getUserAnnouncements, markAnnouncementAsRead } from '../../lib/supabase-helpers';
+import { TrackSelectionModal } from '../modals/TrackSelectionModal';
 import type { User } from '@supabase/supabase-js';
-import type { UserSubscription, SubscriptionTier } from '../../types';
+import type { UserSubscription, SubscriptionTier, TrackId } from '../../types';
 import { SUBSCRIPTION_PLANS } from '../../constants';
 import { AppContainer, Header } from '../../styles/components';
 
@@ -38,6 +39,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [receiveUpdates, setReceiveUpdates] = useState(profile?.receive_updates ?? true);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -492,6 +494,47 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         {/* Updates Tab */}
         {activeTab === 'updates' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Show option to add additional track if user has creator tier and only one track */}
+            {subscription?.tier === 'creator' && profile?.selected_tracks && profile.selected_tracks.length === 1 && (
+              <div style={{
+                padding: '20px',
+                background: 'linear-gradient(135deg, rgba(212, 160, 67, 0.2), rgba(212, 160, 67, 0.1))',
+                border: '2px solid #D4A043',
+                borderRadius: '12px',
+                textAlign: 'right',
+              }}>
+                <h3 style={{ color: '#D4A043', margin: '0 0 10px 0', fontSize: '1.3rem' }}>🎯 בחירת תחום ניתוח נוסף</h3>
+                <p style={{ color: '#ccc', margin: '0 0 15px 0', lineHeight: '1.6' }}>
+                  כחלק מחבילת יוצרים, תוכל לבחור תחום ניתוח נוסף. זה יאפשר לך לקבל ניתוחים מותאמים גם לתחום השני.
+                </p>
+                <button
+                  onClick={() => setShowTrackSelectionModal(true)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 24px',
+                    background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#000',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 5px 20px rgba(212, 160, 67, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  בחר תחום ניתוח נוסף
+                </button>
+              </div>
+            )}
+
             <div style={{
               padding: '20px',
               background: 'rgba(212, 160, 67, 0.1)',
@@ -589,6 +632,28 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           </div>
         )}
       </div>
+
+      <TrackSelectionModal
+        isOpen={showTrackSelectionModal}
+        onClose={() => setShowTrackSelectionModal(false)}
+        subscriptionTier={subscription?.tier || profile?.subscription_tier || 'creator'}
+        existingTracks={profile?.selected_tracks || []}
+        mode="add"
+        onSelect={async (trackIds) => {
+          try {
+            await updateCurrentUserProfile({
+              selected_tracks: trackIds,
+            });
+            setMessage({ type: 'success', text: 'תחום הניתוח נוסף בהצלחה!' });
+            setShowTrackSelectionModal(false);
+            onProfileUpdate();
+            setTimeout(() => setMessage(null), 3000);
+          } catch (error: any) {
+            console.error('Error adding track:', error);
+            setMessage({ type: 'error', text: error.message || 'שגיאה בהוספת התחום' });
+          }
+        }}
+      />
     </AppContainer>
   );
 };
