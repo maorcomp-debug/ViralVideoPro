@@ -494,13 +494,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ) : (
                 <div>
                   <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                    שם מלא
+                    שם מלא (פרטי ומשפחה) *
                   </label>
                   <input
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
+                    placeholder="לדוגמה: יוסי כהן"
                     style={{
                       width: '100%',
                       background: 'rgba(255, 255, 255, 0.1)',
