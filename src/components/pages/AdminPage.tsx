@@ -14,6 +14,10 @@ import {
   getAdminStats,
   createAnnouncement,
   getAllAnnouncements,
+  createCoupon,
+  getAllCoupons,
+  grantTrialToUsers,
+  getAllTrials,
 } from '../../lib/supabase-helpers';
 import { supabase } from '../../lib/supabase';
 import type { SubscriptionTier } from '../../types';
@@ -495,7 +499,7 @@ const DetailValue = styled.div`
   font-weight: 600;
 `;
 
-type TabType = 'overview' | 'users' | 'analyses' | 'videos' | 'announcements';
+type TabType = 'overview' | 'users' | 'analyses' | 'videos' | 'announcements' | 'coupons' | 'trials';
 
 export const AdminPage: React.FC = () => {
   const navigate = useNavigate();
@@ -550,6 +554,12 @@ export const AdminPage: React.FC = () => {
     }
     if (isUserAdmin && activeTab === 'announcements') {
       loadAnnouncements();
+    }
+    if (isUserAdmin && activeTab === 'coupons') {
+      loadCoupons();
+    }
+    if (isUserAdmin && activeTab === 'trials') {
+      loadTrials();
     }
   }, [isUserAdmin, activeTab]);
 
@@ -741,6 +751,122 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const loadCoupons = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllCoupons();
+      setCoupons(data);
+    } catch (error: any) {
+      console.error('Error loading coupons:', error);
+      setMessage({ type: 'error', text: 'שגיאה בטעינת הקופונים' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponForm.code.trim()) {
+      setMessage({ type: 'error', text: 'נא להזין קוד קופון' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await createCoupon({
+        code: couponForm.code.trim(),
+        description: couponForm.description.trim() || undefined,
+        discount_type: couponForm.discount_type,
+        discount_value: couponForm.discount_value || undefined,
+        trial_tier: couponForm.trial_tier || undefined,
+        trial_duration_days: couponForm.trial_duration_days || undefined,
+        max_uses: couponForm.max_uses || undefined,
+        valid_from: couponForm.valid_from || undefined,
+        valid_until: couponForm.valid_until || undefined,
+      });
+      setMessage({ type: 'success', text: 'קוד קופון נוצר בהצלחה' });
+      setCouponForm({
+        code: '',
+        description: '',
+        discount_type: 'trial_subscription',
+        discount_value: null,
+        trial_tier: 'creator',
+        trial_duration_days: 7,
+        max_uses: null,
+        valid_from: new Date().toISOString().split('T')[0],
+        valid_until: null,
+      });
+      await loadCoupons();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      console.error('Error creating coupon:', error);
+      setMessage({ type: 'error', text: error.message || 'שגיאה ביצירת קוד הקופון' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTrials = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllTrials();
+      setTrials(data);
+    } catch (error: any) {
+      console.error('Error loading trials:', error);
+      setMessage({ type: 'error', text: 'שגיאה בטעינת ההתנסויות' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGrantTrial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    let targetUserIds: string[] = [];
+    
+    if (trialForm.target_type === 'selected') {
+      if (trialForm.selected_user_ids.length === 0) {
+        setMessage({ type: 'error', text: 'נא לבחור משתמשים' });
+        return;
+      }
+      targetUserIds = trialForm.selected_user_ids;
+    } else if (trialForm.target_type === 'tier') {
+      const tierUsers = users.filter(u => u.subscription_tier === trialForm.target_tier).map(u => u.user_id);
+      if (tierUsers.length === 0) {
+        setMessage({ type: 'error', text: 'לא נמצאו משתמשים בדרגה זו' });
+        return;
+      }
+      targetUserIds = tierUsers;
+    } else {
+      // All users
+      targetUserIds = users.map(u => u.user_id);
+      if (targetUserIds.length === 0) {
+        setMessage({ type: 'error', text: 'לא נמצאו משתמשים' });
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      const result = await grantTrialToUsers(targetUserIds, trialForm.tier, trialForm.duration_days);
+      setMessage({ type: 'success', text: `התנסות ניתנה ל-${result.granted} משתמשים בהצלחה` });
+      setTrialForm({
+        tier: 'creator',
+        duration_days: 7,
+        target_type: 'selected',
+        selected_user_ids: [],
+        target_tier: 'free',
+      });
+      await loadTrials();
+      setTimeout(() => setMessage(null), 5000);
+    } catch (error: any) {
+      console.error('Error granting trial:', error);
+      setMessage({ type: 'error', text: error.message || 'שגיאה במתן התנסות' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter users based on search and filters
   const filteredUsers = users.filter(user => {
     const matchesSearch = searchQuery === '' || 
@@ -803,6 +929,12 @@ export const AdminPage: React.FC = () => {
           </Tab>
           <Tab $active={activeTab === 'announcements'} onClick={() => setActiveTab('announcements')}>
             📢 התראות
+          </Tab>
+          <Tab $active={activeTab === 'coupons'} onClick={() => setActiveTab('coupons')}>
+            🎫 קופונים
+          </Tab>
+          <Tab $active={activeTab === 'trials'} onClick={() => setActiveTab('trials')}>
+            ⭐ התנסויות
           </Tab>
         </TabsContainer>
 

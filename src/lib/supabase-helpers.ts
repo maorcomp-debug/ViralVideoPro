@@ -772,3 +772,297 @@ export async function markAnnouncementAsRead(announcementId: string) {
     throw error;
   }
 }
+
+// ============================================
+// COUPONS FUNCTIONS
+// ============================================
+
+export async function validateCoupon(code: string): Promise<{
+  valid: boolean;
+  coupon?: any;
+  error?: string;
+}> {
+  try {
+    const { data: coupon, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('code', code.toUpperCase().trim())
+      .eq('is_active', true)
+      .single();
+
+    if (error || !coupon) {
+      return { valid: false, error: 'קוד קופון לא נמצא' };
+    }
+
+    // Check if coupon is expired
+    if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+      return { valid: false, error: 'קוד קופון פג תוקף' };
+    }
+
+    // Check if coupon is not yet valid
+    if (coupon.valid_from && new Date(coupon.valid_from) > new Date()) {
+      return { valid: false, error: 'קוד קופון עדיין לא פעיל' };
+    }
+
+    // Check if max uses exceeded
+    if (coupon.max_uses !== null && coupon.used_count >= coupon.max_uses) {
+      return { valid: false, error: 'קוד קופון אזל' };
+    }
+
+    return { valid: true, coupon };
+  } catch (error: any) {
+    console.error('Error validating coupon:', error);
+    return { valid: false, error: 'שגיאה בבדיקת קוד הקופון' };
+  }
+}
+
+export async function checkCouponAlreadyUsed(code: string, userId: string): Promise<boolean> {
+  try {
+    const { data: coupon } = await supabase
+      .from('coupons')
+      .select('id')
+      .eq('code', code.toUpperCase().trim())
+      .single();
+
+    if (!coupon) return false;
+
+    const { data: redemption } = await supabase
+      .from('coupon_redemptions')
+      .select('id')
+      .eq('coupon_id', coupon.id)
+      .eq('user_id', userId)
+      .single();
+
+    return !!redemption;
+  } catch (error) {
+    return false;
+  }
+}
+
+export async function redeemCoupon(code: string, userId: string) {
+  // First validate the coupon
+  const validation = await validateCoupon(code);
+  if (!validation.valid || !validation.coupon) {
+    throw new Error(validation.error || 'קוד קופון לא תקין');
+  }
+
+  const coupon = validation.coupon;
+
+  // Check if user already used this coupon
+  const alreadyUsed = await checkCouponAlreadyUsed(code, userId);
+  if (alreadyUsed) {
+    throw new Error('קוד קופון זה כבר שומש על ידך בעבר');
+  }
+
+  // Create redemption record
+  const redemptionData: any = {
+    coupon_id: coupon.id,
+    user_id: userId,
+    discount_applied: coupon.discount_value,
+    applied_discount_type: coupon.discount_type,
+  };
+
+  // If it's a trial subscription, calculate trial dates
+  if (coupon.discount_type === 'trial_subscription' && coupon.trial_tier && coupon.trial_duration_days) {
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + coupon.trial_duration_days);
+
+    redemptionData.trial_tier = coupon.trial_tier;
+    redemptionData.trial_start_date = startDate.toISOString();
+    redemptionData.trial_end_date = endDate.toISOString();
+
+    // Create user_trial record
+    const { error: trialError } = await supabase
+      .from('user_trials')
+      .insert({
+        user_id: userId,
+        tier: coupon.trial_tier,
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        source: 'coupon',
+        source_id: coupon.id,
+      });
+
+    if (trialError) {
+      console.error('Error creating user trial:', trialError);
+      throw new Error('שגיאה ביצירת התנסות');
+    }
+
+    // Update user's subscription_tier temporarily
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        subscription_tier: coupon.trial_tier,
+        subscription_status: 'active',
+        subscription_start_date: startDate.toISOString(),
+        subscription_end_date: endDate.toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (profileError) {
+      console.error('Error updating profile with trial:', profileError);
+      // Don't throw - trial was created, profile update can be retried
+    }
+  }
+
+  // Create redemption record
+  const { error: redemptionError } = await supabase
+    .from('coupon_redemptions')
+    .insert(redemptionData);
+
+  if (redemptionError) {
+    console.error('Error creating coupon redemption:', redemptionError);
+    throw new Error('שגיאה בשימוש בקוד הקופון');
+  }
+
+  return { success: true, coupon };
+}
+
+export async function getAllCoupons() {
+  try {
+    const { data, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching coupons:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getAllCoupons:', error);
+    throw error;
+  }
+}
+
+export async function createCoupon(data: {
+  code: string;
+  description?: string;
+  discount_type: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription';
+  discount_value?: number;
+  trial_tier?: 'creator' | 'pro' | 'coach';
+  trial_duration_days?: number;
+  max_uses?: number;
+  valid_from?: string;
+  valid_until?: string;
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { data: coupon, error } = await supabase
+    .from('coupons')
+    .insert({
+      code: data.code.toUpperCase().trim(),
+      description: data.description || null,
+      discount_type: data.discount_type,
+      discount_value: data.discount_value || null,
+      trial_tier: data.trial_tier || null,
+      trial_duration_days: data.trial_duration_days || null,
+      max_uses: data.max_uses || null,
+      valid_from: data.valid_from || new Date().toISOString(),
+      valid_until: data.valid_until || null,
+      created_by: user.id,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating coupon:', error);
+    throw error;
+  }
+
+  return coupon;
+}
+
+export async function grantTrialToUsers(userIds: string[], tier: 'creator' | 'pro' | 'coach', durationDays: number) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + durationDays);
+
+  // Create trial records
+  const trials = userIds.map(userId => ({
+    user_id: userId,
+    tier,
+    start_date: startDate.toISOString(),
+    end_date: endDate.toISOString(),
+    source: 'admin_grant' as const,
+    created_by: user.id,
+  }));
+
+  const { error: trialError } = await supabase
+    .from('user_trials')
+    .insert(trials);
+
+  if (trialError) {
+    console.error('Error creating trials:', trialError);
+    throw trialError;
+  }
+
+  // Update profiles
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      subscription_tier: tier,
+      subscription_status: 'active',
+      subscription_start_date: startDate.toISOString(),
+      subscription_end_date: endDate.toISOString(),
+    })
+    .in('user_id', userIds);
+
+  if (profileError) {
+    console.error('Error updating profiles with trial:', profileError);
+    // Don't throw - trials were created, profile updates can be retried
+  }
+
+  return { success: true, granted: userIds.length };
+}
+
+export async function getUserTrials() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('user_trials')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user trials:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getUserTrials:', error);
+    return [];
+  }
+}
+
+export async function getAllTrials() {
+  try {
+    const { data, error } = await supabase
+      .from('user_trials')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching all trials:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getAllTrials:', error);
+    throw error;
+  }
+}

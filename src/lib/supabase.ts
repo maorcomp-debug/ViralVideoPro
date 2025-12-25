@@ -106,6 +106,58 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['user_announcements']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['user_announcements']['Insert']>;
       };
+      coupons: {
+        Row: {
+          id: string;
+          code: string;
+          description: string | null;
+          discount_type: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription';
+          discount_value: number | null;
+          trial_tier: 'creator' | 'pro' | 'coach' | null;
+          trial_duration_days: number | null;
+          max_uses: number | null;
+          used_count: number;
+          valid_from: string;
+          valid_until: string | null;
+          is_active: boolean;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['coupons']['Row'], 'id' | 'created_at' | 'updated_at' | 'used_count'>;
+        Update: Partial<Database['public']['Tables']['coupons']['Insert']>;
+      };
+      coupon_redemptions: {
+        Row: {
+          id: string;
+          coupon_id: string;
+          user_id: string;
+          applied_at: string;
+          discount_applied: number | null;
+          applied_discount_type: string;
+          trial_tier: string | null;
+          trial_start_date: string | null;
+          trial_end_date: string | null;
+        };
+        Insert: Omit<Database['public']['Tables']['coupon_redemptions']['Row'], 'id' | 'applied_at'>;
+        Update: Partial<Database['public']['Tables']['coupon_redemptions']['Insert']>;
+      };
+      user_trials: {
+        Row: {
+          id: string;
+          user_id: string;
+          tier: 'creator' | 'pro' | 'coach';
+          start_date: string;
+          end_date: string;
+          is_active: boolean;
+          created_by: string | null;
+          source: 'coupon' | 'admin_grant' | 'announcement' | null;
+          source_id: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['user_trials']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['user_trials']['Insert']>;
+      };
       videos: {
         Row: {
           id: string;

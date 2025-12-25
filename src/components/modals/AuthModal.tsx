@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
-import { checkEmailExists, checkPhoneExists } from '../../lib/supabase-helpers';
+import { checkEmailExists, checkPhoneExists, validateCoupon, redeemCoupon } from '../../lib/supabase-helpers';
 import { TEST_ACCOUNT_EMAIL, SUBSCRIPTION_PLANS } from '../../constants';
 import type { SubscriptionTier } from '../../types';
 
@@ -168,12 +168,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValidating, setCouponValidating] = useState(false);
+  const [couponValid, setCouponValid] = useState<{ valid: boolean; coupon?: any; error?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testPackageTier, setTestPackageTier] = useState<SubscriptionTier>('free');
   
   // Check if current email is test account
   const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
+
+  // Validate coupon code
+  const handleCouponValidation = async (code: string) => {
+    if (!code.trim()) {
+      setCouponValid(null);
+      return;
+    }
+
+    setCouponValidating(true);
+    try {
+      const validation = await validateCoupon(code.trim());
+      setCouponValid(validation);
+    } catch (error) {
+      setCouponValid({ valid: false, error: 'שגיאה בבדיקת קוד הקופון' });
+    } finally {
+      setCouponValidating(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -355,6 +376,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             } catch (err) {
               console.error('Error updating test account profile:', err);
               // Continue anyway
+            }
+          }
+
+          // Apply coupon if provided
+          if (couponCode.trim() && couponValid?.valid && data.user.id) {
+            try {
+              await redeemCoupon(couponCode.trim(), data.user.id);
+              console.log('✅ Coupon redeemed successfully');
+            } catch (couponError: any) {
+              console.error('Error redeeming coupon:', couponError);
+              // Don't block registration if coupon fails - user is already created
+              // Show warning but continue
+              alert(`נרשמת בהצלחה, אך היה בעיה בשימוש בקוד הקופון: ${couponError.message}. אנא פנה לתמיכה.`);
             }
           }
           
@@ -540,6 +574,70 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
                   מספר טלפון ישראלי (10 ספרות)
                 </div>
+              </div>
+              <div>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                  קוד קופון (אופציונלי)
+                </label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => {
+                      const code = e.target.value.toUpperCase().trim();
+                      setCouponCode(code);
+                      if (code.length >= 3) {
+                        handleCouponValidation(code);
+                      } else {
+                        setCouponValid(null);
+                      }
+                    }}
+                    placeholder="הכנס קוד קופון"
+                    style={{
+                      flex: 1,
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: `1px solid ${couponValid?.valid ? 'rgba(76, 175, 80, 0.5)' : couponValid?.valid === false ? 'rgba(244, 67, 54, 0.5)' : 'rgba(212, 160, 67, 0.3)'}`,
+                      borderRadius: '8px',
+                      padding: '12px',
+                      color: '#fff',
+                      fontSize: '1rem',
+                      direction: 'ltr',
+                      textAlign: 'center',
+                      textTransform: 'uppercase',
+                    }}
+                  />
+                  {couponValidating && (
+                    <span style={{ color: '#D4A043', fontSize: '0.9rem', lineHeight: '44px' }}>בודק...</span>
+                  )}
+                </div>
+                {couponValid?.valid && (
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '10px', 
+                    background: 'rgba(76, 175, 80, 0.2)', 
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    color: '#4CAF50',
+                    textAlign: 'right',
+                    border: '1px solid rgba(76, 175, 80, 0.3)'
+                  }}>
+                    ✓ קוד קופון תקין{couponValid.coupon?.description ? `: ${couponValid.coupon.description}` : ''}
+                  </div>
+                )}
+                {couponValid?.valid === false && (
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '10px', 
+                    background: 'rgba(244, 67, 54, 0.2)', 
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    color: '#F44336',
+                    textAlign: 'right',
+                    border: '1px solid rgba(244, 67, 54, 0.3)'
+                  }}>
+                    ✗ {couponValid.error || 'קוד קופון לא תקין'}
+                  </div>
+                )}
               </div>
             </>
           )}
