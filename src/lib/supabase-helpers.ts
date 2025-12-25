@@ -645,9 +645,9 @@ export async function createAnnouncement(data: {
   }
 
   // Send announcement to users
-  await sendAnnouncementToUsers(announcement.id);
+  const sendResult = await sendAnnouncementToUsers(announcement.id);
 
-  return announcement;
+  return { ...announcement, sent: sendResult.sent };
 }
 
 export async function sendAnnouncementToUsers(announcementId: string) {
