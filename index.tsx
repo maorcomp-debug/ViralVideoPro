@@ -6,11 +6,13 @@ import { GlobalStyle, fadeIn, shimmer, pulse, glowReady, breathingHigh } from '.
 import { SettingsPage } from './src/components/pages/SettingsPage';
 import { AdminPage } from './src/components/pages/AdminPage';
 import { SubscriptionModal } from './src/components/modals/SubscriptionModal';
+import { UpgradeBenefitsModal } from './src/components/modals/UpgradeBenefitsModal';
 import { AuthModal } from './src/components/modals/AuthModal';
 import { CapabilitiesModal } from './src/components/modals/CapabilitiesModal';
 import { CoachGuideModal } from './src/components/modals/CoachGuideModal';
 import { TrackSelectionModal } from './src/components/modals/TrackSelectionModal';
 import { PackageSelectionModal } from './src/components/modals/PackageSelectionModal';
+import { UpgradeBenefitsModal } from './src/components/modals/UpgradeBenefitsModal';
 import { AppContainer, Header } from './src/styles/components';
 import {
   ModalOverlay,
@@ -2346,6 +2348,9 @@ const App = () => {
   const [showPackageSelectionModal, setShowPackageSelectionModal] = useState(false);
   const [pendingSubscriptionTier, setPendingSubscriptionTier] = useState<SubscriptionTier | null>(null);
   const [hasShownPackageModal, setHasShownPackageModal] = useState(false);
+  const [showUpgradeBenefitsModal, setShowUpgradeBenefitsModal] = useState(false);
+  const [upgradeFromTier, setUpgradeFromTier] = useState<SubscriptionTier>('free');
+  const [upgradeToTier, setUpgradeToTier] = useState<SubscriptionTier>('free');
   const [hasShownTrackModal, setHasShownTrackModal] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2680,22 +2685,32 @@ const App = () => {
         isActive: true,
       };
 
+      // Check if this is an upgrade (not just setting initial subscription)
+      const oldTier = subscription?.tier || 'free';
+      const isUpgrade = subscription && subscription.tier !== tier;
+      
       setSubscription(newSubscription);
       setShowSubscriptionModal(false);
       
-      // TODO: In production, integrate with payment provider (Stripe, etc.)
-      alert(`החבילה ${SUBSCRIPTION_PLANS[tier].name} הופעלה בהצלחה!`);
-      
-              // Reload user data after a short delay to ensure DB update
-              if (user) {
-                // Use a longer delay to ensure DB consistency
-                setTimeout(async () => {
-                  const { data: { user: currentUser } } = await supabase.auth.getUser();
-                  if (currentUser && currentUser.id === user.id) {
-                    await loadUserData(currentUser);
-                  }
-                }, 500);
-              }
+      // Reload user data after a short delay to ensure DB update
+      if (user) {
+        setTimeout(async () => {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (currentUser && currentUser.id === user.id) {
+            await loadUserData(currentUser);
+            
+            // Get updated profile for the modal
+            const updatedProfile = await getCurrentUserProfile();
+            
+            // Show upgrade benefits modal if this is an upgrade
+            if (isUpgrade && oldTier !== tier) {
+              setUpgradeFromTier(oldTier);
+              setUpgradeToTier(tier);
+              setShowUpgradeBenefitsModal(true);
+            }
+          }
+        }, 500);
+      }
     } catch (error) {
       console.error('Error saving subscription:', error);
       alert('אירעה שגיאה בשמירת המנוי. נסה שוב.');
@@ -4913,6 +4928,38 @@ const App = () => {
             setTimeout(async () => {
               await loadUserData(user);
             }, 200);
+          }
+        }}
+      />
+      
+      <UpgradeBenefitsModal
+        isOpen={showUpgradeBenefitsModal}
+        onClose={() => setShowUpgradeBenefitsModal(false)}
+        oldTier={upgradeFromTier}
+        newTier={upgradeToTier}
+        currentTracks={profile?.selected_tracks || []}
+        onSelectTrack={async (trackId) => {
+          // Add the new track to user's selected tracks
+          const currentTracks = profile?.selected_tracks || [];
+          const newTracks = [...currentTracks, trackId];
+          
+          try {
+            const { updateCurrentUserProfile } = await import('./src/lib/supabase-helpers');
+            await updateCurrentUserProfile({
+              selected_tracks: newTracks,
+            });
+            
+            // Reload user data
+            if (user) {
+              setTimeout(async () => {
+                await loadUserData(user);
+              }, 200);
+            }
+            
+            setShowUpgradeBenefitsModal(false);
+          } catch (error) {
+            console.error('Error adding track:', error);
+            alert('שגיאה בהוספת התחום. תוכל להוסיף אותו מאוחר יותר מההגדרות.');
           }
         }}
       />
