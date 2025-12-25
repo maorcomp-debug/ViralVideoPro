@@ -1372,6 +1372,375 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
+        {activeTab === 'coupons' && (
+          <div>
+            <HeaderActions>
+              <h3 style={{ color: '#D4A043', margin: 0 }}>ניהול קופונים</h3>
+              <ActionButton onClick={() => loadCoupons()}>🔄 רענן</ActionButton>
+            </HeaderActions>
+
+            <form onSubmit={handleCreateCoupon} style={{ marginBottom: '30px' }}>
+              <div style={{
+                background: 'rgba(26, 26, 26, 0.6)',
+                padding: '20px',
+                borderRadius: '12px',
+                border: '1px solid rgba(212, 160, 67, 0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px',
+              }}>
+                <h4 style={{ color: '#D4A043', margin: '0 0 10px 0', textAlign: 'right' }}>צור קוד קופון חדש</h4>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                      קוד קופון *
+                    </label>
+                    <UserInput
+                      type="text"
+                      value={couponForm.code}
+                      onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase().trim() })}
+                      placeholder="SUMMER2024"
+                      required
+                      style={{ direction: 'ltr', textAlign: 'center', textTransform: 'uppercase' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                      תיאור (אופציונלי)
+                    </label>
+                    <UserInput
+                      type="text"
+                      value={couponForm.description}
+                      onChange={(e) => setCouponForm({ ...couponForm, description: e.target.value })}
+                      placeholder="קופון קיץ 2024"
+                      style={{ direction: 'rtl' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                    סוג ההטבה *
+                  </label>
+                  <UserSelect
+                    value={couponForm.discount_type}
+                    onChange={(e) => setCouponForm({ ...couponForm, discount_type: e.target.value as any })}
+                    style={{ direction: 'rtl' }}
+                  >
+                    <option value="trial_subscription">התנסות זמנית בחבילה</option>
+                    <option value="percentage">הנחה באחוזים (%)</option>
+                    <option value="fixed_amount">הנחה בסכום קבוע (₪)</option>
+                    <option value="free_analyses">ניתוחים חינם</option>
+                  </UserSelect>
+                </div>
+
+                {couponForm.discount_type === 'trial_subscription' && (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                      <div>
+                        <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                          חבילת התנסות *
+                        </label>
+                        <UserSelect
+                          value={couponForm.trial_tier || 'creator'}
+                          onChange={(e) => setCouponForm({ ...couponForm, trial_tier: e.target.value as any })}
+                          style={{ direction: 'rtl' }}
+                        >
+                          <option value="creator">יוצרים</option>
+                          <option value="pro">יוצרים באקסטרים</option>
+                          <option value="coach">מאמנים</option>
+                        </UserSelect>
+                      </div>
+                      <div>
+                        <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                          משך התנסות (ימים) *
+                        </label>
+                        <UserInput
+                          type="number"
+                          value={couponForm.trial_duration_days}
+                          onChange={(e) => setCouponForm({ ...couponForm, trial_duration_days: parseInt(e.target.value) || 7 })}
+                          min="1"
+                          required
+                          style={{ direction: 'rtl' }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {(couponForm.discount_type === 'percentage' || couponForm.discount_type === 'fixed_amount' || couponForm.discount_type === 'free_analyses') && (
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                      ערך ההטבה *
+                      {couponForm.discount_type === 'percentage' && ' (0-100)'}
+                      {couponForm.discount_type === 'fixed_amount' && ' (₪)'}
+                      {couponForm.discount_type === 'free_analyses' && ' (מספר ניתוחים)'}
+                    </label>
+                    <UserInput
+                      type="number"
+                      value={couponForm.discount_value || ''}
+                      onChange={(e) => setCouponForm({ ...couponForm, discount_value: parseFloat(e.target.value) || null })}
+                      min="0"
+                      max={couponForm.discount_type === 'percentage' ? 100 : undefined}
+                      required
+                      style={{ direction: 'rtl' }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                      מקסימום שימושים (ריק = ללא הגבלה)
+                    </label>
+                    <UserInput
+                      type="number"
+                      value={couponForm.max_uses || ''}
+                      onChange={(e) => setCouponForm({ ...couponForm, max_uses: e.target.value ? parseInt(e.target.value) : null })}
+                      min="1"
+                      style={{ direction: 'rtl' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                      תאריך תחילה
+                    </label>
+                    <UserInput
+                      type="date"
+                      value={couponForm.valid_from}
+                      onChange={(e) => setCouponForm({ ...couponForm, valid_from: e.target.value })}
+                      style={{ direction: 'rtl' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                      תאריך סיום (ריק = ללא הגבלה)
+                    </label>
+                    <UserInput
+                      type="date"
+                      value={couponForm.valid_until || ''}
+                      onChange={(e) => setCouponForm({ ...couponForm, valid_until: e.target.value || null })}
+                      style={{ direction: 'rtl' }}
+                    />
+                  </div>
+                </div>
+
+                <ActionButton
+                  type="submit"
+                  disabled={loading || !couponForm.code.trim()}
+                  $variant="primary"
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  {loading ? 'יוצר...' : '🎫 צור קוד קופון'}
+                </ActionButton>
+              </div>
+            </form>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 20px 0', textAlign: 'right' }}>קופונים קיימים</h3>
+              {loading ? (
+                <LoadingSpinner>טוען קופונים...</LoadingSpinner>
+              ) : coupons.length === 0 ? (
+                <EmptyState>אין קופונים</EmptyState>
+              ) : (
+                <UsersTable>
+                  <TableHeader>
+                    <div>קוד</div>
+                    <div>סוג הטבה</div>
+                    <div>ערך</div>
+                    <div>שימושים</div>
+                    <div>תוקף</div>
+                    <div>סטטוס</div>
+                  </TableHeader>
+                  {coupons.map((coupon: any) => (
+                    <UserRow key={coupon.id}>
+                      <UserField data-label="קוד:" style={{ fontFamily: 'monospace', fontWeight: 700 }}>{coupon.code}</UserField>
+                      <UserField data-label="סוג:">
+                        {coupon.discount_type === 'trial_subscription' ? `התנסות ${getTierDisplayName(coupon.trial_tier)}` :
+                         coupon.discount_type === 'percentage' ? `הנחה ${coupon.discount_value}%` :
+                         coupon.discount_type === 'fixed_amount' ? `הנחה ${coupon.discount_value}₪` :
+                         `${coupon.discount_value} ניתוחים חינם`}
+                      </UserField>
+                      <UserField data-label="ערך:">
+                        {coupon.discount_type === 'trial_subscription' 
+                          ? `${coupon.trial_duration_days} ימים`
+                          : coupon.discount_value}
+                      </UserField>
+                      <UserField data-label="שימושים:">
+                        {coupon.used_count} / {coupon.max_uses || '∞'}
+                      </UserField>
+                      <UserField data-label="תוקף:">
+                        {coupon.valid_until 
+                          ? new Date(coupon.valid_until).toLocaleDateString('he-IL')
+                          : 'ללא הגבלה'}
+                      </UserField>
+                      <UserField data-label="סטטוס:">
+                        <Badge $tier={coupon.is_active ? 'pro' : 'free'}>
+                          {coupon.is_active ? 'פעיל' : 'לא פעיל'}
+                        </Badge>
+                      </UserField>
+                    </UserRow>
+                  ))}
+                </UsersTable>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'trials' && (
+          <div>
+            <HeaderActions>
+              <h3 style={{ color: '#D4A043', margin: 0 }}>מתן התנסויות למשתמשים</h3>
+              <ActionButton onClick={() => loadTrials()}>🔄 רענן</ActionButton>
+            </HeaderActions>
+
+            <form onSubmit={handleGrantTrial} style={{ marginBottom: '30px' }}>
+              <div style={{
+                background: 'rgba(26, 26, 26, 0.6)',
+                padding: '20px',
+                borderRadius: '12px',
+                border: '1px solid rgba(212, 160, 67, 0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px',
+              }}>
+                <h4 style={{ color: '#D4A043', margin: '0 0 10px 0', textAlign: 'right' }}>מתן התנסות זמנית</h4>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                      חבילת התנסות *
+                    </label>
+                    <UserSelect
+                      value={trialForm.tier}
+                      onChange={(e) => setTrialForm({ ...trialForm, tier: e.target.value as any })}
+                      style={{ direction: 'rtl' }}
+                    >
+                      <option value="creator">יוצרים</option>
+                      <option value="pro">יוצרים באקסטרים</option>
+                      <option value="coach">מאמנים</option>
+                    </UserSelect>
+                  </div>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                      משך התנסות (ימים) *
+                    </label>
+                    <UserInput
+                      type="number"
+                      value={trialForm.duration_days}
+                      onChange={(e) => setTrialForm({ ...trialForm, duration_days: parseInt(e.target.value) || 7 })}
+                      min="1"
+                      required
+                      style={{ direction: 'rtl' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                    קהל יעד *
+                  </label>
+                  <UserSelect
+                    value={trialForm.target_type}
+                    onChange={(e) => setTrialForm({ ...trialForm, target_type: e.target.value as any, selected_user_ids: [] })}
+                    style={{ direction: 'rtl', marginBottom: '10px' }}
+                  >
+                    <option value="selected">משתמשים נבחרים</option>
+                    <option value="tier">כל משתמשי חבילה מסוימת</option>
+                    <option value="all">כל המשתמשים</option>
+                  </UserSelect>
+                  
+                  {trialForm.target_type === 'tier' && (
+                    <UserSelect
+                      value={trialForm.target_tier}
+                      onChange={(e) => setTrialForm({ ...trialForm, target_tier: e.target.value })}
+                      style={{ direction: 'rtl' }}
+                    >
+                      <option value="free">חבילת ניסיון</option>
+                      <option value="creator">יוצרים</option>
+                      <option value="pro">יוצרים באקסטרים</option>
+                      <option value="coach">מאמנים</option>
+                    </UserSelect>
+                  )}
+
+                  {trialForm.target_type === 'selected' && (
+                    <div style={{
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      border: '1px solid rgba(212, 160, 67, 0.3)',
+                      borderRadius: '8px',
+                      padding: '10px',
+                      background: 'rgba(0, 0, 0, 0.3)',
+                    }}>
+                      {filteredUsers.map((user: any) => (
+                        <label key={user.user_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', cursor: 'pointer', color: '#ccc' }}>
+                          <input
+                            type="checkbox"
+                            checked={trialForm.selected_user_ids.includes(user.user_id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setTrialForm({ ...trialForm, selected_user_ids: [...trialForm.selected_user_ids, user.user_id] });
+                              } else {
+                                setTrialForm({ ...trialForm, selected_user_ids: trialForm.selected_user_ids.filter(id => id !== user.user_id) });
+                              }
+                            }}
+                          />
+                          <span>{user.full_name || user.email} ({getTierDisplayName(user.subscription_tier)})</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <ActionButton
+                  type="submit"
+                  disabled={loading}
+                  $variant="primary"
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  {loading ? 'מעניק...' : '⭐ הענק התנסות'}
+                </ActionButton>
+              </div>
+            </form>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 20px 0', textAlign: 'right' }}>התנסויות קיימות</h3>
+              {loading ? (
+                <LoadingSpinner>טוען התנסויות...</LoadingSpinner>
+              ) : trials.length === 0 ? (
+                <EmptyState>אין התנסויות</EmptyState>
+              ) : (
+                <UsersTable>
+                  <TableHeader>
+                    <div>משתמש</div>
+                    <div>חבילה</div>
+                    <div>תאריך התחלה</div>
+                    <div>תאריך סיום</div>
+                    <div>סטטוס</div>
+                  </TableHeader>
+                  {trials.map((trial: any) => {
+                    const trialUser = users.find((u: any) => u.user_id === trial.user_id);
+                    return (
+                      <UserRow key={trial.id}>
+                        <UserField data-label="משתמש:">{trialUser?.full_name || trialUser?.email || trial.user_id}</UserField>
+                        <UserField data-label="חבילה:">{getTierDisplayName(trial.tier)}</UserField>
+                        <UserField data-label="התחלה:">{new Date(trial.start_date).toLocaleDateString('he-IL')}</UserField>
+                        <UserField data-label="סיום:">{new Date(trial.end_date).toLocaleDateString('he-IL')}</UserField>
+                        <UserField data-label="סטטוס:">
+                          <Badge $tier={trial.is_active && new Date(trial.end_date) > new Date() ? 'pro' : 'free'}>
+                            {trial.is_active && new Date(trial.end_date) > new Date() ? 'פעיל' : 'פג תוקף'}
+                          </Badge>
+                        </UserField>
+                      </UserRow>
+                    );
+                  })}
+                </UsersTable>
+              )}
+            </div>
+          </div>
+        )}
+
         {selectedUser && userDetails && (
           <UserDetailsModal onClick={() => { setSelectedUser(null); setUserDetails(null); }}>
             <UserDetailsContent onClick={(e) => e.stopPropagation()}>
