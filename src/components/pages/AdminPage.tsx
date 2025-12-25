@@ -12,6 +12,8 @@ import {
   getUserVideos,
   getUserUsageStats,
   getAdminStats,
+  createAnnouncement,
+  getAllAnnouncements,
 } from '../../lib/supabase-helpers';
 import { supabase } from '../../lib/supabase';
 import type { SubscriptionTier } from '../../types';
@@ -493,7 +495,7 @@ const DetailValue = styled.div`
   font-weight: 600;
 `;
 
-type TabType = 'overview' | 'users' | 'analyses' | 'videos';
+type TabType = 'overview' | 'users' | 'analyses' | 'videos' | 'announcements';
 
 export const AdminPage: React.FC = () => {
   const navigate = useNavigate();
@@ -515,6 +517,13 @@ export const AdminPage: React.FC = () => {
     subscription_status?: string;
   }>({});
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcementForm, setAnnouncementForm] = useState({
+    title: '',
+    message: '',
+    target_all: true,
+    target_tier: [] as string[],
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTier, setFilterTier] = useState<string>('all');
   const [filterRole, setFilterRole] = useState<string>('all');
@@ -538,6 +547,9 @@ export const AdminPage: React.FC = () => {
     }
     if (isUserAdmin && activeTab === 'videos') {
       loadVideos();
+    }
+    if (isUserAdmin && activeTab === 'announcements') {
+      loadAnnouncements();
     }
   }, [isUserAdmin, activeTab]);
 
@@ -743,6 +755,9 @@ export const AdminPage: React.FC = () => {
           </Tab>
           <Tab $active={activeTab === 'videos'} onClick={() => setActiveTab('videos')}>
             🎥 וידאו ({videos.length})
+          </Tab>
+          <Tab $active={activeTab === 'announcements'} onClick={() => setActiveTab('announcements')}>
+            📢 התראות
           </Tab>
         </TabsContainer>
 
@@ -1024,6 +1039,159 @@ export const AdminPage: React.FC = () => {
                 ))}
               </UsersTable>
             )}
+          </div>
+        )}
+
+        {activeTab === 'announcements' && (
+          <div>
+            <HeaderActions>
+              <h3 style={{ color: '#D4A043', margin: 0 }}>שליחת עדכונים למשתמשים</h3>
+              <ActionButton onClick={() => loadAnnouncements()}>🔄 רענן</ActionButton>
+            </HeaderActions>
+
+            <form onSubmit={handleSendAnnouncement} style={{ marginBottom: '30px' }}>
+              <div style={{
+                background: 'rgba(26, 26, 26, 0.6)',
+                padding: '20px',
+                borderRadius: '12px',
+                border: '1px solid rgba(212, 160, 67, 0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px',
+              }}>
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                    כותרת העדכון *
+                  </label>
+                  <UserInput
+                    type="text"
+                    value={announcementForm.title}
+                    onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                    placeholder="לדוגמה: עדכון חדש באפליקציה!"
+                    required
+                    style={{ direction: 'rtl' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                    תוכן העדכון *
+                  </label>
+                  <textarea
+                    value={announcementForm.message}
+                    onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                    placeholder="הזן את תוכן העדכון..."
+                    required
+                    rows={6}
+                    style={{
+                      width: '100%',
+                      background: '#1a1a1a',
+                      border: '1px solid #444',
+                      borderRadius: '6px',
+                      padding: '12px',
+                      color: '#fff',
+                      fontSize: '0.9rem',
+                      fontFamily: 'inherit',
+                      direction: 'rtl',
+                      resize: 'vertical',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px', textAlign: 'right' }}>
+                    קהל יעד
+                  </label>
+                  <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ccc', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={announcementForm.target_all}
+                        onChange={(e) => setAnnouncementForm({ ...announcementForm, target_all: e.target.checked, target_tier: [] })}
+                      />
+                      <span>לכל המשתמשים</span>
+                    </label>
+                    {!announcementForm.target_all && (
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {(['free', 'creator', 'pro', 'coach'] as const).map((tier) => (
+                          <label key={tier} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ccc', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={announcementForm.target_tier.includes(tier)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setAnnouncementForm({
+                                    ...announcementForm,
+                                    target_tier: [...announcementForm.target_tier, tier],
+                                  });
+                                } else {
+                                  setAnnouncementForm({
+                                    ...announcementForm,
+                                    target_tier: announcementForm.target_tier.filter(t => t !== tier),
+                                  });
+                                }
+                              }}
+                            />
+                            <span>{getTierDisplayName(tier)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <ActionButton
+                  type="submit"
+                  disabled={loading || !announcementForm.title.trim() || !announcementForm.message.trim()}
+                  $variant="primary"
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  {loading ? 'שולח...' : '📢 שלח עדכון'}
+                </ActionButton>
+              </div>
+            </form>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 20px 0', textAlign: 'right' }}>עדכונים שנשלחו</h3>
+              {loading ? (
+                <LoadingSpinner>טוען עדכונים...</LoadingSpinner>
+              ) : announcements.length === 0 ? (
+                <EmptyState>אין עדכונים שנשלחו</EmptyState>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {announcements.map((ann: any) => (
+                    <div
+                      key={ann.id}
+                      style={{
+                        background: 'rgba(26, 26, 26, 0.6)',
+                        padding: '20px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(212, 160, 67, 0.2)',
+                        textAlign: 'right',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <h4 style={{ color: '#D4A043', margin: 0, fontSize: '1.1rem' }}>{ann.title}</h4>
+                        <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                          {new Date(ann.created_at).toLocaleDateString('he-IL', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                      </div>
+                      <p style={{ color: '#ccc', margin: '10px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{ann.message}</p>
+                      <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
+                        {ann.target_all ? 'נשלח לכל המשתמשים' : `נשלח ל-${ann.target_tier?.map((t: string) => getTierDisplayName(t)).join(', ') || 'כל המשתמשים'}`}
+                        {ann.sent_at && ` • נשלח ב-${new Date(ann.sent_at).toLocaleDateString('he-IL')}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

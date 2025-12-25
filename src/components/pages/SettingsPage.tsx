@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { updateCurrentUserProfile } from '../../lib/supabase-helpers';
+import { updateCurrentUserProfile, getUserAnnouncements, markAnnouncementAsRead } from '../../lib/supabase-helpers';
 import type { User } from '@supabase/supabase-js';
 import type { UserSubscription, SubscriptionTier } from '../../types';
 import { SUBSCRIPTION_PLANS } from '../../constants';
@@ -27,7 +27,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'subscription'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'subscription' | 'updates'>('profile');
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || '',
   });
@@ -35,14 +35,62 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     newPassword: '',
     confirmPassword: '',
   });
+  const [receiveUpdates, setReceiveUpdates] = useState(profile?.receive_updates ?? true);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
 
   useEffect(() => {
     if (profile) {
       setFormData({
         full_name: profile?.full_name || '',
       });
+      setReceiveUpdates(profile?.receive_updates ?? true);
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (activeTab === 'updates' && user) {
+      loadAnnouncements();
+    }
+  }, [activeTab, user]);
+
+  const loadAnnouncements = async () => {
+    setLoadingAnnouncements(true);
+    try {
+      const userAnnouncements = await getUserAnnouncements();
+      setAnnouncements(userAnnouncements);
+    } catch (error) {
+      console.error('Error loading announcements:', error);
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  };
+
+  const handleToggleUpdates = async () => {
+    const newValue = !receiveUpdates;
+    setReceiveUpdates(newValue);
+    setLoading(true);
+    try {
+      await updateCurrentUserProfile({ receive_updates: newValue });
+      setMessage({ type: 'success', text: newValue ? 'תקבל עדכונים בהצלחה' : 'בוטלה קבלת עדכונים' });
+      onProfileUpdate();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      setReceiveUpdates(!newValue); // Revert on error
+      setMessage({ type: 'error', text: error.message || 'שגיאה בעדכון ההגדרות' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkAsRead = async (announcementId: string) => {
+    try {
+      await markAnnouncementAsRead(announcementId);
+      loadAnnouncements();
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,6 +268,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             }}
           >
             מנוי
+          </button>
+          <button
+            onClick={() => setActiveTab('updates')}
+            style={{
+              background: activeTab === 'updates' ? 'rgba(212, 160, 67, 0.2)' : 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'updates' ? '2px solid #D4A043' : '2px solid transparent',
+              color: activeTab === 'updates' ? '#D4A043' : '#ccc',
+              padding: '10px 20px',
+              cursor: 'pointer',
+              fontSize: '0.95rem',
+              fontWeight: activeTab === 'updates' ? 700 : 400,
+              transition: 'all 0.3s',
+            }}
+          >
+            עדכונים
           </button>
         </div>
 
@@ -422,6 +486,106 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             >
               ניהול מנוי / שדרוג
             </button>
+          </div>
+        )}
+
+        {/* Updates Tab */}
+        {activeTab === 'updates' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{
+              padding: '20px',
+              background: 'rgba(212, 160, 67, 0.1)',
+              border: '1px solid #D4A043',
+              borderRadius: '8px',
+              textAlign: 'right',
+            }}>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0' }}>הגדרות עדכונים</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#ccc' }}>קבלת עדכונים על חידושים, הטבות ועדכונים באפליקציה</span>
+                <button
+                  onClick={handleToggleUpdates}
+                  disabled={loading}
+                  style={{
+                    background: receiveUpdates ? '#4CAF50' : '#666',
+                    border: 'none',
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    color: '#fff',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    transition: 'all 0.3s',
+                  }}
+                >
+                  {receiveUpdates ? 'פעיל' : 'לא פעיל'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', textAlign: 'right' }}>עדכונים שנשלחו</h3>
+              {loadingAnnouncements ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#ccc' }}>טוען עדכונים...</div>
+              ) : announcements.length === 0 ? (
+                <div style={{
+                  padding: '40px',
+                  textAlign: 'center',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: '8px',
+                  color: '#888',
+                }}>
+                  אין עדכונים להצגה
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {announcements.map((item: any) => {
+                    const ann = item.announcement;
+                    const isRead = item.read_at !== null;
+                    if (!ann) return null;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => !isRead && handleMarkAsRead(ann.id)}
+                        style={{
+                          padding: '20px',
+                          background: isRead ? 'rgba(255, 255, 255, 0.05)' : 'rgba(212, 160, 67, 0.1)',
+                          border: `1px solid ${isRead ? 'rgba(255, 255, 255, 0.1)' : '#D4A043'}`,
+                          borderRadius: '8px',
+                          cursor: !isRead ? 'pointer' : 'default',
+                          textAlign: 'right',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                          <h4 style={{ color: '#D4A043', margin: 0, fontSize: '1.1rem' }}>{ann.title}</h4>
+                          {!isRead && (
+                            <span style={{
+                              background: '#F44336',
+                              color: '#fff',
+                              padding: '4px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                            }}>
+                              חדש
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ color: '#ccc', margin: '10px 0', lineHeight: '1.6' }}>{ann.message}</p>
+                        <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
+                          {new Date(ann.created_at).toLocaleDateString('he-IL', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

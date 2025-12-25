@@ -500,6 +500,7 @@ export async function updateCurrentUserProfile(updates: {
   phone?: string;
   selected_tracks?: string[];
   selected_primary_track?: string;
+  receive_updates?: boolean;
 }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
@@ -610,5 +611,164 @@ export async function getAdminStats() {
       tierDistribution: {},
       roleDistribution: {},
     };
+  }
+}
+
+// ============================================
+// ANNOUNCEMENTS FUNCTIONS
+// ============================================
+
+export async function createAnnouncement(data: {
+  title: string;
+  message: string;
+  target_all?: boolean;
+  target_tier?: string[];
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { data: announcement, error } = await supabase
+    .from('announcements')
+    .insert({
+      title: data.title,
+      message: data.message,
+      created_by: user.id,
+      target_all: data.target_all ?? true,
+      target_tier: data.target_tier || null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating announcement:', error);
+    throw error;
+  }
+
+  // Send announcement to users
+  await sendAnnouncementToUsers(announcement.id);
+
+  return announcement;
+}
+
+export async function sendAnnouncementToUsers(announcementId: string) {
+  const { data: announcement, error: annError } = await supabase
+    .from('announcements')
+    .select('*')
+    .eq('id', announcementId)
+    .single();
+
+  if (annError || !announcement) {
+    throw new Error('Announcement not found');
+  }
+
+  // Build query for target users
+  let usersQuery = supabase
+    .from('profiles')
+    .select('user_id')
+    .eq('receive_updates', true);
+
+  // Filter by tier if specified
+  if (!announcement.target_all && announcement.target_tier && announcement.target_tier.length > 0) {
+    usersQuery = usersQuery.in('subscription_tier', announcement.target_tier);
+  }
+
+  const { data: users, error: usersError } = await usersQuery;
+
+  if (usersError) {
+    console.error('Error fetching target users:', usersError);
+    throw usersError;
+  }
+
+  if (!users || users.length === 0) {
+    console.log('No users to send announcement to');
+    return { sent: 0 };
+  }
+
+  // Create user_announcements records
+  const userAnnouncements = users.map(user => ({
+    user_id: user.user_id,
+    announcement_id: announcementId,
+  }));
+
+  const { error: insertError } = await supabase
+    .from('user_announcements')
+    .insert(userAnnouncements);
+
+  if (insertError) {
+    console.error('Error creating user_announcements:', insertError);
+    throw insertError;
+  }
+
+  // Update announcement sent_at
+  const { error: updateError } = await supabase
+    .from('announcements')
+    .update({ sent_at: new Date().toISOString() })
+    .eq('id', announcementId);
+
+  if (updateError) {
+    console.error('Error updating announcement sent_at:', updateError);
+  }
+
+  return { sent: users.length };
+}
+
+export async function getAllAnnouncements() {
+  try {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching announcements:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getAllAnnouncements:', error);
+    throw error;
+  }
+}
+
+export async function getUserAnnouncements() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('user_announcements')
+      .select(`
+        *,
+        announcement:announcements(*)
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user announcements:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getUserAnnouncements:', error);
+    return [];
+  }
+}
+
+export async function markAnnouncementAsRead(announcementId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { error } = await supabase
+    .from('user_announcements')
+    .update({ read_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .eq('announcement_id', announcementId);
+
+  if (error) {
+    console.error('Error marking announcement as read:', error);
+    throw error;
   }
 }

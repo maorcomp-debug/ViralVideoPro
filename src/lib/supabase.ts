@@ -76,9 +76,35 @@ export interface Database {
           subscription_start_date: string | null;
           subscription_end_date: string | null;
           subscription_status: 'active' | 'inactive' | 'cancelled' | null;
+          receive_updates: boolean;
         };
         Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
+      };
+      announcements: {
+        Row: {
+          id: string;
+          title: string;
+          message: string;
+          created_by: string;
+          created_at: string;
+          sent_at: string | null;
+          target_tier: string[] | null;
+          target_all: boolean;
+        };
+        Insert: Omit<Database['public']['Tables']['announcements']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['announcements']['Insert']>;
+      };
+      user_announcements: {
+        Row: {
+          id: string;
+          user_id: string;
+          announcement_id: string;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['user_announcements']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['user_announcements']['Insert']>;
       };
       videos: {
         Row: {
