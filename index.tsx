@@ -2373,11 +2373,11 @@ const App = () => {
     
     // Try to get session quickly, but don't block UI if it takes too long
     // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
+    // This prevents UI freeze on slow networks while still allowing session to load in background
     timeoutId = setTimeout(() => {
       if (mounted) {
-        console.warn('⚠️ getSession timeout (>8s) - allowing UI to render. Session will be handled by onAuthStateChange.');
+        // Silently allow UI to render - onAuthStateChange will handle session when ready
         setLoadingAuth(false);
-        // Still allow onAuthStateChange to handle the session when it eventually loads
       }
     }, 8000); // 8 second timeout - balance between waiting and UX
     
