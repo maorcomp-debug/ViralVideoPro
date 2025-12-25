@@ -943,6 +943,7 @@ export async function createCoupon(data: {
   description?: string;
   discount_type: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription';
   discount_value?: number;
+  free_analyses_count?: number;
   trial_tier?: 'creator' | 'pro' | 'coach';
   trial_duration_days?: number;
   max_uses?: number;
@@ -952,13 +953,18 @@ export async function createCoupon(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
+  // For free_analyses, use free_analyses_count as discount_value
+  const discountValue = data.discount_type === 'free_analyses' 
+    ? (data.free_analyses_count || data.discount_value || null)
+    : data.discount_value || null;
+
   const { data: coupon, error } = await supabase
     .from('coupons')
     .insert({
       code: data.code.toUpperCase().trim(),
       description: data.description || null,
       discount_type: data.discount_type,
-      discount_value: data.discount_value || null,
+      discount_value: discountValue,
       trial_tier: data.trial_tier || null,
       trial_duration_days: data.trial_duration_days || null,
       max_uses: data.max_uses || null,
@@ -1022,6 +1028,143 @@ export async function grantTrialToUsers(userIds: string[], tier: 'creator' | 'pr
   }
 
   return { success: true, granted: userIds.length };
+}
+
+export async function updateCoupon(couponId: string, data: {
+  code?: string;
+  description?: string;
+  discount_type?: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription';
+  discount_value?: number;
+  free_analyses_count?: number;
+  trial_tier?: 'creator' | 'pro' | 'coach';
+  trial_duration_days?: number;
+  max_uses?: number;
+  valid_from?: string;
+  valid_until?: string;
+  is_active?: boolean;
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const updateData: any = { updated_at: new Date().toISOString() };
+
+  if (data.code !== undefined) updateData.code = data.code.toUpperCase().trim();
+  if (data.description !== undefined) updateData.description = data.description || null;
+  if (data.discount_type !== undefined) updateData.discount_type = data.discount_type;
+  if (data.is_active !== undefined) updateData.is_active = data.is_active;
+
+  // Handle discount_value based on type
+  if (data.discount_type === 'free_analyses' && data.free_analyses_count !== undefined) {
+    updateData.discount_value = data.free_analyses_count;
+  } else if (data.discount_value !== undefined) {
+    updateData.discount_value = data.discount_value;
+  }
+
+  if (data.trial_tier !== undefined) updateData.trial_tier = data.trial_tier || null;
+  if (data.trial_duration_days !== undefined) updateData.trial_duration_days = data.trial_duration_days || null;
+  if (data.max_uses !== undefined) updateData.max_uses = data.max_uses || null;
+  if (data.valid_from !== undefined) updateData.valid_from = data.valid_from || new Date().toISOString();
+  if (data.valid_until !== undefined) updateData.valid_until = data.valid_until || null;
+
+  const { data: coupon, error } = await supabase
+    .from('coupons')
+    .update(updateData)
+    .eq('id', couponId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating coupon:', error);
+    throw error;
+  }
+
+  return coupon;
+}
+
+export async function deleteCoupon(couponId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { error } = await supabase
+    .from('coupons')
+    .delete()
+    .eq('id', couponId);
+
+  if (error) {
+    console.error('Error deleting coupon:', error);
+    throw error;
+  }
+
+  return { success: true };
+}
+
+export async function toggleCouponStatus(couponId: string, isActive: boolean) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const { data: coupon, error } = await supabase
+    .from('coupons')
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq('id', couponId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error toggling coupon status:', error);
+    throw error;
+  }
+
+  return coupon;
+}
+
+export async function getCouponRedemptions(couponId?: string) {
+  try {
+    let query = supabase
+      .from('coupon_redemptions')
+      .select(`
+        *,
+        coupon:coupons!coupon_redemptions_coupon_id_fkey (
+          id,
+          code,
+          discount_type,
+          discount_value
+        )
+      `)
+      .order('applied_at', { ascending: false });
+
+    if (couponId) {
+      query = query.eq('coupon_id', couponId);
+    }
+
+    const { data: redemptions, error } = await query;
+
+    if (error) {
+      console.error('Error fetching coupon redemptions:', error);
+      throw error;
+    }
+
+    // Fetch profiles separately for each user_id
+    if (redemptions && redemptions.length > 0) {
+      const userIds = [...new Set(redemptions.map((r: any) => r.user_id))];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, user_id, email, full_name')
+        .in('user_id', userIds);
+
+      if (!profilesError && profiles) {
+        const profilesMap = new Map(profiles.map((p: any) => [p.user_id, p]));
+        return redemptions.map((r: any) => ({
+          ...r,
+          profiles: profilesMap.get(r.user_id) || null,
+        }));
+      }
+    }
+
+    return redemptions || [];
+  } catch (error: any) {
+    console.error('Error in getCouponRedemptions:', error);
+    throw error;
+  }
 }
 
 export async function getUserTrials() {

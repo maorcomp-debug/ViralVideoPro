@@ -174,6 +174,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testPackageTier, setTestPackageTier] = useState<SubscriptionTier>('free');
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [passwordResetSent, setPasswordResetSent] = useState(false);
   
   // Check if current email is test account
   const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
@@ -193,6 +195,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setCouponValid({ valid: false, error: 'שגיאה בבדיקת קוד הקופון' });
     } finally {
       setCouponValidating(false);
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email.trim()) {
+      setError('אנא הזן את כתובת האימייל שלך');
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: redirectUrl,
+      });
+
+      if (resetError) {
+        console.error('Password reset error:', resetError);
+        throw new Error('שגיאה בשליחת אימייל איפוס סיסמה. נסה שוב מאוחר יותר.');
+      }
+
+      setPasswordResetSent(true);
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      setError(err.message || 'אירעה שגיאה. נסה שוב.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -492,10 +525,94 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       >
         <AuthCloseButton onClick={onClose}>×</AuthCloseButton>
         <AuthModalHeader>
-          <h2>{isSignUp ? 'הרשמה' : 'כניסה'}</h2>
-          <p>{isSignUp ? 'צור חשבון חדש' : 'היכנס לחשבון שלך'}</p>
+          <h2>{showPasswordReset ? 'איפוס סיסמה' : (isSignUp ? 'הרשמה' : 'כניסה')}</h2>
+          <p>
+            {showPasswordReset 
+              ? 'נשלח לך אימייל עם קישור לאיפוס הסיסמה' 
+              : (isSignUp ? 'צור חשבון חדש' : 'היכנס לחשבון שלך')
+            }
+          </p>
         </AuthModalHeader>
 
+        {showPasswordReset ? (
+          <form onSubmit={handlePasswordReset} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {passwordResetSent ? (
+              <div style={{ 
+                padding: '20px', 
+                background: 'rgba(76, 175, 80, 0.2)', 
+                borderRadius: '10px',
+                border: '1px solid rgba(76, 175, 80, 0.5)',
+                textAlign: 'right',
+                color: '#4CAF50'
+              }}>
+                <p style={{ margin: 0, fontSize: '1rem', marginBottom: '10px' }}>
+                  ✓ אימייל איפוס סיסמה נשלח לכתובת: <strong>{email}</strong>
+                </p>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#ccc' }}>
+                  אנא בדוק את תיבת הדואר שלך ולחץ על הקישור לאיפוס הסיסמה.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                    אימייל
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="הכנס את כתובת האימייל שלך"
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(212, 160, 67, 0.3)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      color: '#fff',
+                      fontSize: '1rem',
+                      direction: 'ltr',
+                      textAlign: 'left',
+                    }}
+                  />
+                </div>
+
+                {error && (
+                  <div style={{ color: '#ff6b6b', textAlign: 'right', fontSize: '0.9rem' }}>
+                    {error}
+                  </div>
+                )}
+
+                <AuthButton
+                  type="submit"
+                  disabled={loading || !email.trim()}
+                >
+                  {loading ? 'שולח...' : 'שלח קישור איפוס סיסמה'}
+                </AuthButton>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowPasswordReset(false);
+                setPasswordResetSent(false);
+                setError(null);
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#D4A043',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                textDecoration: 'underline',
+              }}
+            >
+              ← חזרה לכניסה
+            </button>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {isSignUp && (
             <>
@@ -575,9 +692,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   מספר טלפון ישראלי (10 ספרות)
                 </div>
               </div>
-              <div>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                  קוד קופון (אופציונלי)
+              <div style={{ 
+                background: 'rgba(212, 160, 67, 0.05)', 
+                padding: '15px', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(212, 160, 67, 0.2)',
+                marginTop: '10px'
+              }}>
+                <label style={{ color: '#D4A043', fontSize: '0.95rem', textAlign: 'right', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
+                  🎫 קוד קופון (אופציונלי)
                 </label>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                   <input
@@ -596,7 +719,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     style={{
                       flex: 1,
                       background: 'rgba(255, 255, 255, 0.1)',
-                      border: `1px solid ${couponValid?.valid ? 'rgba(76, 175, 80, 0.5)' : couponValid?.valid === false ? 'rgba(244, 67, 54, 0.5)' : 'rgba(212, 160, 67, 0.3)'}`,
+                      border: `2px solid ${couponValid?.valid ? 'rgba(76, 175, 80, 0.6)' : couponValid?.valid === false ? 'rgba(244, 67, 54, 0.6)' : 'rgba(212, 160, 67, 0.4)'}`,
                       borderRadius: '8px',
                       padding: '12px',
                       color: '#fff',
@@ -604,10 +727,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       direction: 'ltr',
                       textAlign: 'center',
                       textTransform: 'uppercase',
+                      fontWeight: 600,
                     }}
                   />
                   {couponValidating && (
-                    <span style={{ color: '#D4A043', fontSize: '0.9rem', lineHeight: '44px' }}>בודק...</span>
+                    <span style={{ color: '#D4A043', fontSize: '0.9rem', lineHeight: '44px', fontWeight: 600 }}>בודק...</span>
                   )}
                 </div>
                 {couponValid?.valid && (
@@ -725,24 +849,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {loading ? (isSignUp ? 'נרשם...' : 'מתחבר...') : (isSignUp ? 'הרשמה' : 'כניסה')}
           </AuthButton>
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setError(null);
-            }}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#D4A043',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              textDecoration: 'underline',
-            }}
-          >
-            {isSignUp ? 'יש לך כבר חשבון? התחבר' : 'אין לך חשבון? הירשם'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError(null);
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#D4A043',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                textDecoration: 'underline',
+              }}
+            >
+              {isSignUp ? 'יש לך כבר חשבון? התחבר' : 'אין לך חשבון? הירשם'}
+            </button>
+            {!isSignUp && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordReset(true);
+                  setError(null);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#999',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  textDecoration: 'underline',
+                }}
+              >
+                שכחתי את הסיסמה
+              </button>
+            )}
+          </div>
         </form>
+        )}
       </AuthModalContent>
     </AuthModalOverlay>
   );

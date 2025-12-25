@@ -423,6 +423,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 key={plan.id}
                 $popular={plan.popular}
                 $isFree={plan.id === 'free'}
+                onClick={(e) => {
+                  // Prevent card click from interfering with button click
+                  e.stopPropagation();
+                }}
               >
                 <PlanHeader>
                   {plan.badge && (
@@ -518,8 +522,15 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 <SubscribeButton
                   $popular={plan.popular}
                   $isFree={plan.id === 'free'}
-                  onClick={() => handleSelectPlan(plan.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!isCurrentPlan) {
+                      handleSelectPlan(plan.id);
+                    }
+                  }}
                   disabled={isCurrentPlan}
+                  type="button"
                 >
                   {isCurrentPlan 
                     ? 'החבילה הנוכחית שלך'

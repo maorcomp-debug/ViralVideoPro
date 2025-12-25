@@ -2599,8 +2599,12 @@ const App = () => {
 
   // Subscription Management Functions
   const handleSelectPlan = async (tier: SubscriptionTier, period: BillingPeriod) => {
+    console.log('🔔 handleSelectPlan called:', { tier, period, user: user?.email });
+    
     if (!user) {
       alert('יש להיכנס למערכת תחילה');
+      setShowAuthModal(true);
+      setShowSubscriptionModal(false);
       return;
     }
 
