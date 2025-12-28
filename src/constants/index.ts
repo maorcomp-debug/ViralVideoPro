@@ -104,8 +104,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
   'coach-pro': {
     id: 'coach-pro',
     name: 'מאמנים, סוכנויות ובתי ספר למשחק',
-    nameSubtitle: 'גרסת ה PRO', // Subtitle to display below name
-    description: 'פלטפורמה מקצועית למאמנים וסטודיואים',
+    description: '', // Empty description to align with coach tier
     monthlyPrice: 299,
     yearlyPrice: 2990, // ~2 months free
     limits: {

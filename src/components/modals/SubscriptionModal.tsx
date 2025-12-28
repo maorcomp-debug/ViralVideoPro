@@ -448,40 +448,23 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 }}
               >
                 <PlanHeader>
-                  <PlanName>
+                  <PlanName style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     {plan.name}
-                    {plan.nameSubtitle && (
-                      <div style={{ 
-                        fontSize: '1rem', 
-                        fontWeight: 700, 
-                        color: '#D4A043',
-                        marginTop: '5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px'
+                    {plan.badge && (
+                      <PlanBadge $color={plan.id === 'coach-pro' ? "#FF8C00" : (plan.id === 'coach' ? '#D4A043' : undefined)} style={{ 
+                        position: 'static',
+                        display: 'inline-block',
+                        fontSize: plan.id === 'coach-pro' ? '0.85rem' : '0.75rem',
+                        padding: plan.id === 'coach-pro' ? '4px 12px' : '4px 12px',
+                        verticalAlign: 'middle'
                       }}>
-                        {plan.nameSubtitle}
-                        {plan.badge && (
-                          <PlanBadge $color="#FF8C00" style={{ 
-                            position: 'static',
-                            display: 'inline-block',
-                            fontSize: '0.85rem',
-                            padding: '3px 10px',
-                            verticalAlign: 'middle'
-                          }}>
-                            {plan.badge}
-                          </PlanBadge>
-                        )}
-                      </div>
-                    )}
-                    {!plan.nameSubtitle && plan.badge && plan.id !== 'coach-pro' && (
-                      <PlanBadge $color={(plan.id === 'coach') ? '#D4A043' : undefined}>
                         {plan.badge}
                       </PlanBadge>
                     )}
                   </PlanName>
-                  <PlanDescription>{plan.description}</PlanDescription>
+                  {plan.description && (
+                    <PlanDescription>{plan.description}</PlanDescription>
+                  )}
                 </PlanHeader>
 
                 {plan.id !== 'free' && (
