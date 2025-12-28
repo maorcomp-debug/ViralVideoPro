@@ -356,6 +356,37 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         throw error;
       }
       
+      // Send email to admin via Edge Function
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
+        
+        if (supabaseUrl && supabaseAnonKey) {
+          const functionUrl = `${supabaseUrl}/functions/v1/send-contact-email`;
+          
+          const emailResponse = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+            },
+            body: JSON.stringify({
+              name: contactFormData.name.trim(),
+              email: contactFormData.email.trim().toLowerCase(),
+              message: contactFormData.message.trim(),
+            }),
+          });
+          
+          if (!emailResponse.ok) {
+            console.error('Failed to send email notification:', await emailResponse.text());
+            // Don't fail the entire operation if email fails - message is already saved
+          }
+        }
+      } catch (emailError) {
+        console.error('Error sending email notification:', emailError);
+        // Don't fail the entire operation if email fails - message is already saved
+      }
+      
       alert('ההודעה נשלחה בהצלחה! ניצור איתך קשר בהקדם.');
       setShowContactForm(false);
       setContactFormData({ name: '', email: '', message: '' });
