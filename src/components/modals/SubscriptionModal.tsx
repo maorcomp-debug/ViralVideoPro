@@ -336,16 +336,23 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       const { supabase } = await import('../../lib/supabase');
       
       // Insert contact message into database
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('contact_messages')
         .insert({
           name: contactFormData.name.trim(),
           email: contactFormData.email.trim().toLowerCase(),
           message: contactFormData.message.trim(),
           status: 'pending'
-        });
+        })
+        .select();
       
       if (error) {
+        console.error('Supabase error:', error);
+        // Check if table doesn't exist (404 error)
+        if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+          alert('הטבלה contact_messages עדיין לא נוצרה ב-database. אנא הרץ את ה-migration 007_add_contact_messages.sql ב-Supabase Dashboard > SQL Editor.');
+          throw new Error('Table contact_messages does not exist. Please run migration 007_add_contact_messages.sql');
+        }
         throw error;
       }
       
@@ -354,7 +361,11 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       setContactFormData({ name: '', email: '', message: '' });
     } catch (error: any) {
       console.error('Error sending contact message:', error);
-      alert('אירעה שגיאה בשליחת ההודעה. אנא נסה שוב מאוחר יותר או שלח מייל ישירות ל-viralypro@gmail.com');
+      if (error.message?.includes('does not exist')) {
+        alert('הטבלה contact_messages עדיין לא נוצרה. אנא הרץ את ה-migration 007_add_contact_messages.sql ב-Supabase Dashboard > SQL Editor.');
+      } else {
+        alert('אירעה שגיאה בשליחת ההודעה. אנא נסה שוב מאוחר יותר או שלח מייל ישירות ל-viralypro@gmail.com');
+      }
     } finally {
       setContactFormSubmitting(false);
     }

@@ -251,6 +251,19 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['trainees']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['trainees']['Insert']>;
       };
+      contact_messages: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          message: string;
+          status: 'pending' | 'read' | 'replied' | 'archived';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['contact_messages']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['contact_messages']['Insert']>;
+      };
     };
   };
 }
