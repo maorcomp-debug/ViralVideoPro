@@ -512,10 +512,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
                 <PlanPrice>
                   {plan.id === 'free' ? (
-                    <>
-                      <PriceAmount>₪0</PriceAmount>
-                      <PricePeriod>לכל החיים</PricePeriod>
-                    </>
+                    <PriceAmount>₪0</PriceAmount>
                   ) : (
                     <>
                       <PriceAmount>
