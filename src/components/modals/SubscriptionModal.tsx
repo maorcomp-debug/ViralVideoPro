@@ -451,12 +451,20 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   <PlanName>
                     {plan.name}
                   </PlanName>
-                  {plan.id === 'coach-pro' && plan.badge ? (
+                  {plan.id === 'coach-pro' && plan.description && plan.badge ? (
                     <div style={{ 
                       marginTop: '8px',
                       marginBottom: '20px',
-                      textAlign: 'center'
+                      textAlign: 'center',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      flexWrap: 'wrap'
                     }}>
+                      <PlanDescription style={{ margin: 0, display: 'inline' }}>
+                        {plan.description}
+                      </PlanDescription>
                       <PlanBadge $color="#FF8C00" style={{ 
                         position: 'static',
                         display: 'inline-block',

@@ -104,7 +104,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
   'coach-pro': {
     id: 'coach-pro',
     name: 'מאמנים, סוכנויות ובתי ספר למשחק',
-    description: '', // Empty description to align with coach tier
+    description: 'יותר מתאמנים, יותר דקות ניתוח',
     monthlyPrice: 299,
     yearlyPrice: 2990, // ~2 months free
     limits: {
