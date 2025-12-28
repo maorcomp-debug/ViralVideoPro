@@ -24,7 +24,7 @@ export const ModalContent = styled.div`
   width: 95%;
   max-width: 800px;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden; /* Changed from overflow-y: auto - prevent scroll on modal itself */
   position: relative;
   box-shadow: 0 0 40px rgba(212, 160, 67, 0.2);
   display: flex;
@@ -39,6 +39,11 @@ export const ModalHeader = styled.div`
   padding: 25px 25px 15px;
   text-align: center;
   border-bottom: 1px solid #222;
+  flex-shrink: 0; /* Prevent header from shrinking */
+  
+  @media (max-width: 600px) {
+    padding: 20px 15px 12px;
+  }
 `;
 
 export const ModalTitle = styled.h2`
@@ -73,15 +78,11 @@ export const ModalTabs = styled.div`
   display: flex;
   gap: 8px;
   border-bottom: 1px solid #D4A043;
-  margin-top: 20px;
+  margin-top: 0;
   margin-bottom: 0;
   padding-bottom: 15px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  position: sticky;
-  top: 0;
-  background: #0a0a0a;
-  z-index: 10;
   padding-top: 10px;
   
   &::-webkit-scrollbar {
@@ -163,6 +164,7 @@ export const TrackDescriptionText = styled.p`
   background: rgba(212, 160, 67, 0.05);
   border: 1px solid rgba(212, 160, 67, 0.15);
   border-radius: 8px;
+  flex-shrink: 0; /* Prevent description from shrinking */
   
   @media (max-width: 600px) {
     margin: 15px auto 12px;

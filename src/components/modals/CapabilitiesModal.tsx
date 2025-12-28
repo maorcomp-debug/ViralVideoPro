@@ -100,63 +100,72 @@ export const CapabilitiesModal: React.FC<CapabilitiesModalProps> = ({
     <ModalOverlay onClick={onClose}>
       <ModalContent onClick={e => e.stopPropagation()}>
         <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
-        <ModalHeader>
-          <ModalTitle>יכולות האפליקציה של סוכן העל</ModalTitle>
-          <ModalSubtitle>
-            פשוט וקל<br/>
-            מעלים סרטון, מצרפים קובץ הנחיות או תסריט (לדיוק מקסימלי),
-            כותבים הנחיה, הוראות או שאלות למומחים (אופציונלי) ולוחצים על אקשן !
-          </ModalSubtitle>
-        </ModalHeader>
         
-        <ModalTabs>
-          {regularTabs.map(tab => (
+        <div style={{ 
+          position: 'sticky',
+          top: 0,
+          background: '#0a0a0a',
+          zIndex: 15,
+          flexShrink: 0,
+          paddingBottom: '10px'
+        }}>
+          <ModalHeader>
+            <ModalTitle>יכולות האפליקציה של סוכן העל</ModalTitle>
+            <ModalSubtitle>
+              פשוט וקל<br/>
+              מעלים סרטון, מצרפים קובץ הנחיות או תסריט (לדיוק מקסימלי),
+              כותבים הנחיה, הוראות או שאלות למומחים (אופציונלי) ולוחצים על אקשן !
+            </ModalSubtitle>
+          </ModalHeader>
+          <ModalTabs>
+            {regularTabs.map(tab => (
+              <ModalTab 
+                key={tab.id} 
+                $active={activeTab === tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  // Smooth scroll to top of content when switching tabs
+                  const modalBody = document.querySelector('[data-modal-body]');
+                  if (modalBody) {
+                    modalBody.scrollTop = 0;
+                  }
+                }}
+              >
+                {tab.label}
+              </ModalTab>
+            ))}
+          </ModalTabs>
+          
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            marginTop: '15px',
+            marginBottom: '15px'
+          }}>
             <ModalTab 
-              key={tab.id} 
-              $active={activeTab === tab.id}
+              $active={activeTab === premiumTab.id}
               onClick={() => {
-                setActiveTab(tab.id);
-                // Smooth scroll to top of content when switching tabs
+                setActiveTab(premiumTab.id);
                 const modalBody = document.querySelector('[data-modal-body]');
                 if (modalBody) {
                   modalBody.scrollTop = 0;
                 }
               }}
+              style={{
+                maxWidth: '400px',
+                width: '100%'
+              }}
             >
-              {tab.label}
+              {premiumTab.label}
             </ModalTab>
-          ))}
-        </ModalTabs>
-        
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          marginTop: '15px',
-          marginBottom: '15px'
-        }}>
-          <ModalTab 
-            $active={activeTab === premiumTab.id}
-            onClick={() => {
-              setActiveTab(premiumTab.id);
-              const modalBody = document.querySelector('[data-modal-body]');
-              if (modalBody) {
-                modalBody.scrollTop = 0;
-              }
-            }}
-            style={{
-              maxWidth: '400px',
-              width: '100%'
-            }}
-          >
-            {premiumTab.label}
-          </ModalTab>
-        </div>
+          </div>
 
-        <TrackDescriptionText>
-           {TRACK_DESCRIPTIONS[activeTab]}
-        </TrackDescriptionText>
+          <TrackDescriptionText>
+             {TRACK_DESCRIPTIONS[activeTab]}
+          </TrackDescriptionText>
+        </div>
         
-        <ModalBody data-modal-body>
+        <ModalBody data-modal-body style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
           {content[activeTab]?.map((item, idx) => (
              <ModalRow key={idx}>
                <ModalRole>{item.role}</ModalRole>
