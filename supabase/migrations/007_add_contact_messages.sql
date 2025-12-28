@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS public.contact_messages (
 -- Enable RLS on contact_messages
 ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policy if it exists (in case of re-running migration)
+DROP POLICY IF EXISTS "Anyone can insert contact messages" ON public.contact_messages;
+
 -- Everyone can insert contact messages (authenticated and anonymous users)
 CREATE POLICY "Anyone can insert contact messages"
     ON public.contact_messages
