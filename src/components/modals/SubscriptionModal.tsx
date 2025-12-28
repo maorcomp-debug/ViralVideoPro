@@ -304,7 +304,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactFormData, setContactFormData] = useState({ name: '', email: '', message: '' });
-  const [contactFormSubmitting, setContactFormSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -316,7 +315,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     onSelectPlan(tier, selectedPeriods[tier]);
   };
 
-  const handleContactSubmit = async () => {
+  const handleContactSubmit = () => {
     if (!contactFormData.name || !contactFormData.email || !contactFormData.message) {
       alert('נא למלא את כל השדות');
       return;
@@ -329,77 +328,20 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       return;
     }
     
-    setContactFormSubmitting(true);
+    // Open email client with pre-filled message
+    const subject = encodeURIComponent('הודעה מטופס יצירת קשר');
+    const body = encodeURIComponent(
+      `שלום,\n\nשם: ${contactFormData.name.trim()}\nאימייל: ${contactFormData.email.trim()}\n\nהודעה:\n${contactFormData.message.trim()}`
+    );
+    const mailtoLink = `mailto:viralypro@gmail.com?subject=${subject}&body=${body}`;
     
-    try {
-      // Import supabase dynamically
-      const { supabase } = await import('../../lib/supabase');
-      
-      // Insert contact message into database
-      const { data, error } = await supabase
-        .from('contact_messages')
-        .insert({
-          name: contactFormData.name.trim(),
-          email: contactFormData.email.trim().toLowerCase(),
-          message: contactFormData.message.trim(),
-          status: 'pending'
-        })
-        .select();
-      
-      if (error) {
-        console.error('Supabase error:', error);
-        // Check if table doesn't exist (404 error)
-        if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-          alert('הטבלה contact_messages עדיין לא נוצרה ב-database. אנא הרץ את ה-migration 007_add_contact_messages.sql ב-Supabase Dashboard > SQL Editor.');
-          throw new Error('Table contact_messages does not exist. Please run migration 007_add_contact_messages.sql');
-        }
-        throw error;
-      }
-      
-      // Send email to admin via Edge Function
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
-        
-        if (supabaseUrl && supabaseAnonKey) {
-          const functionUrl = `${supabaseUrl}/functions/v1/send-contact-email`;
-          
-          const emailResponse = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseAnonKey}`,
-            },
-            body: JSON.stringify({
-              name: contactFormData.name.trim(),
-              email: contactFormData.email.trim().toLowerCase(),
-              message: contactFormData.message.trim(),
-            }),
-          });
-          
-          if (!emailResponse.ok) {
-            console.error('Failed to send email notification:', await emailResponse.text());
-            // Don't fail the entire operation if email fails - message is already saved
-          }
-        }
-      } catch (emailError) {
-        console.error('Error sending email notification:', emailError);
-        // Don't fail the entire operation if email fails - message is already saved
-      }
-      
-      alert('ההודעה נשלחה בהצלחה! ניצור איתך קשר בהקדם.');
+    window.location.href = mailtoLink;
+    
+    // Reset form after opening email client
+    setTimeout(() => {
       setShowContactForm(false);
       setContactFormData({ name: '', email: '', message: '' });
-    } catch (error: any) {
-      console.error('Error sending contact message:', error);
-      if (error.message?.includes('does not exist')) {
-        alert('הטבלה contact_messages עדיין לא נוצרה. אנא הרץ את ה-migration 007_add_contact_messages.sql ב-Supabase Dashboard > SQL Editor.');
-      } else {
-        alert('אירעה שגיאה בשליחת ההודעה. אנא נסה שוב מאוחר יותר או שלח מייל ישירות ל-viralypro@gmail.com');
-      }
-    } finally {
-      setContactFormSubmitting(false);
-    }
+    }, 100);
   };
 
   const faqItems = [
@@ -837,9 +779,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   $popular={false}
                   $isFree={false}
                   style={{ flex: 1 }}
-                  disabled={contactFormSubmitting}
                 >
-                  {contactFormSubmitting ? 'שולח...' : 'שלח'}
+                  שלח
                 </SubscribeButton>
                 <SubscribeButton 
                   onClick={() => {
@@ -849,7 +790,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   $popular={false}
                   $isFree={true}
                   style={{ flex: 1 }}
-                  disabled={contactFormSubmitting}
                 >
                   ביטול
                 </SubscribeButton>
