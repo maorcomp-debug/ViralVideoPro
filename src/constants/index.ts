@@ -103,12 +103,13 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
   },
   'coach-pro': {
     id: 'coach-pro',
-    name: 'מאמנים, סוכנויות ובתי ספר למשחק PRO',
-    description: 'פלטפורמה מקצועית למאמנים וסטודיואים - גרסת PRO',
+    name: 'מאמנים, סוכנויות ובתי ספר למשחק',
+    nameSubtitle: 'גרסת ה PRO', // Subtitle to display below name
+    description: 'פלטפורמה מקצועית למאמנים וסטודיואים',
     monthlyPrice: 299,
     yearlyPrice: 2990, // ~2 months free
     limits: {
-      maxAnalysesPerPeriod: -1, // Unlimited
+      maxAnalysesPerPeriod: -1, // Will be hidden, not shown as "unlimited"
       maxVideoSeconds: 5 * 60, // 5 minutes
       maxFileBytes: 40 * 1024 * 1024, // 40MB
       maxVideoMinutesPerPeriod: 300, // 300 minutes per month

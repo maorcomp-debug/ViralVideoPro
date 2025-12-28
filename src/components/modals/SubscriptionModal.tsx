@@ -408,7 +408,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             
             const selectedPeriod = selectedPeriods[plan.id];
             const price = selectedPeriod === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
-            const analysesLimit = plan.limits.maxAnalysesPerPeriod === -1 
+            // For coach and coach-pro tiers, hide analyses limit (don't show "unlimited")
+            const analysesLimit = (plan.id === 'coach' || plan.id === 'coach-pro')
+              ? null // Don't show analyses limit for coach tiers
+              : plan.limits.maxAnalysesPerPeriod === -1 
               ? 'ללא הגבלה' 
               : plan.limits.maxAnalysesPerPeriod === 2
               ? `${plan.limits.maxAnalysesPerPeriod} ניתוחים בסך הכל`
@@ -445,12 +448,39 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 }}
               >
                 <PlanHeader>
-                  {plan.badge && (
-                    <PlanBadge $color={(plan.id === 'coach' || plan.id === 'coach-pro') ? '#D4A043' : undefined}>
-                      {plan.badge}
-                    </PlanBadge>
-                  )}
-                  <PlanName>{plan.name}</PlanName>
+                  <PlanName>
+                    {plan.name}
+                    {plan.nameSubtitle && (
+                      <div style={{ 
+                        fontSize: '1rem', 
+                        fontWeight: 700, 
+                        color: '#D4A043',
+                        marginTop: '5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                      }}>
+                        {plan.nameSubtitle}
+                        {plan.badge && (
+                          <PlanBadge $color="#FF8C00" style={{ 
+                            position: 'static',
+                            display: 'inline-block',
+                            fontSize: '0.85rem',
+                            padding: '3px 10px',
+                            verticalAlign: 'middle'
+                          }}>
+                            {plan.badge}
+                          </PlanBadge>
+                        )}
+                      </div>
+                    )}
+                    {!plan.nameSubtitle && plan.badge && plan.id !== 'coach-pro' && (
+                      <PlanBadge $color={(plan.id === 'coach') ? '#D4A043' : undefined}>
+                        {plan.badge}
+                      </PlanBadge>
+                    )}
+                  </PlanName>
                   <PlanDescription>{plan.description}</PlanDescription>
                 </PlanHeader>
 
@@ -496,9 +526,11 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 </PlanPrice>
 
                 <PlanLimits>
-                  <LimitText>
-                    <strong>{analysesLimit}</strong>
-                  </LimitText>
+                  {analysesLimit && (
+                    <LimitText>
+                      <strong>{analysesLimit}</strong>
+                    </LimitText>
+                  )}
                   <LimitText>
                     עד <strong>{durationText}</strong> או <strong>{maxMB}MB</strong>
                   </LimitText>

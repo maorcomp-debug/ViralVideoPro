@@ -93,6 +93,7 @@ export interface SubscriptionLimits {
 export interface SubscriptionPlan {
   id: SubscriptionTier;
   name: string;
+  nameSubtitle?: string; // Optional subtitle to display below name (e.g., "גרסת ה PRO")
   description: string;
   monthlyPrice: number;
   yearlyPrice: number;
