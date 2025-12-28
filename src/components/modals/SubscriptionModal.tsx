@@ -448,23 +448,38 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 }}
               >
                 <PlanHeader>
-                  <PlanName style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <PlanName>
                     {plan.name}
-                    {plan.badge && (
-                      <PlanBadge $color={plan.id === 'coach-pro' ? "#FF8C00" : (plan.id === 'coach' ? '#D4A043' : undefined)} style={{ 
+                  </PlanName>
+                  {plan.id === 'coach-pro' && plan.badge ? (
+                    <div style={{ 
+                      marginTop: '8px',
+                      marginBottom: '20px',
+                      textAlign: 'center'
+                    }}>
+                      <PlanBadge $color="#FF8C00" style={{ 
                         position: 'static',
                         display: 'inline-block',
-                        fontSize: plan.id === 'coach-pro' ? '0.85rem' : '0.75rem',
-                        padding: plan.id === 'coach-pro' ? '4px 12px' : '4px 12px',
+                        fontSize: '0.75rem',
+                        padding: '4px 12px',
                         verticalAlign: 'middle'
                       }}>
                         {plan.badge}
                       </PlanBadge>
-                    )}
-                  </PlanName>
-                  {plan.description && (
+                    </div>
+                  ) : plan.description ? (
                     <PlanDescription>{plan.description}</PlanDescription>
-                  )}
+                  ) : plan.badge && plan.id !== 'coach-pro' ? (
+                    <div style={{ 
+                      marginTop: '8px',
+                      marginBottom: '20px',
+                      textAlign: 'center'
+                    }}>
+                      <PlanBadge $color={(plan.id === 'coach') ? '#D4A043' : undefined}>
+                        {plan.badge}
+                      </PlanBadge>
+                    </div>
+                  ) : null}
                 </PlanHeader>
 
                 {plan.id !== 'free' && (
