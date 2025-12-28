@@ -393,8 +393,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
         <PricingPlansGrid>
           {(activeTrack === 'coach' 
-            ? [SUBSCRIPTION_PLANS.coach, SUBSCRIPTION_PLANS['coach-pro']] 
-            : Object.values(SUBSCRIPTION_PLANS).filter(p => p.id !== 'coach-pro')
+            ? (currentSubscription?.tier === 'coach'
+              ? [SUBSCRIPTION_PLANS['coach-pro']] // Only show PRO upgrade for coach users
+              : [SUBSCRIPTION_PLANS.coach, SUBSCRIPTION_PLANS['coach-pro']]) // Show both for non-coach users
+            : Object.values(SUBSCRIPTION_PLANS).filter(p => p.id !== 'coach-pro' && p.id !== 'coach')
           ).map(plan => {
             const isCurrentPlan = currentSubscription?.tier === plan.id;
             const isUpgrade = !currentSubscription || 
