@@ -29,7 +29,7 @@ CREATE POLICY "Admins can view contact messages"
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE profiles.user_id = auth.uid()
-            AND profiles.is_admin = true
+            AND profiles.role = 'admin'
         )
     );
 
@@ -40,7 +40,7 @@ CREATE POLICY "Admins can update contact messages"
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE profiles.user_id = auth.uid()
-            AND profiles.is_admin = true
+            AND profiles.role = 'admin'
         )
     );
 
