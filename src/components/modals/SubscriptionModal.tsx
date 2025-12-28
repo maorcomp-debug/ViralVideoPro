@@ -304,6 +304,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactFormData, setContactFormData] = useState({ name: '', email: '', message: '' });
+  const [contactFormSubmitting, setContactFormSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -315,7 +316,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     onSelectPlan(tier, selectedPeriods[tier]);
   };
 
-  const handleContactSubmit = () => {
+  const handleContactSubmit = async () => {
     if (!contactFormData.name || !contactFormData.email || !contactFormData.message) {
       alert('נא למלא את כל השדות');
       return;
@@ -328,30 +329,34 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       return;
     }
     
+    setContactFormSubmitting(true);
+    
     try {
-      const subject = encodeURIComponent('פנייה מ-Viraly Pro');
-      const body = encodeURIComponent(`שם: ${contactFormData.name}\nאימייל: ${contactFormData.email}\n\nהודעה:\n${contactFormData.message}`);
-      const mailtoLink = `mailto:viralypro@gmail.com?subject=${subject}&body=${body}`;
+      // Import supabase dynamically
+      const { supabase } = await import('../../lib/supabase');
       
-      // Try to open email client
-      const link = document.createElement('a');
-      link.href = mailtoLink;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Insert contact message into database
+      const { error } = await supabase
+        .from('contact_messages')
+        .insert({
+          name: contactFormData.name.trim(),
+          email: contactFormData.email.trim().toLowerCase(),
+          message: contactFormData.message.trim(),
+          status: 'pending'
+        });
       
-      // Fallback: also try window.location
-      setTimeout(() => {
-        window.location.href = mailtoLink;
-      }, 100);
+      if (error) {
+        throw error;
+      }
       
-      alert('תוכנת המייל שלך נפתחה. אנא שלח את ההודעה מ-viralypro@gmail.com');
+      alert('ההודעה נשלחה בהצלחה! ניצור איתך קשר בהקדם.');
       setShowContactForm(false);
       setContactFormData({ name: '', email: '', message: '' });
-    } catch (error) {
-      console.error('Error opening email client:', error);
-      alert('אירעה שגיאה בפתיחת תוכנת המייל. נא לשלוח מייל ידנית ל-viralypro@gmail.com');
+    } catch (error: any) {
+      console.error('Error sending contact message:', error);
+      alert('אירעה שגיאה בשליחת ההודעה. אנא נסה שוב מאוחר יותר או שלח מייל ישירות ל-viralypro@gmail.com');
+    } finally {
+      setContactFormSubmitting(false);
     }
   };
 
@@ -790,8 +795,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   $popular={false}
                   $isFree={false}
                   style={{ flex: 1 }}
+                  disabled={contactFormSubmitting}
                 >
-                  שלח
+                  {contactFormSubmitting ? 'שולח...' : 'שלח'}
                 </SubscribeButton>
                 <SubscribeButton 
                   onClick={() => {
@@ -801,6 +807,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   $popular={false}
                   $isFree={true}
                   style={{ flex: 1 }}
+                  disabled={contactFormSubmitting}
                 >
                   ביטול
                 </SubscribeButton>
