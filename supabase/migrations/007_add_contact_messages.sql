@@ -24,7 +24,6 @@ DROP POLICY IF EXISTS "Anyone can insert contact messages" ON public.contact_mes
 CREATE POLICY "Anyone can insert contact messages"
     ON public.contact_messages
     FOR INSERT
-    TO public
     WITH CHECK (true);
 
 -- Only admins can view contact messages
