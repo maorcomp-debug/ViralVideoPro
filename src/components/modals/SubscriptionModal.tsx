@@ -299,6 +299,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     creator: 'monthly',
     pro: 'monthly',
     coach: 'monthly',
+    'coach-pro': 'monthly',
   });
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showContactForm, setShowContactForm] = useState(false);
@@ -392,15 +393,16 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
         <PricingPlansGrid>
           {(activeTrack === 'coach' 
-            ? [SUBSCRIPTION_PLANS.coach] 
-            : Object.values(SUBSCRIPTION_PLANS)
+            ? [SUBSCRIPTION_PLANS.coach, SUBSCRIPTION_PLANS['coach-pro']] 
+            : Object.values(SUBSCRIPTION_PLANS).filter(p => p.id !== 'coach-pro')
           ).map(plan => {
             const isCurrentPlan = currentSubscription?.tier === plan.id;
             const isUpgrade = !currentSubscription || 
               (currentSubscription.tier === 'free' && plan.id !== 'free') ||
               (currentSubscription.tier === 'creator' && plan.id === 'pro') ||
-              (currentSubscription.tier === 'creator' && plan.id === 'coach') ||
-              (currentSubscription.tier === 'pro' && plan.id === 'coach');
+              (currentSubscription.tier === 'creator' && (plan.id === 'coach' || plan.id === 'coach-pro')) ||
+              (currentSubscription.tier === 'pro' && (plan.id === 'coach' || plan.id === 'coach-pro')) ||
+              (currentSubscription.tier === 'coach' && plan.id === 'coach-pro');
             
             const selectedPeriod = selectedPeriods[plan.id];
             const price = selectedPeriod === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
@@ -417,6 +419,18 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             const durationText = maxSeconds >= 60 
               ? `${Math.floor(maxSeconds / 60)} דקות`
               : `${maxSeconds} שניות`;
+            
+            // Monthly video minutes limit
+            const videoMinutesLimit = plan.limits.maxVideoMinutesPerPeriod > 0
+              ? `${plan.limits.maxVideoMinutesPerPeriod} דקות בחודש`
+              : null;
+            
+            // Max trainees (for coach tiers)
+            const maxTraineesText = plan.limits.maxTrainees !== undefined
+              ? plan.limits.maxTrainees === -1
+                ? 'ללא הגבלה'
+                : `עד ${plan.limits.maxTrainees} מתאמנים`
+              : null;
 
             return (
               <PricingPlanCard 
@@ -430,7 +444,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               >
                 <PlanHeader>
                   {plan.badge && (
-                    <PlanBadge $color={plan.id === 'coach' ? '#D4A043' : undefined}>
+                    <PlanBadge $color={(plan.id === 'coach' || plan.id === 'coach-pro') ? '#D4A043' : undefined}>
                       {plan.badge}
                     </PlanBadge>
                   )}
@@ -486,6 +500,16 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   <LimitText>
                     עד <strong>{durationText}</strong> או <strong>{maxMB}MB</strong>
                   </LimitText>
+                  {videoMinutesLimit && (
+                    <LimitText>
+                      <strong>{videoMinutesLimit}</strong>
+                    </LimitText>
+                  )}
+                  {maxTraineesText && (
+                    <LimitText>
+                      <strong>{maxTraineesText}</strong>
+                    </LimitText>
+                  )}
                 </PlanLimits>
 
                 <PlanFeatures>
@@ -504,7 +528,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   <PlanFeature $disabled={!plan.limits.features.pdfExport}>
                     יצוא PDF
                   </PlanFeature>
-                  {plan.id === 'coach' && (
+                  {(plan.id === 'coach' || plan.id === 'coach-pro') && (
                     <>
                       <PlanFeature $disabled={!plan.limits.features.traineeManagement}>
                         ניהול מתאמנים

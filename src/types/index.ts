@@ -69,13 +69,15 @@ export interface CoachReport {
 }
 
 // --- Subscription & Pricing Types ---
-export type SubscriptionTier = 'free' | 'creator' | 'pro' | 'coach';
+export type SubscriptionTier = 'free' | 'creator' | 'pro' | 'coach' | 'coach-pro';
 export type BillingPeriod = 'monthly' | 'yearly';
 
 export interface SubscriptionLimits {
   maxAnalysesPerPeriod: number; // -1 for unlimited
   maxVideoSeconds: number;
   maxFileBytes: number;
+  maxVideoMinutesPerPeriod: number; // -1 for unlimited
+  maxTrainees?: number; // -1 for unlimited, only for coach tiers
   features: {
     saveHistory: boolean;
     improvementTracking: boolean;

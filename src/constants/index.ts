@@ -16,6 +16,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
       maxAnalysesPerPeriod: 2, // 2 analyses per month
       maxVideoSeconds: 60, // 1 minute
       maxFileBytes: 10 * 1024 * 1024, // 10MB
+      maxVideoMinutesPerPeriod: 0, // No monthly limit for free tier (only per video limit)
       features: {
         saveHistory: false,
         improvementTracking: false,
@@ -39,6 +40,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
       maxAnalysesPerPeriod: 10,
       maxVideoSeconds: 3 * 60, // 3 minutes
       maxFileBytes: 15 * 1024 * 1024, // 15MB
+      maxVideoMinutesPerPeriod: 30, // 30 minutes per month
       features: {
         saveHistory: true,
         improvementTracking: true,
@@ -62,6 +64,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
       maxAnalysesPerPeriod: 30,
       maxVideoSeconds: 5 * 60, // 5 minutes
       maxFileBytes: 40 * 1024 * 1024, // 40MB
+      maxVideoMinutesPerPeriod: 100, // 100 minutes per month
       features: {
         saveHistory: true,
         improvementTracking: true,
@@ -84,6 +87,32 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
       maxAnalysesPerPeriod: -1, // Unlimited
       maxVideoSeconds: 5 * 60, // 5 minutes
       maxFileBytes: 40 * 1024 * 1024, // 40MB
+      maxVideoMinutesPerPeriod: 200, // 200 minutes per month
+      maxTrainees: 10, // Up to 10 trainees
+      features: {
+        saveHistory: true,
+        improvementTracking: true,
+        comparison: true,
+        advancedAnalysis: true,
+        traineeManagement: true,
+        pdfExport: true,
+        coachDashboard: true,
+        customExperts: true,
+      },
+    },
+  },
+  'coach-pro': {
+    id: 'coach-pro',
+    name: 'מאמנים, סוכנויות ובתי ספר למשחק PRO',
+    description: 'פלטפורמה מקצועית למאמנים וסטודיואים - גרסת PRO',
+    monthlyPrice: 299,
+    yearlyPrice: 2990, // ~2 months free
+    limits: {
+      maxAnalysesPerPeriod: -1, // Unlimited
+      maxVideoSeconds: 5 * 60, // 5 minutes
+      maxFileBytes: 40 * 1024 * 1024, // 40MB
+      maxVideoMinutesPerPeriod: 300, // 300 minutes per month
+      maxTrainees: 30, // Up to 30 trainees
       features: {
         saveHistory: true,
         improvementTracking: true,
