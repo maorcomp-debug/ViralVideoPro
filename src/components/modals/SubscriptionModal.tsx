@@ -664,109 +664,25 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           }}>
             שאלות נוספות או צורך בביטול?
           </h3>
-          <p style={{ color: '#ccc', marginBottom: '20px' }}>
-            פנה אלינו במייל: <a href="mailto:viralypro@gmail.com" style={{ color: '#D4A043' }}>viralypro@gmail.com</a>
-          </p>
           {!showContactForm ? (
-            <SubscribeButton 
-              onClick={() => setShowContactForm(true)}
-              $popular={false}
-              $isFree={false}
-              style={{ maxWidth: '300px', margin: '0 auto' }}
-            >
-              שלח לנו הודעה
-            </SubscribeButton>
+            <>
+              <p style={{ color: '#ccc', marginBottom: '20px' }}>
+                יש לך שאלות? שלח לנו הודעה ונחזור אליך בהקדם
+              </p>
+              <SubscribeButton 
+                onClick={() => setShowContactForm(true)}
+                $popular={false}
+                $isFree={false}
+                style={{ maxWidth: '300px', margin: '0 auto' }}
+              >
+                שלח הודעה
+              </SubscribeButton>
+            </>
           ) : (
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              padding: '25px',
-              borderRadius: '10px',
-              maxWidth: '500px',
-              margin: '0 auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '15px'
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>שם מלא</label>
-                <input
-                  type="text"
-                  placeholder="שם מלא"
-                  value={contactFormData.name}
-                  onChange={(e) => setContactFormData({ ...contactFormData, name: e.target.value })}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(212, 160, 67, 0.3)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#fff',
-                    fontSize: '1rem',
-                    direction: 'rtl',
-                    textAlign: 'right'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>אימייל</label>
-                <input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={contactFormData.email}
-                  onChange={(e) => setContactFormData({ ...contactFormData, email: e.target.value })}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(212, 160, 67, 0.3)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#fff',
-                    fontSize: '1rem',
-                    direction: 'ltr',
-                    textAlign: 'left'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right' }}>הודעה</label>
-                <textarea
-                  placeholder="הודעה"
-                  value={contactFormData.message}
-                  onChange={(e) => setContactFormData({ ...contactFormData, message: e.target.value })}
-                  rows={5}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(212, 160, 67, 0.3)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#fff',
-                    fontSize: '1rem',
-                    direction: 'rtl',
-                    textAlign: 'right',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <SubscribeButton 
-                  onClick={handleContactSubmit}
-                  $popular={false}
-                  $isFree={false}
-                  style={{ flex: 1 }}
-                >
-                  שלח
-                </SubscribeButton>
-                <SubscribeButton 
-                  onClick={() => {
-                    setShowContactForm(false);
-                    setContactFormData({ name: '', email: '', message: '' });
-                  }}
-                  $popular={false}
-                  $isFree={true}
-                  style={{ flex: 1 }}
-                >
-                  ביטול
-                </SubscribeButton>
-              </div>
-            </div>
+            <ContactForm 
+              onClose={() => setShowContactForm(false)}
+              sourceUrl={`${window.location.origin}/subscription`}
+            />
           )}
         </div>
       </SubscriptionModalContent>
