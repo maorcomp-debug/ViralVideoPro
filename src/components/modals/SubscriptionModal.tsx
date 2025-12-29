@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import type { SubscriptionTier, BillingPeriod, TrackId, UserSubscription } from '../../types';
 import { SUBSCRIPTION_PLANS } from '../../constants';
 import { fadeIn } from '../../styles/globalStyles';
+import { ContactForm } from './ContactForm';
 
 // --- Subscription Modal Styled Components ---
 const SubscriptionModalOverlay = styled.div<{ $isOpen: boolean }>`
@@ -303,7 +304,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   });
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showContactForm, setShowContactForm] = useState(false);
-  const [contactFormData, setContactFormData] = useState({ name: '', email: '', message: '' });
 
   if (!isOpen) return null;
 
@@ -315,34 +315,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     onSelectPlan(tier, selectedPeriods[tier]);
   };
 
-  const handleContactSubmit = () => {
-    if (!contactFormData.name || !contactFormData.email || !contactFormData.message) {
-      alert('נא למלא את כל השדות');
-      return;
-    }
-    
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(contactFormData.email)) {
-      alert('נא להזין כתובת אימייל תקינה');
-      return;
-    }
-    
-    // Open email client with pre-filled message
-    const subject = encodeURIComponent('הודעה מטופס יצירת קשר');
-    const body = encodeURIComponent(
-      `שלום,\n\nשם: ${contactFormData.name.trim()}\nאימייל: ${contactFormData.email.trim()}\n\nהודעה:\n${contactFormData.message.trim()}`
-    );
-    const mailtoLink = `mailto:viralypro@gmail.com?subject=${subject}&body=${body}`;
-    
-    window.location.href = mailtoLink;
-    
-    // Reset form after opening email client
-    setTimeout(() => {
-      setShowContactForm(false);
-      setContactFormData({ name: '', email: '', message: '' });
-    }, 100);
-  };
 
   const faqItems = [
     {
