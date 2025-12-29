@@ -16,9 +16,23 @@ interface ContactRequest {
 function getRateLimitKey(req: VercelRequest): string {
   // Use IP address for rate limiting
   const forwarded = req.headers['x-forwarded-for'];
-  const ip = typeof forwarded === 'string' 
-    ? forwarded.split(',')[0].trim() 
-    : req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown';
+  let ip: string;
+  
+  if (typeof forwarded === 'string') {
+    ip = forwarded.split(',')[0].trim();
+  } else if (Array.isArray(forwarded)) {
+    ip = forwarded[0] || 'unknown';
+  } else {
+    const realIp = req.headers['x-real-ip'];
+    if (typeof realIp === 'string') {
+      ip = realIp;
+    } else if (Array.isArray(realIp)) {
+      ip = realIp[0] || 'unknown';
+    } else {
+      ip = req.socket.remoteAddress || 'unknown';
+    }
+  }
+  
   return ip;
 }
 
