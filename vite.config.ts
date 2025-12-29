@@ -21,9 +21,24 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
+        chunkSizeWarningLimit: 1000, // Increase warning limit to 1MB (default is 500KB)
         rollupOptions: {
           output: {
-            manualChunks: undefined,
+            manualChunks: (id) => {
+              // Split node_modules into separate chunks
+              if (id.includes('node_modules')) {
+                if (id.includes('@supabase')) {
+                  return 'vendor-supabase';
+                }
+                if (id.includes('react') || id.includes('react-dom')) {
+                  return 'vendor-react';
+                }
+                if (id.includes('styled-components')) {
+                  return 'vendor-styled';
+                }
+                return 'vendor';
+              }
+            },
           },
         },
       },
