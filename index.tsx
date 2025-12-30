@@ -13,6 +13,7 @@ import { CoachGuideModal } from './src/components/modals/CoachGuideModal';
 import { TrackSelectionModal } from './src/components/modals/TrackSelectionModal';
 import { PackageSelectionModal } from './src/components/modals/PackageSelectionModal';
 import { UpgradeBenefitsModal } from './src/components/modals/UpgradeBenefitsModal';
+import { TakbullPaymentModal } from './src/components/modals/TakbullPaymentModal';
 import { AppContainer, Header } from './src/styles/components';
 import {
   ModalOverlay,
@@ -2347,6 +2348,9 @@ const App = () => {
   const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
   const [showPackageSelectionModal, setShowPackageSelectionModal] = useState(false);
   const [pendingSubscriptionTier, setPendingSubscriptionTier] = useState<SubscriptionTier | null>(null);
+  const [showTakbullPayment, setShowTakbullPayment] = useState(false);
+  const [takbullPaymentUrl, setTakbullPaymentUrl] = useState<string>('');
+  const [takbullOrderReference, setTakbullOrderReference] = useState<string>('');
   const [hasShownPackageModal, setHasShownPackageModal] = useState(false);
   const [showUpgradeBenefitsModal, setShowUpgradeBenefitsModal] = useState(false);
   const [upgradeFromTier, setUpgradeFromTier] = useState<SubscriptionTier>('free');
@@ -2614,7 +2618,87 @@ const App = () => {
     }
 
     try {
-      // Get plan from database
+      // If free tier, update directly without payment
+      if (tier === 'free') {
+        // Get plan from database
+        const { data: planData, error: planError } = await supabase
+          .from('plans')
+          .select('*')
+          .eq('tier', tier)
+          .single();
+
+        if (planError || !planData) {
+          throw new Error('Plan not found');
+        }
+
+        const now = new Date();
+        const endDate = new Date(now);
+        endDate.setFullYear(endDate.getFullYear() + 1);
+
+        // Update profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            subscription_tier: tier,
+            subscription_period: period,
+            subscription_start_date: now.toISOString(),
+            subscription_end_date: endDate.toISOString(),
+            subscription_status: 'active',
+          })
+          .eq('user_id', user.id);
+
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+          throw profileError;
+        }
+
+        // Save subscription to Supabase
+        const { error: subError } = await supabase
+          .from('subscriptions')
+          .upsert({
+            user_id: user.id,
+            plan_id: planData.id,
+            status: 'active',
+            billing_period: period,
+            start_date: now.toISOString(),
+            end_date: endDate.toISOString(),
+          }, {
+            onConflict: 'user_id,plan_id',
+          });
+
+        if (subError) {
+          console.warn('Warning: Subscription table update failed:', subError);
+        }
+
+        // Update local state
+        const newSubscription: UserSubscription = {
+          tier,
+          billingPeriod: period,
+          startDate: now,
+          endDate,
+          usage: {
+            analysesUsed: subscription?.usage.analysesUsed || 0,
+            lastResetDate: now,
+          },
+          isActive: true,
+        };
+
+        setSubscription(newSubscription);
+        setShowSubscriptionModal(false);
+        
+        // Reload user data
+        if (user) {
+          setTimeout(async () => {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (currentUser && currentUser.id === user.id) {
+              await loadUserData(currentUser);
+            }
+          }, 500);
+        }
+        return;
+      }
+
+      // For paid tiers, initiate payment through Takbull
       const { data: planData, error: planError } = await supabase
         .from('plans')
         .select('*')
@@ -2625,95 +2709,35 @@ const App = () => {
         throw new Error('Plan not found');
       }
 
-      const now = new Date();
-      const endDate = new Date(now);
-      
-      if (tier === 'free') {
-        endDate.setFullYear(endDate.getFullYear() + 1);
-      } else if (period === 'monthly') {
-        endDate.setMonth(endDate.getMonth() + 1);
-      } else {
-        endDate.setFullYear(endDate.getFullYear() + 1);
-      }
-
-      // Update profile first (this is critical for the app to work)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          subscription_tier: tier,
-          subscription_period: period,
-          subscription_start_date: now.toISOString(),
-          subscription_end_date: endDate.toISOString(),
-          subscription_status: 'active',
-        })
-        .eq('user_id', user.id);
-
-      if (profileError) {
-        console.error('Error updating profile:', profileError);
-        throw profileError;
-      }
-
-      // Save subscription to Supabase (this is secondary, non-critical if it fails)
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .upsert({
-          user_id: user.id,
-          plan_id: planData.id,
-          status: 'active',
-          billing_period: period,
-          start_date: now.toISOString(),
-          end_date: endDate.toISOString(),
-        }, {
-          onConflict: 'user_id,plan_id',
-        });
-
-      if (subError) {
-        console.warn('Warning: Subscription table update failed (profile was updated successfully):', subError);
-        // Don't throw - profile was updated successfully, subscription table is secondary
-      }
-
-      // Update local state
-      const newSubscription: UserSubscription = {
-        tier,
-        billingPeriod: period,
-        startDate: now,
-        endDate,
-        usage: {
-          analysesUsed: subscription?.usage.analysesUsed || 0,
-          lastResetDate: now,
+      // Call Takbull init-order API
+      const response = await fetch('/api/takbull/init-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        isActive: true,
-      };
+        body: JSON.stringify({
+          userId: user.id,
+          subscriptionTier: tier,
+          billingPeriod: period,
+          planId: planData.id,
+        }),
+      });
 
-      // Check if this is an upgrade (not just setting initial subscription)
-      const oldTier = subscription?.tier || 'free';
-      const isUpgrade = subscription && subscription.tier !== tier;
-      
-      setSubscription(newSubscription);
-      setShowSubscriptionModal(false);
-      
-      // Reload user data after a short delay to ensure DB update
-      if (user) {
-        setTimeout(async () => {
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          if (currentUser && currentUser.id === user.id) {
-            await loadUserData(currentUser);
-            
-            // Get updated profile for the modal
-            const updatedProfile = await getCurrentUserProfile();
-            
-            // Show upgrade benefits modal if this is an upgrade
-            if (isUpgrade && oldTier !== tier) {
-              setUpgradeFromTier(oldTier);
-              setUpgradeToTier(tier);
-              setShowUpgradeBenefitsModal(true);
-            }
-          }
-        }, 500);
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Failed to initialize payment');
       }
-    } catch (error) {
-      console.error('Error saving subscription:', error);
-      alert('אירעה שגיאה בשמירת המנוי. נסה שוב.');
+
+      // Open Takbull payment modal
+      setTakbullPaymentUrl(data.paymentUrl);
+      setTakbullOrderReference(data.orderReference);
+      setShowTakbullPayment(true);
+      setShowSubscriptionModal(false);
+
+    } catch (error: any) {
+      console.error('Error in handleSelectPlan:', error);
+      alert(error.message || 'אירעה שגיאה בהתחלת תהליך התשלום. נסה שוב.');
     }
   };
 
@@ -4143,6 +4167,37 @@ const App = () => {
           onSelectPlan={handleSelectPlan}
           activeTrack={activeTrack}
         />
+        <TakbullPaymentModal
+          isOpen={showTakbullPayment}
+          onClose={() => {
+            setShowTakbullPayment(false);
+            if (user) {
+              setTimeout(async () => {
+                const { data: { user: currentUser } } = await supabase.auth.getUser();
+                if (currentUser && currentUser.id === user.id) {
+                  await loadUserData(currentUser);
+                }
+              }, 1000);
+            }
+          }}
+          paymentUrl={takbullPaymentUrl}
+          orderReference={takbullOrderReference}
+          onSuccess={() => {
+            setShowTakbullPayment(false);
+            if (user) {
+              setTimeout(async () => {
+                const { data: { user: currentUser } } = await supabase.auth.getUser();
+                if (currentUser && currentUser.id === user.id) {
+                  await loadUserData(currentUser);
+                }
+              }, 1000);
+            }
+          }}
+          onError={(error) => {
+            console.error('Payment error:', error);
+            alert(`שגיאה בתשלום: ${error}`);
+          }}
+        />
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
@@ -4863,6 +4918,40 @@ const App = () => {
         currentSubscription={subscription}
         onSelectPlan={handleSelectPlan}
         activeTrack={activeTrack}
+      />
+      
+      <TakbullPaymentModal
+        isOpen={showTakbullPayment}
+        onClose={() => {
+          setShowTakbullPayment(false);
+          // Reload user data to check if payment was successful
+          if (user) {
+            setTimeout(async () => {
+              const { data: { user: currentUser } } = await supabase.auth.getUser();
+              if (currentUser && currentUser.id === user.id) {
+                await loadUserData(currentUser);
+              }
+            }, 1000);
+          }
+        }}
+        paymentUrl={takbullPaymentUrl}
+        orderReference={takbullOrderReference}
+        onSuccess={() => {
+          setShowTakbullPayment(false);
+          // Reload user data
+          if (user) {
+            setTimeout(async () => {
+              const { data: { user: currentUser } } = await supabase.auth.getUser();
+              if (currentUser && currentUser.id === user.id) {
+                await loadUserData(currentUser);
+              }
+            }, 1000);
+          }
+        }}
+        onError={(error) => {
+          console.error('Payment error:', error);
+          alert(`שגיאה בתשלום: ${error}`);
+        }}
       />
       
       <AuthModal
