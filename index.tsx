@@ -2617,9 +2617,14 @@ const App = () => {
       return;
     }
 
-    try {
-      // If free tier, update directly without payment
-      if (tier === 'free') {
+    // Check if this is a paid tier (not free)
+    const isPaidTier = tier !== 'free';
+    
+    // For paid tiers, ALWAYS go through payment gateway - never update directly
+    if (isPaidTier) {
+      try {
+        console.log('💰 Paid tier selected, initiating payment through Takbull...');
+        
         // Get plan from database
         const { data: planData, error: planError } = await supabase
           .from('plans')
@@ -2631,74 +2636,62 @@ const App = () => {
           throw new Error('Plan not found');
         }
 
-        const now = new Date();
-        const endDate = new Date(now);
-        endDate.setFullYear(endDate.getFullYear() + 1);
-
-        // Update profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            subscription_tier: tier,
-            subscription_period: period,
-            subscription_start_date: now.toISOString(),
-            subscription_end_date: endDate.toISOString(),
-            subscription_status: 'active',
-          })
-          .eq('user_id', user.id);
-
-        if (profileError) {
-          console.error('Error updating profile:', profileError);
-          throw profileError;
-        }
-
-        // Save subscription to Supabase
-        const { error: subError } = await supabase
-          .from('subscriptions')
-          .upsert({
-            user_id: user.id,
-            plan_id: planData.id,
-            status: 'active',
-            billing_period: period,
-            start_date: now.toISOString(),
-            end_date: endDate.toISOString(),
-          }, {
-            onConflict: 'user_id,plan_id',
-          });
-
-        if (subError) {
-          console.warn('Warning: Subscription table update failed:', subError);
-        }
-
-        // Update local state
-        const newSubscription: UserSubscription = {
-          tier,
-          billingPeriod: period,
-          startDate: now,
-          endDate,
-          usage: {
-            analysesUsed: subscription?.usage.analysesUsed || 0,
-            lastResetDate: now,
+        // Call Takbull init-order API
+        console.log('📞 Calling Takbull API...');
+        const response = await fetch('/api/takbull/init-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-          isActive: true,
-        };
+          body: JSON.stringify({
+            userId: user.id,
+            subscriptionTier: tier,
+            billingPeriod: period,
+            planId: planData.id,
+          }),
+        });
 
-        setSubscription(newSubscription);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Takbull API error:', response.status, errorText);
+          throw new Error(`שגיאה בחיבור למערכת התשלומים: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.ok) {
+          console.error('❌ Takbull API returned error:', data);
+          throw new Error(data.error || 'שגיאה בהתחלת תהליך התשלום');
+        }
+
+        if (!data.paymentUrl) {
+          console.error('❌ No payment URL returned:', data);
+          throw new Error('לא התקבל קישור תשלום מהמערכת');
+        }
+
+        console.log('✅ Payment URL received, opening payment modal...');
+        
+        // Open Takbull payment modal
+        setTakbullPaymentUrl(data.paymentUrl);
+        setTakbullOrderReference(data.orderReference);
+        setShowTakbullPayment(true);
         setShowSubscriptionModal(false);
         
-        // Reload user data
-        if (user) {
-          setTimeout(async () => {
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
-            if (currentUser && currentUser.id === user.id) {
-              await loadUserData(currentUser);
-            }
-          }, 500);
-        }
+        return; // IMPORTANT: Exit here, don't update subscription directly!
+
+      } catch (error: any) {
+        console.error('❌ Error in handleSelectPlan (paid tier):', error);
+        alert(error.message || 'אירעה שגיאה בהתחלת תהליך התשלום. נסה שוב.');
+        // DO NOT update subscription directly - payment is required!
         return;
       }
+    }
 
-      // For paid tiers, initiate payment through Takbull
+    // Only for FREE tier - update directly without payment
+    try {
+      console.log('🆓 Free tier selected, updating directly...');
+      
+      // Get plan from database
       const { data: planData, error: planError } = await supabase
         .from('plans')
         .select('*')
@@ -2709,35 +2702,73 @@ const App = () => {
         throw new Error('Plan not found');
       }
 
-      // Call Takbull init-order API
-      const response = await fetch('/api/takbull/init-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          subscriptionTier: tier,
-          billingPeriod: period,
-          planId: planData.id,
-        }),
-      });
+      const now = new Date();
+      const endDate = new Date(now);
+      endDate.setFullYear(endDate.getFullYear() + 1);
 
-      const data = await response.json();
+      // Update profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          subscription_tier: tier,
+          subscription_period: period,
+          subscription_start_date: now.toISOString(),
+          subscription_end_date: endDate.toISOString(),
+          subscription_status: 'active',
+        })
+        .eq('user_id', user.id);
 
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || 'Failed to initialize payment');
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw profileError;
       }
 
-      // Open Takbull payment modal
-      setTakbullPaymentUrl(data.paymentUrl);
-      setTakbullOrderReference(data.orderReference);
-      setShowTakbullPayment(true);
-      setShowSubscriptionModal(false);
+      // Save subscription to Supabase
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .upsert({
+          user_id: user.id,
+          plan_id: planData.id,
+          status: 'active',
+          billing_period: period,
+          start_date: now.toISOString(),
+          end_date: endDate.toISOString(),
+        }, {
+          onConflict: 'user_id,plan_id',
+        });
 
+      if (subError) {
+        console.warn('Warning: Subscription table update failed:', subError);
+      }
+
+      // Update local state
+      const newSubscription: UserSubscription = {
+        tier,
+        billingPeriod: period,
+        startDate: now,
+        endDate,
+        usage: {
+          analysesUsed: subscription?.usage.analysesUsed || 0,
+          lastResetDate: now,
+        },
+        isActive: true,
+      };
+
+      setSubscription(newSubscription);
+      setShowSubscriptionModal(false);
+      
+      // Reload user data
+      if (user) {
+        setTimeout(async () => {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (currentUser && currentUser.id === user.id) {
+            await loadUserData(currentUser);
+          }
+        }, 500);
+      }
     } catch (error: any) {
-      console.error('Error in handleSelectPlan:', error);
-      alert(error.message || 'אירעה שגיאה בהתחלת תהליך התשלום. נסה שוב.');
+      console.error('Error saving subscription (free tier):', error);
+      alert('אירעה שגיאה בשמירת המנוי. נסה שוב.');
     }
   };
 
