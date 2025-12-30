@@ -6,7 +6,9 @@
 ### 2. RLS Policies (Row Level Security) ✅
 ### 3. Indexes לביצועים ✅
 ### 4. הפונקציה `update_updated_at_column` ✅
-### 5. Service Role Key נכון ✅
+### 5. Secret Key (או Legacy service_role) נכון ✅
+
+**הערה:** Supabase עודכן לממשק חדש. אם אתה רואה "API Keys" עם "Secret keys" - זה הממשק החדש. אם אתה רואה "Project API keys" עם "service_role" - זה הממשק הישן. שני המפתחות עובדים!
 
 ---
 
@@ -161,28 +163,37 @@
 
 ---
 
-## 📋 שלב 5: בדיקת Service Role Key
+## 📋 שלב 5: בדיקת Secret Key (Service Role)
 
 ### למה זה חשוב:
-ה-API endpoint משתמש ב-Service Role Key כדי לגשת ל-Supabase עם הרשאות מלאות (למשל, ליצור orders).
+ה-API endpoint משתמש ב-Secret Key כדי לגשת ל-Supabase עם הרשאות מלאות (למשל, ליצור orders).
 
 ### איך לבדוק:
 
 1. **לך ל-Supabase Dashboard:**
-   - Settings > API
+   - בתפריט השמאלי → לחץ על "Project Settings" (או "Settings")
+   - לחץ על "API Keys" (או "API")
 
-2. **תחת "Project API keys":**
-   - **anon public** - זה לא זה! (זה ל-frontend)
-   - **service_role** - זה מה שאתה צריך! (זה ל-backend/API)
+2. **תחת "Secret keys":**
+   - תראה טבלה עם "NAME" ו-"API KEY"
+   - מצא את השורה עם NAME: "default"
+   - ה-API KEY יהיה מוסתר עם כוכביות: `sb_secret_MLDso••••••••••••`
 
-3. **העתק את ה-service_role key:**
-   - לחץ על "Reveal" ליד service_role
-   - העתק את המפתח (מפתח ארוך שמתחיל ב-`eyJ...`)
+3. **העתק את ה-Secret Key:**
+   - לחץ על אייקון העין (👁️) ליד ה-API KEY כדי לחשוף אותו
+   - או לחץ על אייקון העתקה (📋) כדי להעתיק
+   - המפתח יתחיל ב-`sb_secret_` (זה המפתח החדש של Supabase)
 
-4. **וודא שהוא מוגדר ב-Vercel:**
+4. **אם אתה רואה גם "Legacy anon, service_role API keys":**
+   - לחץ על הטאב "Legacy anon, service_role API keys"
+   - מצא את "service_role" key
+   - העתק את המפתח (מתחיל ב-`eyJ...`)
+
+5. **וודא שהוא מוגדר ב-Vercel:**
    - Vercel Dashboard > Settings > Environment Variables
    - חפש `SUPABASE_SERVICE_ROLE_KEY`
    - וודא שהערך תואם למה שראית ב-Supabase
+   - **חשוב:** אם יש לך Secret Key חדש (`sb_secret_...`), השתמש בו. אם יש לך רק Legacy service_role (`eyJ...`), השתמש בו.
 
 ---
 
