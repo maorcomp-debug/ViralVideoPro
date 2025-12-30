@@ -152,10 +152,8 @@ export default async function handler(
     }
 
     // Prepare request to Takbull API
-    // Note: Check Takbull API docs for exact payload format
+    // Try multiple authentication methods as different APIs use different formats
     const takbullPayload: any = {
-      API_Key: takbullApiKey,
-      API_Secret: takbullApiSecret,
       DealType: 4, // Subscription
       OrderReference: orderReference,
       Amount: amount,
@@ -187,20 +185,68 @@ export default async function handler(
       Language: takbullPayload.Language,
       Recurring: takbullPayload.Recurring,
       NumberOfPayments: takbullPayload.NumberOfPayments,
+      FullPayload: JSON.stringify(takbullPayload),
     });
 
     // Call Takbull API
+    // Try method 1: API keys in body (original method)
     let takbullResponse;
     try {
+      const takbullPayloadWithKeys = {
+        ...takbullPayload,
+        API_Key: takbullApiKey,
+        API_Secret: takbullApiSecret,
+      };
+
+      console.log('📤 Attempting Takbull API call with keys in body...');
+      
       takbullResponse = await fetch('https://api.takbull.co.il/api/ExtranalAPI/GetTakbullPaymentPageRedirectUrl', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(takbullPayload),
+        body: JSON.stringify(takbullPayloadWithKeys),
       });
 
       console.log('📥 Takbull API response status:', takbullResponse.status, takbullResponse.statusText);
+
+      // If 401, try method 2: API keys in headers
+      if (takbullResponse.status === 401) {
+        console.log('⚠️ 401 Unauthorized with keys in body, trying keys in headers...');
+        
+        takbullResponse = await fetch('https://api.takbull.co.il/api/ExtranalAPI/GetTakbullPaymentPageRedirectUrl', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'API_Key': takbullApiKey || '',
+            'API_Secret': takbullApiSecret || '',
+          },
+          body: JSON.stringify(takbullPayload),
+        });
+
+        console.log('📥 Takbull API response status (headers method):', takbullResponse.status, takbullResponse.statusText);
+      }
+
+      // If still 401, try method 3: Basic Auth
+      if (takbullResponse.status === 401) {
+        console.log('⚠️ 401 Unauthorized with headers, trying Basic Auth...');
+        
+        const basicAuth = Buffer.from(`${takbullApiKey}:${takbullApiSecret}`).toString('base64');
+        
+        takbullResponse = await fetch('https://api.takbull.co.il/api/ExtranalAPI/GetTakbullPaymentPageRedirectUrl', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Basic ${basicAuth}`,
+          },
+          body: JSON.stringify(takbullPayloadWithKeys),
+        });
+
+        console.log('📥 Takbull API response status (Basic Auth):', takbullResponse.status, takbullResponse.statusText);
+      }
     } catch (fetchError: any) {
       console.error('❌ Error calling Takbull API:', fetchError);
       // Update order status to failed
