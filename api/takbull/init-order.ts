@@ -98,15 +98,31 @@ export default async function handler(
     }
 
     // Calculate amount based on billing period
-    const { data: plan } = await supabase
+    const { data: plan, error: planFetchError } = await supabase
       .from('plans')
       .select('monthly_price, yearly_price')
       .eq('id', planId)
       .single();
 
+    if (planFetchError || !plan) {
+      console.error('❌ Error fetching plan:', planFetchError);
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'Plan not found' 
+      });
+    }
+
     const amount = body.billingPeriod === 'monthly' 
       ? plan.monthly_price 
       : plan.yearly_price;
+
+    console.log('💰 Plan details:', {
+      planId,
+      billingPeriod: body.billingPeriod,
+      monthlyPrice: plan.monthly_price,
+      yearlyPrice: plan.yearly_price,
+      amount,
+    });
 
     // Generate unique order reference
     const orderReference = `VRL-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
@@ -150,29 +166,68 @@ export default async function handler(
       NumberOfPayments: body.billingPeriod === 'yearly' ? 12 : 1, // For yearly, split into 12 monthly payments
     };
 
-    // Call Takbull API
-    const takbullResponse = await fetch('https://api.takbull.co.il/api/ExtranalAPI/GetTakbullPaymentPageRedirectUrl', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(takbullPayload),
+    console.log('📤 Calling Takbull API with payload:', {
+      API_Key: takbullApiKey ? `${takbullApiKey.substring(0, 10)}...` : 'MISSING',
+      API_Secret: takbullApiSecret ? '***' : 'MISSING',
+      DealType: takbullPayload.DealType,
+      OrderReference: takbullPayload.OrderReference,
+      Amount: takbullPayload.Amount,
+      RedirectAddress: takbullPayload.RedirectAddress,
+      Currency: takbullPayload.Currency,
+      Language: takbullPayload.Language,
+      Recurring: takbullPayload.Recurring,
+      NumberOfPayments: takbullPayload.NumberOfPayments,
     });
 
-    if (!takbullResponse.ok) {
-      console.error('Takbull API error:', takbullResponse.status);
+    // Call Takbull API
+    let takbullResponse;
+    try {
+      takbullResponse = await fetch('https://api.takbull.co.il/api/ExtranalAPI/GetTakbullPaymentPageRedirectUrl', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(takbullPayload),
+      });
+
+      console.log('📥 Takbull API response status:', takbullResponse.status, takbullResponse.statusText);
+    } catch (fetchError: any) {
+      console.error('❌ Error calling Takbull API:', fetchError);
       // Update order status to failed
       await supabase
         .from('takbull_orders')
         .update({ 
           order_status: 'failed',
-          error_message: `Takbull API error: ${takbullResponse.status}`
+          error_message: `Network error: ${fetchError.message}`
         })
         .eq('id', order.id);
 
       return res.status(500).json({ 
         ok: false, 
-        error: 'Failed to initialize payment' 
+        error: `Network error connecting to payment gateway: ${fetchError.message}` 
+      });
+    }
+
+    if (!takbullResponse.ok) {
+      const errorText = await takbullResponse.text();
+      console.error('❌ Takbull API error:', {
+        status: takbullResponse.status,
+        statusText: takbullResponse.statusText,
+        body: errorText,
+      });
+      
+      // Update order status to failed
+      await supabase
+        .from('takbull_orders')
+        .update({ 
+          order_status: 'failed',
+          error_message: `Takbull API error: ${takbullResponse.status} - ${errorText}`
+        })
+        .eq('id', order.id);
+
+      return res.status(500).json({ 
+        ok: false, 
+        error: `Payment gateway error: ${takbullResponse.status} - ${errorText}` 
       });
     }
 
