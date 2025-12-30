@@ -44,19 +44,34 @@ export default async function handler(
     const takbullApiSecret = process.env.TAKBULL_API_SECRET;
     const redirectUrl = process.env.TAKBULL_REDIRECT_URL || `${req.headers.origin || 'https://viraly.co.il'}/order-received`;
 
+    // Debug logging (don't log secrets in production)
+    console.log('🔍 Environment check:', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseServiceKey: !!supabaseServiceKey,
+      hasTakbullApiKey: !!takbullApiKey,
+      hasTakbullApiSecret: !!takbullApiSecret,
+      redirectUrl,
+    });
+
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase credentials not configured');
+      console.error('❌ Supabase credentials not configured:', {
+        hasSupabaseUrl: !!supabaseUrl,
+        hasSupabaseServiceKey: !!supabaseServiceKey,
+      });
       return res.status(500).json({ 
         ok: false, 
-        error: 'Server configuration error' 
+        error: 'Server configuration error: Supabase credentials missing. Please check Vercel environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY' 
       });
     }
 
     if (!takbullApiKey || !takbullApiSecret) {
-      console.error('Takbull API credentials not configured');
+      console.error('❌ Takbull API credentials not configured:', {
+        hasTakbullApiKey: !!takbullApiKey,
+        hasTakbullApiSecret: !!takbullApiSecret,
+      });
       return res.status(500).json({ 
         ok: false, 
-        error: 'Payment gateway not configured' 
+        error: 'Payment gateway not configured: Takbull API credentials missing. Please check Vercel environment variables: TAKBULL_API_KEY and TAKBULL_API_SECRET' 
       });
     }
 
@@ -162,6 +177,12 @@ export default async function handler(
     }
 
     const takbullData = await takbullResponse.json();
+    
+    console.log('📥 Takbull API response:', {
+      responseCode: takbullData.responseCode,
+      hasUrl: !!(takbullData.url || takbullData.redirectUrl),
+      message: takbullData.message,
+    });
 
     // Update order with Takbull response
     await supabase
@@ -174,18 +195,30 @@ export default async function handler(
       .eq('id', order.id);
 
     if (takbullData.responseCode !== 0) {
+      console.error('❌ Takbull API returned error:', takbullData);
       return res.status(400).json({ 
         ok: false, 
         error: takbullData.message || 'Failed to initialize payment' 
       });
     }
 
+    const paymentUrl = takbullData.url || takbullData.redirectUrl;
+    if (!paymentUrl) {
+      console.error('❌ No payment URL in Takbull response:', takbullData);
+      return res.status(500).json({ 
+        ok: false, 
+        error: 'No payment URL received from Takbull' 
+      });
+    }
+
+    console.log('✅ Payment URL received successfully');
+
     // Return success with payment URL
     return res.status(200).json({
       ok: true,
       orderId: order.id,
       orderReference: orderReference,
-      paymentUrl: takbullData.url || takbullData.redirectUrl,
+      paymentUrl: paymentUrl,
       uniqId: takbullData.uniqId,
     });
 
