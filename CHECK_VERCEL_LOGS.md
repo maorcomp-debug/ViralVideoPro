@@ -190,12 +190,22 @@ Vercel Dashboard
 
 ---
 
-## 🎯 סיכום:
+## 🎯 סיכום - דרך מהירה:
 
-1. **Vercel Dashboard > Functions > api/takbull/init-order**
-2. **לחץ על ה-Invocation האחרון**
-3. **קרא את ה-Logs** - תראה בדיוק מה השגיאה
-4. **תקן לפי ההוראות למעלה**
+1. **Vercel Dashboard > Deployments**
+2. **לחץ על ה-Deployment האחרון** (הכי למעלה ברשימה)
+3. **גלול למטה** → חפש "Functions" או "Serverless Functions"
+4. **לחץ על `api/takbull/init-order`**
+5. **קרא את ה-Logs** - תראה בדיוק מה השגיאה
+6. **תקן לפי ההוראות למעלה**
 
 **זה הכל! 🎉**
+
+---
+
+## 💡 אם אתה לא רואה Functions:
+
+- נסה דרך **"Logs"** בתפריט העליון
+- סנן לפי **"Function"** ו-`api/takbull/init-order`
+- בחר זמן: **"Today"** או **"Last hour"**
 
