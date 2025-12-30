@@ -152,7 +152,8 @@ export default async function handler(
     }
 
     // Prepare request to Takbull API
-    const takbullPayload = {
+    // Note: Check Takbull API docs for exact payload format
+    const takbullPayload: any = {
       API_Key: takbullApiKey,
       API_Secret: takbullApiSecret,
       DealType: 4, // Subscription
@@ -161,10 +162,19 @@ export default async function handler(
       RedirectAddress: redirectUrl,
       Currency: 'ILS',
       Language: 'he',
-      // Additional subscription parameters
-      Recurring: true,
-      NumberOfPayments: body.billingPeriod === 'yearly' ? 12 : 1, // For yearly, split into 12 monthly payments
     };
+
+    // Add subscription parameters if needed (check Takbull docs)
+    // Some APIs might not support these fields or require different format
+    if (body.billingPeriod === 'yearly') {
+      // For yearly subscriptions, you might need to handle differently
+      // Check Takbull API docs for recurring payment setup
+      takbullPayload.Recurring = true;
+      takbullPayload.NumberOfPayments = 12; // 12 monthly payments
+    } else {
+      takbullPayload.Recurring = true;
+      takbullPayload.NumberOfPayments = 1;
+    }
 
     console.log('📤 Calling Takbull API with payload:', {
       API_Key: takbullApiKey ? `${takbullApiKey.substring(0, 10)}...` : 'MISSING',
