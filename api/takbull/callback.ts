@@ -146,6 +146,20 @@ export default async function handler(
       });
     }
 
+    // Get old profile before update (for upgrade modal)
+    let oldTier: string = 'free';
+    if (isSuccess) {
+      const { data: oldProfile } = await supabase
+        .from('profiles')
+        .select('subscription_tier')
+        .eq('user_id', order.user_id)
+        .single();
+      
+      oldTier = oldProfile?.subscription_tier || 'free';
+      console.log('📊 Old subscription tier:', oldTier);
+      console.log('📊 New subscription tier:', order.subscription_tier);
+    }
+
     // If payment successful, process subscription
     if (isSuccess) {
       try {
@@ -206,33 +220,24 @@ export default async function handler(
               next_payment_date: nextPaymentDate.toISOString()
             })
             .eq('id', order.id);
+        }
 
-          // Update user profile
-          const { data: oldProfile, error: profileFetchError } = await supabase
-            .from('profiles')
-            .select('subscription_tier')
-            .eq('user_id', order.user_id)
-            .single();
+        // Update user profile
+        const { error: profileUpdateError } = await supabase
+          .from('profiles')
+          .update({
+            subscription_tier: order.subscription_tier,
+            subscription_period: order.billing_period,
+            subscription_start_date: startDate.toISOString(),
+            subscription_end_date: endDate.toISOString(),
+            subscription_status: 'active',
+          })
+          .eq('user_id', order.user_id);
 
-          console.log('📊 Old subscription tier:', oldProfile?.subscription_tier);
-          console.log('📊 New subscription tier:', order.subscription_tier);
-
-          const { error: profileUpdateError } = await supabase
-            .from('profiles')
-            .update({
-              subscription_tier: order.subscription_tier,
-              subscription_period: order.billing_period,
-              subscription_start_date: startDate.toISOString(),
-              subscription_end_date: endDate.toISOString(),
-              subscription_status: 'active',
-            })
-            .eq('user_id', order.user_id);
-
-          if (profileUpdateError) {
-            console.error('❌ Error updating profile:', profileUpdateError);
-          } else {
-            console.log('✅ Profile updated successfully');
-          }
+        if (profileUpdateError) {
+          console.error('❌ Error updating profile:', profileUpdateError);
+        } else {
+          console.log('✅ Profile updated successfully');
         }
       } catch (error: any) {
         console.error('Error processing subscription:', error);
@@ -246,7 +251,7 @@ export default async function handler(
       success: isSuccess,
       orderId: order.id,
       orderReference: orderReference,
-      oldTier: oldProfile?.subscription_tier || 'free',
+      oldTier: oldTier,
       newTier: order.subscription_tier,
       message: isSuccess ? 'Payment processed successfully' : 'Payment failed',
     });
