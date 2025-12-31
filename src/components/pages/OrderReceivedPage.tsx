@@ -150,10 +150,14 @@ export const OrderReceivedPage: React.FC = () => {
             setStatus('success');
             setMessage('תשלומך התקבל בהצלחה! המנוי שלך עודכן.');
             
+            // Redirect to home with upgrade parameter to show UpgradeBenefitsModal
+            const oldTier = result.oldTier || 'free';
+            const newTier = result.newTier || order.subscription_tier;
+            
             // Reload user data after a short delay
             setTimeout(() => {
-              window.location.href = '/';
-            }, 3000);
+              window.location.href = `/?upgrade=success&from=${oldTier}&to=${newTier}`;
+            }, 2000);
           } else {
             setStatus('error');
             setMessage('התשלום נכשל');

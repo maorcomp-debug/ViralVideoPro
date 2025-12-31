@@ -208,7 +208,16 @@ export default async function handler(
             .eq('id', order.id);
 
           // Update user profile
-          await supabase
+          const { data: oldProfile, error: profileFetchError } = await supabase
+            .from('profiles')
+            .select('subscription_tier')
+            .eq('user_id', order.user_id)
+            .single();
+
+          console.log('📊 Old subscription tier:', oldProfile?.subscription_tier);
+          console.log('📊 New subscription tier:', order.subscription_tier);
+
+          const { error: profileUpdateError } = await supabase
             .from('profiles')
             .update({
               subscription_tier: order.subscription_tier,
@@ -218,6 +227,12 @@ export default async function handler(
               subscription_status: 'active',
             })
             .eq('user_id', order.user_id);
+
+          if (profileUpdateError) {
+            console.error('❌ Error updating profile:', profileUpdateError);
+          } else {
+            console.log('✅ Profile updated successfully');
+          }
         }
       } catch (error: any) {
         console.error('Error processing subscription:', error);
@@ -231,6 +246,8 @@ export default async function handler(
       success: isSuccess,
       orderId: order.id,
       orderReference: orderReference,
+      oldTier: oldProfile?.subscription_tier || 'free',
+      newTier: order.subscription_tier,
       message: isSuccess ? 'Payment processed successfully' : 'Payment failed',
     });
 
