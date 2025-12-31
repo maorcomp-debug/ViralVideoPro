@@ -484,14 +484,82 @@ export async function updateUserProfile(userId: string, updates: {
   selected_tracks?: string[];
   selected_primary_track?: string;
 }) {
-  const { error } = await supabase
+  // Update profile
+  const { error: profileError } = await supabase
     .from('profiles')
     .update(updates)
     .eq('user_id', userId);
 
-  if (error) {
-    console.error('Error updating user profile:', error);
-    throw error;
+  if (profileError) {
+    console.error('Error updating user profile:', profileError);
+    throw profileError;
+  }
+
+  // If subscription_tier is being updated, also update/delete subscriptions table
+  if (updates.subscription_tier !== undefined) {
+    const newTier = updates.subscription_tier;
+    
+    // Get the plan_id for the new tier
+    const { data: plan, error: planError } = await supabase
+      .from('plans')
+      .select('id')
+      .eq('tier', newTier)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (planError) {
+      console.error('Error fetching plan:', planError);
+      // Don't throw - profile update succeeded, subscription update is secondary
+    }
+
+    if (newTier === 'free') {
+      // For free tier, delete all active subscriptions
+      const { error: deleteError } = await supabase
+        .from('subscriptions')
+        .update({ status: 'cancelled' })
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      if (deleteError) {
+        console.error('Error cancelling subscriptions:', deleteError);
+        // Don't throw - profile update succeeded
+      }
+    } else if (plan) {
+      // For paid tiers, update or create subscription
+      const startDate = updates.subscription_start_date 
+        ? new Date(updates.subscription_start_date)
+        : new Date();
+      
+      const endDate = updates.subscription_end_date
+        ? new Date(updates.subscription_end_date)
+        : (() => {
+            const end = new Date(startDate);
+            if (updates.subscription_period === 'yearly') {
+              end.setFullYear(end.getFullYear() + 1);
+            } else {
+              end.setMonth(end.getMonth() + 1);
+            }
+            return end;
+          })();
+
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .upsert({
+          user_id: userId,
+          plan_id: plan.id,
+          status: updates.subscription_status === 'active' ? 'active' : 'inactive',
+          billing_period: (updates.subscription_period as 'monthly' | 'yearly') || 'monthly',
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+        }, {
+          onConflict: 'user_id,plan_id',
+        });
+
+      if (subError) {
+        console.error('Error updating subscription:', subError);
+        // Don't throw - profile update succeeded
+      }
+    }
   }
 }
 
