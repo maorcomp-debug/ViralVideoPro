@@ -302,58 +302,68 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   // Determine what benefits are new
   const benefits: string[] = [];
   
-  // Check if tracks increased
-  const oldMaxTracks = oldTier === 'free' ? 1 : oldTier === 'creator' ? 2 : 4;
-  const newMaxTracks = newTier === 'free' ? 1 : newTier === 'creator' ? 2 : 4;
+  // Special handling for coach -> coach-pro upgrade
+  const isCoachToCoachPro = oldTier === 'coach' && newTier === 'coach-pro';
   
-  if (newMaxTracks > oldMaxTracks) {
-    benefits.push(`🎯 יותר תחומי ניתוח: מ-${oldMaxTracks} ל-${newMaxTracks} תחומים`);
-  }
-  
-  // Check if analyses increased
-  const oldAnalyses = oldPlan.limits.maxAnalysesPerPeriod;
-  const newAnalyses = newPlan.limits.maxAnalysesPerPeriod;
-  if (newAnalyses > oldAnalyses && oldAnalyses !== -1) {
-    benefits.push(`📊 יותר ניתוחים: מ-${oldAnalyses} ל-${newAnalyses === -1 ? 'ללא הגבלה' : newAnalyses} ניתוחים`);
-  }
-  
-  // Check if video duration increased
-  const oldDuration = oldPlan.limits.maxVideoSeconds;
-  const newDuration = newPlan.limits.maxVideoSeconds;
-  if (newDuration > oldDuration) {
-    const oldMin = Math.floor(oldDuration / 60);
-    const newMin = Math.floor(newDuration / 60);
-    benefits.push(`⏱️ סרטונים ארוכים יותר: מ-${oldMin} דקות ל-${newMin} דקות`);
-  }
-  
-  // Check if file size increased
-  const oldMB = oldPlan.limits.maxFileBytes / (1024 * 1024);
-  const newMB = newPlan.limits.maxFileBytes / (1024 * 1024);
-  if (newMB > oldMB) {
-    benefits.push(`💾 קבצים גדולים יותר: מ-${oldMB}MB ל-${newMB}MB`);
-  }
-  
-  // Check new features
-  if (!oldPlan.limits.features.saveHistory && newPlan.limits.features.saveHistory) {
-    benefits.push('💾 שמירת היסטוריית ניתוחים');
-  }
-  if (!oldPlan.limits.features.improvementTracking && newPlan.limits.features.improvementTracking) {
-    benefits.push('📈 מעקב שיפור לאורך זמן');
-  }
-  if (!oldPlan.limits.features.comparison && newPlan.limits.features.comparison) {
-    benefits.push('🔄 השוואה בין סרטונים');
-  }
-  if (!oldPlan.limits.features.advancedAnalysis && newPlan.limits.features.advancedAnalysis) {
-    benefits.push('🔬 ניתוח מתקדם ומפורט יותר');
-  }
-  if (!oldPlan.limits.features.pdfExport && newPlan.limits.features.pdfExport) {
-    benefits.push('📄 יצוא ניתוחים ל-PDF');
-  }
-  if (!oldPlan.limits.features.traineeManagement && newPlan.limits.features.traineeManagement) {
-    benefits.push('👥 ניהול מתאמנים');
-  }
-  if (!oldPlan.limits.features.coachDashboard && newPlan.limits.features.coachDashboard) {
-    benefits.push('📊 דשבורד מאמן מתקדם');
+  if (isCoachToCoachPro) {
+    // For coach-pro upgrade, show specific benefits (simple format)
+    benefits.push('👥 יותר מתאמנים');
+    benefits.push('⏱️ יותר דקות ניתוח');
+  } else {
+    // Standard benefits logic for other upgrades
+    // Check if tracks increased
+    const oldMaxTracks = oldTier === 'free' ? 1 : oldTier === 'creator' ? 2 : 4;
+    const newMaxTracks = newTier === 'free' ? 1 : newTier === 'creator' ? 2 : 4;
+    
+    if (newMaxTracks > oldMaxTracks) {
+      benefits.push(`🎯 יותר תחומי ניתוח: מ-${oldMaxTracks} ל-${newMaxTracks} תחומים`);
+    }
+    
+    // Check if analyses increased
+    const oldAnalyses = oldPlan.limits.maxAnalysesPerPeriod;
+    const newAnalyses = newPlan.limits.maxAnalysesPerPeriod;
+    if (newAnalyses > oldAnalyses && oldAnalyses !== -1) {
+      benefits.push(`📊 יותר ניתוחים: מ-${oldAnalyses} ל-${newAnalyses === -1 ? 'ללא הגבלה' : newAnalyses} ניתוחים`);
+    }
+    
+    // Check if video duration increased
+    const oldDuration = oldPlan.limits.maxVideoSeconds;
+    const newDuration = newPlan.limits.maxVideoSeconds;
+    if (newDuration > oldDuration) {
+      const oldMin = Math.floor(oldDuration / 60);
+      const newMin = Math.floor(newDuration / 60);
+      benefits.push(`⏱️ סרטונים ארוכים יותר: מ-${oldMin} דקות ל-${newMin} דקות`);
+    }
+    
+    // Check if file size increased
+    const oldMB = oldPlan.limits.maxFileBytes / (1024 * 1024);
+    const newMB = newPlan.limits.maxFileBytes / (1024 * 1024);
+    if (newMB > oldMB) {
+      benefits.push(`💾 קבצים גדולים יותר: מ-${oldMB}MB ל-${newMB}MB`);
+    }
+    
+    // Check new features
+    if (!oldPlan.limits.features.saveHistory && newPlan.limits.features.saveHistory) {
+      benefits.push('💾 שמירת היסטוריית ניתוחים');
+    }
+    if (!oldPlan.limits.features.improvementTracking && newPlan.limits.features.improvementTracking) {
+      benefits.push('📈 מעקב שיפור לאורך זמן');
+    }
+    if (!oldPlan.limits.features.comparison && newPlan.limits.features.comparison) {
+      benefits.push('🔄 השוואה בין סרטונים');
+    }
+    if (!oldPlan.limits.features.advancedAnalysis && newPlan.limits.features.advancedAnalysis) {
+      benefits.push('🔬 ניתוח מתקדם ומפורט יותר');
+    }
+    if (!oldPlan.limits.features.pdfExport && newPlan.limits.features.pdfExport) {
+      benefits.push('📄 יצוא ניתוחים ל-PDF');
+    }
+    if (!oldPlan.limits.features.traineeManagement && newPlan.limits.features.traineeManagement) {
+      benefits.push('👥 ניהול מתאמנים');
+    }
+    if (!oldPlan.limits.features.coachDashboard && newPlan.limits.features.coachDashboard) {
+      benefits.push('📊 דשבורד מאמן מתקדם');
+    }
   }
 
   // Show track selection if upgrading from free to creator
@@ -389,16 +399,40 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
       <ModalContent onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
           <h2>🎉 מזל טוב! שדרגת בהצלחה</h2>
-          <p>
-            החבילה שלך עודכנה ל-<strong style={{ color: '#D4A043' }}>{newPlan.name}</strong>
-          </p>
+          {isCoachToCoachPro ? (
+            <>
+              <p>
+                החבילה שלך עודכנה ל-<strong style={{ color: '#D4A043' }}>מאמנים, סוכנויות ובתי ספר למשחק</strong>
+              </p>
+              <p style={{ color: '#D4A043', fontSize: '1.4rem', fontWeight: 700, marginTop: '10px' }}>
+                בגרסת הפרו
+              </p>
+            </>
+          ) : (
+            <p>
+              החבילה שלך עודכנה ל-<strong style={{ color: '#D4A043' }}>{newPlan.name}</strong>
+            </p>
+          )}
         </ModalHeader>
 
         <BenefitsList>
           <h3 style={{ color: '#D4A043', margin: '0 0 20px 0', fontSize: '1.3rem', textAlign: 'right' }}>
             האופציות החדשות שנפתחו בפניך:
           </h3>
-          {benefits.length > 0 ? (
+          {isCoachToCoachPro ? (
+            <>
+              {benefits.map((benefit, index) => (
+                <BenefitItem key={index}>
+                  <span className="icon">✓</span>
+                  <span className="text">{benefit}</span>
+                </BenefitItem>
+              ))}
+              <BenefitItem>
+                <span className="icon">✓</span>
+                <span className="text">כל התכונות של מאמנים, סוכנויות ובתי ספר למשחק זמינות לך כעת!</span>
+              </BenefitItem>
+            </>
+          ) : benefits.length > 0 ? (
             benefits.map((benefit, index) => (
               <BenefitItem key={index}>
                 <span className="icon">✓</span>
