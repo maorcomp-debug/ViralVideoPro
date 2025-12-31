@@ -159,6 +159,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const getTierDisplayName = (tier: string) => {
+    if (tier === 'coach-pro') {
+      return 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
+    }
     return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.name || tier;
   };
 
