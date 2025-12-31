@@ -147,18 +147,48 @@ export default async function handler(
       }
     }
 
-    if (orderError || !order) {
+    // If still not found, try to find by searching recent pending orders
+    // This is a fallback when Takbull ordernumber doesn't match our order_reference
+    if (!order) {
+      console.log('⚠️ Order not found by any direct method, trying fallback search...');
+      console.log('🔍 Searching for recent pending orders (within last 2 hours)...');
+      
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const result = await supabase
+        .from('takbull_orders')
+        .select('*')
+        .eq('order_status', 'pending')
+        .gte('created_at', twoHoursAgo)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (result.data && result.data.length > 0) {
+        console.log(`🔍 Found ${result.data.length} recent pending orders`);
+        // Take the most recent one
+        order = result.data[0];
+        console.log('✅ Using most recent pending order as fallback:', {
+          orderId: order.id,
+          orderReference: order.order_reference,
+          createdAt: order.created_at,
+        });
+      } else {
+        console.log('❌ No recent pending orders found');
+      }
+    }
+
+    if (!order) {
       console.error('❌ Order not found:', {
         searchedBy: {
           order_reference: params.order_reference,
           ordernumber: params.ordernumber,
           transactionInternalNumber: params.transactionInternalNumber,
+          uniqId: params.uniqId,
         },
         error: orderError,
       });
       return res.status(404).json({ 
         ok: false, 
-        error: `Order not found. Searched by: order_reference=${params.order_reference}, ordernumber=${params.ordernumber}, transactionInternalNumber=${params.transactionInternalNumber}` 
+        error: `Order not found. Searched by: order_reference=${params.order_reference}, ordernumber=${params.ordernumber}, transactionInternalNumber=${params.transactionInternalNumber}, uniqId=${params.uniqId}` 
       });
     }
 
