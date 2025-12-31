@@ -2775,17 +2775,27 @@ const App = () => {
     if (isPaidTier) {
       try {
         console.log('💰 Paid tier selected, initiating payment through Takbull...');
+        console.log('🔍 Looking for plan with tier:', tier);
         
         // Get plan from database
         const { data: planData, error: planError } = await supabase
           .from('plans')
           .select('*')
           .eq('tier', tier)
+          .eq('is_active', true)
           .single();
 
-        if (planError || !planData) {
-          throw new Error('Plan not found');
+        if (planError) {
+          console.error('❌ Error fetching plan:', planError);
+          throw new Error(`שגיאה בטעינת תוכנית: ${planError.message || 'Plan not found'}`);
         }
+
+        if (!planData) {
+          console.error('❌ Plan not found for tier:', tier);
+          throw new Error(`תוכנית לא נמצאה: ${tier}`);
+        }
+
+        console.log('✅ Plan found:', { id: planData.id, name: planData.name, price: planData.monthly_price });
 
         // Call Takbull init-order API
         console.log('📞 Calling Takbull API...');
