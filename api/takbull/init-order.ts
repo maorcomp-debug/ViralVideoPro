@@ -295,15 +295,18 @@ export default async function handler(
       message: takbullData.message,
     });
 
-    // Update order with Takbull response
+    // Update order with Takbull response (including uniqId for future lookup)
     await supabase
       .from('takbull_orders')
       .update({ 
         takbull_response: takbullData,
+        uniq_id: takbullData.uniqId || null, // Store uniqId for callback lookup
         order_status: takbullData.responseCode === 0 ? 'processing' : 'failed',
         error_message: takbullData.responseCode !== 0 ? takbullData.message : null
       })
       .eq('id', order.id);
+    
+    console.log('✅ Order updated with Takbull response, uniqId:', takbullData.uniqId);
 
     if (takbullData.responseCode !== 0) {
       console.error('❌ Takbull API returned error:', takbullData);
