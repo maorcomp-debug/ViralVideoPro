@@ -8,15 +8,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Check environment variables
-    const supabaseUrl = process.env.SUPABASE_URL;
+    // Check environment variables (try both VITE_ and non-VITE_ prefixes for compatibility)
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('❌ Missing Supabase environment variables');
+      console.error('SUPABASE_URL:', supabaseUrl ? 'Found' : 'Missing');
+      console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'Found' : 'Missing');
       return res.status(500).json({ 
         ok: false, 
-        error: 'Server configuration error: Missing Supabase credentials' 
+        error: 'Server configuration error: Missing Supabase credentials. Please check Vercel environment variables: SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY' 
       });
     }
 
