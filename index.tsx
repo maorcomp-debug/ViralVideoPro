@@ -2599,52 +2599,31 @@ const App = () => {
     if (upgradeParam === 'success' && fromTier && toTier && fromTier !== toTier) {
       console.log('🎉 Upgrade detected, showing UpgradeBenefitsModal:', { fromTier, toTier, hasUser: !!user, hasProfile: !!profile });
       
-      // If user and profile are available, reload data first
-      if (user && profile) {
+      // Set the tiers immediately
+      setUpgradeFromTier(fromTier);
+      setUpgradeToTier(toTier);
+      
+      // If user is available, reload data first (but don't wait for profile)
+      if (user) {
         loadUserData(user).then(() => {
-          console.log('✅ User data reloaded, opening UpgradeBenefitsModal');
-          // Small delay to ensure data is loaded
-          setTimeout(() => {
-            setUpgradeFromTier(fromTier);
-            setUpgradeToTier(toTier);
-            setShowUpgradeBenefitsModal(true);
-            
-            // Remove parameters from URL
-            const newSearchParams = new URLSearchParams(location.search);
-            newSearchParams.delete('upgrade');
-            newSearchParams.delete('from');
-            newSearchParams.delete('to');
-            const newSearch = newSearchParams.toString();
-            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
-          }, 500);
+          console.log('✅ User data reloaded');
         }).catch((error) => {
           console.error('❌ Error reloading user data:', error);
-          // Even if reload fails, show the modal
-          setUpgradeFromTier(fromTier);
-          setUpgradeToTier(toTier);
-          setShowUpgradeBenefitsModal(true);
         });
-      } else {
-        // If user/profile not loaded yet, wait a bit and try again
-        console.log('⏳ Waiting for user/profile to load...');
-        setTimeout(() => {
-          if (user && profile) {
-            setUpgradeFromTier(fromTier);
-            setUpgradeToTier(toTier);
-            setShowUpgradeBenefitsModal(true);
-            
-            // Remove parameters from URL
-            const newSearchParams = new URLSearchParams(location.search);
-            newSearchParams.delete('upgrade');
-            newSearchParams.delete('from');
-            newSearchParams.delete('to');
-            const newSearch = newSearchParams.toString();
-            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
-          } else {
-            console.log('⚠️ User/profile still not loaded after timeout');
-          }
-        }, 2000);
       }
+      
+      // Open modal immediately (don't wait for profile)
+      console.log('✅ Opening UpgradeBenefitsModal immediately');
+      setShowUpgradeBenefitsModal(true);
+      
+      // Remove parameters from URL
+      const newSearchParams = new URLSearchParams(location.search);
+      newSearchParams.delete('upgrade');
+      newSearchParams.delete('from');
+      newSearchParams.delete('to');
+      const newSearch = newSearchParams.toString();
+      navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
+      
     } else if (upgradeParam === 'success') {
       console.log('⚠️ Upgrade param found but conditions not met:', {
         hasFromTier: !!fromTier,
