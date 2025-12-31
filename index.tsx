@@ -2596,11 +2596,11 @@ const App = () => {
       locationSearch: location.search,
     });
     
-    if (upgradeParam === 'success' && fromTier && toTier && fromTier !== toTier && user && profile) {
-      console.log('🎉 Upgrade detected, showing UpgradeBenefitsModal:', { fromTier, toTier });
+    if (upgradeParam === 'success' && fromTier && toTier && fromTier !== toTier) {
+      console.log('🎉 Upgrade detected, showing UpgradeBenefitsModal:', { fromTier, toTier, hasUser: !!user, hasProfile: !!profile });
       
-      // Reload user data first to get updated subscription
-      if (user) {
+      // If user and profile are available, reload data first
+      if (user && profile) {
         loadUserData(user).then(() => {
           console.log('✅ User data reloaded, opening UpgradeBenefitsModal');
           // Small delay to ensure data is loaded
@@ -2619,7 +2619,31 @@ const App = () => {
           }, 500);
         }).catch((error) => {
           console.error('❌ Error reloading user data:', error);
+          // Even if reload fails, show the modal
+          setUpgradeFromTier(fromTier);
+          setUpgradeToTier(toTier);
+          setShowUpgradeBenefitsModal(true);
         });
+      } else {
+        // If user/profile not loaded yet, wait a bit and try again
+        console.log('⏳ Waiting for user/profile to load...');
+        setTimeout(() => {
+          if (user && profile) {
+            setUpgradeFromTier(fromTier);
+            setUpgradeToTier(toTier);
+            setShowUpgradeBenefitsModal(true);
+            
+            // Remove parameters from URL
+            const newSearchParams = new URLSearchParams(location.search);
+            newSearchParams.delete('upgrade');
+            newSearchParams.delete('from');
+            newSearchParams.delete('to');
+            const newSearch = newSearchParams.toString();
+            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
+          } else {
+            console.log('⚠️ User/profile still not loaded after timeout');
+          }
+        }, 2000);
       }
     } else if (upgradeParam === 'success') {
       console.log('⚠️ Upgrade param found but conditions not met:', {
