@@ -157,26 +157,54 @@ const TracksGrid = styled.div`
   margin-top: 20px;
 `;
 
-const TrackCard = styled.div<{ $selected: boolean }>`
-  background: ${props => props.$selected 
-    ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.2), rgba(212, 160, 67, 0.1))' 
-    : 'rgba(26, 26, 26, 0.8)'};
-  border: 2px solid ${props => props.$selected ? '#D4A043' : 'rgba(212, 160, 67, 0.3)'};
+const TrackCard = styled.div<{ $selected: boolean; $included?: boolean; $disabled?: boolean }>`
+  background: ${props => {
+    if (props.$included) return 'linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.1))';
+    if (props.$selected) return 'linear-gradient(135deg, rgba(212, 160, 67, 0.2), rgba(212, 160, 67, 0.1))';
+    return 'rgba(26, 26, 26, 0.8)';
+  }};
+  border: 2px solid ${props => {
+    if (props.$included) return '#4CAF50';
+    if (props.$selected) return '#D4A043';
+    return 'rgba(212, 160, 67, 0.3)';
+  }};
   border-radius: 12px;
   padding: 20px;
-  cursor: pointer;
+  cursor: ${props => props.$disabled || props.$included ? 'default' : 'pointer'};
   transition: all 0.3s;
   text-align: center;
+  opacity: ${props => props.$disabled ? 0.5 : 1};
+  position: relative;
 
   &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 20px rgba(212, 160, 67, 0.3);
-    border-color: #D4A043;
+    ${props => !props.$disabled && !props.$included && `
+      transform: translateY(-3px);
+      box-shadow: 0 5px 20px rgba(212, 160, 67, 0.3);
+      border-color: #D4A043;
+    `}
   }
 
   ${props => props.$selected && `
     box-shadow: 0 0 15px rgba(212, 160, 67, 0.4);
   `}
+  
+  ${props => props.$included && `
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
+  `}
+`;
+
+const IncludedBadge = styled.div`
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #4CAF50;
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 `;
 
 const TrackIcon = styled.div`
@@ -333,6 +361,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   // So we show track selection if they have 1 track and are upgrading to creator
   const showTrackSelection = oldTier === 'free' && newTier === 'creator' && currentTracks.length >= 0 && currentTracks.length < 2;
   const availableTracks = TRACKS.filter(t => !currentTracks.includes(t.id));
+  const currentTrackObjects = TRACKS.filter(t => currentTracks.includes(t.id));
 
   const handleSelectTrack = (trackId: TrackId) => {
     if (selectedTrack === trackId) {
@@ -384,7 +413,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
           )}
         </BenefitsList>
 
-        {showTrackSelection && availableTracks.length > 0 && (
+        {showTrackSelection && (
           <TracksSection>
             <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem', textAlign: 'right' }}>
               🎯 בחר תחום ניתוח נוסף (אופציונלי)
@@ -393,6 +422,25 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
               כחלק מחבילת יוצרים, תוכל לבחור תחום ניתוח נוסף. תוכל לעשות זאת גם מאוחר יותר מההגדרות.
             </p>
             <TracksGrid>
+              {/* Show current tracks as "included" */}
+              {currentTrackObjects.map((track) => {
+                const TrackIconComponent = track.icon;
+                return (
+                  <TrackCard
+                    key={track.id}
+                    $selected={false}
+                    $included={true}
+                    $disabled={true}
+                  >
+                    <IncludedBadge>כלול</IncludedBadge>
+                    <TrackIcon>
+                      <TrackIconComponent />
+                    </TrackIcon>
+                    <TrackName style={{ color: '#4CAF50' }}>{track.label}</TrackName>
+                  </TrackCard>
+                );
+              })}
+              {/* Show available tracks for selection */}
               {availableTracks.map((track) => {
                 const TrackIconComponent = track.icon;
                 const isSelected = selectedTrack === track.id;

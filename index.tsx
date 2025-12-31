@@ -1650,7 +1650,12 @@ const ComparisonModal = ({
     });
   };
 
-  const selectedAnalysesData = savedAnalyses.filter(a => selectedAnalyses.includes(a.id));
+  // Filter and deduplicate analyses by ID to prevent showing duplicates
+  const uniqueSavedAnalyses = Array.from(
+    new Map(savedAnalyses.map(a => [a.id, a])).values()
+  );
+  
+  const selectedAnalysesData = uniqueSavedAnalyses.filter(a => selectedAnalyses.includes(a.id));
 
   const generateComparison = () => {
     if (selectedAnalysesData.length < 2) {
@@ -1708,7 +1713,7 @@ const ComparisonModal = ({
               </div>
             </ComparisonHeader>
 
-            {savedAnalyses.length === 0 ? (
+            {uniqueSavedAnalyses.length === 0 ? (
               <EmptyState>
                 <h3>אין ניתוחים שמורים</h3>
                 <p>שמור ניתוחים כדי להשוות אותם</p>
@@ -1716,7 +1721,7 @@ const ComparisonModal = ({
             ) : (
               <>
                 <ComparisonSelection>
-                  {savedAnalyses
+                  {uniqueSavedAnalyses
                     .sort((a, b) => new Date(b.analysisDate).getTime() - new Date(a.analysisDate).getTime())
                     .map(analysis => (
                       <AnalysisSelector
@@ -2455,13 +2460,23 @@ const App = () => {
   }, []);
 
   // Load user data from Supabase (with protection against duplicate calls)
-  const loadUserData = async (currentUser: User) => {
+  const loadUserData = async (currentUser: User, forceRefresh = false) => {
     try {
       // Verify user is still authenticated before loading data
       const { data: { user: verifiedUser } } = await supabase.auth.getUser();
       if (!verifiedUser || verifiedUser.id !== currentUser.id) {
         console.warn('User changed or logged out during loadUserData');
         return;
+      }
+      
+      // Force refresh auth session if requested
+      if (forceRefresh) {
+        try {
+          await supabase.auth.refreshSession();
+          console.log('🔄 Session refreshed');
+        } catch (refreshError) {
+          console.warn('Could not refresh session:', refreshError);
+        }
       }
 
       // Load profile
@@ -2562,7 +2577,7 @@ const App = () => {
 
       // Load analyses
       const analysesData = await getAnalyses();
-      setSavedAnalyses(analysesData.map(a => ({
+      const mappedAnalyses = analysesData.map(a => ({
         id: a.id,
         videoName: '', // Will be loaded from video if exists
         videoUrl: '',
@@ -2575,7 +2590,14 @@ const App = () => {
         metadata: {
           prompt: a.prompt || undefined,
         },
-      })));
+      }));
+      
+      // Remove duplicates by ID
+      const uniqueAnalyses = Array.from(
+        new Map(mappedAnalyses.map(a => [a.id, a])).values()
+      );
+      
+      setSavedAnalyses(uniqueAnalyses);
     } catch (error) {
       console.error('Error loading user data:', error);
     }
@@ -2605,27 +2627,80 @@ const App = () => {
       setUpgradeFromTier(fromTier);
       setUpgradeToTier(toTier);
       
-      // If user is available, reload data first to get updated subscription and profile
+      // If user is available, reload data with retry logic to get updated subscription and profile
       if (user) {
-        loadUserData(user).then(() => {
-          console.log('✅ User data reloaded, opening UpgradeBenefitsModal');
-          // Small delay to ensure state is updated
-          setTimeout(() => {
-            setShowUpgradeBenefitsModal(true);
+        // Store tiers locally for retry logic (they come from URL params)
+        const expectedTier = toTier;
+        const previousTier = fromTier;
+        
+        // Retry logic: try to reload data multiple times until subscription is updated
+        const reloadWithRetry = async (attempt = 1, maxAttempts = 6) => {
+          try {
+            // Force reload user data (clear cache by using a fresh fetch)
+            await loadUserData(user);
+            console.log(`✅ User data reloaded (attempt ${attempt})`);
             
-            // Remove parameters from URL
-            const newSearchParams = new URLSearchParams(location.search);
-            newSearchParams.delete('upgrade');
-            newSearchParams.delete('from');
-            newSearchParams.delete('to');
-            const newSearch = newSearchParams.toString();
-            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
-          }, 300);
-        }).catch((error) => {
-          console.error('❌ Error reloading user data:', error);
-          // Even if reload fails, show the modal
-          setShowUpgradeBenefitsModal(true);
-        });
+            // Wait a bit longer for state to update and database to be consistent
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Verify that subscription tier was updated by checking database directly
+            const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
+            const currentSub = await getCurrentSubscription();
+            const currentProfile = await getCurrentUserProfile();
+            const currentTier = currentSub?.plans?.tier || currentProfile?.subscription_tier;
+            
+            console.log(`🔍 Verification check (attempt ${attempt}): currentTier=${currentTier}, expectedTier=${expectedTier}`, {
+              hasSubscription: !!currentSub,
+              hasPlan: !!currentSub?.plans,
+              planTier: currentSub?.plans?.tier,
+              profileTier: currentProfile?.subscription_tier,
+            });
+            
+            // If tier is still old or not updated yet, retry
+            if (attempt < maxAttempts && currentTier !== expectedTier) {
+              console.log(`⚠️ Subscription not updated yet (current: ${currentTier}, expected: ${expectedTier}), retrying... (attempt ${attempt + 1}/${maxAttempts})`);
+              // Increase delay with each attempt
+              const delay = 2000 + (attempt * 500);
+              setTimeout(() => reloadWithRetry(attempt + 1, maxAttempts), delay);
+              return;
+            }
+            
+            // Data loaded successfully, show modal
+            console.log('✅ User data reloaded successfully, opening UpgradeBenefitsModal');
+            setTimeout(() => {
+              setShowUpgradeBenefitsModal(true);
+              
+              // Remove parameters from URL but keep _t for cache busting
+              const newSearchParams = new URLSearchParams(location.search);
+              newSearchParams.delete('upgrade');
+              newSearchParams.delete('from');
+              newSearchParams.delete('to');
+              // Keep _t parameter for cache busting
+              const newSearch = newSearchParams.toString();
+              navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
+            }, 300);
+          } catch (error) {
+            console.error(`❌ Error reloading user data (attempt ${attempt}):`, error);
+            if (attempt < maxAttempts) {
+              // Retry after delay (increase delay with each attempt)
+              const delay = 2000 + (attempt * 500);
+              setTimeout(() => reloadWithRetry(attempt + 1, maxAttempts), delay);
+            } else {
+              // Max attempts reached, force page reload to clear cache
+              console.error('❌ Max retry attempts reached, forcing page reload');
+              const timestamp = new Date().getTime();
+              window.location.replace(`/?upgrade=success&from=${previousTier}&to=${expectedTier}&_t=${timestamp}`);
+            }
+          }
+        };
+        
+        // Start reload with retry (force refresh on first attempt)
+        reloadWithRetry();
+        
+        // Also call loadUserData with forceRefresh on first attempt
+        setTimeout(async () => {
+          await loadUserData(user, true);
+        }, 500);
       } else {
         // If no user, open modal immediately
         setShowUpgradeBenefitsModal(true);
@@ -3128,8 +3203,16 @@ const App = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const [isSavingAnalysis, setIsSavingAnalysis] = useState(false);
+  
   const handleSaveAnalysis = async () => {
     if (!result || !user) return;
+    
+    // Prevent double-click or multiple calls
+    if (isSavingAnalysis) {
+      console.warn('Analysis save already in progress, ignoring duplicate call');
+      return;
+    }
 
     if (activeTrack === 'coach' && !selectedTrainee) {
       alert('נא לבחור מתאמן לפני שמירת הניתוח');
@@ -3137,6 +3220,7 @@ const App = () => {
       return;
     }
 
+    setIsSavingAnalysis(true);
     try {
       let videoId: string | null = null;
 
@@ -3208,30 +3292,56 @@ const App = () => {
         }
       };
 
-      setSavedAnalyses(prev => [...prev, savedAnalysis]);
+      // Don't add to state here - reload from Supabase to ensure consistency
       alert(`הניתוח נשמר בהצלחה${trainee ? ` עבור ${trainee.name}` : ''}`);
       
-      // Reload analyses from Supabase
+      // Reload analyses from Supabase to get the latest data
       if (user) {
-        const updatedAnalyses = await getAnalyses(activeTrack === 'coach' ? selectedTrainee || undefined : undefined);
-        setSavedAnalyses(updatedAnalyses.map(a => ({
-          id: a.id,
-          videoName: '',
-          videoUrl: '',
-          traineeId: a.trainee_id || undefined,
-          traineeName: undefined,
-          analysisDate: new Date(a.created_at),
-          result: a.result,
-          averageScore: a.average_score,
-          track: a.track as TrackId,
-          metadata: {
-            prompt: a.prompt || undefined,
-          },
-        })));
+        try {
+          const updatedAnalyses = await getAnalyses(activeTrack === 'coach' ? selectedTrainee || undefined : undefined);
+          
+          // Map analyses and resolve trainee names
+          const mappedAnalyses = updatedAnalyses.map(a => {
+            const traineeForAnalysis = trainees.find(t => t.id === a.trainee_id);
+            return {
+              id: a.id,
+              videoName: a.video_id ? (file?.name || 'ניתוח ללא קובץ') : 'ניתוח ללא קובץ',
+              videoUrl: previewUrl || '',
+              traineeId: a.trainee_id || undefined,
+              traineeName: traineeForAnalysis?.name,
+              analysisDate: new Date(a.created_at),
+              result: a.result,
+              averageScore: a.average_score,
+              track: a.track as TrackId,
+              metadata: {
+                prompt: a.prompt || undefined,
+              },
+            };
+          });
+          
+          // Remove duplicates by ID (in case of any race conditions)
+          const uniqueAnalyses = Array.from(
+            new Map(mappedAnalyses.map(a => [a.id, a])).values()
+          );
+          
+          setSavedAnalyses(uniqueAnalyses);
+        } catch (reloadError) {
+          console.error('Error reloading analyses:', reloadError);
+          // Fallback: add the saved analysis to state if reload fails
+          setSavedAnalyses(prev => {
+            // Check if already exists to prevent duplicates
+            if (prev.some(a => a.id === savedAnalysis.id)) {
+              return prev;
+            }
+            return [...prev, savedAnalysis];
+          });
+        }
       }
     } catch (error) {
       console.error('Error saving analysis:', error);
       alert('אירעה שגיאה בשמירת הניתוח. נסה שוב.');
+    } finally {
+      setIsSavingAnalysis(false);
     }
   };
 
@@ -4098,52 +4208,8 @@ const App = () => {
 
       setResult(parsedResult);
       
-      // Save to Supabase if user is authenticated
-      if (user && parsedResult) {
-        try {
-          let videoId: string | null = null;
-
-          // Save video if exists
-          if (file) {
-            try {
-              const uploadResult = await uploadVideo(file, user.id);
-              
-              let duration: number | null = null;
-              if (file.type.startsWith('video') && videoRef.current) {
-                duration = Math.round(videoRef.current.duration);
-              }
-
-              const videoData = await saveVideoToDatabase({
-                file_name: file.name,
-                file_path: uploadResult.path,
-                file_size: file.size,
-                duration_seconds: duration,
-                mime_type: file.type,
-              });
-              
-              videoId = videoData.id;
-            } catch (error) {
-              console.error('Error saving video:', error);
-            }
-          }
-
-          // Save analysis to Supabase
-          await saveAnalysis({
-            video_id: videoId || undefined,
-            trainee_id: activeTrack === 'coach' ? selectedTrainee || undefined : undefined,
-            track: activeTrack,
-            coach_training_track: activeTrack === 'coach' ? coachTrainingTrack : undefined,
-            analysis_depth: activeTrack === 'coach' ? analysisDepth : undefined,
-            expert_panel: selectedExperts,
-            prompt: prompt || undefined,
-            result: parsedResult,
-            average_score: Math.round(parsedResult.expertAnalysis.reduce((acc, curr) => acc + curr.score, 0) / parsedResult.expertAnalysis.length),
-          });
-        } catch (error) {
-          console.error('Error saving analysis to Supabase:', error);
-          // Don't show error to user - analysis was successful, just save failed
-        }
-      }
+      // Don't auto-save analysis here - let user save manually via "שמור ניתוח למתאמן" button
+      // This prevents duplicate saves and gives user control over when to save
       
       // Increment usage counter after successful analysis
       incrementUsage();
@@ -4220,29 +4286,72 @@ const App = () => {
     
     setLoggingOut(true);
     try {
-      // Sign out from Supabase (this will trigger onAuthStateChange which will reset state via resetUserState)
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Error during signOut:', error);
-        // Still reset state even if signOut fails
-      }
-      
-      // Reset state immediately for better UX (onAuthStateChange will also reset, but this ensures immediate feedback)
+      // Reset state first to prevent race conditions
       setUser(null);
       resetUserState();
       
+      // Close all modals and reset state
+      setShowAuthModal(false);
+      setShowSubscriptionModal(false);
+      setShowUpgradeBenefitsModal(false);
+      setShowTakbullPayment(false);
+      setShowCoachDashboard(false);
+      setShowComparison(false);
+      setShowCoachGuide(false);
+      setShowTrackSelectionModal(false);
+      setShowPackageSelectionModal(false);
+      setPendingSubscriptionTier(null);
+      setTakbullPaymentUrl('');
+      setTakbullOrderReference('');
+      
+      // Sign out from Supabase (this will trigger onAuthStateChange which will reset state via resetUserState)
+      // Use a timeout to ensure signOut completes
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sign out timeout')), 5000)
+      );
+      
+      const { error } = await Promise.race([signOutPromise, timeoutPromise]) as { error: any };
+      
+      if (error) {
+        console.error('Error during signOut:', error);
+        // Even if signOut fails, clear localStorage and sessionStorage
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch (e) {
+          console.error('Error clearing storage:', e);
+        }
+      }
+      
       // Navigate to home page if on other pages
       if (location.pathname !== '/') {
-        navigate('/');
+        navigate('/', { replace: true });
       }
+      
+      // Force a page refresh to ensure clean state (after a small delay to allow navigation)
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+      
     } catch (error) {
       console.error('Error during logout:', error);
       // Still reset state even if signOut fails
       setUser(null);
       resetUserState();
+      
+      // Clear storage as fallback
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {
+        console.error('Error clearing storage:', e);
+      }
+      
+      // Force page reload as last resort
+      window.location.href = '/';
     } finally {
-      setLoggingOut(false);
+      // Don't set loggingOut to false since we're reloading the page
     }
   };
 
@@ -4988,8 +5097,8 @@ const App = () => {
                 {!canUseFeature('pdfExport') && <PremiumBadge>פרימיום</PremiumBadge>}
               </PrimaryButton>
               {activeTrack === 'coach' && canUseFeature('traineeManagement') && (
-                <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee}>
-                  💾 שמור ניתוח למתאמן
+                <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee || isSavingAnalysis}>
+                  {isSavingAnalysis ? '💾 שומר...' : '💾 שמור ניתוח למתאמן'}
                 </PrimaryButton>
               )}
               <SecondaryButton onClick={handleReset}>
@@ -5138,8 +5247,17 @@ const App = () => {
         }
         onSelectTrack={async (trackId) => {
           // Add the new track to user's selected tracks
-          const currentTracks = profile?.selected_tracks || [];
-          const newTracks = [...currentTracks, trackId];
+          // Make sure to include all current tracks (from selected_tracks or primary_track)
+          const existingTracks = profile?.selected_tracks && profile.selected_tracks.length > 0
+            ? profile.selected_tracks
+            : profile?.selected_primary_track
+            ? [profile.selected_primary_track]
+            : [];
+          
+          // Ensure we don't add duplicate tracks
+          const newTracks = existingTracks.includes(trackId)
+            ? existingTracks
+            : [...existingTracks, trackId];
           
           try {
             const { updateCurrentUserProfile } = await import('./src/lib/supabase-helpers');

@@ -9,26 +9,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Check environment variables (try both VITE_ and non-VITE_ prefixes for compatibility)
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+    const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
+    // Validate that environment variables are not empty
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('❌ Missing Supabase environment variables');
-      console.error('SUPABASE_URL:', supabaseUrl ? 'Found' : 'Missing');
-      console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'Found' : 'Missing');
+      console.error('SUPABASE_URL:', supabaseUrl ? `Found (length: ${supabaseUrl.length})` : 'Missing');
+      console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? `Found (length: ${supabaseServiceKey.length})` : 'Missing');
       return res.status(500).json({ 
         ok: false, 
         error: 'Server configuration error: Missing Supabase credentials. Please check Vercel environment variables: SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY' 
       });
     }
 
-    // Create Supabase admin client
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
+    // Create Supabase admin client with error handling
+    let supabaseAdmin;
+    try {
+      supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      });
+    } catch (clientError: any) {
+      console.error('❌ Error creating Supabase client:', clientError);
+      return res.status(500).json({ 
+        ok: false, 
+        error: `Server configuration error: Failed to initialize Supabase client. ${clientError.message || 'Please check Vercel environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'}` 
+      });
+    }
 
     // Get user ID from request body
     const { userId } = req.body;

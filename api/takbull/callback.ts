@@ -345,15 +345,19 @@ export default async function handler(
             .eq('id', order.id);
         }
 
-        // Update user profile
+        // Get tier from plan (more reliable than from order)
+        const tierToUse = plan.tier || order.subscription_tier;
+        
+        // Update user profile with tier from plan
         const { error: profileUpdateError } = await supabase
           .from('profiles')
           .update({
-            subscription_tier: order.subscription_tier,
+            subscription_tier: tierToUse,
             subscription_period: order.billing_period,
             subscription_start_date: startDate.toISOString(),
             subscription_end_date: endDate.toISOString(),
             subscription_status: 'active',
+            updated_at: new Date().toISOString(),
           })
           .eq('user_id', order.user_id);
 
@@ -363,13 +367,32 @@ export default async function handler(
           console.log('✅ Profile updated successfully:', {
             userId: order.user_id,
             oldTier: oldTier,
-            newTier: order.subscription_tier,
+            newTier: tierToUse,
             subscriptionStatus: 'active',
+            planId: plan.id,
+            planTier: plan.tier,
           });
         }
       } catch (error: any) {
         console.error('Error processing subscription:', error);
         // Don't fail the callback, subscription can be processed later
+      }
+    }
+
+    // Get tier from plan for response (more reliable)
+    let finalTier = order.subscription_tier;
+    if (isSuccess) {
+      try {
+        const { data: planData } = await supabase
+          .from('plans')
+          .select('tier')
+          .eq('id', order.plan_id)
+          .single();
+        if (planData?.tier) {
+          finalTier = planData.tier;
+        }
+      } catch (e) {
+        console.warn('Could not fetch plan tier for response, using order tier');
       }
     }
 
@@ -380,7 +403,7 @@ export default async function handler(
       orderId: order.id,
       orderReference: orderReference,
       oldTier: oldTier,
-      newTier: order.subscription_tier,
+      newTier: finalTier,
       message: isSuccess ? 'Payment processed successfully' : 'Payment failed',
     });
 

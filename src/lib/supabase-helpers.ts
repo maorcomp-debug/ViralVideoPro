@@ -167,8 +167,9 @@ export async function getUsageForCurrentPeriod() {
 
 export async function uploadVideo(file: File, userId: string) {
   const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/${Date.now()}.${fileExt}`;
-  const filePath = `videos/${fileName}`;
+  const fileName = `${Date.now()}.${fileExt}`;
+  // Path should be just userId/filename (no videos/ prefix, bucket name handles that)
+  const filePath = `${userId}/${fileName}`;
 
   const { data, error } = await supabase.storage
     .from('videos')
@@ -182,7 +183,8 @@ export async function uploadVideo(file: File, userId: string) {
     throw error;
   }
 
-  return { path: filePath, data };
+  // Return full path for database storage (videos/userId/filename)
+  return { path: `videos/${filePath}`, data };
 }
 
 export async function saveVideoToDatabase(videoData: {

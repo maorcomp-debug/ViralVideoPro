@@ -179,10 +179,13 @@ export const OrderReceivedPage: React.FC = () => {
             const oldTier = result.oldTier || 'free';
             const newTier = result.newTier || 'creator';
             
-            // Reload user data after a short delay
+            // Force reload with upgrade params to trigger data refresh
+            // Use window.location.replace to avoid back button issues
             setTimeout(() => {
-              window.location.href = `/?upgrade=success&from=${oldTier}&to=${newTier}`;
-            }, 2000);
+              // Add timestamp to prevent caching
+              const timestamp = new Date().getTime();
+              window.location.replace(`/?upgrade=success&from=${oldTier}&to=${newTier}&_t=${timestamp}`);
+            }, 1500);
           } else {
             setStatus('error');
             setMessage('התשלום נכשל');
@@ -198,9 +201,11 @@ export const OrderReceivedPage: React.FC = () => {
             setStatus('success');
             setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
             
+            // Force reload to refresh data
             setTimeout(() => {
-              window.location.href = '/';
-            }, 5000);
+              const timestamp = new Date().getTime();
+              window.location.replace(`/?_t=${timestamp}`);
+            }, 3000);
           } else {
             setStatus('error');
             setError(fetchError.message || 'שגיאה בעיבוד התשלום');
