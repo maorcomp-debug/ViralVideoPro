@@ -2495,24 +2495,35 @@ const App = () => {
       
       setProfile(userProfile);
 
+      // Load subscription first to check if user has paid subscription
+      const subData = await getCurrentSubscription();
+      const hasPaidSubscription = subData && subData.status === 'active' && subData.plans && (subData.plans as any).tier !== 'free';
+      
       // Check if user needs to select a package/track (new user without selected_primary_track)
       // Only show if:
       // 1. User is logged in and profile exists
       // 2. No primary track selected
-      // 3. User has free tier (paid tiers should have tracks set automatically)
+      // 3. User has free tier OR no paid subscription (paid tiers should have tracks set automatically)
       // 4. Hasn't shown modal yet
       const userTier = userProfile?.subscription_tier || 'free';
       const isFreeTier = userTier === 'free';
       const needsTrackSelection = !userProfile?.selected_primary_track;
       
-      if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && isFreeTier) {
+      // Don't show package selection if user has a paid subscription (they already paid)
+      if (hasPaidSubscription) {
+        console.log('✅ User has paid subscription, skipping package selection modal');
+        // If they have paid subscription but no tracks, this is an error state
+        // Don't show modal, but log warning
+        if (needsTrackSelection) {
+          console.warn('⚠️ Paid subscription user without tracks - tracks should be set automatically after payment');
+        }
+      } else if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && isFreeTier) {
         // Show package selection first for new users with free tier
         setHasShownPackageModal(true);
         setShowPackageSelectionModal(true);
-      } else if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && !isFreeTier) {
-        // For paid tiers without tracks, this shouldn't happen, but if it does, 
-        // don't show package selection - they already paid
-        console.warn('⚠️ Paid tier user without tracks - this should not happen after payment');
+      } else if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && !isFreeTier && !hasPaidSubscription) {
+        // For paid tiers without tracks and without subscription, this shouldn't happen
+        console.warn('⚠️ Paid tier user without tracks and without subscription - this should not happen');
       }
 
       // Check if user is admin
