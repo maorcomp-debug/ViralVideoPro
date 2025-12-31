@@ -5,6 +5,7 @@ import styled, { css } from 'styled-components';
 import { GlobalStyle, fadeIn, shimmer, pulse, glowReady, breathingHigh } from './src/styles/globalStyles';
 import { SettingsPage } from './src/components/pages/SettingsPage';
 import { AdminPage } from './src/components/pages/AdminPage';
+import { OrderReceivedPage } from './src/components/pages/OrderReceivedPage';
 import { SubscriptionModal } from './src/components/modals/SubscriptionModal';
 import { UpgradeBenefitsModal } from './src/components/modals/UpgradeBenefitsModal';
 import { AuthModal } from './src/components/modals/AuthModal';
@@ -5097,6 +5098,7 @@ const AppRouter = () => {
         <Route path="/admin" element={<App />} />
         <Route path="/analysis/:analysisId?" element={<App />} />
         <Route path="/creator" element={<App />} />
+        <Route path="/order-received" element={<OrderReceivedPage />} />
       </Routes>
     </BrowserRouter>
   );
