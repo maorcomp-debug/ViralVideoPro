@@ -2680,19 +2680,40 @@ const App = () => {
             const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
             const currentSub = await getCurrentSubscription();
             const currentProfile = await getCurrentUserProfile();
-            const currentTier = currentSub?.plans?.tier || currentProfile?.subscription_tier;
+            
+            // Priority: subscription.plans.tier > profile.subscription_tier (only if status is active)
+            // This ensures we use the subscription table as source of truth when available
+            const subscriptionTier = currentSub?.plans?.tier;
+            const profileTier = currentProfile?.subscription_tier;
+            const profileStatus = currentProfile?.subscription_status;
+            const isProfileActive = profileStatus === 'active';
+            
+            // Use subscription tier if available, otherwise use profile tier only if active
+            const currentTier = subscriptionTier || (isProfileActive ? profileTier : 'free');
             
             console.log(`🔍 Verification check (attempt ${attempt}): currentTier=${currentTier}, expectedTier=${expectedTier}`, {
               hasSubscription: !!currentSub,
               hasPlan: !!currentSub?.plans,
               planTier: currentSub?.plans?.tier,
               profileTier: currentProfile?.subscription_tier,
+              profileStatus: currentProfile?.subscription_status,
+              isProfileActive,
+              calculatedTier: currentTier,
             });
             
             // If tier is still old or not updated yet, retry
             if (attempt < maxAttempts && currentTier !== expectedTier) {
               console.log(`⚠️ Subscription not updated yet (current: ${currentTier}, expected: ${expectedTier}), retrying... (attempt ${attempt + 1}/${maxAttempts})`);
               // Increase delay with each attempt
+              const delay = 2000 + (attempt * 500);
+              setTimeout(() => reloadWithRetry(attempt + 1, maxAttempts), delay);
+              return;
+            }
+            
+            // If tier matches but we still don't have a subscription record, wait a bit more
+            // This handles the case where profile is updated but subscription table hasn't been created yet
+            if (currentTier === expectedTier && !currentSub && attempt < maxAttempts - 1) {
+              console.log(`⚠️ Tier matches but subscription record not found yet, waiting one more attempt...`);
               const delay = 2000 + (attempt * 500);
               setTimeout(() => reloadWithRetry(attempt + 1, maxAttempts), delay);
               return;
