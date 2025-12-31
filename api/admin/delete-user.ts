@@ -51,27 +51,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const userToken = authHeader.replace('Bearer ', '');
     
-    // Create a regular Supabase client to verify admin status
-    // Use anon key from environment or construct it (it's public anyway)
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-    const supabase = createClient(supabaseUrl, anonKey);
-    const { data: { user }, error: userError } = await supabase.auth.getUser(userToken);
+    // Use admin client to verify user and check admin status
+    // This avoids needing the anon key
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(userToken);
 
     if (userError || !user) {
+      console.error('❌ Error verifying user token:', userError);
       return res.status(401).json({ 
         ok: false, 
         error: 'Unauthorized: Invalid token' 
       });
     }
 
-    // Check if user is admin
+    // Check if user is admin using admin client
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('role')
       .eq('user_id', user.id)
       .single();
 
-    if (profileError || profile?.role !== 'admin') {
+    if (profileError) {
+      console.error('❌ Error checking admin status:', profileError);
+      return res.status(500).json({ 
+        ok: false, 
+        error: 'Error verifying admin status' 
+      });
+    }
+
+    if (profile?.role !== 'admin') {
       return res.status(403).json({ 
         ok: false, 
         error: 'Forbidden: Admin access required' 
