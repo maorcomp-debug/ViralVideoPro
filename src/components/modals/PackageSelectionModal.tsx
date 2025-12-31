@@ -202,6 +202,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
           <option value="creator">חבילת יוצרים</option>
           <option value="pro">חבילת יוצרים באקסטרים</option>
           <option value="coach">חבילת מאמנים, סוכנויות ובתי ספר למשחק</option>
+          <option value="coach-pro">חבילת מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
         </PackageSelect>
 
         <InfoMessage>
@@ -209,6 +210,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
           {selectedTier === 'creator' && 'חבילת יוצרים כוללת 10 ניתוחים בחודש, עד 3 דקות או 15MB, ושני תחומי ניתוח.'}
           {selectedTier === 'pro' && 'חבילת יוצרים באקסטרים כוללת 30 ניתוחים בחודש, עד 5 דקות או 40MB, וכל תחומי הניתוח.'}
           {selectedTier === 'coach' && 'חבילת מאמנים כוללת ניתוחים ללא הגבלה, עד 5 דקות או 40MB, כל תחומי הניתוח, ופיצ\'רים למאמנים.'}
+          {selectedTier === 'coach-pro' && 'חבילת מאמנים פרו כוללת ניתוחים ללא הגבלה, עד 5 דקות או 40MB, כל תחומי הניתוח, יותר מתאמנים (30), ויותר דקות ניתוח (300 דקות בחודש).'}
         </InfoMessage>
 
         <SubmitButton
