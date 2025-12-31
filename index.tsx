@@ -2579,6 +2579,39 @@ const App = () => {
     }
   };
 
+  // Check for upgrade success parameter and show UpgradeBenefitsModal
+  // This must be after all state and function declarations
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const upgradeParam = searchParams.get('upgrade');
+    const fromTier = searchParams.get('from') as SubscriptionTier | null;
+    const toTier = searchParams.get('to') as SubscriptionTier | null;
+    
+    if (upgradeParam === 'success' && fromTier && toTier && fromTier !== toTier && user && profile) {
+      console.log('🎉 Upgrade detected, showing UpgradeBenefitsModal:', { fromTier, toTier });
+      
+      // Reload user data first to get updated subscription
+      if (user) {
+        loadUserData(user).then(() => {
+          // Small delay to ensure data is loaded
+          setTimeout(() => {
+            setUpgradeFromTier(fromTier);
+            setUpgradeToTier(toTier);
+            setShowUpgradeBenefitsModal(true);
+            
+            // Remove parameters from URL
+            const newSearchParams = new URLSearchParams(location.search);
+            newSearchParams.delete('upgrade');
+            newSearchParams.delete('from');
+            newSearchParams.delete('to');
+            const newSearch = newSearchParams.toString();
+            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
+          }, 500);
+        });
+      }
+    }
+  }, [location.search, user, profile, navigate, location.pathname]);
+
   useEffect(() => {
     const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
     const maxExperts = getMaxExperts();
