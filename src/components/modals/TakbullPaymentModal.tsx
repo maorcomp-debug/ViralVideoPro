@@ -143,56 +143,6 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
 
   // Always use iframe (integrated payment experience)
   return (
-    return (
-      <ModalOverlay onClick={onClose}>
-        <ModalContent 
-          onClick={(e) => e.stopPropagation()} 
-          style={{ maxWidth: '900px', maxHeight: '95vh' }}
-        >
-          <ModalHeader>
-            <ModalTitle>תשלום מאובטח</ModalTitle>
-            <ModalCloseBtn onClick={onClose}>×</ModalCloseBtn>
-          </ModalHeader>
-          <div style={{ padding: '20px' }}>
-            <p style={{ color: '#ccc', marginBottom: '20px', textAlign: 'center' }}>
-              מספר הזמנה: <strong style={{ color: '#D4A043' }}>{orderReference}</strong>
-            </p>
-            <div style={{ 
-              width: '100%', 
-              height: `${iframeHeight}px`, 
-              position: 'relative',
-              background: '#0a0a0a',
-              borderRadius: '8px',
-              overflow: 'hidden'
-            }}>
-              <iframe
-                ref={iframeRef}
-                src={paymentUrl}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none',
-                  background: 'white'
-                }}
-                title="Takbull Payment"
-                allow="payment"
-                onLoad={() => setIframeHeight(800)}
-              />
-            </div>
-            <p style={{ color: '#888', fontSize: '0.85rem', textAlign: 'center', marginTop: '15px' }}>
-              התשלום מתבצע דרך Takbull - מערכת תשלומים מאובטחת
-            </p>
-            <p style={{ color: '#666', fontSize: '0.75rem', textAlign: 'center', marginTop: '10px' }}>
-              💡 טיפ: לפתיחה בחלון חדש (מומלץ), אפשר חלונות קופצים בדפדפן
-            </p>
-          </div>
-        </ModalContent>
-      </ModalOverlay>
-    );
-  }
-
-  // Using popup window (preferred method)
-  return (
     <ModalOverlay onClick={onClose}>
       <ModalContent 
         onClick={(e) => e.stopPropagation()} 
