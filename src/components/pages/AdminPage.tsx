@@ -1645,7 +1645,8 @@ export const AdminPage: React.FC = () => {
                             >
                               <option value="creator">יוצרים</option>
                               <option value="pro">יוצרים באקסטרים</option>
-                              <option value="coach">מאמנים</option>
+                              <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                              <option value="coach-pro">מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
                             </UserSelect>
                           </div>
                           <div>
@@ -1752,7 +1753,8 @@ export const AdminPage: React.FC = () => {
                             >
                               <option value="creator">יוצרים</option>
                               <option value="pro">יוצרים באקסטרים</option>
-                              <option value="coach">מאמנים</option>
+                              <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                              <option value="coach-pro">מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
                             </UserSelect>
                           </div>
                           <div>
@@ -1944,7 +1946,8 @@ export const AdminPage: React.FC = () => {
                                         >
                                           <option value="creator">יוצרים</option>
                                           <option value="pro">יוצרים באקסטרים</option>
-                                          <option value="coach">מאמנים</option>
+                                          <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                                          <option value="coach-pro">מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
                                         </UserSelect>
                                       </div>
                                       <div>
@@ -2198,7 +2201,8 @@ export const AdminPage: React.FC = () => {
                         >
                           <option value="creator">יוצרים</option>
                           <option value="pro">יוצרים באקסטרים</option>
-                          <option value="coach">מאמנים</option>
+                          <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                          <option value="coach-pro">מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
                         </UserSelect>
                       </div>
                       <div>
@@ -2239,7 +2243,8 @@ export const AdminPage: React.FC = () => {
                           <option value="free">חבילת ניסיון</option>
                           <option value="creator">יוצרים</option>
                           <option value="pro">יוצרים באקסטרים</option>
-                          <option value="coach">מאמנים</option>
+                          <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                          <option value="coach-pro">מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
                         </UserSelect>
                       )}
 
