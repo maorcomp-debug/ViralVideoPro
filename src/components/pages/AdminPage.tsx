@@ -303,6 +303,7 @@ const Badge = styled.span<{ $tier?: string; $role?: string }>`
   font-weight: 600;
   background: ${props => {
     if (props.$role === 'admin') return 'rgba(244, 67, 54, 0.2)';
+    if (props.$tier === 'coach-pro') return 'rgba(212, 160, 67, 0.3)';
     if (props.$tier === 'coach') return 'rgba(212, 160, 67, 0.2)';
     if (props.$tier === 'pro') return 'rgba(255, 193, 7, 0.2)';
     if (props.$tier === 'creator') return 'rgba(156, 39, 176, 0.2)';
@@ -310,6 +311,7 @@ const Badge = styled.span<{ $tier?: string; $role?: string }>`
   }};
   color: ${props => {
     if (props.$role === 'admin') return '#F44336';
+    if (props.$tier === 'coach-pro') return '#F5C842';
     if (props.$tier === 'coach') return '#D4A043';
     if (props.$tier === 'pro') return '#FFC107';
     if (props.$tier === 'creator') return '#9C27B0';
@@ -317,6 +319,7 @@ const Badge = styled.span<{ $tier?: string; $role?: string }>`
   }};
   border: 1px solid ${props => {
     if (props.$role === 'admin') return '#F44336';
+    if (props.$tier === 'coach-pro') return '#F5C842';
     if (props.$tier === 'coach') return '#D4A043';
     if (props.$tier === 'pro') return '#FFC107';
     if (props.$tier === 'creator') return '#9C27B0';
@@ -535,7 +538,7 @@ export const AdminPage: React.FC = () => {
     include_benefit: false,
     benefit_type: 'coupon' as 'coupon' | 'trial',
     selected_coupon_id: null as string | null,
-    trial_tier: 'creator' as 'creator' | 'pro' | 'coach' | null,
+    trial_tier: 'creator' as 'creator' | 'pro' | 'coach' | 'coach-pro' | null,
     trial_duration_days: 7,
   });
   const [searchQuery, setSearchQuery] = useState('');
@@ -556,14 +559,14 @@ export const AdminPage: React.FC = () => {
     discount_type: 'trial_subscription' as 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription',
     discount_value: null as number | null,
     free_analyses_count: null as number | null,
-    trial_tier: 'creator' as 'creator' | 'pro' | 'coach' | null,
+    trial_tier: 'creator' as 'creator' | 'pro' | 'coach' | 'coach-pro' | null,
     trial_duration_days: 7,
     max_uses: null as number | null,
     valid_from: '',
     valid_until: null as string | null,
   });
   const [trialForm, setTrialForm] = useState({
-    tier: 'creator' as 'creator' | 'pro' | 'coach',
+    tier: 'creator' as 'creator' | 'pro' | 'coach' | 'coach-pro',
     duration_days: 7,
     target_type: 'selected' as 'selected' | 'tier' | 'all',
     target_tier: 'free' as string,
@@ -734,6 +737,9 @@ export const AdminPage: React.FC = () => {
   };
 
   const getTierDisplayName = (tier: string) => {
+    if (tier === 'coach-pro') {
+      return 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
+    }
     return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.name || tier;
   };
 
@@ -1171,7 +1177,8 @@ export const AdminPage: React.FC = () => {
                 <option value="free">ניסיון</option>
                 <option value="creator">יוצרים</option>
                 <option value="pro">יוצרים באקסטרים</option>
-                <option value="coach">מאמנים</option>
+                <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                <option value="coach-pro">מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
               </FilterSelect>
               <FilterSelect value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
                 <option value="all">כל התפקידים</option>
@@ -1240,6 +1247,7 @@ export const AdminPage: React.FC = () => {
                           <option value="creator">יוצרים</option>
                           <option value="pro">יוצרים באקסטרים</option>
                           <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                          <option value="coach-pro">מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
                         </UserSelect>
                       ) : (
                         <Badge $tier={user.subscription_tier}>
