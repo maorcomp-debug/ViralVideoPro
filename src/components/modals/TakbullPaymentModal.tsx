@@ -55,63 +55,18 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
       return;
     }
 
-    // Prevent opening multiple windows - if window already exists and is open, don't open another
-    if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
-      console.log('Payment window already open, focusing existing window');
-      paymentWindowRef.current.focus();
-      return;
-    }
+    // Use iframe by default (more reliable, avoids popup issues)
+    setUseIframe(true);
 
-    // Try to open payment page in new window (allows dropdowns to work properly)
-    const width = 800;
-    const height = 900;
-    const left = (window.screen.width - width) / 2;
-    const top = (window.screen.height - height) / 2;
-
-    const paymentWindow = window.open(
-      paymentUrl,
-      'TakbullPayment',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-    );
-
-    if (!paymentWindow) {
-      // Popup blocked - use iframe instead
-      console.warn('Popup blocked, using iframe fallback');
-      setUseIframe(true);
-      return;
-    }
-
-    paymentWindowRef.current = paymentWindow;
-
-    // Check if payment window is closed
-    checkIntervalRef.current = window.setInterval(() => {
-      if (paymentWindow.closed) {
-        if (checkIntervalRef.current) {
-          clearInterval(checkIntervalRef.current);
-          checkIntervalRef.current = null;
-        }
-        paymentWindowRef.current = null;
-        if (onSuccess) {
-          onSuccess();
-        }
-        onClose();
-      }
-    }, 1000);
-
-    // Listen for messages from payment window
+    // Listen for messages from payment iframe (for payment completion)
     const handleMessage = (e: MessageEvent) => {
+      // Check if message is from Takbull payment page
       if (!e.origin.includes('takbull.co.il') && !e.origin.includes('yaadpay')) {
         return;
       }
+      
+      // If payment success message received
       if (e.data === 'payment_success' || e.data?.status === 'success') {
-        if (checkIntervalRef.current) {
-          clearInterval(checkIntervalRef.current);
-          checkIntervalRef.current = null;
-        }
-        if (paymentWindowRef.current) {
-          paymentWindowRef.current.close();
-          paymentWindowRef.current = null;
-        }
         if (onSuccess) {
           onSuccess();
         }
@@ -122,17 +77,11 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
     window.addEventListener('message', handleMessage);
 
     return () => {
-      if (checkIntervalRef.current) {
-        clearInterval(checkIntervalRef.current);
-      }
       window.removeEventListener('message', handleMessage);
-      if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
-        paymentWindowRef.current.close();
-      }
     };
   }, [isOpen, paymentUrl, onClose, onSuccess, onError]);
 
-  // Handle iframe height adjustment (fallback mode)
+  // Handle iframe height adjustment and payment completion
   useEffect(() => {
     if (!useIframe || !isOpen) return;
 
@@ -140,20 +89,60 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
       if (!e.origin.includes('takbull.co.il') && !e.origin.includes('yaadpay')) {
         return;
       }
+      
+      // Check for height adjustment message
       const height = parseInt(e.data, 10);
       if (!isNaN(height) && height > 0) {
         setIframeHeight(Math.max(height + 100, 800));
+      }
+      
+      // Check for payment success message
+      if (e.data === 'payment_success' || e.data?.status === 'success') {
+        if (onSuccess) {
+          onSuccess();
+        }
+        onClose();
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [useIframe, isOpen]);
+  }, [useIframe, isOpen, onSuccess, onClose]);
+
+  // Also check iframe location changes to detect redirect to order-received
+  useEffect(() => {
+    if (!useIframe || !isOpen || !iframeRef.current) return;
+
+    const iframe = iframeRef.current;
+    
+    const checkIframeLocation = () => {
+      try {
+        // Try to access iframe location (may fail due to CORS)
+        if (iframe.contentWindow) {
+          const iframeUrl = iframe.contentWindow.location.href;
+          // If redirected to order-received, payment was successful
+          if (iframeUrl.includes('/order-received') || iframeUrl.includes('statusCode=0')) {
+            if (onSuccess) {
+              onSuccess();
+            }
+            onClose();
+          }
+        }
+      } catch (e) {
+        // CORS - can't access iframe location, ignore
+      }
+    };
+
+    // Check periodically
+    const interval = setInterval(checkIframeLocation, 1000);
+    
+    return () => clearInterval(interval);
+  }, [useIframe, isOpen, onSuccess, onClose]);
 
   if (!isOpen) return null;
 
-  // If using iframe (popup blocked)
-  if (useIframe) {
+  // Always use iframe (integrated payment experience)
+  return (
     return (
       <ModalOverlay onClick={onClose}>
         <ModalContent 
