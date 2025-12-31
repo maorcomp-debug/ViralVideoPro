@@ -4435,37 +4435,6 @@ const App = () => {
           onSelectPlan={handleSelectPlan}
           activeTrack={activeTrack}
         />
-        <TakbullPaymentModal
-          isOpen={showTakbullPayment}
-          onClose={() => {
-            setShowTakbullPayment(false);
-            if (user) {
-              setTimeout(async () => {
-                const { data: { user: currentUser } } = await supabase.auth.getUser();
-                if (currentUser && currentUser.id === user.id) {
-                  await loadUserData(currentUser);
-                }
-              }, 1000);
-            }
-          }}
-          paymentUrl={takbullPaymentUrl}
-          orderReference={takbullOrderReference}
-          onSuccess={() => {
-            setShowTakbullPayment(false);
-            if (user) {
-              setTimeout(async () => {
-                const { data: { user: currentUser } } = await supabase.auth.getUser();
-                if (currentUser && currentUser.id === user.id) {
-                  await loadUserData(currentUser);
-                }
-              }, 1000);
-            }
-          }}
-          onError={(error) => {
-            console.error('Payment error:', error);
-            alert(`שגיאה בתשלום: ${error}`);
-          }}
-        />
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
