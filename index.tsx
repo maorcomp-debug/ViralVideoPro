@@ -2719,7 +2719,14 @@ const App = () => {
               return;
             }
             
-            // Data loaded successfully, show modal
+            // Data loaded successfully - reload user data one more time to ensure state is updated
+            console.log('✅ Subscription tier verified in database, reloading user data to update state...');
+            await loadUserData(user, true); // Force refresh
+            
+            // Wait a bit for state to update
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Show modal
             console.log('✅ User data reloaded successfully, opening UpgradeBenefitsModal');
             setTimeout(() => {
               setShowUpgradeBenefitsModal(true);
