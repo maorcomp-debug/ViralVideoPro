@@ -2293,38 +2293,6 @@ const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
-  const searchParams = new URLSearchParams(location.search);
-  
-  // Check for upgrade success parameter and show UpgradeBenefitsModal
-  useEffect(() => {
-    const upgradeParam = searchParams.get('upgrade');
-    const fromTier = searchParams.get('from') as SubscriptionTier | null;
-    const toTier = searchParams.get('to') as SubscriptionTier | null;
-    
-    if (upgradeParam === 'success' && fromTier && toTier && fromTier !== toTier && user && profile) {
-      console.log('🎉 Upgrade detected, showing UpgradeBenefitsModal:', { fromTier, toTier });
-      
-      // Reload user data first to get updated subscription
-      if (user) {
-        loadUserData(user).then(() => {
-          // Small delay to ensure data is loaded
-          setTimeout(() => {
-            setUpgradeFromTier(fromTier);
-            setUpgradeToTier(toTier);
-            setShowUpgradeBenefitsModal(true);
-            
-            // Remove parameters from URL
-            const newSearchParams = new URLSearchParams(location.search);
-            newSearchParams.delete('upgrade');
-            newSearchParams.delete('from');
-            newSearchParams.delete('to');
-            const newSearch = newSearchParams.toString();
-            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
-          }, 500);
-        });
-      }
-    }
-  }, [location.search, user, profile]);
   
   // Authentication State
   const [user, setUser] = useState<User | null>(null);
