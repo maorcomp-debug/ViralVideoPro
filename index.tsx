@@ -5238,12 +5238,6 @@ const App = () => {
               setHasShownTrackModal(true);
               setShowTrackSelectionModal(true);
             }
-          } else if (tier === 'creator') {
-            // For creator tier, show track selection
-            if (!hasShownTrackModal) {
-              setHasShownTrackModal(true);
-              setShowTrackSelectionModal(true);
-            }
           }
         }}
         userEmail={user?.email}
