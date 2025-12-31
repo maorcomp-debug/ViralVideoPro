@@ -136,9 +136,18 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
     // Prevent double submission
     if (loading) return;
     
+    // For paid tiers, don't update directly - let parent handle payment
+    const isPaidTier = selectedTier !== 'free';
+    if (isPaidTier) {
+      // Just call onSelect - parent will handle payment through handleSelectPlan
+      onSelect(selectedTier);
+      onClose();
+      return;
+    }
+    
+    // Only for FREE tier - update directly
     setLoading(true);
     try {
-      // For test accounts or regular users, update subscription_tier
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         alert('שגיאה: משתמש לא מחובר');
@@ -206,7 +215,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
           onClick={handleSubmit}
           disabled={loading}
         >
-          {loading ? 'שומר...' : 'המשך לבחירת תחום ניתוח'}
+          {loading ? 'שומר...' : selectedTier === 'free' ? 'המשך לבחירת תחום ניתוח' : 'המשך לתשלום'}
         </SubmitButton>
       </ModalContent>
     </ModalOverlay>
