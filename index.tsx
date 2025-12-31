@@ -2777,25 +2777,46 @@ const App = () => {
         console.log('💰 Paid tier selected, initiating payment through Takbull...');
         console.log('🔍 Looking for plan with tier:', tier);
         
-        // Get plan from database
-        const { data: planData, error: planError } = await supabase
+        // Get plan from database (try with is_active first, then without if not found)
+        let { data: planData, error: planError } = await supabase
           .from('plans')
           .select('*')
           .eq('tier', tier)
           .eq('is_active', true)
           .single();
 
+        // If not found with is_active, try without it (in case plan exists but is marked inactive)
+        if (planError || !planData) {
+          console.warn('⚠️ Plan not found with is_active=true, trying without filter...');
+          const retryResult = await supabase
+            .from('plans')
+            .select('*')
+            .eq('tier', tier)
+            .single();
+          
+          planData = retryResult.data;
+          planError = retryResult.error;
+        }
+
         if (planError) {
           console.error('❌ Error fetching plan:', planError);
+          console.error('❌ Plan error details:', JSON.stringify(planError, null, 2));
           throw new Error(`שגיאה בטעינת תוכנית: ${planError.message || 'Plan not found'}`);
         }
 
         if (!planData) {
           console.error('❌ Plan not found for tier:', tier);
-          throw new Error(`תוכנית לא נמצאה: ${tier}`);
+          console.error('❌ Available tiers in database - checking...');
+          // Try to list all plans to help debug
+          const { data: allPlans } = await supabase
+            .from('plans')
+            .select('tier, name, is_active')
+            .order('tier');
+          console.error('❌ Available plans:', allPlans);
+          throw new Error(`תוכנית לא נמצאה: ${tier}. אנא ודא שהמיגרציה 010 רצה במסד הנתונים.`);
         }
 
-        console.log('✅ Plan found:', { id: planData.id, name: planData.name, price: planData.monthly_price });
+        console.log('✅ Plan found:', { id: planData.id, name: planData.name, price: planData.monthly_price, is_active: planData.is_active });
 
         // Call Takbull init-order API
         console.log('📞 Calling Takbull API...');
