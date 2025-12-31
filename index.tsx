@@ -2546,18 +2546,26 @@ const App = () => {
           isActive: subData.status === 'active',
         });
       } else {
-        // If no active subscription, use profile subscription_tier or default to free
+        // If no active subscription record, use profile subscription_tier or default to free
+        // BUT: Only trust profile subscription_tier if subscription_status is 'active'
+        // This prevents showing old tier when subscription was just paid but profile not updated yet
         const profileTier = userProfile?.subscription_tier as SubscriptionTier | undefined;
+        const profileStatus = userProfile?.subscription_status;
+        const isProfileActive = profileStatus === 'active';
+        
         // Include 'coach-pro' in the valid tiers check
         const validTiers: SubscriptionTier[] = ['free', 'creator', 'pro', 'coach', 'coach-pro'];
-        const defaultTier = profileTier && validTiers.includes(profileTier) 
+        
+        // Only use profile tier if status is active, otherwise default to free
+        // This ensures we don't show old tier while waiting for subscription to be created
+        const defaultTier = (isProfileActive && profileTier && validTiers.includes(profileTier))
           ? profileTier 
           : 'free';
         
         // For free tier, always set as active (free tier never expires)
         const isActiveStatus = defaultTier === 'free' 
           ? true 
-          : (userProfile?.subscription_status === 'active' || false);
+          : isProfileActive;
         
         setSubscription({
           tier: defaultTier,
