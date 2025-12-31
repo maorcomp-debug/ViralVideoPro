@@ -143,13 +143,32 @@ export const OrderReceivedPage: React.FC = () => {
 
           console.log('📥 Callback API response status:', response.status, response.statusText);
 
+          // Get response text first to see what we got
+          const responseText = await response.text();
+          console.log('📥 Callback API response body:', responseText);
+
           if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-            console.error('❌ Callback API error:', errorData);
-            throw new Error(errorData.error || 'Failed to process payment');
+            let errorData;
+            try {
+              errorData = JSON.parse(responseText);
+            } catch {
+              errorData = { error: responseText || 'Unknown error' };
+            }
+            console.error('❌ Callback API error:', {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorData,
+            });
+            throw new Error(errorData.error || `Failed to process payment: ${response.status} ${response.statusText}`);
           }
 
-          const result = await response.json();
+          let result;
+          try {
+            result = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error('❌ Failed to parse callback response:', parseError);
+            throw new Error('Invalid response from server');
+          }
           console.log('✅ Callback API result:', result);
           
           if (result.ok && result.success) {
