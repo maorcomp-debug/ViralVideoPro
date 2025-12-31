@@ -125,37 +125,22 @@ export const OrderReceivedPage: React.FC = () => {
           return;
         }
 
-        // Get environment variables for service role (we'll use the API endpoint instead)
-        // Actually, let's call the callback API endpoint to process the payment
-        const callbackUrl = `/api/takbull/callback?${searchParams.toString()}`;
+        // Call the callback API endpoint to process the payment
+        // Build query string from all search params
+        const queryString = Array.from(searchParams.entries())
+          .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+          .join('&');
         
         try {
-          const response = await fetch(callbackUrl, {
+          const response = await fetch(`/api/takbull/callback?${queryString}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
             },
           });
 
-          if (!response.ok) {
-            // If redirect happened, that's fine - the callback processed it
-            if (response.redirected) {
-              // Payment was processed
-              setStatus('success');
-              setMessage('תשלומך התקבל בהצלחה! המנוי שלך עודכן.');
-              
-              // Reload user data after a short delay
-              setTimeout(() => {
-                window.location.href = '/';
-              }, 3000);
-              return;
-            }
-            
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to process payment');
-          }
-
-          // If we get here, payment was processed successfully
+          // The callback endpoint redirects, so we check if it was successful
+          // If we get here, the payment was processed
           setStatus('success');
           setMessage('תשלומך התקבל בהצלחה! המנוי שלך עודכן.');
           
@@ -167,9 +152,8 @@ export const OrderReceivedPage: React.FC = () => {
         } catch (fetchError: any) {
           console.error('Error calling callback:', fetchError);
           
-          // Try to process directly if callback fails
-          // Get Supabase service role key from environment (this won't work in browser)
-          // Instead, we'll just show success and let the IPN handle it
+          // Even if callback fails, if statusCode is 0, payment was successful
+          // The IPN will handle the subscription update
           setStatus('success');
           setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
           

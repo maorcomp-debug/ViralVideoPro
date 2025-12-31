@@ -32,10 +32,23 @@ export default async function handler(
     // Get parameters from query string
     const params: TakbullCallbackParams = req.query as any;
 
-    if (!params.order_reference) {
+    // Log received parameters for debugging
+    console.log('📥 Takbull callback received:', {
+      order_reference: params.order_reference,
+      ordernumber: params.ordernumber,
+      transactionInternalNumber: params.transactionInternalNumber,
+      statusCode: params.statusCode,
+      uniqId: params.uniqId,
+    });
+
+    // Try to find order by order_reference, ordernumber, or transactionInternalNumber
+    let orderReference = params.order_reference || params.ordernumber || params.transactionInternalNumber;
+
+    if (!orderReference) {
+      console.error('❌ No order reference found in callback params');
       return res.status(400).json({ 
         ok: false, 
-        error: 'Missing order_reference' 
+        error: 'Missing order reference' 
       });
     }
 
@@ -54,12 +67,42 @@ export default async function handler(
     // Initialize Supabase client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find order by order_reference
-    const { data: order, error: orderError } = await supabase
-      .from('takbull_orders')
-      .select('*')
-      .eq('order_reference', params.order_reference)
-      .single();
+    // Find order by order_reference, ordernumber, or transactionInternalNumber
+    let order;
+    let orderError;
+
+    // Try order_reference first
+    if (params.order_reference) {
+      const result = await supabase
+        .from('takbull_orders')
+        .select('*')
+        .eq('order_reference', params.order_reference)
+        .single();
+      order = result.data;
+      orderError = result.error;
+    }
+
+    // If not found, try ordernumber
+    if (!order && params.ordernumber) {
+      const result = await supabase
+        .from('takbull_orders')
+        .select('*')
+        .eq('takbull_order_number', params.ordernumber)
+        .single();
+      order = result.data;
+      orderError = result.error;
+    }
+
+    // If still not found, try transactionInternalNumber
+    if (!order && params.transactionInternalNumber) {
+      const result = await supabase
+        .from('takbull_orders')
+        .select('*')
+        .eq('transaction_internal_number', params.transactionInternalNumber)
+        .single();
+      order = result.data;
+      orderError = result.error;
+    }
 
     if (orderError || !order) {
       console.error('Order not found:', params.order_reference);
