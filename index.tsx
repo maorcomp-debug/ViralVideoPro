@@ -2531,8 +2531,7 @@ const App = () => {
       console.log('🔍 App: Admin status check result:', adminStatus, 'for user:', currentUser.email);
       setUserIsAdmin(adminStatus);
 
-      // Load subscription
-      const subData = await getCurrentSubscription();
+      // Use subscription data already loaded above
       if (subData && subData.plans) {
         const plan = subData.plans as any;
         setSubscription({
