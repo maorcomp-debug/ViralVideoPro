@@ -348,17 +348,46 @@ export default async function handler(
         // Get tier from plan (more reliable than from order)
         const tierToUse = plan.tier || order.subscription_tier;
         
+        // Determine tracks based on tier
+        // For paid tiers (pro, coach, coach-pro), set all 4 tracks
+        // For creator, we'll let them select tracks later
+        // For free, they need to select a track
+        let selectedTracks: string[] = [];
+        let selectedPrimaryTrack: string | null = null;
+        
+        if (tierToUse === 'pro' || tierToUse === 'coach' || tierToUse === 'coach-pro') {
+          // All 4 tracks for pro/coach tiers
+          selectedTracks = ['actors', 'musicians', 'creators', 'influencers'];
+          selectedPrimaryTrack = 'actors'; // Default primary track
+        } else if (tierToUse === 'creator') {
+          // Creator gets 2 tracks - we'll set default ones, user can change later
+          selectedTracks = ['actors', 'musicians'];
+          selectedPrimaryTrack = 'actors';
+        }
+        // For 'free' tier, don't set tracks - user must select
+        
+        // Build update object
+        const profileUpdate: any = {
+          subscription_tier: tierToUse,
+          subscription_period: order.billing_period,
+          subscription_start_date: startDate.toISOString(),
+          subscription_end_date: endDate.toISOString(),
+          subscription_status: 'active',
+          updated_at: new Date().toISOString(),
+        };
+        
+        // Only update tracks if we have them (not for free tier)
+        if (selectedTracks.length > 0) {
+          profileUpdate.selected_tracks = selectedTracks;
+        }
+        if (selectedPrimaryTrack) {
+          profileUpdate.selected_primary_track = selectedPrimaryTrack;
+        }
+        
         // Update user profile with tier from plan
         const { error: profileUpdateError } = await supabase
           .from('profiles')
-          .update({
-            subscription_tier: tierToUse,
-            subscription_period: order.billing_period,
-            subscription_start_date: startDate.toISOString(),
-            subscription_end_date: endDate.toISOString(),
-            subscription_status: 'active',
-            updated_at: new Date().toISOString(),
-          })
+          .update(profileUpdate)
           .eq('user_id', order.user_id);
 
         if (profileUpdateError) {

@@ -2496,12 +2496,23 @@ const App = () => {
       setProfile(userProfile);
 
       // Check if user needs to select a package/track (new user without selected_primary_track)
-      // Only show if user is logged in and profile exists but no primary track selected
-      // Prevent showing multiple times with hasShownPackageModal flag
-      if (userProfile && !userProfile.selected_primary_track && currentUser && !hasShownPackageModal) {
-        // Show package selection first for new users
+      // Only show if:
+      // 1. User is logged in and profile exists
+      // 2. No primary track selected
+      // 3. User has free tier (paid tiers should have tracks set automatically)
+      // 4. Hasn't shown modal yet
+      const userTier = userProfile?.subscription_tier || 'free';
+      const isFreeTier = userTier === 'free';
+      const needsTrackSelection = !userProfile?.selected_primary_track;
+      
+      if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && isFreeTier) {
+        // Show package selection first for new users with free tier
         setHasShownPackageModal(true);
         setShowPackageSelectionModal(true);
+      } else if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && !isFreeTier) {
+        // For paid tiers without tracks, this shouldn't happen, but if it does, 
+        // don't show package selection - they already paid
+        console.warn('⚠️ Paid tier user without tracks - this should not happen after payment');
       }
 
       // Check if user is admin
