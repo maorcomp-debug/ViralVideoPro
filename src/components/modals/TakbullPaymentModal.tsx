@@ -43,6 +43,22 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setUseIframe(false);
+      // Clean up if modal is closed
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = null;
+      }
+      if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
+        paymentWindowRef.current.close();
+        paymentWindowRef.current = null;
+      }
+      return;
+    }
+
+    // Prevent opening multiple windows - if window already exists and is open, don't open another
+    if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
+      console.log('Payment window already open, focusing existing window');
+      paymentWindowRef.current.focus();
       return;
     }
 
