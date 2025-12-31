@@ -11,21 +11,6 @@ interface TakbullPaymentModalProps {
   onError?: (error: string) => void;
 }
 
-const Spinner = styled.div`
-  border: 4px solid rgba(212, 160, 67, 0.2);
-  border-top: 4px solid #D4A043;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 15px;
-
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-
 export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
   isOpen,
   onClose,
@@ -34,29 +19,13 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
   onSuccess,
   onError,
 }) => {
-  const paymentWindowRef = useRef<Window | null>(null);
-  const checkIntervalRef = useRef<number | null>(null);
-  const [useIframe, setUseIframe] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeHeight, setIframeHeight] = useState(800);
 
   useEffect(() => {
     if (!isOpen) {
-      setUseIframe(false);
-      // Clean up if modal is closed
-      if (checkIntervalRef.current) {
-        clearInterval(checkIntervalRef.current);
-        checkIntervalRef.current = null;
-      }
-      if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
-        paymentWindowRef.current.close();
-        paymentWindowRef.current = null;
-      }
       return;
     }
-
-    // Use iframe by default (more reliable, avoids popup issues)
-    setUseIframe(true);
 
     // Listen for messages from payment iframe (for payment completion)
     const handleMessage = (e: MessageEvent) => {
@@ -79,11 +48,11 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [isOpen, paymentUrl, onClose, onSuccess, onError]);
+  }, [isOpen, onClose, onSuccess]);
 
-  // Handle iframe height adjustment and payment completion
+  // Handle iframe height adjustment
   useEffect(() => {
-    if (!useIframe || !isOpen) return;
+    if (!isOpen) return;
 
     const handleMessage = (e: MessageEvent) => {
       if (!e.origin.includes('takbull.co.il') && !e.origin.includes('yaadpay')) {
@@ -95,99 +64,61 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
       if (!isNaN(height) && height > 0) {
         setIframeHeight(Math.max(height + 100, 800));
       }
-      
-      // Check for payment success message
-      if (e.data === 'payment_success' || e.data?.status === 'success') {
-        if (onSuccess) {
-          onSuccess();
-        }
-        onClose();
-      }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [useIframe, isOpen, onSuccess, onClose]);
-
-  // Also check iframe location changes to detect redirect to order-received
-  useEffect(() => {
-    if (!useIframe || !isOpen || !iframeRef.current) return;
-
-    const iframe = iframeRef.current;
-    
-    const checkIframeLocation = () => {
-      try {
-        // Try to access iframe location (may fail due to CORS)
-        if (iframe.contentWindow) {
-          const iframeUrl = iframe.contentWindow.location.href;
-          // If redirected to order-received, payment was successful
-          if (iframeUrl.includes('/order-received') || iframeUrl.includes('statusCode=0')) {
-            if (onSuccess) {
-              onSuccess();
-            }
-            onClose();
-          }
-        }
-      } catch (e) {
-        // CORS - can't access iframe location, ignore
-      }
-    };
-
-    // Check periodically
-    const interval = setInterval(checkIframeLocation, 1000);
-    
-    return () => clearInterval(interval);
-  }, [useIframe, isOpen, onSuccess, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   // Always use iframe (integrated payment experience)
   return (
-    <ModalOverlay onClick={onClose}>
+    <ModalOverlay onClick={(e) => {
+      // Don't close on overlay click - user needs to complete payment
+      e.stopPropagation();
+    }}>
       <ModalContent 
         onClick={(e) => e.stopPropagation()} 
-        style={{ maxWidth: '500px' }}
+        style={{ maxWidth: '900px', maxHeight: '95vh', width: '95%' }}
       >
         <ModalHeader>
           <ModalTitle>תשלום מאובטח</ModalTitle>
           <ModalCloseBtn onClick={onClose}>×</ModalCloseBtn>
         </ModalHeader>
-        <div style={{ padding: '30px', textAlign: 'center' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <Spinner />
-          </div>
-          <p style={{ color: '#ccc', marginBottom: '15px', fontSize: '1.1rem' }}>
-            פתיחת דף התשלום...
-          </p>
-          <p style={{ color: '#888', marginBottom: '20px', fontSize: '0.95rem' }}>
+        <div style={{ padding: '20px' }}>
+          <p style={{ color: '#ccc', marginBottom: '20px', textAlign: 'center' }}>
             מספר הזמנה: <strong style={{ color: '#D4A043' }}>{orderReference}</strong>
           </p>
-          <p style={{ color: '#888', fontSize: '0.85rem', lineHeight: '1.6', marginBottom: '20px' }}>
-            דף התשלום נפתח בחלון חדש. אם החלון לא נפתח, אנא בדוק את הגדרות חוסם החלונות הקופצים בדפדפן שלך.
-          </p>
-          <button
-            onClick={() => {
-              if (paymentWindowRef.current) {
-                paymentWindowRef.current.focus();
-              } else {
-                window.open(paymentUrl, '_blank');
-              }
-            }}
-            style={{
-              background: '#D4A043',
-              color: '#000',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              marginTop: '10px'
-            }}
-          >
-            פתח דף תשלום בחלון חדש
-          </button>
-          <p style={{ color: '#666', fontSize: '0.8rem', marginTop: '20px' }}>
+          <div style={{ 
+            width: '100%', 
+            height: `${iframeHeight}px`, 
+            minHeight: '600px',
+            position: 'relative',
+            background: '#0a0a0a',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            border: '1px solid rgba(212, 160, 67, 0.3)'
+          }}>
+            <iframe
+              ref={iframeRef}
+              src={paymentUrl}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                background: 'white'
+              }}
+              title="Takbull Payment"
+              allow="payment *"
+              sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+              onLoad={() => {
+                // Reset height on load, will adjust based on messages
+                setIframeHeight(800);
+              }}
+            />
+          </div>
+          <p style={{ color: '#888', fontSize: '0.85rem', textAlign: 'center', marginTop: '15px' }}>
             התשלום מתבצע דרך Takbull - מערכת תשלומים מאובטחת
           </p>
         </div>
@@ -195,4 +126,3 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
     </ModalOverlay>
   );
 };
-
