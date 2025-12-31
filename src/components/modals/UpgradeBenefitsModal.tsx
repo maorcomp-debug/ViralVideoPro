@@ -329,7 +329,9 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   }
 
   // Show track selection if upgrading from free to creator
-  const showTrackSelection = oldTier === 'free' && newTier === 'creator' && currentTracks.length === 1;
+  // For free tier, user should have exactly 1 track (their primary track)
+  // So we show track selection if they have 1 track and are upgrading to creator
+  const showTrackSelection = oldTier === 'free' && newTier === 'creator' && currentTracks.length >= 0 && currentTracks.length < 2;
   const availableTracks = TRACKS.filter(t => !currentTracks.includes(t.id));
 
   const handleSelectTrack = (trackId: TrackId) => {

@@ -2495,7 +2495,7 @@ const App = () => {
       if (subData && subData.plans) {
         const plan = subData.plans as any;
         setSubscription({
-          tier: plan.tier as 'free' | 'creator' | 'pro' | 'coach',
+          tier: plan.tier as SubscriptionTier,
           billingPeriod: subData.billing_period as 'monthly' | 'yearly',
           startDate: new Date(subData.start_date),
           endDate: new Date(subData.end_date),
@@ -2508,7 +2508,9 @@ const App = () => {
       } else {
         // If no active subscription, use profile subscription_tier or default to free
         const profileTier = userProfile?.subscription_tier as SubscriptionTier | undefined;
-        const defaultTier = profileTier && ['free', 'creator', 'pro', 'coach'].includes(profileTier) 
+        // Include 'coach-pro' in the valid tiers check
+        const validTiers: SubscriptionTier[] = ['free', 'creator', 'pro', 'coach', 'coach-pro'];
+        const defaultTier = profileTier && validTiers.includes(profileTier) 
           ? profileTier 
           : 'free';
         
@@ -2603,26 +2605,39 @@ const App = () => {
       setUpgradeFromTier(fromTier);
       setUpgradeToTier(toTier);
       
-      // If user is available, reload data first (but don't wait for profile)
+      // If user is available, reload data first to get updated subscription and profile
       if (user) {
         loadUserData(user).then(() => {
-          console.log('✅ User data reloaded');
+          console.log('✅ User data reloaded, opening UpgradeBenefitsModal');
+          // Small delay to ensure state is updated
+          setTimeout(() => {
+            setShowUpgradeBenefitsModal(true);
+            
+            // Remove parameters from URL
+            const newSearchParams = new URLSearchParams(location.search);
+            newSearchParams.delete('upgrade');
+            newSearchParams.delete('from');
+            newSearchParams.delete('to');
+            const newSearch = newSearchParams.toString();
+            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
+          }, 300);
         }).catch((error) => {
           console.error('❌ Error reloading user data:', error);
+          // Even if reload fails, show the modal
+          setShowUpgradeBenefitsModal(true);
         });
+      } else {
+        // If no user, open modal immediately
+        setShowUpgradeBenefitsModal(true);
+        
+        // Remove parameters from URL
+        const newSearchParams = new URLSearchParams(location.search);
+        newSearchParams.delete('upgrade');
+        newSearchParams.delete('from');
+        newSearchParams.delete('to');
+        const newSearch = newSearchParams.toString();
+        navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
       }
-      
-      // Open modal immediately (don't wait for profile)
-      console.log('✅ Opening UpgradeBenefitsModal immediately');
-      setShowUpgradeBenefitsModal(true);
-      
-      // Remove parameters from URL
-      const newSearchParams = new URLSearchParams(location.search);
-      newSearchParams.delete('upgrade');
-      newSearchParams.delete('from');
-      newSearchParams.delete('to');
-      const newSearch = newSearchParams.toString();
-      navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
       
     } else if (upgradeParam === 'success') {
       console.log('⚠️ Upgrade param found but conditions not met:', {
@@ -5114,7 +5129,13 @@ const App = () => {
         onClose={() => setShowUpgradeBenefitsModal(false)}
         oldTier={upgradeFromTier}
         newTier={upgradeToTier}
-        currentTracks={profile?.selected_tracks || []}
+        currentTracks={
+          profile?.selected_tracks && profile.selected_tracks.length > 0
+            ? profile.selected_tracks
+            : profile?.selected_primary_track
+            ? [profile.selected_primary_track]
+            : []
+        }
         onSelectTrack={async (trackId) => {
           // Add the new track to user's selected tracks
           const currentTracks = profile?.selected_tracks || [];
