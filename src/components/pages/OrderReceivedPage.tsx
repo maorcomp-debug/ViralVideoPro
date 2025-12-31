@@ -152,7 +152,7 @@ export const OrderReceivedPage: React.FC = () => {
             
             // Redirect to home with upgrade parameter to show UpgradeBenefitsModal
             const oldTier = result.oldTier || 'free';
-            const newTier = result.newTier || order.subscription_tier;
+            const newTier = result.newTier || 'creator';
             
             // Reload user data after a short delay
             setTimeout(() => {
