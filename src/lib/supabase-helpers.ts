@@ -585,21 +585,30 @@ export async function updateCurrentUserProfile(updates: {
 }
 
 export async function deleteUser(userId: string) {
-  // Note: This only deletes the profile. To fully delete the auth user,
-  // you need to use an Edge Function with service role key.
-  // The profile deletion will be handled by RLS policies for admins.
-  const { error } = await supabase
-    .from('profiles')
-    .delete()
-    .eq('user_id', userId);
+  // Get current user token for authorization
+  const { data: { session } } = await supabase.auth.getSession();
   
-  if (error) {
-    console.error('Error deleting user profile:', error);
-    throw error;
+  if (!session?.access_token) {
+    throw new Error('Not authenticated');
   }
-  
-  // Note: The auth user will remain but without a profile.
-  // For full deletion, implement an Edge Function.
+
+  // Call the API route to delete the user (which will delete from auth.users)
+  const response = await fetch('/api/admin/delete-user', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ userId }),
+  });
+
+  const result = await response.json();
+
+  if (!result.ok) {
+    throw new Error(result.error || 'Failed to delete user');
+  }
+
+  return result;
 }
 
 export async function createUser(email: string, password: string, profileData: {
