@@ -139,27 +139,43 @@ export const OrderReceivedPage: React.FC = () => {
             },
           });
 
-          // The callback endpoint redirects, so we check if it was successful
-          // If we get here, the payment was processed
-          setStatus('success');
-          setMessage('תשלומך התקבל בהצלחה! המנוי שלך עודכן.');
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errorData.error || 'Failed to process payment');
+          }
+
+          const result = await response.json();
           
-          // Reload user data after a short delay
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 3000);
+          if (result.ok && result.success) {
+            setStatus('success');
+            setMessage('תשלומך התקבל בהצלחה! המנוי שלך עודכן.');
+            
+            // Reload user data after a short delay
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 3000);
+          } else {
+            setStatus('error');
+            setMessage('התשלום נכשל');
+            setError(result.message || 'שגיאה בעיבוד התשלום');
+          }
 
         } catch (fetchError: any) {
           console.error('Error calling callback:', fetchError);
           
           // Even if callback fails, if statusCode is 0, payment was successful
           // The IPN will handle the subscription update
-          setStatus('success');
-          setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
-          
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 5000);
+          if (statusCode === 0) {
+            setStatus('success');
+            setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
+            
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 5000);
+          } else {
+            setStatus('error');
+            setError(fetchError.message || 'שגיאה בעיבוד התשלום');
+          }
         }
 
       } catch (error: any) {
