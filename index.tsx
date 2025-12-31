@@ -4479,7 +4479,11 @@ const App = () => {
                   </span>
                   {(() => {
                     const currentTier = subscription?.tier || profile?.subscription_tier || 'free';
-                    const tierName = SUBSCRIPTION_PLANS[currentTier as SubscriptionTier]?.name || 'ניסיון';
+                    let tierName = SUBSCRIPTION_PLANS[currentTier as SubscriptionTier]?.name || 'ניסיון';
+                    // Add "גרסת פרו" for coach-pro tier
+                    if (currentTier === 'coach-pro') {
+                      tierName = 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
+                    }
                     return (
                       <span style={{ 
                         color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
@@ -4978,7 +4982,9 @@ const App = () => {
                 {getUploadLimitText(activeTrack, subscription || undefined)}
                 {subscription && (
                   <span style={{ display: 'block', marginTop: '8px', fontSize: '0.85rem', color: '#D4A043' }}>
-                    חבילה: {SUBSCRIPTION_PLANS[subscription.tier].name}
+                    חבילה: {subscription.tier === 'coach-pro' 
+                      ? 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו'
+                      : SUBSCRIPTION_PLANS[subscription.tier].name}
                     {subscription.usage.analysesUsed > 0 && SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod !== -1 && (
                       <span> | נותרו {SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod - subscription.usage.analysesUsed} ניתוחים</span>
                     )}
