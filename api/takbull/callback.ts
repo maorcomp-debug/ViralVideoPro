@@ -278,23 +278,58 @@ export default async function handler(
         // Calculate next payment date for recurring
         const nextPaymentDate = new Date(endDate);
 
-        // Create or update subscription
-        const { data: subscription, error: subError } = await supabase
+        // Check if subscription already exists
+        const { data: existingSubscription } = await supabase
           .from('subscriptions')
-          .upsert({
-            user_id: order.user_id,
-            plan_id: order.plan_id,
-            status: 'active',
-            billing_period: order.billing_period,
-            start_date: startDate.toISOString(),
-            end_date: endDate.toISOString(),
-            payment_provider: 'takbull',
-            payment_id: params.ordernumber || params.transactionInternalNumber,
-          }, {
-            onConflict: 'user_id,plan_id',
-          })
-          .select()
-          .single();
+          .select('*')
+          .eq('user_id', order.user_id)
+          .eq('plan_id', order.plan_id)
+          .maybeSingle();
+
+        let subscription;
+        let subError;
+
+        if (existingSubscription) {
+          // Update existing subscription
+          console.log('📝 Updating existing subscription:', existingSubscription.id);
+          const { data: updatedSub, error: updateError } = await supabase
+            .from('subscriptions')
+            .update({
+              status: 'active',
+              billing_period: order.billing_period,
+              start_date: startDate.toISOString(),
+              end_date: endDate.toISOString(),
+              payment_provider: 'takbull',
+              payment_id: params.ordernumber || params.transactionInternalNumber,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingSubscription.id)
+            .select()
+            .single();
+          
+          subscription = updatedSub;
+          subError = updateError;
+        } else {
+          // Create new subscription
+          console.log('➕ Creating new subscription');
+          const { data: newSub, error: insertError } = await supabase
+            .from('subscriptions')
+            .insert({
+              user_id: order.user_id,
+              plan_id: order.plan_id,
+              status: 'active',
+              billing_period: order.billing_period,
+              start_date: startDate.toISOString(),
+              end_date: endDate.toISOString(),
+              payment_provider: 'takbull',
+              payment_id: params.ordernumber || params.transactionInternalNumber,
+            })
+            .select()
+            .single();
+          
+          subscription = newSub;
+          subError = insertError;
+        }
 
         if (subError) {
           console.error('Error creating subscription:', subError);
