@@ -1655,7 +1655,10 @@ const ComparisonModal = ({
     new Map(savedAnalyses.map(a => [a.id, a])).values()
   );
   
-  const selectedAnalysesData = uniqueSavedAnalyses.filter(a => selectedAnalyses.includes(a.id));
+  // Filter selected analyses and sort by date (oldest first) for proper trend calculation
+  const selectedAnalysesData = uniqueSavedAnalyses
+    .filter(a => selectedAnalyses.includes(a.id))
+    .sort((a, b) => new Date(a.analysisDate).getTime() - new Date(b.analysisDate).getTime());
 
   const generateComparison = () => {
     if (selectedAnalysesData.length < 2) {
@@ -1685,6 +1688,7 @@ const ComparisonModal = ({
   };
 
   const comparisonData = generateComparison();
+  // Calculate averages in chronological order (oldest first)
   const overallAverages = selectedAnalysesData.map(a => a.averageScore);
 
   if (!isOpen) return null;
