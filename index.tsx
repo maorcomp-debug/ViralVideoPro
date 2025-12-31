@@ -2587,8 +2587,8 @@ const App = () => {
         } : null);
       }
 
-      // Load trainees if coach
-      if (userProfile?.subscription_tier === 'coach') {
+      // Load trainees if coach or coach-pro
+      if (userProfile?.subscription_tier === 'coach' || userProfile?.subscription_tier === 'coach-pro') {
         const traineesData = await getTrainees();
         setTrainees(traineesData.map(t => ({
           id: t.id,
