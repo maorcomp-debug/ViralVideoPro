@@ -5224,32 +5224,25 @@ const App = () => {
           setPendingSubscriptionTier(tier);
           setShowPackageSelectionModal(false);
           
-          // For free and creator tiers, show track selection
-          if (tier === 'free' || tier === 'creator') {
+          // Check if this is a paid tier - if so, initiate payment
+          const isPaidTier = tier !== 'free';
+          if (isPaidTier) {
+            // For paid tiers, call handleSelectPlan to initiate payment
+            await handleSelectPlan(tier, 'monthly');
+            return; // Exit - payment flow will handle the rest
+          }
+          
+          // For free tier only - show track selection
+          if (tier === 'free') {
             if (!hasShownTrackModal) {
               setHasShownTrackModal(true);
               setShowTrackSelectionModal(true);
             }
-          } else {
-            // For pro and coach, set all 4 tracks automatically
-            const allTracks: TrackId[] = ['actors', 'musicians', 'creators', 'influencers'];
-            try {
-              await updateCurrentUserProfile({
-                selected_primary_track: allTracks[0],
-                selected_tracks: allTracks,
-              });
-              // Reload user data after a short delay to ensure DB update
-              if (user) {
-                // Use a longer delay to ensure DB consistency
-                setTimeout(async () => {
-                  const { data: { user: currentUser } } = await supabase.auth.getUser();
-                  if (currentUser && currentUser.id === user.id) {
-                    await loadUserData(currentUser);
-                  }
-                }, 500);
-              }
-            } catch (err) {
-              console.error('Error setting tracks for pro/coach tier:', err);
+          } else if (tier === 'creator') {
+            // For creator tier, show track selection
+            if (!hasShownTrackModal) {
+              setHasShownTrackModal(true);
+              setShowTrackSelectionModal(true);
             }
           }
         }}
