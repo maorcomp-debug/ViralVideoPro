@@ -179,13 +179,22 @@ export const OrderReceivedPage: React.FC = () => {
             const oldTier = result.oldTier || 'free';
             const newTier = result.newTier || 'creator';
             
-            // Force reload with upgrade params to trigger data refresh
-            // Use window.location.replace to avoid back button issues
-            setTimeout(() => {
-              // Add timestamp to prevent caching
-              const timestamp = new Date().getTime();
-              window.location.replace(`/?upgrade=success&from=${oldTier}&to=${newTier}&_t=${timestamp}`);
-            }, 1500);
+            // If we're in a popup window (opener exists), close popup and redirect opener
+            // Otherwise, redirect current window
+            if (window.opener && !window.opener.closed) {
+              // We're in a popup - close it and redirect the main window
+              setTimeout(() => {
+                const timestamp = new Date().getTime();
+                window.opener.location.replace(`/?upgrade=success&from=${oldTier}&to=${newTier}&_t=${timestamp}`);
+                window.close();
+              }, 1500);
+            } else {
+              // We're in the main window - redirect normally
+              setTimeout(() => {
+                const timestamp = new Date().getTime();
+                window.location.replace(`/?upgrade=success&from=${oldTier}&to=${newTier}&_t=${timestamp}`);
+              }, 1500);
+            }
           } else {
             setStatus('error');
             setMessage('התשלום נכשל');
@@ -201,11 +210,20 @@ export const OrderReceivedPage: React.FC = () => {
             setStatus('success');
             setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
             
-            // Force reload to refresh data
-            setTimeout(() => {
-              const timestamp = new Date().getTime();
-              window.location.replace(`/?_t=${timestamp}`);
-            }, 3000);
+            // If we're in a popup window (opener exists), close popup and redirect opener
+            // Otherwise, redirect current window
+            if (window.opener && !window.opener.closed) {
+              setTimeout(() => {
+                const timestamp = new Date().getTime();
+                window.opener.location.replace(`/?_t=${timestamp}`);
+                window.close();
+              }, 3000);
+            } else {
+              setTimeout(() => {
+                const timestamp = new Date().getTime();
+                window.location.replace(`/?_t=${timestamp}`);
+              }, 3000);
+            }
           } else {
             setStatus('error');
             setError(fetchError.message || 'שגיאה בעיבוד התשלום');
