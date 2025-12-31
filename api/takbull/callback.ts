@@ -225,12 +225,14 @@ export default async function handler(
       }
     }
 
-    // Redirect to thank you page
-    const redirectUrl = isSuccess
-      ? `${req.headers.origin || 'https://viraly.co.il'}/order-received/${params.order_reference}?status=success`
-      : `${req.headers.origin || 'https://viraly.co.il'}/order-received/${params.order_reference}?status=failed`;
-
-    return res.redirect(302, redirectUrl);
+    // Return JSON response (the frontend page will handle the redirect)
+    return res.status(200).json({
+      ok: true,
+      success: isSuccess,
+      orderId: order.id,
+      orderReference: orderReference,
+      message: isSuccess ? 'Payment processed successfully' : 'Payment failed',
+    });
 
   } catch (error: any) {
     console.error('Error in callback:', error);
