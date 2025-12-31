@@ -2587,12 +2587,22 @@ const App = () => {
     const fromTier = searchParams.get('from') as SubscriptionTier | null;
     const toTier = searchParams.get('to') as SubscriptionTier | null;
     
+    console.log('🔍 Checking for upgrade params:', {
+      upgradeParam,
+      fromTier,
+      toTier,
+      hasUser: !!user,
+      hasProfile: !!profile,
+      locationSearch: location.search,
+    });
+    
     if (upgradeParam === 'success' && fromTier && toTier && fromTier !== toTier && user && profile) {
       console.log('🎉 Upgrade detected, showing UpgradeBenefitsModal:', { fromTier, toTier });
       
       // Reload user data first to get updated subscription
       if (user) {
         loadUserData(user).then(() => {
+          console.log('✅ User data reloaded, opening UpgradeBenefitsModal');
           // Small delay to ensure data is loaded
           setTimeout(() => {
             setUpgradeFromTier(fromTier);
@@ -2607,8 +2617,18 @@ const App = () => {
             const newSearch = newSearchParams.toString();
             navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
           }, 500);
+        }).catch((error) => {
+          console.error('❌ Error reloading user data:', error);
         });
       }
+    } else if (upgradeParam === 'success') {
+      console.log('⚠️ Upgrade param found but conditions not met:', {
+        hasFromTier: !!fromTier,
+        hasToTier: !!toTier,
+        tiersMatch: fromTier === toTier,
+        hasUser: !!user,
+        hasProfile: !!profile,
+      });
     }
   }, [location.search, user, profile, navigate, location.pathname]);
 
