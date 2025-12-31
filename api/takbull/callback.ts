@@ -39,6 +39,7 @@ export default async function handler(
       transactionInternalNumber: params.transactionInternalNumber,
       statusCode: params.statusCode,
       uniqId: params.uniqId,
+      allParams: JSON.stringify(params),
     });
 
     // Try to find order by order_reference, ordernumber, or transactionInternalNumber
@@ -105,12 +106,27 @@ export default async function handler(
     }
 
     if (orderError || !order) {
-      console.error('Order not found:', params.order_reference);
+      console.error('❌ Order not found:', {
+        searchedBy: {
+          order_reference: params.order_reference,
+          ordernumber: params.ordernumber,
+          transactionInternalNumber: params.transactionInternalNumber,
+        },
+        error: orderError,
+      });
       return res.status(404).json({ 
         ok: false, 
-        error: 'Order not found' 
+        error: `Order not found. Searched by: order_reference=${params.order_reference}, ordernumber=${params.ordernumber}, transactionInternalNumber=${params.transactionInternalNumber}` 
       });
     }
+
+    console.log('✅ Order found:', {
+      orderId: order.id,
+      orderReference: order.order_reference,
+      userId: order.user_id,
+      subscriptionTier: order.subscription_tier,
+      billingPeriod: order.billing_period,
+    });
 
     const statusCode = parseInt(params.statusCode || '0', 10);
     const isSuccess = statusCode === 0;
@@ -237,7 +253,12 @@ export default async function handler(
         if (profileUpdateError) {
           console.error('❌ Error updating profile:', profileUpdateError);
         } else {
-          console.log('✅ Profile updated successfully');
+          console.log('✅ Profile updated successfully:', {
+            userId: order.user_id,
+            oldTier: oldTier,
+            newTier: order.subscription_tier,
+            subscriptionStatus: 'active',
+          });
         }
       } catch (error: any) {
         console.error('Error processing subscription:', error);

@@ -132,6 +132,8 @@ export const OrderReceivedPage: React.FC = () => {
           .join('&');
         
         try {
+          console.log('📞 Calling callback API with params:', queryString);
+          
           const response = await fetch(`/api/takbull/callback?${queryString}`, {
             method: 'GET',
             headers: {
@@ -139,12 +141,16 @@ export const OrderReceivedPage: React.FC = () => {
             },
           });
 
+          console.log('📥 Callback API response status:', response.status, response.statusText);
+
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('❌ Callback API error:', errorData);
             throw new Error(errorData.error || 'Failed to process payment');
           }
 
           const result = await response.json();
+          console.log('✅ Callback API result:', result);
           
           if (result.ok && result.success) {
             setStatus('success');
