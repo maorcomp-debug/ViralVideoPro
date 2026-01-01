@@ -2799,16 +2799,35 @@ const App = () => {
         
         // Reload user data in background to update subscription state
         // Do this multiple times with delays to ensure state is updated
+        // Also refresh auth session to get latest profile data
         setTimeout(async () => {
-          await loadUserData(user, true);
+          try {
+            await supabase.auth.refreshSession();
+            await loadUserData(user, true);
+          } catch (e) {
+            console.error('Error refreshing session:', e);
+            await loadUserData(user, true);
+          }
         }, 500);
         
         setTimeout(async () => {
-          await loadUserData(user, true);
+          try {
+            await supabase.auth.refreshSession();
+            await loadUserData(user, true);
+          } catch (e) {
+            console.error('Error refreshing session:', e);
+            await loadUserData(user, true);
+          }
         }, 2000);
         
         setTimeout(async () => {
-          await loadUserData(user, true);
+          try {
+            await supabase.auth.refreshSession();
+            await loadUserData(user, true);
+          } catch (e) {
+            console.error('Error refreshing session:', e);
+            await loadUserData(user, true);
+          }
         }, 5000);
       } else {
         // If no user, open modal immediately
@@ -5267,6 +5286,9 @@ const App = () => {
           console.log('✅ Payment completed successfully, reloading user data...');
           setShowTakbullPayment(false);
           
+          // Get current subscription tier before reload to determine oldTier
+          const currentTier = subscription?.tier || 'free';
+          
           // Immediately reload user data with force refresh to get updated subscription
           if (user) {
             try {
@@ -5277,6 +5299,20 @@ const App = () => {
               if (currentUser && currentUser.id === user.id) {
                 // Force reload with cache busting
                 await loadUserData(currentUser, true);
+                
+                // Get new tier from reloaded data
+                const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
+                const newSub = await getCurrentSubscription();
+                const newProfile = await getCurrentUserProfile();
+                const newTier = newSub?.plans?.tier || (newProfile?.subscription_status === 'active' ? newProfile?.subscription_tier : 'free');
+                
+                // If tier changed, redirect to show UpgradeBenefitsModal
+                if (newTier !== currentTier && newTier !== 'free') {
+                  console.log('🎉 Tier upgraded, redirecting to show UpgradeBenefitsModal:', { fromTier: currentTier, toTier: newTier });
+                  const timestamp = Date.now();
+                  window.location.replace(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`);
+                  return;
+                }
                 
                 // Also reload again after a short delay to ensure database consistency
                 setTimeout(async () => {
