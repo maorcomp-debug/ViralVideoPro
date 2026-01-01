@@ -2819,8 +2819,11 @@ const App = () => {
             // Wait a bit for state to update
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // Show modal
+            // Show modal - profile should be loaded by now
             console.log('✅ User data reloaded successfully, opening UpgradeBenefitsModal');
+            // Wait a bit more to ensure profile state is updated
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             setTimeout(() => {
               setShowUpgradeBenefitsModal(true);
               
