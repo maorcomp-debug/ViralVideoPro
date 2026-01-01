@@ -117,9 +117,50 @@ export const OrderReceivedPage: React.FC = () => {
           return;
         }
 
+        // CRITICAL: If payment was successful (statusCode === 0), set a maximum timeout
+        // After 15 seconds, always show success and redirect, even if API hasn't responded
+        // This prevents the page from getting stuck forever
+        const maxWaitTimeout = setTimeout(() => {
+          console.warn('⚠️ Maximum wait time reached (15s), showing success and redirecting...');
+          setStatus('success');
+          setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
+          
+          // Redirect based on context
+          if (window.parent && window.parent !== window) {
+            // Iframe - send message and try to redirect parent
+            window.parent.postMessage({
+              type: 'payment_success',
+              oldTier: 'free',
+              newTier: 'creator',
+            }, '*');
+            setTimeout(() => {
+              try {
+                const timestamp = Date.now();
+                window.parent.location.replace(`/?_t=${timestamp}`);
+              } catch (e) {
+                console.log('Cannot redirect parent, using postMessage only');
+              }
+            }, 500);
+          } else if (window.opener && !window.opener.closed) {
+            // Popup - redirect opener and close
+            setTimeout(() => {
+              const timestamp = new Date().getTime();
+              window.opener.location.replace(`/?_t=${timestamp}`);
+              window.close();
+            }, 1000);
+          } else {
+            // Main window - redirect
+            setTimeout(() => {
+              const timestamp = new Date().getTime();
+              window.location.replace(`/?_t=${timestamp}`);
+            }, 1000);
+          }
+        }, 15000); // 15 seconds maximum wait
+
         // Get current user
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
+          clearTimeout(maxWaitTimeout);
           setStatus('error');
           setError('לא ניתן לזהות את המשתמש. אנא התחבר מחדש.');
           return;
@@ -134,9 +175,9 @@ export const OrderReceivedPage: React.FC = () => {
         try {
           console.log('📞 Calling callback API with params:', queryString);
           
-          // Add timeout to fetch request (30 seconds)
+          // Add timeout to fetch request (10 seconds - shorter than maxWaitTimeout)
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          const fetchTimeoutId = setTimeout(() => controller.abort(), 10000);
           
           let response;
           try {
@@ -147,21 +188,23 @@ export const OrderReceivedPage: React.FC = () => {
               },
               signal: controller.signal,
             });
-            clearTimeout(timeoutId);
+            clearTimeout(fetchTimeoutId);
           } catch (fetchError: any) {
-            clearTimeout(timeoutId);
+            clearTimeout(fetchTimeoutId);
             if (fetchError.name === 'AbortError') {
-              console.error('❌ Callback API timeout after 30 seconds');
-              // If payment was successful, show success even if API timed out
+              console.error('❌ Callback API timeout after 10 seconds');
+              // If payment was successful, clear maxWaitTimeout and show success immediately
+              clearTimeout(maxWaitTimeout);
               if (statusCode === 0) {
                 setStatus('success');
                 setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
                 setTimeout(() => {
                   const timestamp = new Date().getTime();
                   window.location.replace(`/?_t=${timestamp}`);
-                }, 2000);
+                }, 1000);
                 return;
               } else {
+                clearTimeout(maxWaitTimeout);
                 throw new Error('Connection timeout - please check your internet connection');
               }
             }
@@ -197,6 +240,9 @@ export const OrderReceivedPage: React.FC = () => {
             throw new Error('Invalid response from server');
           }
           console.log('✅ Callback API result:', result);
+          
+          // Clear the maxWaitTimeout since API responded
+          clearTimeout(maxWaitTimeout);
           
           if (result.ok && result.success) {
             setStatus('success');
@@ -241,13 +287,27 @@ export const OrderReceivedPage: React.FC = () => {
               }, 1500);
             }
           } else {
-            setStatus('error');
-            setMessage('התשלום נכשל');
-            setError(result.message || 'שגיאה בעיבוד התשלום');
+            // Even if API says it failed, if statusCode is 0, payment was successful
+            // Show success anyway (IPN will handle the update)
+            if (statusCode === 0) {
+              setStatus('success');
+              setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
+              setTimeout(() => {
+                const timestamp = new Date().getTime();
+                window.location.replace(`/?_t=${timestamp}`);
+              }, 2000);
+            } else {
+              setStatus('error');
+              setMessage('התשלום נכשל');
+              setError(result.message || 'שגיאה בעיבוד התשלום');
+            }
           }
 
         } catch (fetchError: any) {
           console.error('Error calling callback:', fetchError);
+          
+          // Clear maxWaitTimeout since we're handling the error
+          clearTimeout(maxWaitTimeout);
           
           // Even if callback fails, if statusCode is 0, payment was successful
           // The IPN will handle the subscription update
@@ -262,12 +322,12 @@ export const OrderReceivedPage: React.FC = () => {
                 const timestamp = new Date().getTime();
                 window.opener.location.replace(`/?_t=${timestamp}`);
                 window.close();
-              }, 3000);
+              }, 1000);
             } else {
               setTimeout(() => {
                 const timestamp = new Date().getTime();
                 window.location.replace(`/?_t=${timestamp}`);
-              }, 3000);
+              }, 1000);
             }
           } else {
             setStatus('error');
@@ -277,6 +337,8 @@ export const OrderReceivedPage: React.FC = () => {
 
       } catch (error: any) {
         console.error('Error processing payment:', error);
+        // Make sure to clear any timeouts
+        // Note: maxWaitTimeout is not accessible here, but it will timeout on its own if statusCode === 0
         setStatus('error');
         setError(error.message || 'שגיאה בעיבוד התשלום');
       }
