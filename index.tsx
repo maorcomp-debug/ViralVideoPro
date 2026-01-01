@@ -2832,31 +2832,15 @@ const App = () => {
         const newSearch = newSearchParams.toString();
         navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
         
-        // Reload user data in background to update subscription state
-        // Do this multiple times with delays to ensure state is updated
-        // Also refresh auth session to get latest profile data
+        // Reload user data once in background to update subscription state
+        // Small delay to allow database to update
         setTimeout(async () => {
           try {
-            await supabase.auth.refreshSession();
             await loadUserData(user, true);
           } catch (e) {
-            console.error('Error refreshing session:', e);
-            await loadUserData(user, true);
+            console.error('Error reloading user data after upgrade:', e);
           }
         }, 500);
-        
-        setTimeout(async () => {
-          try {
-            await supabase.auth.refreshSession();
-            await loadUserData(user, true);
-          } catch (e) {
-            console.error('Error refreshing session:', e);
-            await loadUserData(user, true);
-          }
-        }, 2000);
-        
-        setTimeout(async () => {
-          try {
             await supabase.auth.refreshSession();
             await loadUserData(user, true);
           } catch (e) {
