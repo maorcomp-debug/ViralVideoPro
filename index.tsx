@@ -5284,6 +5284,7 @@ const App = () => {
         isOpen={showTakbullPayment}
         onClose={() => {
           setShowTakbullPayment(false);
+          setIsProcessingPayment(false);
           // Reload user data to check if payment was successful
           if (user) {
             setTimeout(async () => {
@@ -5299,6 +5300,7 @@ const App = () => {
         onSuccess={async () => {
           console.log('✅ Payment completed successfully, reloading user data...');
           setShowTakbullPayment(false);
+          setIsProcessingPayment(false);
           
           // Get current subscription tier before reload to determine oldTier
           const currentTier = subscription?.tier || 'free';
