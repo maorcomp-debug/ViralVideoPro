@@ -2804,8 +2804,9 @@ const App = () => {
       setUpgradeFromTier(fromTier);
       setUpgradeToTier(toTier);
       
-      // If upgrading from free tier, set a flag in localStorage to show message in Settings
-      if (fromTier === 'free' && typeof window !== 'undefined') {
+      // Set flag in localStorage to show logout message for ALL upgrades
+      // This ensures users know they need to re-login for the upgrade to take effect
+      if (fromTier !== toTier && typeof window !== 'undefined') {
         localStorage.setItem('pending_package_upgrade', 'true');
       }
       
@@ -4584,7 +4585,8 @@ const App = () => {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
           <AppLogo />
           {/* Upgrade completion message - shown after closing upgrade modal, right under logo */}
-          {showUpgradeCompletionMessage && upgradeFromTier === 'free' && typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
+          {/* Show for ALL upgrades, not just free->creator */}
+          {showUpgradeCompletionMessage && upgradeFromTier !== upgradeToTier && typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
             <div style={{ 
               width: '100%', 
               maxWidth: '500px',
@@ -5324,9 +5326,9 @@ const App = () => {
           setIsProcessingPayment(false);
           
           // Get current subscription tier before reload to determine oldTier
-          const currentTier = subscription?.tier || 'free';
+          const currentTier = subscription?.tier || profile?.subscription_tier || 'free';
           
-          // Reload user data immediately without excessive delays
+          // Reload user data with retries - database might need time to update
           if (user) {
             try {
               // Verify user is still authenticated
@@ -5336,25 +5338,42 @@ const App = () => {
                 return;
               }
               
-              // Single reload with force refresh
-              await loadUserData(currentUser, true);
+              // Try multiple times to get updated tier (database might need time to update)
+              let newTier = currentTier;
+              let attempts = 0;
+              const maxAttempts = 5;
               
-              // Wait a moment for database to update, then check tier
-              await new Promise(resolve => setTimeout(resolve, 500));
-              
-              // Get new tier from reloaded data
-              const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
-              const newSub = await getCurrentSubscription();
-              const newProfile = await getCurrentUserProfile();
-              const newTier = newSub?.plans?.tier || (newProfile?.subscription_status === 'active' ? newProfile?.subscription_tier : 'free');
-              
-              // If tier changed, redirect to show UpgradeBenefitsModal
-              if (newTier !== currentTier && newTier !== 'free') {
-                console.log('🎉 Tier upgraded, redirecting to show UpgradeBenefitsModal:', { fromTier: currentTier, toTier: newTier });
-                const timestamp = Date.now();
-                window.location.replace(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`);
-                return;
+              while (attempts < maxAttempts) {
+                // Reload with force refresh
+                await loadUserData(currentUser, true);
+                
+                // Wait for database to update (longer wait on first attempts)
+                await new Promise(resolve => setTimeout(resolve, attempts === 0 ? 1000 : 500));
+                
+                // Get new tier from reloaded data
+                const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
+                const newSub = await getCurrentSubscription();
+                const newProfile = await getCurrentUserProfile();
+                newTier = newSub?.plans?.tier || (newProfile?.subscription_status === 'active' ? newProfile?.subscription_tier : null) || currentTier;
+                
+                // If tier changed and is not free, we're done
+                if (newTier !== currentTier && newTier !== 'free' && newTier !== null) {
+                  console.log('🎉 Tier upgraded, redirecting to show UpgradeBenefitsModal:', { fromTier: currentTier, toTier: newTier, attempts: attempts + 1 });
+                  const timestamp = Date.now();
+                  window.location.replace(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`);
+                  return;
+                }
+                
+                attempts++;
               }
+              
+              // If we still don't have the new tier, redirect anyway with current tier info
+              // The upgrade detection will handle it when the tier is eventually updated
+              console.warn('⚠️ Tier not updated yet after payment, redirecting anyway:', { currentTier, newTier, attempts });
+              const timestamp = Date.now();
+              // Use the tier from the order reference or fallback to current tier
+              // The actual tier will be detected when profile loads
+              window.location.replace(`/?upgrade=success&from=${currentTier}&to=${currentTier}&_t=${timestamp}`);
             } catch (error) {
               console.error('Error reloading user data after payment:', error);
               // Simple fallback: reload page
@@ -5426,8 +5445,8 @@ const App = () => {
         isOpen={showUpgradeBenefitsModal}
         onClose={() => {
           setShowUpgradeBenefitsModal(false);
-          // Show completion message after modal closes, only if upgrading from free tier
-          if (upgradeFromTier === 'free' && typeof window !== 'undefined') {
+          // Show completion message after modal closes for ALL upgrades
+          if (upgradeFromTier !== upgradeToTier && typeof window !== 'undefined') {
             setShowUpgradeCompletionMessage(true);
           }
         }}
