@@ -2567,9 +2567,15 @@ const App = () => {
           userTier,
           profileStatus: profileStatusCheck,
         });
-        // If they have paid subscription but no tracks, this is an error state
-        // Don't show modal, but log warning
-        if (needsTrackSelection) {
+        // If they have paid subscription but no tracks, show UpgradeBenefitsModal to let them choose tracks
+        // This can happen if user skipped track selection or modal didn't open after payment
+        if (needsTrackSelection && userTier === 'creator' && userProfile) {
+          console.warn('⚠️ Paid subscription user (creator) without tracks - showing UpgradeBenefitsModal to select tracks');
+          // Show UpgradeBenefitsModal for creator tier users without tracks
+          setUpgradeFromTier('free');
+          setUpgradeToTier('creator');
+          setShowUpgradeBenefitsModal(true);
+        } else if (needsTrackSelection) {
           console.warn('⚠️ Paid subscription user without tracks - tracks should be set automatically after payment');
         }
       } else if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && isFreeTier) {
