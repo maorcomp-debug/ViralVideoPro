@@ -493,10 +493,18 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
         {showTrackSelection && (
           <TracksSection>
             <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem', textAlign: 'right' }}>
-              🎯 בחר תחום ניתוח נוסף (אופציונלי)
+              {isNewUser ? (
+                <>🎯 בחר 2 תחומי ניתוח שמועדפים עליך</>
+              ) : (
+                <>🎯 בחר תחום ניתוח נוסף (אופציונלי)</>
+              )}
             </h3>
             <p style={{ color: '#aaa', marginBottom: '15px', textAlign: 'right', fontSize: '0.95rem' }}>
-              כחלק מחבילת יוצרים, תוכל לבחור תחום ניתוח נוסף. תוכל לעשות זאת גם מאוחר יותר מההגדרות.
+              {isNewUser ? (
+                <>כחלק מחבילת יוצרים, תוכל לבחור 2 תחומי ניתוח שמועדפים עליך: שחקנים, זמרים, יוצרי תוכן או משפיענים. תוכל לדלג אם רוצים להישאר עם תחום אחד לעת עתה, ולהשלים את הבחירה מאוחר יותר מההגדרות.</>
+              ) : (
+                <>כחלק מחבילת יוצרים, תוכל לבחור תחום ניתוח נוסף. תוכל לעשות זאת גם מאוחר יותר מההגדרות.</>
+              )}
             </p>
             <TracksGrid>
               {/* Show current tracks as "included" */}
