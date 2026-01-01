@@ -240,6 +240,21 @@ const TraineeGrid = styled.div`
   }
 `;
 
+const UpgradeMessageBox = styled.div`
+  padding: 12px 18px;
+  background: linear-gradient(135deg, rgba(212, 160, 67, 0.25), rgba(212, 160, 67, 0.15));
+  border: 2px solid rgba(212, 160, 67, 0.6);
+  border-radius: 12px;
+  color: #D4A043;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  text-align: center;
+  max-width: 420px;
+  box-shadow: 0 4px 16px rgba(212, 160, 67, 0.3);
+  font-weight: 500;
+  animation: ${fadeIn} 0.5s ease-in;
+`;
+
 const TraineeCard = styled.div`
   background: linear-gradient(145deg, #111, #0a0a0a);
   border: 1px solid #333;
@@ -4603,23 +4618,31 @@ const App = () => {
                     if (currentTier === 'coach-pro') {
                       tierName = 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
                     }
+                    const showUpgradeMessage = currentTier === 'free' && typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true';
                     return (
-                      <span style={{ 
-                        color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        background: currentTier === 'free' 
-                          ? 'rgba(136, 136, 136, 0.15)' 
-                          : currentTier === 'coach'
-                          ? 'rgba(212, 160, 67, 0.15)'
-                          : 'rgba(230, 190, 116, 0.15)',
-                        border: `1px solid ${currentTier === 'free' ? 'rgba(136, 136, 136, 0.3)' : currentTier === 'coach' ? 'rgba(212, 160, 67, 0.3)' : 'rgba(230, 190, 116, 0.3)'}`,
-                        letterSpacing: '0.5px'
-                      }}>
-                        {tierName}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ 
+                          color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          background: currentTier === 'free' 
+                            ? 'rgba(136, 136, 136, 0.15)' 
+                            : currentTier === 'coach'
+                            ? 'rgba(212, 160, 67, 0.15)'
+                            : 'rgba(230, 190, 116, 0.15)',
+                          border: `1px solid ${currentTier === 'free' ? 'rgba(136, 136, 136, 0.3)' : currentTier === 'coach' ? 'rgba(212, 160, 67, 0.3)' : 'rgba(230, 190, 116, 0.3)'}`,
+                          letterSpacing: '0.5px'
+                        }}>
+                          {tierName}
+                        </span>
+                        {showUpgradeMessage && (
+                          <UpgradeMessageBox>
+                            💡 <strong style={{ fontWeight: 700 }}>עדכון חשוב:</strong> על מנת שהחבילה שלך תתעדכן ותהיה זמינה לשימוש, אנא צא מהמערכת והכנס מחדש עם המשתמש שלך.
+                          </UpgradeMessageBox>
+                        )}
+                      </div>
                     );
                   })()}
                 </div>
