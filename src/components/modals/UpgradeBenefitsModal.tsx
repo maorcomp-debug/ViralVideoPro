@@ -372,22 +372,53 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   const showTrackSelection = oldTier === 'free' && newTier === 'creator' && currentTracks.length >= 0 && currentTracks.length < 2;
   const availableTracks = TRACKS.filter(t => !currentTracks.includes(t.id));
   const currentTrackObjects = TRACKS.filter(t => currentTracks.includes(t.id));
+  
+  // Check if user is new (no tracks selected yet) vs existing user (has 1 track)
+  const isNewUser = currentTracks.length === 0;
+  const isExistingUserWithOneTrack = currentTracks.length === 1;
 
+  // For new users, allow selecting 2 tracks; for existing users, allow selecting 1 additional track
+  const [selectedTracks, setSelectedTracks] = useState<TrackId[]>([]);
+  
   const handleSelectTrack = (trackId: TrackId) => {
-    if (selectedTrack === trackId) {
-      setSelectedTrack(null);
+    if (isNewUser) {
+      // New user: can select up to 2 tracks
+      if (selectedTracks.includes(trackId)) {
+        setSelectedTracks(selectedTracks.filter(id => id !== trackId));
+      } else if (selectedTracks.length < 2) {
+        setSelectedTracks([...selectedTracks, trackId]);
+      }
     } else {
-      setSelectedTrack(trackId);
+      // Existing user: can select 1 additional track
+      if (selectedTracks.includes(trackId)) {
+        setSelectedTracks([]);
+      } else {
+        setSelectedTracks([trackId]);
+      }
     }
   };
 
   const handleContinue = () => {
-    if (showTrackSelection && selectedTrack && onSelectTrack) {
-      onSelectTrack(selectedTrack);
+    if (showTrackSelection && onSelectTrack) {
+      if (isNewUser && selectedTracks.length > 0) {
+        // For new users, save the first track, then the second will be saved separately
+        // Actually, we should save both tracks - but onSelectTrack only accepts one track
+        // So we'll call it for each selected track
+        selectedTracks.forEach(trackId => {
+          onSelectTrack(trackId);
+        });
+      } else if (isExistingUserWithOneTrack && selectedTracks.length > 0) {
+        // For existing users, save the additional track
+        onSelectTrack(selectedTracks[0]);
+      }
     }
     // If user skipped track selection in creator tier, show message
-    if (showTrackSelection && !selectedTrack && newTier === 'creator' && oldTier === 'free') {
-      alert('תוכל לבחור תחום ניתוח נוסף מאוחר יותר מההגדרות > עדכונים');
+    if (showTrackSelection && selectedTracks.length === 0 && newTier === 'creator' && oldTier === 'free') {
+      if (isNewUser) {
+        alert('תוכל לבחור תחומי ניתוח מאוחר יותר מההגדרות > עדכונים');
+      } else {
+        alert('תוכל לבחור תחום ניתוח נוסף מאוחר יותר מההגדרות > עדכונים');
+      }
     }
     onClose();
   };
@@ -477,12 +508,14 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
               {/* Show available tracks for selection */}
               {availableTracks.map((track) => {
                 const TrackIconComponent = track.icon;
-                const isSelected = selectedTrack === track.id;
+                const isSelected = selectedTracks.includes(track.id);
+                const canSelect = isNewUser ? selectedTracks.length < 2 : selectedTracks.length < 1;
                 return (
                   <TrackCard
                     key={track.id}
                     $selected={isSelected}
-                    onClick={() => handleSelectTrack(track.id)}
+                    $disabled={!canSelect && !isSelected}
+                    onClick={() => canSelect || isSelected ? handleSelectTrack(track.id) : undefined}
                   >
                     <TrackIcon>
                       <TrackIconComponent />
@@ -497,7 +530,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
 
         <ButtonGroup>
           <PrimaryButton onClick={handleContinue}>
-            {showTrackSelection && selectedTrack ? 'שמור והמשך' : 'מעולה, בואו נתחיל!'}
+            {showTrackSelection && selectedTracks.length > 0 ? 'שמור והמשך' : 'מעולה, בואו נתחיל!'}
           </PrimaryButton>
           {showTrackSelection && (
             <SecondaryButton onClick={onClose}>
