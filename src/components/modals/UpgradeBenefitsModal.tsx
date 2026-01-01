@@ -292,8 +292,6 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   onSelectTrack,
   currentTracks = []
 }) => {
-  const [selectedTrack, setSelectedTrack] = useState<TrackId | null>(null);
-  
   if (!isOpen) return null;
 
   const oldPlan = SUBSCRIPTION_PLANS[oldTier];
