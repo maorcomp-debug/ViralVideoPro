@@ -127,15 +127,15 @@ const BenefitsList = styled.div`
 `;
 
 const AdditionalTracksMessage = styled.div`
-  background: rgba(76, 175, 80, 0.15);
-  border: 1px solid rgba(76, 175, 80, 0.4);
+  background: rgba(212, 160, 67, 0.1);
+  border: 1px solid rgba(212, 160, 67, 0.3);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
   text-align: right;
   
   h4 {
-    color: #4CAF50;
+    color: #D4A043;
     margin: 0 0 15px 0;
     font-size: 1.1rem;
     font-weight: 700;
@@ -155,7 +155,7 @@ const TracksPreviewGrid = styled.div`
   gap: 12px;
   margin-top: 15px;
   padding-top: 15px;
-  border-top: 1px solid rgba(76, 175, 80, 0.2);
+  border-top: 1px solid rgba(212, 160, 67, 0.2);
 `;
 
 const TrackPreviewCard = styled.div`
@@ -194,13 +194,16 @@ const TrackPreviewName = styled.div`
 `;
 
 const TrackPreviewNote = styled.div`
-  color: #4CAF50;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-top: 10px;
+  color: #D4A043;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-top: 15px;
   text-align: center;
-  padding-top: 10px;
-  border-top: 1px solid rgba(76, 175, 80, 0.2);
+  padding: 12px;
+  background: rgba(212, 160, 67, 0.15);
+  border-radius: 8px;
+  border: 1px solid rgba(212, 160, 67, 0.3);
+  box-shadow: 0 0 10px rgba(212, 160, 67, 0.2);
 `;
 
 const BenefitItem = styled.div`
@@ -523,11 +526,9 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
             <p>
               במסגרת החבילה שבחרת, מגיע לך תחום ניתוח נוסף לבחירה. תוכל לעשות זאת דרך ממשק הניהול, בהגדרות.
             </p>
-            {remainingTrackSlots > 0 && (
-              <p style={{ color: '#D4A043', fontWeight: 600, marginBottom: '10px' }}>
-                כרגע יש לך {currentTracks.length} תחום{currentTracks.length !== 1 ? 'ים' : ''}, ואתה יכול להוסיף עוד {remainingTrackSlots} {remainingTrackSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}.
-              </p>
-            )}
+            <p style={{ color: '#D4A043', fontWeight: 600, marginBottom: '10px' }}>
+              כרגע יש תחום אחד שכבר בחרת, ותוכל להוסיף עוד תחום נוסף לבחירתך.
+            </p>
             <TracksPreviewGrid>
               {TRACKS.filter(t => t.id !== 'coach').map((track) => {
                 const TrackIconComponent = track.icon;
