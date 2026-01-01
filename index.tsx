@@ -5336,15 +5336,8 @@ const App = () => {
         onClose={() => {
           setShowTakbullPayment(false);
           setIsProcessingPayment(false);
-          // Reload user data to check if payment was successful
-          if (user) {
-            setTimeout(async () => {
-              const { data: { user: currentUser } } = await supabase.auth.getUser();
-              if (currentUser && currentUser.id === user.id) {
-                await loadUserData(currentUser);
-              }
-            }, 1000);
-          }
+          // Only reload if payment wasn't successful (onSuccess handles successful payments)
+          // This is just a cleanup - don't reload unnecessarily
         }}
         paymentUrl={takbullPaymentUrl}
         orderReference={takbullOrderReference}
@@ -5356,42 +5349,39 @@ const App = () => {
           // Get current subscription tier before reload to determine oldTier
           const currentTier = subscription?.tier || 'free';
           
-          // Immediately reload user data with force refresh to get updated subscription
+          // Reload user data immediately without excessive delays
           if (user) {
             try {
-              // Force refresh session and reload data
-              await supabase.auth.refreshSession();
+              // Verify user is still authenticated
+              const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+              if (authError || !currentUser || currentUser.id !== user.id) {
+                console.error('User authentication error after payment:', authError);
+                return;
+              }
               
-              const { data: { user: currentUser } } = await supabase.auth.getUser();
-              if (currentUser && currentUser.id === user.id) {
-                // Force reload with cache busting
-                await loadUserData(currentUser, true);
-                
-                // Get new tier from reloaded data
-                const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
-                const newSub = await getCurrentSubscription();
-                const newProfile = await getCurrentUserProfile();
-                const newTier = newSub?.plans?.tier || (newProfile?.subscription_status === 'active' ? newProfile?.subscription_tier : 'free');
-                
-                // If tier changed, redirect to show UpgradeBenefitsModal
-                if (newTier !== currentTier && newTier !== 'free') {
-                  console.log('🎉 Tier upgraded, redirecting to show UpgradeBenefitsModal:', { fromTier: currentTier, toTier: newTier });
-                  const timestamp = Date.now();
-                  window.location.replace(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`);
-                  return;
-                }
-                
-                // Also reload again after a short delay to ensure database consistency
-                setTimeout(async () => {
-                  await loadUserData(currentUser, true);
-                }, 2000);
+              // Single reload with force refresh
+              await loadUserData(currentUser, true);
+              
+              // Wait a moment for database to update, then check tier
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              // Get new tier from reloaded data
+              const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
+              const newSub = await getCurrentSubscription();
+              const newProfile = await getCurrentUserProfile();
+              const newTier = newSub?.plans?.tier || (newProfile?.subscription_status === 'active' ? newProfile?.subscription_tier : 'free');
+              
+              // If tier changed, redirect to show UpgradeBenefitsModal
+              if (newTier !== currentTier && newTier !== 'free') {
+                console.log('🎉 Tier upgraded, redirecting to show UpgradeBenefitsModal:', { fromTier: currentTier, toTier: newTier });
+                const timestamp = Date.now();
+                window.location.replace(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`);
+                return;
               }
             } catch (error) {
               console.error('Error reloading user data after payment:', error);
-              // Fallback: reload page after delay
-              setTimeout(() => {
-                window.location.reload();
-              }, 3000);
+              // Simple fallback: reload page
+              window.location.reload();
             }
           }
         }}
