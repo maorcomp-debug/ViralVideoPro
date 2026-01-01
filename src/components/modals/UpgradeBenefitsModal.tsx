@@ -396,15 +396,21 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
     }
   };
 
-  const handleContinue = () => {
-    if (showTrackSelection && onSelectTrack) {
+  const handleContinue = async () => {
+    if (showTrackSelection && onSelectTrack && selectedTracks.length > 0) {
+      // For new users, save all tracks sequentially (each call adds to existing)
+      // For existing users, save the additional track
+      // Since onSelectTrack updates the database and reloads, we need to call it sequentially
       if (isNewUser && selectedTracks.length > 0) {
-        // For new users, save the first track, then the second will be saved separately
-        // Actually, we should save both tracks - but onSelectTrack only accepts one track
-        // So we'll call it for each selected track
-        selectedTracks.forEach(trackId => {
-          onSelectTrack(trackId);
-        });
+        // Save tracks one by one - each call will add to the existing tracks
+        // Wait a bit between calls to ensure DB updates complete
+        for (let i = 0; i < selectedTracks.length; i++) {
+          onSelectTrack(selectedTracks[i]);
+          if (i < selectedTracks.length - 1) {
+            // Wait a bit before next call to ensure DB update completes
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        }
       } else if (isExistingUserWithOneTrack && selectedTracks.length > 0) {
         // For existing users, save the additional track
         onSelectTrack(selectedTracks[0]);
