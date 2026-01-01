@@ -2652,40 +2652,26 @@ const App = () => {
         finalIsActive,
       });
       
-      // Only update subscription if tier is different or subscription is null
-      // This prevents overwriting with stale data
-      setSubscription(prev => {
-        // If tier changed or subscription is null, update it
-        if (!prev || prev.tier !== finalTier) {
-          console.log('🔄 Updating subscription state:', {
-            previousTier: prev?.tier,
-            newTier: finalTier,
-            wasNull: !prev,
-          });
-          return {
-            tier: finalTier,
-            billingPeriod: finalBillingPeriod,
-            startDate: finalStartDate,
-            endDate: finalEndDate,
-            usage: {
-              analysesUsed: 0, // Will be loaded separately
-              lastResetDate: finalStartDate,
-            },
-            isActive: finalIsActive,
-          };
-        }
-        // Tier hasn't changed, but update other fields if needed
-        console.log('ℹ️ Subscription tier unchanged, updating other fields only:', {
-          currentTier: prev.tier,
-          finalTier,
-        });
-        return {
-          ...prev,
-          billingPeriod: finalBillingPeriod,
-          startDate: finalStartDate,
-          endDate: finalEndDate,
-          isActive: finalIsActive,
-        };
+      // Always update subscription state - don't check if tier changed
+      // This ensures subscription is updated even if it was already set
+      // The issue was that if subscription was already set to 'free', it wouldn't update to the new tier
+      console.log('🔄 Setting subscription state (force update):', {
+        previousTier: subscription?.tier,
+        newTier: finalTier,
+        previousIsActive: subscription?.isActive,
+        newIsActive: finalIsActive,
+      });
+      
+      setSubscription({
+        tier: finalTier,
+        billingPeriod: finalBillingPeriod,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        usage: {
+          analysesUsed: 0, // Will be loaded separately
+          lastResetDate: finalStartDate,
+        },
+        isActive: finalIsActive,
       });
       
       // Broadcast subscription update to other tabs/windows if tier changed
