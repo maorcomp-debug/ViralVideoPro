@@ -2816,26 +2816,21 @@ const App = () => {
             console.log('✅ Subscription tier verified in database, reloading user data to update state...');
             await loadUserData(user, true); // Force refresh
             
-            // Wait a bit for state to update
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Wait for state to update (including profile)
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
             // Show modal - profile should be loaded by now
             console.log('✅ User data reloaded successfully, opening UpgradeBenefitsModal');
-            // Wait a bit more to ensure profile state is updated
-            await new Promise(resolve => setTimeout(resolve, 500));
+            setShowUpgradeBenefitsModal(true);
             
-            setTimeout(() => {
-              setShowUpgradeBenefitsModal(true);
-              
-              // Remove parameters from URL but keep _t for cache busting
-              const newSearchParams = new URLSearchParams(location.search);
-              newSearchParams.delete('upgrade');
-              newSearchParams.delete('from');
-              newSearchParams.delete('to');
-              // Keep _t parameter for cache busting
-              const newSearch = newSearchParams.toString();
-              navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
-            }, 300);
+            // Remove parameters from URL but keep _t for cache busting
+            const newSearchParams = new URLSearchParams(location.search);
+            newSearchParams.delete('upgrade');
+            newSearchParams.delete('from');
+            newSearchParams.delete('to');
+            // Keep _t parameter for cache busting
+            const newSearch = newSearchParams.toString();
+            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
           } catch (error) {
             console.error(`❌ Error reloading user data (attempt ${attempt}):`, error);
             if (attempt < maxAttempts) {
