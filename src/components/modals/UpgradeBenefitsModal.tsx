@@ -43,21 +43,25 @@ const TRACKS = [
   { 
     id: 'actors' as TrackId, 
     label: 'שחקנים ואודישנים',
+    description: 'חדר האודישנים הראשי של הפקות הדרמה המובילות',
     icon: TheaterMasksIcon
   },
   { 
     id: 'musicians' as TrackId, 
     label: 'זמרים ומוזיקאים',
+    description: 'פאנל השופטים של תוכניות המוזיקה הגדולות',
     icon: MusicNoteIcon
   },
   { 
     id: 'creators' as TrackId, 
     label: 'יוצרי תוכן וכוכבי רשת',
+    description: 'האלגוריתם של הרשתות החברתיות (טיקטוק/רילס/יוטיוב)',
     icon: PhoneStarIcon
   },
   { 
     id: 'influencers' as TrackId, 
     label: 'משפיענים ומותגים',
+    description: 'חדר האסטרטגיה של המותגים הגדולים ומשרדי הפרסום',
     icon: MicrophoneIcon
   },
 ];
@@ -220,6 +224,14 @@ const TrackName = styled.div`
   font-size: 0.95rem;
   font-weight: 600;
   margin-top: 8px;
+`;
+
+const TrackDescription = styled.p`
+  color: #aaa;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 10px 0 0 0;
+  text-align: center;
 `;
 
 const ButtonGroup = styled.div`
@@ -519,16 +531,34 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
                     $disabled={isDisabled}
                     onClick={() => !isDisabled && handleSelectTrack(track.id)}
                   >
-                    {isExisting && (
-                      <IncludedBadge style={{ background: '#4CAF50', color: '#fff' }}>נוכחי</IncludedBadge>
+                    {isSelected && (
+                      <IncludedBadge style={{ 
+                        background: isExisting ? '#4CAF50' : '#D4A043',
+                        color: isExisting ? '#fff' : '#000'
+                      }}>
+                        {isExisting ? '✓ קיים' : '✓ נבחר'}
+                      </IncludedBadge>
                     )}
-                    {isSelected && !isExisting && (
-                      <IncludedBadge>נבחר</IncludedBadge>
+                    {isExisting && !isSelected && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '15px',
+                        left: '15px',
+                        background: '#4CAF50',
+                        color: '#fff',
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                      }}>נוכחי</div>
                     )}
                     <TrackIcon>
                       <TrackIconComponent />
                     </TrackIcon>
                     <TrackName style={{ color: isExisting ? '#4CAF50' : undefined }}>{track.label}</TrackName>
+                    {track.description && (
+                      <TrackDescription>{track.description}</TrackDescription>
+                    )}
                   </TrackCard>
                 );
               })}
