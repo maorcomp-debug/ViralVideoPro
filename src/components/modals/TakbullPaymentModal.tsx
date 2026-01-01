@@ -29,17 +29,35 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
 
     // Listen for messages from payment iframe (for payment completion)
     const handleMessage = (e: MessageEvent) => {
-      // Check if message is from Takbull payment page
-      if (!e.origin.includes('takbull.co.il') && !e.origin.includes('yaadpay')) {
-        return;
+      console.log('📥 Message received in TakbullPaymentModal:', {
+        origin: e.origin,
+        data: e.data,
+        dataType: typeof e.data,
+      });
+      
+      // Check if message is from OrderReceivedPage (our own page in iframe)
+      // Accept messages from viraly.co.il origin
+      if (e.origin.includes('viraly.co.il') || e.origin === window.location.origin) {
+        if (e.data && typeof e.data === 'object' && e.data.type === 'payment_success') {
+          console.log('✅ Payment success message received from OrderReceivedPage');
+          if (onSuccess) {
+            onSuccess();
+          }
+          onClose();
+          return;
+        }
       }
       
-      // If payment success message received
-      if (e.data === 'payment_success' || e.data?.status === 'success') {
-        if (onSuccess) {
-          onSuccess();
+      // Check if message is from Takbull payment page
+      if (e.origin.includes('takbull.co.il') || e.origin.includes('yaadpay')) {
+        // If payment success message received
+        if (e.data === 'payment_success' || (e.data && typeof e.data === 'object' && e.data.status === 'success')) {
+          console.log('✅ Payment success message received from Takbull');
+          if (onSuccess) {
+            onSuccess();
+          }
+          onClose();
         }
-        onClose();
       }
     };
 
