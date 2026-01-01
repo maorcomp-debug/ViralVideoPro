@@ -2812,15 +2812,24 @@ const App = () => {
               return;
             }
             
+            // Tier is correct - proceed to show modal
+            console.log('✅ Subscription tier verified in database:', {
+              currentTier,
+              expectedTier,
+              hasSubscription: !!currentSub,
+              profileTier: currentProfile?.subscription_tier,
+              profileStatus: currentProfile?.subscription_status,
+            });
+            
             // Data loaded successfully - reload user data one more time to ensure state is updated
-            console.log('✅ Subscription tier verified in database, reloading user data to update state...');
+            console.log('🔄 Reloading user data to update React state...');
             await loadUserData(user, true); // Force refresh
             
-            // Wait for state to update (including profile)
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Wait for state to update (including profile and subscription)
+            await new Promise(resolve => setTimeout(resolve, 1500));
             
             // Show modal - profile should be loaded by now
-            console.log('✅ User data reloaded successfully, opening UpgradeBenefitsModal');
+            console.log('✅ Opening UpgradeBenefitsModal now');
             setShowUpgradeBenefitsModal(true);
             
             // Remove parameters from URL but keep _t for cache busting
