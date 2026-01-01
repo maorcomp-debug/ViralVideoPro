@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { fadeIn } from '../../styles/globalStyles';
 import { SUBSCRIPTION_PLANS } from '../../constants';
@@ -399,82 +399,13 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
     }
   }
 
-  // Show track selection if upgrading from free to creator
-  // For free tier, user should have exactly 1 track (their primary track)
-  // So we show track selection if they have 1 track and are upgrading to creator
-  const showTrackSelection = oldTier === 'free' && newTier === 'creator' && currentTracks.length >= 0 && currentTracks.length < 2;
-  // Filter out coach track and tracks already selected
-  const availableTracks = TRACKS.filter(t => !currentTracks.includes(t.id) && t.id !== 'coach');
-  const currentTrackObjects = TRACKS.filter(t => currentTracks.includes(t.id) && t.id !== 'coach');
-  
   // Check if user can add more tracks after upgrade
   const maxTracksForNewTier = newTier === 'free' ? 1 : newTier === 'creator' ? 2 : newTier === 'pro' ? 4 : 1;
-  const canAddMoreTracks = !showTrackSelection && currentTracks.length < maxTracksForNewTier && (newTier === 'creator' || newTier === 'pro');
+  const canAddMoreTracks = currentTracks.length < maxTracksForNewTier && (newTier === 'creator' || newTier === 'pro');
   const remainingTrackSlots = maxTracksForNewTier - currentTracks.length;
-  
-  // When upgrading from free to creator, always treat as upgrade (not new user registration)
-  // Even if user has no tracks, they're upgrading, not registering fresh
-  // The "בחר 2 תחומי ניתוח שמועדפים עליך" message should only appear for new users
-  // directly choosing pro package during registration, not for upgrades
-  const isExistingUserUpgrade = true; // Always true for upgrades
-  const hasExistingTracks = currentTracks.length > 0;
 
-  // For upgrades from free to creator, allow selecting 1 additional track (up to 2 total)
-  // Start with existing tracks already selected (like TrackSelectionModal in 'add' mode)
-  const [selectedTracks, setSelectedTracks] = useState<TrackId[]>([...currentTracks]);
-  
-  const handleSelectTrack = (trackId: TrackId) => {
-    // Don't allow deselecting existing tracks
-    if (currentTracks.includes(trackId)) {
-      return; // Existing tracks cannot be deselected
-    }
-    
-    // For upgrades, user can select 1 additional track (up to 2 total)
-    const maxToSelect = hasExistingTracks ? 1 : 2; // If no existing tracks, can select 2, else 1 more
-    const newTracksCount = selectedTracks.filter(t => !currentTracks.includes(t)).length;
-    
-    if (selectedTracks.includes(trackId)) {
-      // Deselect only if it's a new track (not existing)
-      setSelectedTracks(selectedTracks.filter(id => id !== trackId));
-    } else if (newTracksCount < maxToSelect) {
-      // Select track if under limit
-      setSelectedTracks([...selectedTracks, trackId]);
-    }
-  };
-
-  const handleContinue = async () => {
-    if (showTrackSelection && onSelectTrack) {
-      // Get only new tracks (not existing ones)
-      const newTracks = selectedTracks.filter(t => !currentTracks.includes(t));
-      
-      if (newTracks.length > 0) {
-        try {
-          // User selected additional track(s) - save them
-          // Save tracks one by one - each call will add to the existing tracks
-          // Don't close modal until all tracks are saved
-          for (let i = 0; i < newTracks.length; i++) {
-            await onSelectTrack(newTracks[i], false); // Don't close modal yet
-            if (i < newTracks.length - 1) {
-              // Wait a bit before next call to ensure DB update completes
-              await new Promise(resolve => setTimeout(resolve, 300));
-            }
-          }
-          // Close modal after all tracks are saved
-          onClose();
-        } catch (error) {
-          console.error('Error saving tracks:', error);
-          alert('שגיאה בשמירת התחומים. תוכל להוסיף אותם מאוחר יותר מההגדרות.');
-          // Modal will stay open on error
-        }
-      } else {
-        // User chose to continue without selecting additional tracks (optional)
-        // This is fine - they can add tracks later from settings
-        onClose();
-      }
-    } else {
-      // No track selection needed
-      onClose();
-    }
+  const handleContinue = () => {
+    onClose();
   };
 
   return (
@@ -534,90 +465,21 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
 
         {canAddMoreTracks && (
           <AdditionalTracksMessage>
-            <h4>🎯 רוצה להוסיף תחום ניתוח נוסף?</h4>
+            <h4>🎯 הוספת תחום ניתוח נוסף</h4>
             <p>
               החבילה שלך מאפשרת לך לבחור עד {maxTracksForNewTier} תחומי ניתוח. 
               {remainingTrackSlots > 0 && (
                 <> כרגע יש לך {currentTracks.length} תחום{currentTracks.length !== 1 ? 'ים' : ''}, ואתה יכול להוסיף עוד {remainingTrackSlots} {remainingTrackSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}.</>
               )}
-              {' '}תוכל לעשות זאת מאוחר יותר מההגדרות בפאנל הניהול שלך.
+              {' '}הוספת תחום נוסף ממתינה לך בפאנל הניהול. תוכל לעשות זאת מאוחר יותר מההגדרות.
             </p>
           </AdditionalTracksMessage>
         )}
 
-        {showTrackSelection && (
-          <TracksSection>
-            <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem', textAlign: 'right' }}>
-              🎯 בחר תחום ניתוח נוסף {hasExistingTracks ? '(אופציונלי)' : ''}
-            </h3>
-            <p style={{ color: '#aaa', marginBottom: '15px', textAlign: 'right', fontSize: '0.95rem' }}>
-              כחלק מחבילת יוצרים, תוכל לבחור {hasExistingTracks ? 'תחום ניתוח נוסף' : 'עד 2 תחומי ניתוח'}. תוכל לעשות זאת גם מאוחר יותר מההגדרות.
-            </p>
-            <TracksGrid>
-              {/* Show all tracks - existing ones marked, new ones selectable (like TrackSelectionModal) */}
-              {TRACKS.filter(t => t.id !== 'coach').map((track) => {
-                const TrackIconComponent = track.icon;
-                const isSelected = selectedTracks.includes(track.id);
-                const isExisting = currentTracks.includes(track.id);
-                const newTracksCount = selectedTracks.filter(t => !currentTracks.includes(t)).length;
-                const maxToSelect = hasExistingTracks ? 1 : 2;
-                const canSelect = !isExisting && newTracksCount < maxToSelect;
-                const isDisabled = !isExisting && !canSelect && !isSelected;
-                
-                return (
-                  <TrackCard
-                    key={track.id}
-                    $selected={isSelected}
-                    $included={isExisting}
-                    $disabled={isDisabled}
-                    onClick={() => !isDisabled && handleSelectTrack(track.id)}
-                  >
-                    {isSelected && (
-                      <IncludedBadge style={{ 
-                        background: isExisting ? '#4CAF50' : '#D4A043',
-                        color: isExisting ? '#fff' : '#000'
-                      }}>
-                        {isExisting ? '✓ קיים' : '✓ נבחר'}
-                      </IncludedBadge>
-                    )}
-                    {isExisting && !isSelected && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '15px',
-                        left: '15px',
-                        background: '#4CAF50',
-                        color: '#fff',
-                        padding: '5px 12px',
-                        borderRadius: '20px',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                      }}>נוכחי</div>
-                    )}
-                    <TrackIcon>
-                      <TrackIconComponent />
-                    </TrackIcon>
-                    <TrackName style={{ color: isExisting ? '#4CAF50' : undefined }}>{track.label}</TrackName>
-                    {track.description && (
-                      <TrackDescription>{track.description}</TrackDescription>
-                    )}
-                  </TrackCard>
-                );
-              })}
-            </TracksGrid>
-          </TracksSection>
-        )}
-
         <ButtonGroup>
           <PrimaryButton onClick={handleContinue} disabled={false}>
-            {showTrackSelection && selectedTracks.filter(t => !currentTracks.includes(t)).length > 0 
-              ? `שמור והמשך (${selectedTracks.filter(t => !currentTracks.includes(t)).length} חדש${selectedTracks.filter(t => !currentTracks.includes(t)).length > 1 ? 'ים' : ''})` 
-              : 'מעולה, בואו נתחיל!'}
+            מעולה, בואו נתחיל!
           </PrimaryButton>
-          {showTrackSelection && (
-            <SecondaryButton onClick={onClose}>
-              {selectedTracks.filter(t => !currentTracks.includes(t)).length > 0 ? 'בלי לשמור' : 'דלג לעת עתה'}
-            </SecondaryButton>
-          )}
         </ButtonGroup>
       </ModalContent>
     </ModalOverlay>
