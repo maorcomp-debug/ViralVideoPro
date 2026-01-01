@@ -1209,6 +1209,7 @@ export const AdminPage: React.FC = () => {
                   <div>שם מלא</div>
                   <div>דרגה</div>
                   <div>תפקיד</div>
+                  <div>תחומי ניתוח</div>
                   <div>סטטוס מנוי</div>
                   <div>תאריך רישום</div>
                   <div>פעולות</div>
@@ -1269,6 +1270,37 @@ export const AdminPage: React.FC = () => {
                           {user.role === 'admin' ? 'מנהל' : 'משתמש רגיל'}
                         </Badge>
                       )}
+                    </UserField>
+                    <UserField data-label="תחומי ניתוח:">
+                      {(() => {
+                        const tracks = user.selected_tracks && user.selected_tracks.length > 0
+                          ? user.selected_tracks
+                          : user.selected_primary_track
+                          ? [user.selected_primary_track]
+                          : [];
+                        
+                        const trackLabels: { [key: string]: string } = {
+                          'actors': 'שחקנים',
+                          'musicians': 'זמרים',
+                          'creators': 'יוצרי תוכן',
+                          'influencers': 'משפיענים',
+                          'coach': 'מאמנים'
+                        };
+                        
+                        if (tracks.length === 0) {
+                          return <span style={{ color: '#888' }}>-</span>;
+                        }
+                        
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {tracks.map((track: string, idx: number) => (
+                              <Badge key={idx} $tier="creator" style={{ fontSize: '0.75rem', padding: '2px 8px' }}>
+                                {trackLabels[track] || track}
+                              </Badge>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </UserField>
                     <UserField data-label="סטטוס מנוי:">
                       {editingUser === user.user_id ? (

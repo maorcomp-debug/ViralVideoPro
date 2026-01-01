@@ -2361,6 +2361,7 @@ const App = () => {
   const [showTakbullPayment, setShowTakbullPayment] = useState(false);
   const [takbullPaymentUrl, setTakbullPaymentUrl] = useState<string>('');
   const [takbullOrderReference, setTakbullOrderReference] = useState<string>('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [hasShownPackageModal, setHasShownPackageModal] = useState(false);
   const [showUpgradeBenefitsModal, setShowUpgradeBenefitsModal] = useState(false);
   const [upgradeFromTier, setUpgradeFromTier] = useState<SubscriptionTier>('free');
@@ -2983,7 +2984,14 @@ const App = () => {
 
         console.log('✅ Payment URL received, opening payment modal...');
         
-        // Open Takbull payment modal
+        // Prevent multiple payment windows from opening
+        if (isProcessingPayment || showTakbullPayment) {
+          console.warn('⚠️ Payment already in progress, ignoring duplicate request');
+          return;
+        }
+        
+        // Set processing flag and open payment modal
+        setIsProcessingPayment(true);
         setTakbullPaymentUrl(data.paymentUrl);
         setTakbullOrderReference(data.orderReference);
         setShowTakbullPayment(true);
@@ -5420,17 +5428,21 @@ const App = () => {
             ? existingTracks
             : [...existingTracks, trackId];
           
+          // Set primary track to the first track in the array (for creator tier compatibility)
+          const primaryTrack = newTracks.length > 0 ? newTracks[0] : null;
+          
           try {
             const { updateCurrentUserProfile } = await import('./src/lib/supabase-helpers');
             await updateCurrentUserProfile({
               selected_tracks: newTracks,
+              selected_primary_track: primaryTrack as any,
             });
             
-            // Reload user data
+            // Reload user data to get updated profile
             if (user) {
               setTimeout(async () => {
-                await loadUserData(user);
-              }, 200);
+                await loadUserData(user, true);
+              }, 300);
             }
             
             // Only close modal if explicitly requested (for single track selection)
