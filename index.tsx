@@ -2825,7 +2825,16 @@ const App = () => {
             const isProfileActive = profileStatus === 'active';
             
             // Use subscription tier if available, otherwise use profile tier only if active
-            const currentTier = subscriptionTier || (isProfileActive ? profileTier : 'free');
+            // IMPORTANT: Prioritize profile tier if active, even if subscription record doesn't exist yet
+            const currentTier = subscriptionTier || (isProfileActive && profileTier ? profileTier : 'free');
+            
+            console.log('🔍 Tier calculation in reloadWithRetry:', {
+              subscriptionTier,
+              profileTier,
+              profileStatus,
+              isProfileActive,
+              calculatedTier: currentTier,
+            });
             
             console.log(`🔍 Verification check (attempt ${attempt}): currentTier=${currentTier}, expectedTier=${expectedTier}`, {
               hasSubscription: !!currentSub,
