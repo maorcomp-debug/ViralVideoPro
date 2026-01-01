@@ -181,20 +181,24 @@ export const OrderReceivedPage: React.FC = () => {
             
             // Send message to parent window if in iframe, otherwise redirect
             if (window.parent && window.parent !== window) {
-              // We're in an iframe - send message to parent
+              // We're in an iframe - send message to parent window
+              console.log('📤 Sending payment success message to parent window', { oldTier, newTier });
               window.parent.postMessage({
                 type: 'payment_success',
                 oldTier,
                 newTier,
               }, '*');
               
-              // Also try to redirect parent (may not work due to CORS)
-              try {
-                window.parent.location.replace(`/?upgrade=success&from=${oldTier}&to=${newTier}&_t=${Date.now()}`);
-              } catch (e) {
-                // CORS - parent window will handle via postMessage
-                console.log('Cannot redirect parent, will use postMessage');
-              }
+              // Also try to redirect parent (may work with allow-top-navigation)
+              setTimeout(() => {
+                try {
+                  const timestamp = Date.now();
+                  window.parent.location.replace(`/?upgrade=success&from=${oldTier}&to=${newTier}&_t=${timestamp}`);
+                } catch (e) {
+                  // CORS/Sandbox - parent window will handle via postMessage
+                  console.log('Cannot redirect parent directly, using postMessage only');
+                }
+              }, 500);
             } else if (window.opener && !window.opener.closed) {
               // We're in a popup - close it and redirect the main window
               setTimeout(() => {
