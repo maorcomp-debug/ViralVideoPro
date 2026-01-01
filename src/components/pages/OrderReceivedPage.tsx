@@ -134,12 +134,39 @@ export const OrderReceivedPage: React.FC = () => {
         try {
           console.log('📞 Calling callback API with params:', queryString);
           
-          const response = await fetch(`/api/takbull/callback?${queryString}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
+          // Add timeout to fetch request (30 seconds)
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          
+          let response;
+          try {
+            response = await fetch(`/api/takbull/callback?${queryString}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+          } catch (fetchError: any) {
+            clearTimeout(timeoutId);
+            if (fetchError.name === 'AbortError') {
+              console.error('❌ Callback API timeout after 30 seconds');
+              // If payment was successful, show success even if API timed out
+              if (statusCode === 0) {
+                setStatus('success');
+                setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
+                setTimeout(() => {
+                  const timestamp = new Date().getTime();
+                  window.location.replace(`/?_t=${timestamp}`);
+                }, 2000);
+                return;
+              } else {
+                throw new Error('Connection timeout - please check your internet connection');
+              }
+            }
+            throw fetchError;
+          }
 
           console.log('📥 Callback API response status:', response.status, response.statusText);
 
