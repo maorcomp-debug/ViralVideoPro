@@ -4606,6 +4606,29 @@ const App = () => {
         <Header>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
           <AppLogo />
+          {/* Upgrade completion message - shown after closing upgrade modal, right under logo */}
+          {showUpgradeCompletionMessage && upgradeFromTier === 'free' && typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
+            <div style={{ 
+              width: '100%', 
+              maxWidth: '500px',
+              marginBottom: '-5px'
+            }}>
+              <div style={{
+                padding: '10px 16px',
+                background: 'rgba(212, 160, 67, 0.15)',
+                border: '1px solid rgba(212, 160, 67, 0.4)',
+                borderRadius: '10px',
+                color: '#D4A043',
+                fontSize: '0.85rem',
+                lineHeight: '1.5',
+                textAlign: 'center',
+                boxShadow: '0 2px 8px rgba(212, 160, 67, 0.15)',
+                fontWeight: 500
+              }}>
+                💡 על מנת שהחבילה שלך תתעדכן, אנא צא מהמערכת והכנס מחדש
+              </div>
+            </div>
+          )}
             {user ? (
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
@@ -5074,20 +5097,6 @@ const App = () => {
             );
           })}
         </Grid>
-
-        {/* Upgrade completion message - shown after closing upgrade modal */}
-        {showUpgradeCompletionMessage && upgradeFromTier === 'free' && typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
-          <div style={{ 
-            maxWidth: '700px', 
-            width: '100%', 
-            margin: '0 auto 30px auto',
-            animation: `${fadeIn} 0.5s ease-in`
-          }}>
-            <UpgradeMessageBox>
-              💡 <strong style={{ fontWeight: 700 }}>עדכון חשוב:</strong> על מנת שהחבילה שלך תתעדכן ותהיה זמינה לשימוש, אנא צא מהמערכת והכנס מחדש עם המשתמש שלך.
-            </UpgradeMessageBox>
-          </div>
-        )}
 
         <UploadContainer id="upload-section" $hasFile={!!previewUrl}>
           {previewUrl ? (
