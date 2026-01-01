@@ -2616,15 +2616,31 @@ const App = () => {
         finalIsActive = true;
       } else if (isProfileActive && isValidProfileTier) {
         // Use profile tier if active (handles case where profile updated but subscription record not created yet)
+        // IMPORTANT: This is critical for immediate update after payment
         finalTier = profileTier;
         finalBillingPeriod = (userProfile?.subscription_period as 'monthly' | 'yearly') || 'monthly';
         finalStartDate = userProfile?.subscription_start_date ? new Date(userProfile.subscription_start_date) : new Date();
         finalEndDate = userProfile?.subscription_end_date ? new Date(userProfile.subscription_end_date) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
         finalIsActive = true;
+        console.log('✅ Using profile tier (subscription record not found yet):', {
+          profileTier,
+          profileStatus,
+          finalTier,
+        });
       } else {
-        // Default to free tier
+        // Default to free tier ONLY if profile is not active or tier is invalid
+        // Don't default to free if we just paid - check if profile was recently updated
+        if (isProfileActive && profileTier && !validTiers.includes(profileTier)) {
+          console.warn('⚠️ Profile has active status but invalid tier:', profileTier);
+        }
         finalTier = 'free';
         finalIsActive = true; // Free tier never expires
+        console.log('ℹ️ Defaulting to free tier:', {
+          isProfileActive,
+          isValidProfileTier,
+          profileTier,
+          profileStatus,
+        });
       }
       
       console.log('📊 Setting subscription state:', {
