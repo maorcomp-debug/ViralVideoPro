@@ -398,33 +398,41 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
 
   const handleContinue = async () => {
     if (showTrackSelection && onSelectTrack && selectedTracks.length > 0) {
-      // For new users, save all tracks sequentially (each call adds to existing)
-      // For existing users, save the additional track
-      // Since onSelectTrack updates the database and reloads, we need to call it sequentially
-      if (isNewUser && selectedTracks.length > 0) {
-        // Save tracks one by one - each call will add to the existing tracks
-        // Wait a bit between calls to ensure DB updates complete
-        for (let i = 0; i < selectedTracks.length; i++) {
-          onSelectTrack(selectedTracks[i]);
-          if (i < selectedTracks.length - 1) {
-            // Wait a bit before next call to ensure DB update completes
-            await new Promise(resolve => setTimeout(resolve, 300));
-          }
-        }
-      } else if (isExistingUserWithOneTrack && selectedTracks.length > 0) {
+      try {
+        // For new users, save all tracks sequentially (each call adds to existing)
         // For existing users, save the additional track
-        onSelectTrack(selectedTracks[0]);
+        // Since onSelectTrack updates the database and reloads, we need to call it sequentially
+        if (isNewUser && selectedTracks.length > 0) {
+          // Save tracks one by one - each call will add to the existing tracks
+          // Don't close modal until all tracks are saved
+          for (let i = 0; i < selectedTracks.length; i++) {
+            await onSelectTrack(selectedTracks[i], false); // Don't close modal yet
+            if (i < selectedTracks.length - 1) {
+              // Wait a bit before next call to ensure DB update completes
+              await new Promise(resolve => setTimeout(resolve, 300));
+            }
+          }
+          // Close modal after all tracks are saved
+          onClose();
+        } else if (isExistingUserWithOneTrack && selectedTracks.length > 0) {
+          // For existing users, save the additional track and close modal
+          await onSelectTrack(selectedTracks[0], true);
+        }
+      } catch (error) {
+        console.error('Error saving tracks:', error);
+        // Modal will stay open on error
       }
-    }
-    // If user skipped track selection in creator tier, show message
-    if (showTrackSelection && selectedTracks.length === 0 && newTier === 'creator' && oldTier === 'free') {
-      if (isNewUser) {
-        alert('תוכל לבחור תחומי ניתוח מאוחר יותר מההגדרות > עדכונים');
-      } else {
-        alert('תוכל לבחור תחום ניתוח נוסף מאוחר יותר מההגדרות > עדכונים');
+    } else {
+      // If user skipped track selection in creator tier, show message
+      if (showTrackSelection && selectedTracks.length === 0 && newTier === 'creator' && oldTier === 'free') {
+        if (isNewUser) {
+          alert('תוכל לבחור תחומי ניתוח מאוחר יותר מההגדרות > עדכונים');
+        } else {
+          alert('תוכל לבחור תחום ניתוח נוסף מאוחר יותר מההגדרות > עדכונים');
+        }
       }
+      onClose();
     }
-    onClose();
   };
 
   return (
