@@ -2532,7 +2532,7 @@ const App = () => {
           hasSubscriptionRecord,
           hasActivePaidProfile,
           userTier,
-          profileStatus,
+          profileStatus: profileStatusCheck,
         });
         // If they have paid subscription but no tracks, this is an error state
         // Don't show modal, but log warning
@@ -2547,7 +2547,7 @@ const App = () => {
         // For paid tiers without tracks and without subscription, this shouldn't happen
         console.warn('⚠️ Paid tier user without tracks and without subscription - this should not happen', {
           userTier,
-          profileStatus,
+          profileStatus: profileStatusCheck,
           hasSubscriptionRecord,
           hasActivePaidProfile,
         });
