@@ -2841,13 +2841,6 @@ const App = () => {
             console.error('Error reloading user data after upgrade:', e);
           }
         }, 500);
-            await supabase.auth.refreshSession();
-            await loadUserData(user, true);
-          } catch (e) {
-            console.error('Error refreshing session:', e);
-            await loadUserData(user, true);
-          }
-        }, 5000);
       } else {
         // If no user, open modal immediately
         setShowUpgradeBenefitsModal(true);
