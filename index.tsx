@@ -2782,138 +2782,34 @@ const App = () => {
         return;
       }
       
-      // If user is available, reload data with retry logic to get updated subscription and profile
+      // If user is available, show modal immediately and reload data in background
       if (user) {
-        // Store tiers locally for retry logic (they come from URL params)
-        const expectedTier = toTier;
-        const previousTier = fromTier;
+        // Show modal immediately - don't wait for verification
+        console.log('✅ Opening UpgradeBenefitsModal immediately after payment');
+        setShowUpgradeBenefitsModal(true);
         
-        // Retry logic: try to reload data multiple times until subscription is updated
-        const reloadWithRetry = async (attempt = 1, maxAttempts = 6) => {
-          try {
-            // Force reload user data (clear cache by using a fresh fetch)
-            await loadUserData(user);
-            console.log(`✅ User data reloaded (attempt ${attempt})`);
-            
-            // Wait a bit longer for state to update and database to be consistent
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Verify that subscription tier was updated by checking database directly
-            const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
-            const currentSub = await getCurrentSubscription();
-            const currentProfile = await getCurrentUserProfile();
-            
-            // Priority: subscription.plans.tier > profile.subscription_tier (only if status is active)
-            // This ensures we use the subscription table as source of truth when available
-            const subscriptionTier = currentSub?.plans?.tier;
-            const profileTier = currentProfile?.subscription_tier;
-            const profileStatus = currentProfile?.subscription_status;
-            const isProfileActive = profileStatus === 'active';
-            
-            // Use subscription tier if available, otherwise use profile tier only if active
-            // IMPORTANT: Prioritize profile tier if active, even if subscription record doesn't exist yet
-            const currentTier = subscriptionTier || (isProfileActive && profileTier ? profileTier : 'free');
-            
-            console.log('🔍 Tier calculation in reloadWithRetry:', {
-              subscriptionTier,
-              profileTier,
-              profileStatus,
-              isProfileActive,
-              calculatedTier: currentTier,
-            });
-            
-            console.log(`🔍 Verification check (attempt ${attempt}): currentTier=${currentTier}, expectedTier=${expectedTier}`, {
-              hasSubscription: !!currentSub,
-              hasPlan: !!currentSub?.plans,
-              planTier: currentSub?.plans?.tier,
-              profileTier: currentProfile?.subscription_tier,
-              profileStatus: currentProfile?.subscription_status,
-              isProfileActive,
-              calculatedTier: currentTier,
-            });
-            
-            // If tier is still old or not updated yet, retry
-            if (attempt < maxAttempts && currentTier !== expectedTier) {
-              console.log(`⚠️ Subscription not updated yet (current: ${currentTier}, expected: ${expectedTier}), retrying... (attempt ${attempt + 1}/${maxAttempts})`);
-              // Increase delay with each attempt
-              const delay = 2000 + (attempt * 500);
-              setTimeout(() => reloadWithRetry(attempt + 1, maxAttempts), delay);
-              return;
-            }
-            
-            // If tier matches but we still don't have a subscription record, wait a bit more
-            // This handles the case where profile is updated but subscription table hasn't been created yet
-            if (currentTier === expectedTier && !currentSub && attempt < maxAttempts - 1) {
-              console.log(`⚠️ Tier matches but subscription record not found yet, waiting one more attempt...`);
-              const delay = 2000 + (attempt * 500);
-              setTimeout(() => reloadWithRetry(attempt + 1, maxAttempts), delay);
-              return;
-            }
-            
-            // Tier is correct - proceed to show modal
-            console.log('✅ Subscription tier verified in database:', {
-              currentTier,
-              expectedTier,
-              hasSubscription: !!currentSub,
-              profileTier: currentProfile?.subscription_tier,
-              profileStatus: currentProfile?.subscription_status,
-            });
-            
-            // Data loaded successfully - reload user data one more time to ensure state is updated
-            console.log('🔄 Reloading user data to update React state...');
-            await loadUserData(user, true); // Force refresh
-            
-            // Wait for state to update (including profile and subscription)
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            // Double-check that subscription state is updated
-            const { data: { user: verifyUser } } = await supabase.auth.getUser();
-            if (verifyUser) {
-              const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
-              const verifySub = await getCurrentSubscription();
-              const verifyProfile = await getCurrentUserProfile();
-              const verifyTier = verifySub?.plans?.tier || (verifyProfile?.subscription_status === 'active' ? verifyProfile?.subscription_tier : 'free');
-              console.log('🔍 Final verification before opening modal:', {
-                verifyTier,
-                expectedTier,
-                subscriptionState: subscription?.tier,
-              });
-            }
-            
-            // Show modal - profile should be loaded by now
-            console.log('✅ Opening UpgradeBenefitsModal now');
-            setShowUpgradeBenefitsModal(true);
-            
-            // Remove parameters from URL but keep _t for cache busting
-            const newSearchParams = new URLSearchParams(location.search);
-            newSearchParams.delete('upgrade');
-            newSearchParams.delete('from');
-            newSearchParams.delete('to');
-            // Keep _t parameter for cache busting
-            const newSearch = newSearchParams.toString();
-            navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
-          } catch (error) {
-            console.error(`❌ Error reloading user data (attempt ${attempt}):`, error);
-            if (attempt < maxAttempts) {
-              // Retry after delay (increase delay with each attempt)
-              const delay = 2000 + (attempt * 500);
-              setTimeout(() => reloadWithRetry(attempt + 1, maxAttempts), delay);
-            } else {
-              // Max attempts reached, force page reload to clear cache
-              console.error('❌ Max retry attempts reached, forcing page reload');
-              const timestamp = new Date().getTime();
-              window.location.replace(`/?upgrade=success&from=${previousTier}&to=${expectedTier}&_t=${timestamp}`);
-            }
-          }
-        };
+        // Remove parameters from URL but keep _t for cache busting
+        const newSearchParams = new URLSearchParams(location.search);
+        newSearchParams.delete('upgrade');
+        newSearchParams.delete('from');
+        newSearchParams.delete('to');
+        // Keep _t parameter for cache busting
+        const newSearch = newSearchParams.toString();
+        navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
         
-        // Start reload with retry (force refresh on first attempt)
-        reloadWithRetry();
-        
-        // Also call loadUserData with forceRefresh on first attempt
+        // Reload user data in background to update subscription state
+        // Do this multiple times with delays to ensure state is updated
         setTimeout(async () => {
           await loadUserData(user, true);
         }, 500);
+        
+        setTimeout(async () => {
+          await loadUserData(user, true);
+        }, 2000);
+        
+        setTimeout(async () => {
+          await loadUserData(user, true);
+        }, 5000);
       } else {
         // If no user, open modal immediately
         setShowUpgradeBenefitsModal(true);
