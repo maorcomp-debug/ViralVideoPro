@@ -2576,12 +2576,14 @@ const App = () => {
         const validTiers: SubscriptionTier[] = ['free', 'creator', 'pro', 'coach', 'coach-pro'];
         
         // Only use profile tier if status is active, otherwise default to free
-        // This ensures we don't show old tier while waiting for subscription to be created
+        // IMPORTANT: If profile has an active paid tier, use it even without subscription record
+        // This prevents reverting to 'free' after upgrade when subscription record isn't created yet
         const defaultTier = (isProfileActive && profileTier && validTiers.includes(profileTier))
           ? profileTier 
           : 'free';
         
         // For free tier, always set as active (free tier never expires)
+        // For paid tiers, only set as active if profile status is active
         const isActiveStatus = defaultTier === 'free' 
           ? true 
           : isProfileActive;
