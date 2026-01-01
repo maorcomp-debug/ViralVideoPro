@@ -5400,7 +5400,7 @@ const App = () => {
             ? [profile.selected_primary_track]
             : []
         }
-        onSelectTrack={async (trackId) => {
+        onSelectTrack={async (trackId, shouldCloseModal = true) => {
           // Add the new track to user's selected tracks
           // Make sure to include all current tracks (from selected_tracks or primary_track)
           const existingTracks = profile?.selected_tracks && profile.selected_tracks.length > 0
@@ -5427,7 +5427,10 @@ const App = () => {
               }, 200);
             }
             
-            setShowUpgradeBenefitsModal(false);
+            // Only close modal if explicitly requested (for single track selection)
+            if (shouldCloseModal) {
+              setShowUpgradeBenefitsModal(false);
+            }
           } catch (error) {
             console.error('Error adding track:', error);
             alert('שגיאה בהוספת התחום. תוכל להוסיף אותו מאוחר יותר מההגדרות.');
