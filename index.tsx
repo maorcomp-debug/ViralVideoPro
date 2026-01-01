@@ -2509,10 +2509,10 @@ const App = () => {
       
       // Also check profile subscription status - sometimes profile is updated before subscription record exists
       const userTier = userProfile?.subscription_tier || 'free';
-      const profileStatus = userProfile?.subscription_status;
-      const isProfileActive = profileStatus === 'active';
+      const profileStatusCheck = userProfile?.subscription_status;
+      const isProfileActiveCheck = profileStatusCheck === 'active';
       const isPaidTierInProfile = userTier !== 'free' && ['creator', 'pro', 'coach', 'coach-pro'].includes(userTier);
-      const hasActivePaidProfile = isProfileActive && isPaidTierInProfile;
+      const hasActivePaidProfile = isProfileActiveCheck && isPaidTierInProfile;
       
       // User has paid subscription if either subscription record exists OR profile shows active paid tier
       const hasPaidSubscription = hasSubscriptionRecord || hasActivePaidProfile;
