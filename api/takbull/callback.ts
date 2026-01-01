@@ -360,9 +360,9 @@ export default async function handler(
           selectedTracks = ['actors', 'musicians', 'creators', 'influencers'];
           selectedPrimaryTrack = 'actors'; // Default primary track
         } else if (tierToUse === 'creator') {
-          // Creator gets 2 tracks - we'll set default ones, user can change later
-          selectedTracks = ['actors', 'musicians'];
-          selectedPrimaryTrack = 'actors';
+          // Creator tier - don't set tracks automatically, let user choose in UpgradeBenefitsModal
+          // User will select tracks through the modal, or keep their existing track if they skip
+          // Don't set any tracks here - they will be set by the user's choice in UpgradeBenefitsModal
         }
         // For 'free' tier, don't set tracks - user must select
         
