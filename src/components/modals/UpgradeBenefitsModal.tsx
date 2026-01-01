@@ -136,17 +136,71 @@ const AdditionalTracksMessage = styled.div`
   
   h4 {
     color: #4CAF50;
-    margin: 0 0 10px 0;
+    margin: 0 0 15px 0;
     font-size: 1.1rem;
     font-weight: 700;
   }
   
   p {
     color: #ccc;
-    margin: 0;
+    margin: 0 0 15px 0;
     font-size: 0.95rem;
     line-height: 1.6;
   }
+`;
+
+const TracksPreviewGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 12px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(76, 175, 80, 0.2);
+`;
+
+const TrackPreviewCard = styled.div`
+  background: rgba(26, 26, 26, 0.6);
+  border: 1px solid rgba(212, 160, 67, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+  
+  &:hover {
+    opacity: 1;
+    border-color: rgba(212, 160, 67, 0.4);
+  }
+`;
+
+const TrackPreviewIcon = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #D4A043;
+  margin-bottom: 8px;
+  
+  svg {
+    width: 32px;
+    height: 32px;
+  }
+`;
+
+const TrackPreviewName = styled.div`
+  color: #aaa;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  margin-top: 5px;
+`;
+
+const TrackPreviewNote = styled.div`
+  color: #4CAF50;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 10px;
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(76, 175, 80, 0.2);
 `;
 
 const BenefitItem = styled.div`
@@ -467,12 +521,29 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
           <AdditionalTracksMessage>
             <h4>🎯 הוספת תחום ניתוח נוסף</h4>
             <p>
-              החבילה שלך מאפשרת לך לבחור עד {maxTracksForNewTier} תחומי ניתוח. 
-              {remainingTrackSlots > 0 && (
-                <> כרגע יש לך {currentTracks.length} תחום{currentTracks.length !== 1 ? 'ים' : ''}, ואתה יכול להוסיף עוד {remainingTrackSlots} {remainingTrackSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}.</>
-              )}
-              {' '}הוספת תחום נוסף ממתינה לך בפאנל הניהול. תוכל לעשות זאת מאוחר יותר מההגדרות.
+              במסגרת החבילה שבחרת, מגיע לך תחום ניתוח נוסף לבחירה. תוכל לעשות זאת דרך ממשק הניהול, בהגדרות.
             </p>
+            {remainingTrackSlots > 0 && (
+              <p style={{ color: '#D4A043', fontWeight: 600, marginBottom: '10px' }}>
+                כרגע יש לך {currentTracks.length} תחום{currentTracks.length !== 1 ? 'ים' : ''}, ואתה יכול להוסיף עוד {remainingTrackSlots} {remainingTrackSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}.
+              </p>
+            )}
+            <TracksPreviewGrid>
+              {TRACKS.filter(t => t.id !== 'coach').map((track) => {
+                const TrackIconComponent = track.icon;
+                return (
+                  <TrackPreviewCard key={track.id}>
+                    <TrackPreviewIcon>
+                      <TrackIconComponent />
+                    </TrackPreviewIcon>
+                    <TrackPreviewName>{track.label}</TrackPreviewName>
+                  </TrackPreviewCard>
+                );
+              })}
+            </TracksPreviewGrid>
+            <TrackPreviewNote>
+              האפשרות למימוש מחכה לך בפאנל הניהול
+            </TrackPreviewNote>
           </AdditionalTracksMessage>
         )}
 
