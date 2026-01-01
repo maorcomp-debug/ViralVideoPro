@@ -126,6 +126,29 @@ const BenefitsList = styled.div`
   margin-bottom: 30px;
 `;
 
+const AdditionalTracksMessage = styled.div`
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  text-align: right;
+  
+  h4 {
+    color: #4CAF50;
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  
+  p {
+    color: #ccc;
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+`;
+
 const BenefitItem = styled.div`
   display: flex;
   align-items: center;
@@ -384,6 +407,11 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   const availableTracks = TRACKS.filter(t => !currentTracks.includes(t.id) && t.id !== 'coach');
   const currentTrackObjects = TRACKS.filter(t => currentTracks.includes(t.id) && t.id !== 'coach');
   
+  // Check if user can add more tracks after upgrade
+  const maxTracksForNewTier = newTier === 'free' ? 1 : newTier === 'creator' ? 2 : newTier === 'pro' ? 4 : 1;
+  const canAddMoreTracks = !showTrackSelection && currentTracks.length < maxTracksForNewTier && (newTier === 'creator' || newTier === 'pro');
+  const remainingTrackSlots = maxTracksForNewTier - currentTracks.length;
+  
   // When upgrading from free to creator, always treat as upgrade (not new user registration)
   // Even if user has no tracks, they're upgrading, not registering fresh
   // The "בחר 2 תחומי ניתוח שמועדפים עליך" message should only appear for new users
@@ -503,6 +531,19 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
             </BenefitItem>
           )}
         </BenefitsList>
+
+        {canAddMoreTracks && (
+          <AdditionalTracksMessage>
+            <h4>🎯 רוצה להוסיף תחום ניתוח נוסף?</h4>
+            <p>
+              החבילה שלך מאפשרת לך לבחור עד {maxTracksForNewTier} תחומי ניתוח. 
+              {remainingTrackSlots > 0 && (
+                <> כרגע יש לך {currentTracks.length} תחום{currentTracks.length !== 1 ? 'ים' : ''}, ואתה יכול להוסיף עוד {remainingTrackSlots} {remainingTrackSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}.</>
+              )}
+              {' '}תוכל לעשות זאת מאוחר יותר מההגדרות בפאנל הניהול שלך.
+            </p>
+          </AdditionalTracksMessage>
+        )}
 
         {showTrackSelection && (
           <TracksSection>

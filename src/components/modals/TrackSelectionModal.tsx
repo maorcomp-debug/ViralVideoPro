@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { updateCurrentUserProfile } from '../../lib/supabase-helpers';
 import { fadeIn } from '../../styles/globalStyles';
+import { ModalCloseBtn } from '../../styles/modal';
 import type { TrackId, SubscriptionTier } from '../../types';
 
 // Track Icons (SVG matching index.tsx)
@@ -361,6 +362,9 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
       e.stopPropagation();
     }}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
+        {mode === 'add' && (
+          <ModalCloseBtn onClick={onClose} style={{ position: 'absolute', top: '15px', left: '15px' }}>✕</ModalCloseBtn>
+        )}
         <ModalHeader>
           <h2>{mode === 'add' ? 'הוסף תחום ניתוח נוסף' : 'בחר תחום ניתוח'}</h2>
           <p>
