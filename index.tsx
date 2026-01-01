@@ -492,7 +492,17 @@ const App = () => {
         return;
       }
       
-      setProfile(userProfile);
+      // IMPORTANT: Always set profile, even if null (to prevent stale data)
+      // But don't set to null if we're in the middle of an upgrade flow
+      const isUpgradeFlow = typeof window !== 'undefined' && 
+        new URLSearchParams(window.location.search).get('upgrade') === 'success';
+      
+      if (userProfile) {
+        setProfile(userProfile);
+      } else if (!isUpgradeFlow) {
+        // Only clear profile if not in upgrade flow (might be loading)
+        setProfile(null);
+      }
 
       // Load subscription first to check if user has paid subscription
       const subData = await getCurrentSubscription();
@@ -746,7 +756,7 @@ const App = () => {
       locationSearch: location.search,
     });
     
-    if (upgradeParam === 'success' && fromTier && toTier && fromTier !== toTier) {
+    if (upgradeParam === 'success' && fromTier && toTier) {
       console.log('🎉 Upgrade detected, showing UpgradeBenefitsModal:', { fromTier, toTier, hasUser: !!user, hasProfile: !!profile });
       
       // Set the tiers immediately
@@ -759,18 +769,10 @@ const App = () => {
         localStorage.setItem('pending_package_upgrade', 'true');
       }
       
-      // Wait for user to be loaded before showing modal
-      // Profile will be loaded as part of the reload process
-      if (!user) {
-        console.log('⏳ Waiting for user to load before showing UpgradeBenefitsModal');
-        // Don't show modal yet - will be triggered again when user is loaded
-        return;
-      }
-      
-      // If user is available, show modal immediately and reload data in background
-      if (user) {
-        // Show modal immediately - don't wait for verification
-        console.log('✅ Opening UpgradeBenefitsModal immediately after payment');
+      // Always show modal if upgrade param is present (even if tiers match - might be a refresh)
+      // But only if we have valid tier info
+      if (fromTier && toTier) {
+        console.log('✅ Opening UpgradeBenefitsModal after payment');
         setShowUpgradeBenefitsModal(true);
         
         // Remove parameters from URL but keep _t for cache busting
@@ -782,26 +784,30 @@ const App = () => {
         const newSearch = newSearchParams.toString();
         navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
         
-        // Reload user data once in background to update subscription state
-        // Small delay to allow database to update
-        setTimeout(async () => {
-          try {
-            await loadUserData(user, true);
-          } catch (e) {
-            console.error('Error reloading user data after upgrade:', e);
-          }
-        }, 500);
-      } else {
-        // If no user, open modal immediately
-        setShowUpgradeBenefitsModal(true);
-        
-        // Remove parameters from URL
-        const newSearchParams = new URLSearchParams(location.search);
-        newSearchParams.delete('upgrade');
-        newSearchParams.delete('from');
-        newSearchParams.delete('to');
-        const newSearch = newSearchParams.toString();
-        navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
+        // Reload user data in background to update subscription state and profile
+        // This ensures profile is loaded for track selection
+        if (user) {
+          setTimeout(async () => {
+            try {
+              console.log('🔄 Reloading user data after upgrade modal opens');
+              await loadUserData(user, true);
+            } catch (e) {
+              console.error('Error reloading user data after upgrade:', e);
+            }
+          }, 500);
+        } else {
+          // If no user yet, wait a bit and try again
+          setTimeout(async () => {
+            try {
+              const { data: { user: currentUser } } = await supabase.auth.getUser();
+              if (currentUser) {
+                await loadUserData(currentUser, true);
+              }
+            } catch (e) {
+              console.error('Error loading user data:', e);
+            }
+          }, 1000);
+        }
       }
       
     } else if (upgradeParam === 'success') {
@@ -3300,6 +3306,11 @@ const App = () => {
                 await new Promise(resolve => setTimeout(resolve, attempts === 0 ? 1000 : 500));
                 
                 // Get new tier from reloaded data
+                // Wait a bit for state to update after loadUserData
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // Check subscription state that was just updated by loadUserData
+                // Use direct database query instead of relying on state (more reliable)
                 const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
                 const newSub = await getCurrentSubscription();
                 const newProfile = await getCurrentUserProfile();
@@ -3309,7 +3320,8 @@ const App = () => {
                 if (newTier !== currentTier && newTier !== 'free' && newTier !== null) {
                   console.log('🎉 Tier upgraded, redirecting to show UpgradeBenefitsModal:', { fromTier: currentTier, toTier: newTier, attempts: attempts + 1 });
                   const timestamp = Date.now();
-                  window.location.replace(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`);
+                  // Use navigate instead of window.location.replace to preserve React state
+                  navigate(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`, { replace: true });
                   return;
                 }
                 
@@ -3320,9 +3332,9 @@ const App = () => {
               // The upgrade detection will handle it when the tier is eventually updated
               console.warn('⚠️ Tier not updated yet after payment, redirecting anyway:', { currentTier, newTier, attempts });
               const timestamp = Date.now();
-              // Use the tier from the order reference or fallback to current tier
-              // The actual tier will be detected when profile loads
-              window.location.replace(`/?upgrade=success&from=${currentTier}&to=${currentTier}&_t=${timestamp}`);
+              // Use navigate instead of window.location.replace to preserve React state
+              // Use currentTier for both from and to - the actual tier will be detected when profile loads
+              navigate(`/?upgrade=success&from=${currentTier}&to=${currentTier}&_t=${timestamp}`, { replace: true });
             } catch (error) {
               console.error('Error reloading user data after payment:', error);
               // Simple fallback: reload page
