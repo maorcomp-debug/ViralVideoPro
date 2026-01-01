@@ -2560,11 +2560,19 @@ const App = () => {
       // Also check profile subscription status - sometimes profile is updated before subscription record exists
       const userTier = userProfile?.subscription_tier || 'free';
       
-      // Clear pending package upgrade flag if subscription tier is updated (not free) after login
+      // Clear pending package upgrade flag if subscription tier is updated after login
       // This happens when user logs back in and their package is already updated
+      // Only clear if tier is actually different from what was expected (meaning upgrade completed)
       if (typeof window !== 'undefined' && userTier !== 'free' && localStorage.getItem('pending_package_upgrade') === 'true') {
-        localStorage.removeItem('pending_package_upgrade');
-        console.log('✅ Package updated, cleared pending_package_upgrade flag');
+        // Check if we have upgrade info in URL or state
+        const urlParams = new URLSearchParams(window.location.search);
+        const expectedTier = urlParams.get('to') as SubscriptionTier | null;
+        
+        // If tier matches expected upgrade tier, or if tier is not free, clear the flag
+        if (!expectedTier || userTier === expectedTier || userTier !== 'free') {
+          localStorage.removeItem('pending_package_upgrade');
+          console.log('✅ Package updated, cleared pending_package_upgrade flag', { userTier, expectedTier });
+        }
       }
       const profileStatusCheck = userProfile?.subscription_status;
       const isProfileActiveCheck = profileStatusCheck === 'active';
