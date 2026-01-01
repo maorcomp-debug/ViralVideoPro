@@ -380,14 +380,24 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   const hasExistingTracks = currentTracks.length > 0;
 
   // For upgrades from free to creator, allow selecting 1 additional track (up to 2 total)
-  const [selectedTracks, setSelectedTracks] = useState<TrackId[]>([]);
+  // Start with existing tracks already selected (like TrackSelectionModal in 'add' mode)
+  const [selectedTracks, setSelectedTracks] = useState<TrackId[]>([...currentTracks]);
   
   const handleSelectTrack = (trackId: TrackId) => {
+    // Don't allow deselecting existing tracks
+    if (currentTracks.includes(trackId)) {
+      return; // Existing tracks cannot be deselected
+    }
+    
     // For upgrades, user can select 1 additional track (up to 2 total)
     const maxToSelect = hasExistingTracks ? 1 : 2; // If no existing tracks, can select 2, else 1 more
+    const newTracksCount = selectedTracks.filter(t => !currentTracks.includes(t)).length;
+    
     if (selectedTracks.includes(trackId)) {
+      // Deselect only if it's a new track (not existing)
       setSelectedTracks(selectedTracks.filter(id => id !== trackId));
-    } else if (selectedTracks.length < maxToSelect) {
+    } else if (newTracksCount < maxToSelect) {
+      // Select track if under limit
       setSelectedTracks([...selectedTracks, trackId]);
     }
   };
@@ -483,41 +493,34 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
               כחלק מחבילת יוצרים, תוכל לבחור {hasExistingTracks ? 'תחום ניתוח נוסף' : 'עד 2 תחומי ניתוח'}. תוכל לעשות זאת גם מאוחר יותר מההגדרות.
             </p>
             <TracksGrid>
-              {/* Show current tracks as "included" */}
-              {currentTrackObjects.map((track) => {
-                const TrackIconComponent = track.icon;
-                return (
-                  <TrackCard
-                    key={track.id}
-                    $selected={false}
-                    $included={true}
-                    $disabled={true}
-                  >
-                    <IncludedBadge>כלול</IncludedBadge>
-                    <TrackIcon>
-                      <TrackIconComponent />
-                    </TrackIcon>
-                    <TrackName style={{ color: '#4CAF50' }}>{track.label}</TrackName>
-                  </TrackCard>
-                );
-              })}
-              {/* Show available tracks for selection */}
-              {availableTracks.map((track) => {
+              {/* Show all tracks - existing ones marked, new ones selectable (like TrackSelectionModal) */}
+              {TRACKS.filter(t => t.id !== 'coach').map((track) => {
                 const TrackIconComponent = track.icon;
                 const isSelected = selectedTracks.includes(track.id);
-                const maxToSelect = hasExistingTracks ? 1 : 2; // If no existing tracks, can select 2, else 1 more
-                const canSelect = selectedTracks.length < maxToSelect;
+                const isExisting = currentTracks.includes(track.id);
+                const newTracksCount = selectedTracks.filter(t => !currentTracks.includes(t)).length;
+                const maxToSelect = hasExistingTracks ? 1 : 2;
+                const canSelect = !isExisting && newTracksCount < maxToSelect;
+                const isDisabled = !isExisting && !canSelect && !isSelected;
+                
                 return (
                   <TrackCard
                     key={track.id}
                     $selected={isSelected}
-                    $disabled={!canSelect && !isSelected}
-                    onClick={() => canSelect || isSelected ? handleSelectTrack(track.id) : undefined}
+                    $included={isExisting}
+                    $disabled={isDisabled}
+                    onClick={() => !isDisabled && handleSelectTrack(track.id)}
                   >
+                    {isExisting && (
+                      <IncludedBadge style={{ background: '#4CAF50', color: '#fff' }}>נוכחי</IncludedBadge>
+                    )}
+                    {isSelected && !isExisting && (
+                      <IncludedBadge>נבחר</IncludedBadge>
+                    )}
                     <TrackIcon>
                       <TrackIconComponent />
                     </TrackIcon>
-                    <TrackName>{track.label}</TrackName>
+                    <TrackName style={{ color: isExisting ? '#4CAF50' : undefined }}>{track.label}</TrackName>
                   </TrackCard>
                 );
               })}
@@ -527,11 +530,13 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
 
         <ButtonGroup>
           <PrimaryButton onClick={handleContinue} disabled={false}>
-            {showTrackSelection && selectedTracks.length > 0 ? 'שמור והמשך' : 'מעולה, בואו נתחיל!'}
+            {showTrackSelection && selectedTracks.filter(t => !currentTracks.includes(t)).length > 0 
+              ? `שמור והמשך (${selectedTracks.filter(t => !currentTracks.includes(t)).length} חדש${selectedTracks.filter(t => !currentTracks.includes(t)).length > 1 ? 'ים' : ''})` 
+              : 'מעולה, בואו נתחיל!'}
           </PrimaryButton>
           {showTrackSelection && (
             <SecondaryButton onClick={onClose}>
-              {selectedTracks.length > 0 ? 'בלי לשמור' : 'דלג לעת עתה'}
+              {selectedTracks.filter(t => !currentTracks.includes(t)).length > 0 ? 'בלי לשמור' : 'דלג לעת עתה'}
             </SecondaryButton>
           )}
         </ButtonGroup>
