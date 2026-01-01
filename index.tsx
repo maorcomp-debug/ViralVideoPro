@@ -2636,16 +2636,40 @@ const App = () => {
         finalIsActive,
       });
       
-      setSubscription({
-        tier: finalTier,
-        billingPeriod: finalBillingPeriod,
-        startDate: finalStartDate,
-        endDate: finalEndDate,
-        usage: {
-          analysesUsed: 0, // Will be loaded separately
-          lastResetDate: finalStartDate,
-        },
-        isActive: finalIsActive,
+      // Only update subscription if tier is different or subscription is null
+      // This prevents overwriting with stale data
+      setSubscription(prev => {
+        // If tier changed or subscription is null, update it
+        if (!prev || prev.tier !== finalTier) {
+          console.log('🔄 Updating subscription state:', {
+            previousTier: prev?.tier,
+            newTier: finalTier,
+            wasNull: !prev,
+          });
+          return {
+            tier: finalTier,
+            billingPeriod: finalBillingPeriod,
+            startDate: finalStartDate,
+            endDate: finalEndDate,
+            usage: {
+              analysesUsed: 0, // Will be loaded separately
+              lastResetDate: finalStartDate,
+            },
+            isActive: finalIsActive,
+          };
+        }
+        // Tier hasn't changed, but update other fields if needed
+        console.log('ℹ️ Subscription tier unchanged, updating other fields only:', {
+          currentTier: prev.tier,
+          finalTier,
+        });
+        return {
+          ...prev,
+          billingPeriod: finalBillingPeriod,
+          startDate: finalStartDate,
+          endDate: finalEndDate,
+          isActive: finalIsActive,
+        };
       });
       
       // Broadcast subscription update to other tabs/windows if tier changed
@@ -2665,18 +2689,21 @@ const App = () => {
         }
       }
 
-      // Load usage and update subscription state
+      // Load usage and update subscription state (but preserve tier!)
       const usageData = await getUsageForCurrentPeriod();
       if (usageData) {
         setUsage(usageData);
-        // Update subscription with current usage
-        setSubscription(prev => prev ? {
-          ...prev,
-          usage: {
-            analysesUsed: usageData.analysesUsed,
-            lastResetDate: usageData.periodStart,
-          },
-        } : null);
+        // Update subscription with current usage, but preserve tier and other subscription data
+        setSubscription(prev => {
+          if (!prev) return null;
+          return {
+            ...prev, // Preserve tier, billingPeriod, startDate, endDate, isActive
+            usage: {
+              analysesUsed: usageData.analysesUsed,
+              lastResetDate: usageData.periodStart,
+            },
+          };
+        });
       }
 
       // Load trainees if coach or coach-pro
