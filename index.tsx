@@ -2745,11 +2745,11 @@ const App = () => {
       setUpgradeFromTier(fromTier);
       setUpgradeToTier(toTier);
       
-      // Wait for user and profile to be loaded before showing modal
-      // This ensures we have the correct subscription data before showing the modal
-      if (!user || !profile) {
-        console.log('⏳ Waiting for user and profile to load before showing UpgradeBenefitsModal');
-        // Don't show modal yet - will be triggered again when user/profile are loaded
+      // Wait for user to be loaded before showing modal
+      // Profile will be loaded as part of the reload process
+      if (!user) {
+        console.log('⏳ Waiting for user to load before showing UpgradeBenefitsModal');
+        // Don't show modal yet - will be triggered again when user is loaded
         return;
       }
       
