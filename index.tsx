@@ -2855,6 +2855,20 @@ const App = () => {
             // Wait for state to update (including profile and subscription)
             await new Promise(resolve => setTimeout(resolve, 1500));
             
+            // Double-check that subscription state is updated
+            const { data: { user: verifyUser } } = await supabase.auth.getUser();
+            if (verifyUser) {
+              const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
+              const verifySub = await getCurrentSubscription();
+              const verifyProfile = await getCurrentUserProfile();
+              const verifyTier = verifySub?.plans?.tier || (verifyProfile?.subscription_status === 'active' ? verifyProfile?.subscription_tier : 'free');
+              console.log('🔍 Final verification before opening modal:', {
+                verifyTier,
+                expectedTier,
+                subscriptionState: subscription?.tier,
+              });
+            }
+            
             // Show modal - profile should be loaded by now
             console.log('✅ Opening UpgradeBenefitsModal now');
             setShowUpgradeBenefitsModal(true);
