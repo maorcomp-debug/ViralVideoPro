@@ -280,7 +280,7 @@ interface UpgradeBenefitsModalProps {
   onClose: () => void;
   oldTier: SubscriptionTier;
   newTier: SubscriptionTier;
-  onSelectTrack?: (trackId: TrackId) => void;
+  onSelectTrack?: (trackId: TrackId, shouldCloseModal?: boolean) => void | Promise<void>;
   currentTracks?: TrackId[];
 }
 
