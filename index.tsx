@@ -2389,6 +2389,28 @@ const App = () => {
     let timeoutId: NodeJS.Timeout | null = null;
     let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
     
+    // Set up BroadcastChannel to sync subscription updates across multiple tabs/windows
+    const broadcastChannel = typeof BroadcastChannel !== 'undefined' 
+      ? new BroadcastChannel('viraly-subscription-sync') 
+      : null;
+    
+    // Listen for subscription updates from other tabs/windows
+    if (broadcastChannel) {
+      broadcastChannel.onmessage = (event) => {
+        console.log('📡 Received subscription update from another tab/window:', event.data);
+        if (event.data.type === 'subscription-updated' && user && user.id === event.data.userId) {
+          // Reload user data when subscription is updated in another tab
+          console.log('🔄 Reloading user data due to subscription update from another tab');
+          setTimeout(async () => {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (currentUser && currentUser.id === user.id) {
+              await loadUserData(currentUser, true);
+            }
+          }, 500);
+        }
+      };
+    }
+    
     // Try to get session quickly, but don't block UI if it takes too long
     // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
     // This prevents UI freeze on slow networks while still allowing session to load in background
@@ -2433,6 +2455,17 @@ const App = () => {
       
       // Update user state
       setUser(session?.user ?? null);
+      
+      // If this is an email confirmation event, close other tabs/windows that might be showing old data
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Check if this is from email verification (has hash in URL)
+        const urlHash = window.location.hash;
+        if (urlHash.includes('access_token') || urlHash.includes('type=recovery')) {
+          console.log('📧 Email verification detected, this window should be the active one');
+          // Optionally, we could try to close other windows, but that's not always possible
+          // Instead, we'll rely on BroadcastChannel to sync data
+        }
+      }
       
       if (session?.user) {
         // Prevent duplicate loadUserData calls
