@@ -2382,6 +2382,7 @@ const App = () => {
   const [upgradeFromTier, setUpgradeFromTier] = useState<SubscriptionTier>('free');
   const [upgradeToTier, setUpgradeToTier] = useState<SubscriptionTier>('free');
   const [hasShownTrackModal, setHasShownTrackModal] = useState(false);
+  const [showUpgradeCompletionMessage, setShowUpgradeCompletionMessage] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -4618,31 +4619,23 @@ const App = () => {
                     if (currentTier === 'coach-pro') {
                       tierName = 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
                     }
-                    const showUpgradeMessage = currentTier === 'free' && typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true';
                     return (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ 
-                          color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          background: currentTier === 'free' 
-                            ? 'rgba(136, 136, 136, 0.15)' 
-                            : currentTier === 'coach'
-                            ? 'rgba(212, 160, 67, 0.15)'
-                            : 'rgba(230, 190, 116, 0.15)',
-                          border: `1px solid ${currentTier === 'free' ? 'rgba(136, 136, 136, 0.3)' : currentTier === 'coach' ? 'rgba(212, 160, 67, 0.3)' : 'rgba(230, 190, 116, 0.3)'}`,
-                          letterSpacing: '0.5px'
-                        }}>
-                          {tierName}
-                        </span>
-                        {showUpgradeMessage && (
-                          <UpgradeMessageBox>
-                            💡 <strong style={{ fontWeight: 700 }}>עדכון חשוב:</strong> על מנת שהחבילה שלך תתעדכן ותהיה זמינה לשימוש, אנא צא מהמערכת והכנס מחדש עם המשתמש שלך.
-                          </UpgradeMessageBox>
-                        )}
-                      </div>
+                      <span style={{ 
+                        color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: currentTier === 'free' 
+                          ? 'rgba(136, 136, 136, 0.15)' 
+                          : currentTier === 'coach'
+                          ? 'rgba(212, 160, 67, 0.15)'
+                          : 'rgba(230, 190, 116, 0.15)',
+                        border: `1px solid ${currentTier === 'free' ? 'rgba(136, 136, 136, 0.3)' : currentTier === 'coach' ? 'rgba(212, 160, 67, 0.3)' : 'rgba(230, 190, 116, 0.3)'}`,
+                        letterSpacing: '0.5px'
+                      }}>
+                        {tierName}
+                      </span>
                     );
                   })()}
                 </div>
@@ -5082,6 +5075,20 @@ const App = () => {
           })}
         </Grid>
 
+        {/* Upgrade completion message - shown after closing upgrade modal */}
+        {showUpgradeCompletionMessage && upgradeFromTier === 'free' && typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
+          <div style={{ 
+            maxWidth: '700px', 
+            width: '100%', 
+            margin: '0 auto 30px auto',
+            animation: `${fadeIn} 0.5s ease-in`
+          }}>
+            <UpgradeMessageBox>
+              💡 <strong style={{ fontWeight: 700 }}>עדכון חשוב:</strong> על מנת שהחבילה שלך תתעדכן ותהיה זמינה לשימוש, אנא צא מהמערכת והכנס מחדש עם המשתמש שלך.
+            </UpgradeMessageBox>
+          </div>
+        )}
+
         <UploadContainer id="upload-section" $hasFile={!!previewUrl}>
           {previewUrl ? (
             <FullSizePreview>
@@ -5441,7 +5448,13 @@ const App = () => {
       
       <UpgradeBenefitsModal
         isOpen={showUpgradeBenefitsModal}
-        onClose={() => setShowUpgradeBenefitsModal(false)}
+        onClose={() => {
+          setShowUpgradeBenefitsModal(false);
+          // Show completion message after modal closes, only if upgrading from free tier
+          if (upgradeFromTier === 'free' && typeof window !== 'undefined') {
+            setShowUpgradeCompletionMessage(true);
+          }
+        }}
         oldTier={upgradeFromTier}
         newTier={upgradeToTier}
         currentTracks={
