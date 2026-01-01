@@ -403,28 +403,36 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   };
 
   const handleContinue = async () => {
-    if (showTrackSelection && selectedTracks.length > 0 && onSelectTrack) {
-      try {
-        // User selected additional track(s) - save them
-        // Save tracks one by one - each call will add to the existing tracks
-        // Don't close modal until all tracks are saved
-        for (let i = 0; i < selectedTracks.length; i++) {
-          await onSelectTrack(selectedTracks[i], false); // Don't close modal yet
-          if (i < selectedTracks.length - 1) {
-            // Wait a bit before next call to ensure DB update completes
-            await new Promise(resolve => setTimeout(resolve, 300));
+    if (showTrackSelection && onSelectTrack) {
+      // Get only new tracks (not existing ones)
+      const newTracks = selectedTracks.filter(t => !currentTracks.includes(t));
+      
+      if (newTracks.length > 0) {
+        try {
+          // User selected additional track(s) - save them
+          // Save tracks one by one - each call will add to the existing tracks
+          // Don't close modal until all tracks are saved
+          for (let i = 0; i < newTracks.length; i++) {
+            await onSelectTrack(newTracks[i], false); // Don't close modal yet
+            if (i < newTracks.length - 1) {
+              // Wait a bit before next call to ensure DB update completes
+              await new Promise(resolve => setTimeout(resolve, 300));
+            }
           }
+          // Close modal after all tracks are saved
+          onClose();
+        } catch (error) {
+          console.error('Error saving tracks:', error);
+          alert('שגיאה בשמירת התחומים. תוכל להוסיף אותם מאוחר יותר מההגדרות.');
+          // Modal will stay open on error
         }
-        // Close modal after all tracks are saved
+      } else {
+        // User chose to continue without selecting additional tracks (optional)
+        // This is fine - they can add tracks later from settings
         onClose();
-      } catch (error) {
-        console.error('Error saving tracks:', error);
-        alert('שגיאה בשמירת התחומים. תוכל להוסיף אותם מאוחר יותר מההגדרות.');
-        // Modal will stay open on error
       }
     } else {
-      // User chose to continue without selecting additional tracks (optional)
-      // This is fine - they can add tracks later from settings
+      // No track selection needed
       onClose();
     }
   };
