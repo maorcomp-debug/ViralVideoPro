@@ -368,8 +368,9 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   // For free tier, user should have exactly 1 track (their primary track)
   // So we show track selection if they have 1 track and are upgrading to creator
   const showTrackSelection = oldTier === 'free' && newTier === 'creator' && currentTracks.length >= 0 && currentTracks.length < 2;
-  const availableTracks = TRACKS.filter(t => !currentTracks.includes(t.id));
-  const currentTrackObjects = TRACKS.filter(t => currentTracks.includes(t.id));
+  // Filter out coach track and tracks already selected
+  const availableTracks = TRACKS.filter(t => !currentTracks.includes(t.id) && t.id !== 'coach');
+  const currentTrackObjects = TRACKS.filter(t => currentTracks.includes(t.id) && t.id !== 'coach');
   
   // When upgrading from free to creator, always treat as upgrade (not new user registration)
   // Even if user has no tracks, they're upgrading, not registering fresh
@@ -392,32 +393,28 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   };
 
   const handleContinue = async () => {
-    if (showTrackSelection && onSelectTrack && selectedTracks.length > 0) {
+    if (showTrackSelection && selectedTracks.length > 0 && onSelectTrack) {
       try {
-        // For upgrades, save tracks sequentially (each call adds to existing)
-        // Since onSelectTrack updates the database and reloads, we need to call it sequentially
-        if (selectedTracks.length > 0) {
-          // Save tracks one by one - each call will add to the existing tracks
-          // Don't close modal until all tracks are saved
-          for (let i = 0; i < selectedTracks.length; i++) {
-            await onSelectTrack(selectedTracks[i], false); // Don't close modal yet
-            if (i < selectedTracks.length - 1) {
-              // Wait a bit before next call to ensure DB update completes
-              await new Promise(resolve => setTimeout(resolve, 300));
-            }
+        // User selected additional track(s) - save them
+        // Save tracks one by one - each call will add to the existing tracks
+        // Don't close modal until all tracks are saved
+        for (let i = 0; i < selectedTracks.length; i++) {
+          await onSelectTrack(selectedTracks[i], false); // Don't close modal yet
+          if (i < selectedTracks.length - 1) {
+            // Wait a bit before next call to ensure DB update completes
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
-          // Close modal after all tracks are saved
-          onClose();
         }
+        // Close modal after all tracks are saved
+        onClose();
       } catch (error) {
         console.error('Error saving tracks:', error);
+        alert('שגיאה בשמירת התחומים. תוכל להוסיף אותם מאוחר יותר מההגדרות.');
         // Modal will stay open on error
       }
     } else {
-      // If user skipped track selection in creator tier, show message
-      if (showTrackSelection && selectedTracks.length === 0 && newTier === 'creator' && oldTier === 'free') {
-        alert('תוכל לבחור תחום ניתוח נוסף מאוחר יותר מההגדרות > עדכונים');
-      }
+      // User chose to continue without selecting additional tracks (optional)
+      // This is fine - they can add tracks later from settings
       onClose();
     }
   };
@@ -529,12 +526,12 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
         )}
 
         <ButtonGroup>
-          <PrimaryButton onClick={handleContinue}>
+          <PrimaryButton onClick={handleContinue} disabled={false}>
             {showTrackSelection && selectedTracks.length > 0 ? 'שמור והמשך' : 'מעולה, בואו נתחיל!'}
           </PrimaryButton>
           {showTrackSelection && (
             <SecondaryButton onClick={onClose}>
-              דלג לעת עתה
+              {selectedTracks.length > 0 ? 'בלי לשמור' : 'דלג לעת עתה'}
             </SecondaryButton>
           )}
         </ButtonGroup>
