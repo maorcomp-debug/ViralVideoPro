@@ -2647,6 +2647,23 @@ const App = () => {
         },
         isActive: finalIsActive,
       });
+      
+      // Broadcast subscription update to other tabs/windows if tier changed
+      if (typeof BroadcastChannel !== 'undefined' && currentUser) {
+        try {
+          const channel = new BroadcastChannel('viraly-subscription-sync');
+          channel.postMessage({
+            type: 'subscription-updated',
+            userId: currentUser.id,
+            tier: finalTier,
+            isActive: finalIsActive,
+            timestamp: Date.now(),
+          });
+          channel.close();
+        } catch (e) {
+          console.warn('Could not broadcast subscription update:', e);
+        }
+      }
 
       // Load usage and update subscription state
       const usageData = await getUsageForCurrentPeriod();
