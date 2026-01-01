@@ -5250,16 +5250,33 @@ const App = () => {
         }}
         paymentUrl={takbullPaymentUrl}
         orderReference={takbullOrderReference}
-        onSuccess={() => {
+        onSuccess={async () => {
+          console.log('✅ Payment completed successfully, reloading user data...');
           setShowTakbullPayment(false);
-          // Reload user data
+          
+          // Immediately reload user data with force refresh to get updated subscription
           if (user) {
-            setTimeout(async () => {
+            try {
+              // Force refresh session and reload data
+              await supabase.auth.refreshSession();
+              
               const { data: { user: currentUser } } = await supabase.auth.getUser();
               if (currentUser && currentUser.id === user.id) {
-                await loadUserData(currentUser);
+                // Force reload with cache busting
+                await loadUserData(currentUser, true);
+                
+                // Also reload again after a short delay to ensure database consistency
+                setTimeout(async () => {
+                  await loadUserData(currentUser, true);
+                }, 2000);
               }
-            }, 1000);
+            } catch (error) {
+              console.error('Error reloading user data after payment:', error);
+              // Fallback: reload page after delay
+              setTimeout(() => {
+                window.location.reload();
+              }, 3000);
+            }
           }
         }}
         onError={(error) => {
