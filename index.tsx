@@ -2543,6 +2543,13 @@ const App = () => {
       
       // Also check profile subscription status - sometimes profile is updated before subscription record exists
       const userTier = userProfile?.subscription_tier || 'free';
+      
+      // Clear pending package upgrade flag if subscription tier is updated (not free) after login
+      // This happens when user logs back in and their package is already updated
+      if (typeof window !== 'undefined' && userTier !== 'free' && localStorage.getItem('pending_package_upgrade') === 'true') {
+        localStorage.removeItem('pending_package_upgrade');
+        console.log('✅ Package updated, cleared pending_package_upgrade flag');
+      }
       const profileStatusCheck = userProfile?.subscription_status;
       const isProfileActiveCheck = profileStatusCheck === 'active';
       const isPaidTierInProfile = userTier !== 'free' && ['creator', 'pro', 'coach', 'coach-pro'].includes(userTier);
@@ -2780,6 +2787,11 @@ const App = () => {
       // Set the tiers immediately
       setUpgradeFromTier(fromTier);
       setUpgradeToTier(toTier);
+      
+      // If upgrading from free tier, set a flag in localStorage to show message in Settings
+      if (fromTier === 'free' && typeof window !== 'undefined') {
+        localStorage.setItem('pending_package_upgrade', 'true');
+      }
       
       // Wait for user to be loaded before showing modal
       // Profile will be loaded as part of the reload process

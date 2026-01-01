@@ -448,9 +448,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               textAlign: 'right',
             }}>
               <h3 style={{ color: '#D4A043', margin: '0 0 10px 0' }}>סטטוס מנוי נוכחי</h3>
-              <p style={{ margin: '5px 0', color: '#ccc' }}>
-                **חבילה:** {subscription ? getTierDisplayName(subscription.tier) : getTierDisplayName(profile?.subscription_tier || 'free')}
-              </p>
+              <div style={{ margin: '5px 0', color: '#ccc', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <p style={{ margin: 0 }}>
+                  **חבילה:** {subscription ? getTierDisplayName(subscription.tier) : getTierDisplayName(profile?.subscription_tier || 'free')}
+                </p>
+                {/* Show upgrade message only for free tier users who upgraded (until they log out/in) */}
+                {(!subscription || subscription.tier === 'free') && profile?.subscription_tier === 'free' && 
+                 typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
+                  <div style={{
+                    marginTop: '10px',
+                    padding: '12px',
+                    background: 'rgba(212, 160, 67, 0.15)',
+                    border: '1px solid rgba(212, 160, 67, 0.4)',
+                    borderRadius: '8px',
+                    color: '#D4A043',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.5'
+                  }}>
+                    💡 על מנת שהחבילה תתעדכן ותהיה זמינה לשימוש, אנא צא מהמערכת והכנס מחדש עם המשתמש שלך.
+                  </div>
+                )}
+              </div>
               <p style={{ margin: '5px 0', color: '#ccc' }}>
                 **סטטוס:** {subscription?.isActive ? 'פעיל' : 'לא פעיל'}
               </p>

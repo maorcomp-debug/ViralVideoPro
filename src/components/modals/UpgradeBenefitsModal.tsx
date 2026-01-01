@@ -371,38 +371,32 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   const availableTracks = TRACKS.filter(t => !currentTracks.includes(t.id));
   const currentTrackObjects = TRACKS.filter(t => currentTracks.includes(t.id));
   
-  // Check if user is new (no tracks selected yet) vs existing user (has 1 track)
-  const isNewUser = currentTracks.length === 0;
-  const isExistingUserWithOneTrack = currentTracks.length === 1;
+  // When upgrading from free to creator, always treat as upgrade (not new user registration)
+  // Even if user has no tracks, they're upgrading, not registering fresh
+  // The "בחר 2 תחומי ניתוח שמועדפים עליך" message should only appear for new users
+  // directly choosing pro package during registration, not for upgrades
+  const isExistingUserUpgrade = true; // Always true for upgrades
+  const hasExistingTracks = currentTracks.length > 0;
 
-  // For new users, allow selecting 2 tracks; for existing users, allow selecting 1 additional track
+  // For upgrades from free to creator, allow selecting 1 additional track (up to 2 total)
   const [selectedTracks, setSelectedTracks] = useState<TrackId[]>([]);
   
   const handleSelectTrack = (trackId: TrackId) => {
-    if (isNewUser) {
-      // New user: can select up to 2 tracks
-      if (selectedTracks.includes(trackId)) {
-        setSelectedTracks(selectedTracks.filter(id => id !== trackId));
-      } else if (selectedTracks.length < 2) {
-        setSelectedTracks([...selectedTracks, trackId]);
-      }
-    } else {
-      // Existing user: can select 1 additional track
-      if (selectedTracks.includes(trackId)) {
-        setSelectedTracks([]);
-      } else {
-        setSelectedTracks([trackId]);
-      }
+    // For upgrades, user can select 1 additional track (up to 2 total)
+    const maxToSelect = hasExistingTracks ? 1 : 2; // If no existing tracks, can select 2, else 1 more
+    if (selectedTracks.includes(trackId)) {
+      setSelectedTracks(selectedTracks.filter(id => id !== trackId));
+    } else if (selectedTracks.length < maxToSelect) {
+      setSelectedTracks([...selectedTracks, trackId]);
     }
   };
 
   const handleContinue = async () => {
     if (showTrackSelection && onSelectTrack && selectedTracks.length > 0) {
       try {
-        // For new users, save all tracks sequentially (each call adds to existing)
-        // For existing users, save the additional track
+        // For upgrades, save tracks sequentially (each call adds to existing)
         // Since onSelectTrack updates the database and reloads, we need to call it sequentially
-        if (isNewUser && selectedTracks.length > 0) {
+        if (selectedTracks.length > 0) {
           // Save tracks one by one - each call will add to the existing tracks
           // Don't close modal until all tracks are saved
           for (let i = 0; i < selectedTracks.length; i++) {
@@ -414,9 +408,6 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
           }
           // Close modal after all tracks are saved
           onClose();
-        } else if (isExistingUserWithOneTrack && selectedTracks.length > 0) {
-          // For existing users, save the additional track and close modal
-          await onSelectTrack(selectedTracks[0], true);
         }
       } catch (error) {
         console.error('Error saving tracks:', error);
@@ -425,11 +416,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
     } else {
       // If user skipped track selection in creator tier, show message
       if (showTrackSelection && selectedTracks.length === 0 && newTier === 'creator' && oldTier === 'free') {
-        if (isNewUser) {
-          alert('תוכל לבחור תחומי ניתוח מאוחר יותר מההגדרות > עדכונים');
-        } else {
-          alert('תוכל לבחור תחום ניתוח נוסף מאוחר יותר מההגדרות > עדכונים');
-        }
+        alert('תוכל לבחור תחום ניתוח נוסף מאוחר יותר מההגדרות > עדכונים');
       }
       onClose();
     }
@@ -493,18 +480,10 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
         {showTrackSelection && (
           <TracksSection>
             <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.2rem', textAlign: 'right' }}>
-              {isNewUser ? (
-                <>🎯 בחר 2 תחומי ניתוח שמועדפים עליך</>
-              ) : (
-                <>🎯 בחר תחום ניתוח נוסף (אופציונלי)</>
-              )}
+              🎯 בחר תחום ניתוח נוסף {hasExistingTracks ? '(אופציונלי)' : ''}
             </h3>
             <p style={{ color: '#aaa', marginBottom: '15px', textAlign: 'right', fontSize: '0.95rem' }}>
-              {isNewUser ? (
-                <>כחלק מחבילת יוצרים, תוכל לבחור 2 תחומי ניתוח שמועדפים עליך: שחקנים, זמרים, יוצרי תוכן או משפיענים. תוכל לדלג אם רוצים להישאר עם תחום אחד לעת עתה, ולהשלים את הבחירה מאוחר יותר מההגדרות.</>
-              ) : (
-                <>כחלק מחבילת יוצרים, תוכל לבחור תחום ניתוח נוסף. תוכל לעשות זאת גם מאוחר יותר מההגדרות.</>
-              )}
+              כחלק מחבילת יוצרים, תוכל לבחור {hasExistingTracks ? 'תחום ניתוח נוסף' : 'עד 2 תחומי ניתוח'}. תוכל לעשות זאת גם מאוחר יותר מההגדרות.
             </p>
             <TracksGrid>
               {/* Show current tracks as "included" */}
@@ -529,7 +508,8 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
               {availableTracks.map((track) => {
                 const TrackIconComponent = track.icon;
                 const isSelected = selectedTracks.includes(track.id);
-                const canSelect = isNewUser ? selectedTracks.length < 2 : selectedTracks.length < 1;
+                const maxToSelect = hasExistingTracks ? 1 : 2; // If no existing tracks, can select 2, else 1 more
+                const canSelect = selectedTracks.length < maxToSelect;
                 return (
                   <TrackCard
                     key={track.id}
