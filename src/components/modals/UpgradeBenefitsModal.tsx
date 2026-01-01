@@ -89,13 +89,17 @@ const ModalContent = styled.div`
   padding: 40px;
   max-width: 800px;
   width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(212, 160, 67, 0.4);
   animation: ${fadeIn} 0.4s ease;
   position: relative;
+  margin: auto;
 
   @media (max-width: 768px) {
     padding: 30px 20px;
     border-radius: 15px;
+    max-height: 95vh;
   }
 `;
 
@@ -405,7 +409,10 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
     const oldMaxTracks = oldTier === 'free' ? 1 : oldTier === 'creator' ? 2 : 4;
     const newMaxTracks = newTier === 'free' ? 1 : newTier === 'creator' ? 2 : 4;
     
-    if (newMaxTracks > oldMaxTracks) {
+    // For pro, coach, coach-pro tiers: show "all tracks open" instead of "more tracks"
+    if (newTier === 'pro' || newTier === 'coach' || newTier === 'coach-pro') {
+      benefits.push('🎯 כל תחומי הניתוח פתוחים לשימוש');
+    } else if (newMaxTracks > oldMaxTracks) {
       benefits.push(`🎯 יותר תחומי ניתוח: מ-${oldMaxTracks} ל-${newMaxTracks} תחומים`);
     }
     
@@ -459,6 +466,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   // Check if user can add more tracks after upgrade
   const maxTracksForNewTier = newTier === 'free' ? 1 : newTier === 'creator' ? 2 : newTier === 'pro' ? 4 : 1;
   const canAddMoreTracks = currentTracks.length < maxTracksForNewTier && (newTier === 'creator' || newTier === 'pro');
+  const allTracksOpen = newTier === 'pro' || newTier === 'coach' || newTier === 'coach-pro';
   const remainingTrackSlots = maxTracksForNewTier - currentTracks.length;
 
   const handleContinue = () => {
@@ -520,7 +528,25 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
           )}
         </BenefitsList>
 
-        {canAddMoreTracks && (
+        {allTracksOpen && (
+          <AdditionalTracksMessage>
+            <h4>🎯 כל תחומי הניתוח פתוחים בפניך לשימוש</h4>
+            <TracksPreviewGrid>
+              {TRACKS.filter(t => t.id !== 'coach').map((track) => {
+                const TrackIconComponent = track.icon;
+                return (
+                  <TrackPreviewCard key={track.id}>
+                    <TrackPreviewIcon>
+                      <TrackIconComponent />
+                    </TrackPreviewIcon>
+                    <TrackPreviewName>{track.label}</TrackPreviewName>
+                  </TrackPreviewCard>
+                );
+              })}
+            </TracksPreviewGrid>
+          </AdditionalTracksMessage>
+        )}
+        {canAddMoreTracks && !allTracksOpen && (
           <AdditionalTracksMessage>
             <h4>🎯 הוספת תחום ניתוח נוסף</h4>
             <p>
