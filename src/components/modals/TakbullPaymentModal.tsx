@@ -133,41 +133,6 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
               onLoad={() => {
                 // Reset height on load, will adjust based on messages
                 setIframeHeight(800);
-                
-                // Listen for redirect to order-received page
-                // When payment completes, Takbull redirects to /order-received
-                // We'll detect this and handle it
-                const checkRedirect = () => {
-                  try {
-                    const iframe = iframeRef.current;
-                    if (iframe && iframe.contentWindow) {
-                      const iframeUrl = iframe.contentWindow.location.href;
-                      if (iframeUrl.includes('/order-received')) {
-                        // Payment completed - extract params from URL
-                        const url = new URL(iframeUrl);
-                        const statusCode = url.searchParams.get('statusCode');
-                        if (statusCode === '0') {
-                          // Payment successful
-                          if (onSuccess) {
-                            onSuccess();
-                          }
-                          onClose();
-                        }
-                      }
-                    }
-                  } catch (e) {
-                    // CORS - can't access iframe location, that's ok
-                  }
-                };
-                
-                // Check periodically for redirect
-                const interval = setInterval(() => {
-                  if (!isOpen) {
-                    clearInterval(interval);
-                    return;
-                  }
-                  checkRedirect();
-                }, 1000);
               }}
             />
           </div>
