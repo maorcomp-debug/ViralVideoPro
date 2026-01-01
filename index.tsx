@@ -2466,6 +2466,8 @@ const App = () => {
   // Load user data from Supabase (with protection against duplicate calls)
   const loadUserData = async (currentUser: User, forceRefresh = false) => {
     try {
+      console.log('🔄 loadUserData called', { userId: currentUser.id, forceRefresh });
+      
       // Verify user is still authenticated before loading data
       const { data: { user: verifiedUser } } = await supabase.auth.getUser();
       if (!verifiedUser || verifiedUser.id !== currentUser.id) {
@@ -2483,8 +2485,14 @@ const App = () => {
         }
       }
 
-      // Load profile
+      // Load profile (force fresh fetch if forceRefresh is true)
       const userProfile = await getCurrentUserProfile();
+      
+      console.log('📋 Profile loaded:', {
+        subscriptionTier: userProfile?.subscription_tier,
+        subscriptionStatus: userProfile?.subscription_status,
+        subscriptionPeriod: userProfile?.subscription_period,
+      });
       
       // Verify user is still authenticated after profile load
       const { data: { user: verifiedUser2 } } = await supabase.auth.getUser();
@@ -2550,56 +2558,62 @@ const App = () => {
       console.log('🔍 App: Admin status check result:', adminStatus, 'for user:', currentUser.email);
       setUserIsAdmin(adminStatus);
 
-      // Use subscription data already loaded above
-      if (subData && subData.plans) {
+      // Determine subscription tier: prioritize subscription record, but use profile if subscription record doesn't exist yet
+      // This ensures immediate update after payment when profile is updated but subscription record may not be created yet
+      const profileTier = userProfile?.subscription_tier as SubscriptionTier | undefined;
+      const profileStatus = userProfile?.subscription_status;
+      const isProfileActive = profileStatus === 'active';
+      const validTiers: SubscriptionTier[] = ['free', 'creator', 'pro', 'coach', 'coach-pro'];
+      const isValidProfileTier = profileTier && validTiers.includes(profileTier);
+      
+      // Use subscription record tier if available, otherwise use profile tier if active and valid
+      let finalTier: SubscriptionTier = 'free';
+      let finalBillingPeriod: 'monthly' | 'yearly' = 'monthly';
+      let finalStartDate: Date = new Date();
+      let finalEndDate: Date = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      let finalIsActive = false;
+      
+      if (subData && subData.plans && subData.status === 'active') {
+        // Use subscription record (most reliable)
         const plan = subData.plans as any;
-        setSubscription({
-          tier: plan.tier as SubscriptionTier,
-          billingPeriod: subData.billing_period as 'monthly' | 'yearly',
-          startDate: new Date(subData.start_date),
-          endDate: new Date(subData.end_date),
-          usage: {
-            analysesUsed: 0, // Will be loaded separately
-            lastResetDate: new Date(subData.start_date),
-          },
-          isActive: subData.status === 'active',
-        });
+        finalTier = plan.tier as SubscriptionTier;
+        finalBillingPeriod = subData.billing_period as 'monthly' | 'yearly';
+        finalStartDate = new Date(subData.start_date);
+        finalEndDate = new Date(subData.end_date);
+        finalIsActive = true;
+      } else if (isProfileActive && isValidProfileTier) {
+        // Use profile tier if active (handles case where profile updated but subscription record not created yet)
+        finalTier = profileTier;
+        finalBillingPeriod = (userProfile?.subscription_period as 'monthly' | 'yearly') || 'monthly';
+        finalStartDate = userProfile?.subscription_start_date ? new Date(userProfile.subscription_start_date) : new Date();
+        finalEndDate = userProfile?.subscription_end_date ? new Date(userProfile.subscription_end_date) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        finalIsActive = true;
       } else {
-        // If no active subscription record, use profile subscription_tier or default to free
-        // BUT: Only trust profile subscription_tier if subscription_status is 'active'
-        // This prevents showing old tier when subscription was just paid but profile not updated yet
-        const profileTier = userProfile?.subscription_tier as SubscriptionTier | undefined;
-        const profileStatus = userProfile?.subscription_status;
-        const isProfileActive = profileStatus === 'active';
-        
-        // Include 'coach-pro' in the valid tiers check
-        const validTiers: SubscriptionTier[] = ['free', 'creator', 'pro', 'coach', 'coach-pro'];
-        
-        // Only use profile tier if status is active, otherwise default to free
-        // IMPORTANT: If profile has an active paid tier, use it even without subscription record
-        // This prevents reverting to 'free' after upgrade when subscription record isn't created yet
-        const defaultTier = (isProfileActive && profileTier && validTiers.includes(profileTier))
-          ? profileTier 
-          : 'free';
-        
-        // For free tier, always set as active (free tier never expires)
-        // For paid tiers, only set as active if profile status is active
-        const isActiveStatus = defaultTier === 'free' 
-          ? true 
-          : isProfileActive;
-        
-        setSubscription({
-          tier: defaultTier,
-          billingPeriod: (userProfile?.subscription_period as 'monthly' | 'yearly') || 'monthly',
-          startDate: userProfile?.subscription_start_date ? new Date(userProfile.subscription_start_date) : new Date(),
-          endDate: userProfile?.subscription_end_date ? new Date(userProfile.subscription_end_date) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          usage: {
-            analysesUsed: 0,
-            lastResetDate: userProfile?.subscription_start_date ? new Date(userProfile.subscription_start_date) : new Date(),
-          },
-          isActive: isActiveStatus,
-        });
+        // Default to free tier
+        finalTier = 'free';
+        finalIsActive = true; // Free tier never expires
       }
+      
+      console.log('📊 Setting subscription state:', {
+        hasSubscriptionRecord: !!subData,
+        subscriptionTier: subData?.plans?.tier,
+        profileTier,
+        profileStatus,
+        finalTier,
+        finalIsActive,
+      });
+      
+      setSubscription({
+        tier: finalTier,
+        billingPeriod: finalBillingPeriod,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        usage: {
+          analysesUsed: 0, // Will be loaded separately
+          lastResetDate: finalStartDate,
+        },
+        isActive: finalIsActive,
+      });
 
       // Load usage and update subscription state
       const usageData = await getUsageForCurrentPeriod();
