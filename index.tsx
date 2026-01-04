@@ -498,7 +498,7 @@ const App = () => {
         new URLSearchParams(window.location.search).get('upgrade') === 'success';
       
       if (userProfile) {
-        setProfile(userProfile);
+      setProfile(userProfile);
       } else if (!isUpgradeFlow) {
         // Only clear profile if not in upgrade flow (might be loading)
         setProfile(null);
@@ -787,15 +787,15 @@ const App = () => {
         // Reload user data in background to update subscription state and profile
         // This ensures profile is loaded for track selection
         if (user) {
-          setTimeout(async () => {
-            try {
+        setTimeout(async () => {
+          try {
               console.log('🔄 Reloading user data after upgrade modal opens');
-              await loadUserData(user, true);
-            } catch (e) {
-              console.error('Error reloading user data after upgrade:', e);
-            }
-          }, 500);
-        } else {
+            await loadUserData(user, true);
+          } catch (e) {
+            console.error('Error reloading user data after upgrade:', e);
+          }
+        }, 500);
+      } else {
           // If no user yet, wait a bit and try again
           setTimeout(async () => {
             try {
@@ -972,6 +972,11 @@ const App = () => {
 
       } catch (error: any) {
         console.error('❌ Error in handleSelectPlan (paid tier):', error);
+        
+        // CRITICAL: Reset processing state to allow retry
+        setIsProcessingPayment(false);
+        setShowTakbullPayment(false);
+        
         alert(error.message || 'אירעה שגיאה בהתחלת תהליך התשלום. נסה שוב.');
         // DO NOT update subscription directly - payment is required!
         return;
@@ -2468,6 +2473,9 @@ const App = () => {
         }
       }
       
+      // Set flag in localStorage to indicate we just logged out
+      localStorage.setItem('just_logged_out', 'true');
+      
       // CRITICAL: Reset loggingOut state BEFORE reload to prevent button being disabled after reload
       setLoggingOut(false);
       
@@ -2486,6 +2494,13 @@ const App = () => {
       // Still reset state even if signOut fails
       setUser(null);
       resetUserState();
+      
+      // Set flag in localStorage to indicate we just logged out (even on error)
+      try {
+        localStorage.setItem('just_logged_out', 'true');
+      } catch (e) {
+        console.error('Error setting logout flag:', e);
+      }
       
       // CRITICAL: Reset loggingOut state even on error
       setLoggingOut(false);
@@ -3319,7 +3334,7 @@ const App = () => {
               const pollInterval = 2000; // 2 seconds
               
               // First immediate check
-              await loadUserData(currentUser, true);
+                await loadUserData(currentUser, true);
               await new Promise(resolve => setTimeout(resolve, 500)); // Wait for state update
               
               const checkTierUpdate = async (): Promise<string> => {
@@ -3364,13 +3379,13 @@ const App = () => {
               newTier = await checkTierUpdate();
               
               // If tier already updated, proceed immediately
-              if (newTier !== currentTier && newTier !== 'free' && newTier !== null) {
+                if (newTier !== currentTier && newTier !== 'free' && newTier !== null) {
                 console.log('🎉 Tier upgraded immediately after payment:', { fromTier: currentTier, toTier: newTier });
-                const timestamp = Date.now();
+                  const timestamp = Date.now();
                 navigate(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`, { replace: true });
-                return;
-              }
-              
+                  return;
+                }
+                
               // Poll for updates
               const pollForTierUpdate = async (): Promise<string | null> => {
                 while (pollAttempts < maxPollAttempts) {
@@ -3395,7 +3410,7 @@ const App = () => {
               
               if (finalTier && finalTier !== currentTier) {
                 // Tier was updated during polling
-                const timestamp = Date.now();
+              const timestamp = Date.now();
                 navigate(`/?upgrade=success&from=${currentTier}&to=${finalTier}&_t=${timestamp}`, { replace: true });
               } else {
                 // Tier not updated yet, but redirect anyway - upgrade detection will handle it

@@ -19,9 +19,15 @@ interface UseAuthReturn {
 }
 
 export const useAuth = (): UseAuthReturn => {
+  // Check if we just logged out - if so, start with loadingAuth=false
+  const justLoggedOut = typeof window !== 'undefined' && localStorage.getItem('just_logged_out') === 'true';
+  if (justLoggedOut && typeof window !== 'undefined') {
+    localStorage.removeItem('just_logged_out');
+  }
+
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [loadingAuth, setLoadingAuth] = useState(!justLoggedOut);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
@@ -60,6 +66,9 @@ export const useAuth = (): UseAuthReturn => {
         }
       }
       
+      // Set flag in localStorage to indicate we just logged out
+      localStorage.setItem('just_logged_out', 'true');
+      
       // CRITICAL: Reset loggingOut state BEFORE reload to prevent button being disabled after reload
       setLoggingOut(false);
       
@@ -73,6 +82,13 @@ export const useAuth = (): UseAuthReturn => {
       // Still reset state even if signOut fails
       setUser(null);
       resetUserState();
+      
+      // Set flag in localStorage to indicate we just logged out (even on error)
+      try {
+        localStorage.setItem('just_logged_out', 'true');
+      } catch (e) {
+        console.error('Error setting logout flag:', e);
+      }
       
       // CRITICAL: Reset loggingOut state even on error
       setLoggingOut(false);
