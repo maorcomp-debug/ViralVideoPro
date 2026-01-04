@@ -2468,21 +2468,27 @@ const App = () => {
         }
       }
       
+      // CRITICAL: Reset loggingOut state BEFORE reload to prevent button being disabled after reload
+      setLoggingOut(false);
+      
       // Navigate to home page if on other pages
       if (location.pathname !== '/') {
         navigate('/', { replace: true });
       }
       
-      // Force a page refresh to ensure clean state (after a small delay to allow navigation)
+      // Force a page refresh to ensure clean state (after a small delay to allow navigation and state reset)
       setTimeout(() => {
         window.location.reload();
-      }, 100);
+      }, 200);
       
     } catch (error) {
       console.error('Error during logout:', error);
       // Still reset state even if signOut fails
       setUser(null);
       resetUserState();
+      
+      // CRITICAL: Reset loggingOut state even on error
+      setLoggingOut(false);
       
       // Clear storage as fallback
       try {
@@ -2493,9 +2499,9 @@ const App = () => {
       }
       
       // Force page reload as last resort
-      window.location.href = '/';
-    } finally {
-      // Don't set loggingOut to false since we're reloading the page
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 200);
     }
   };
 
@@ -3293,7 +3299,7 @@ const App = () => {
           // Get current subscription tier before reload to determine oldTier
           const currentTier = subscription?.tier || profile?.subscription_tier || 'free';
           
-          // Reload user data with retries - database might need time to update
+          // Reload user data with polling - database might need time to update
           if (user) {
             try {
               // Verify user is still authenticated
@@ -3303,48 +3309,100 @@ const App = () => {
                 return;
               }
               
-              // Try multiple times to get updated tier (database might need time to update)
-              let newTier = currentTier;
-              let attempts = 0;
-              const maxAttempts = 5;
+              // Import helpers for direct DB queries
+              const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
               
-              while (attempts < maxAttempts) {
-                // Reload with force refresh
+              // Polling loop to check for tier update (every 2 seconds, max 30 seconds)
+              let newTier = currentTier;
+              let pollAttempts = 0;
+              const maxPollAttempts = 15; // 15 attempts * 2 seconds = 30 seconds max
+              const pollInterval = 2000; // 2 seconds
+              
+              // First immediate check
+              await loadUserData(currentUser, true);
+              await new Promise(resolve => setTimeout(resolve, 500)); // Wait for state update
+              
+              const checkTierUpdate = async (): Promise<string> => {
+                // Force reload user data
                 await loadUserData(currentUser, true);
                 
-                // Wait for database to update (longer wait on first attempts)
-                await new Promise(resolve => setTimeout(resolve, attempts === 0 ? 1000 : 500));
-                
-                // Get new tier from reloaded data
-                // Wait a bit for state to update after loadUserData
+                // Wait a bit for state to update
                 await new Promise(resolve => setTimeout(resolve, 300));
                 
-                // Check subscription state that was just updated by loadUserData
-                // Use direct database query instead of relying on state (more reliable)
-                const { getCurrentSubscription, getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
+                // Get fresh data directly from DB (more reliable than state)
                 const newSub = await getCurrentSubscription();
                 const newProfile = await getCurrentUserProfile();
-                newTier = newSub?.plans?.tier || (newProfile?.subscription_status === 'active' ? newProfile?.subscription_tier : null) || currentTier;
+                const detectedTier = newSub?.plans?.tier || (newProfile?.subscription_status === 'active' ? newProfile?.subscription_tier : null) || currentTier;
                 
-                // If tier changed and is not free, we're done
-                if (newTier !== currentTier && newTier !== 'free' && newTier !== null) {
-                  console.log('🎉 Tier upgraded, redirecting to show UpgradeBenefitsModal:', { fromTier: currentTier, toTier: newTier, attempts: attempts + 1 });
-                  const timestamp = Date.now();
-                  // Use navigate instead of window.location.replace to preserve React state
-                  navigate(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`, { replace: true });
-                  return;
+                // Update state directly if tier changed
+                if (detectedTier !== currentTier && detectedTier !== 'free' && detectedTier !== null) {
+                  // Force update profile and subscription state
+                  if (newProfile) {
+                    setProfile(newProfile);
+                  }
+                  if (newSub) {
+                    const { getUsageForCurrentPeriod } = await import('./src/lib/supabase-helpers');
+                    const usage = await getUsageForCurrentPeriod();
+                    setSubscription({
+                      tier: newSub.plans.tier as SubscriptionTier,
+                      billingPeriod: newSub.billing_period as 'monthly' | 'yearly',
+                      startDate: new Date(newSub.start_date),
+                      endDate: new Date(newSub.end_date),
+                      usage: {
+                        analysesUsed: usage?.analysesUsed || 0,
+                        lastResetDate: usage?.periodStart ? new Date(usage.periodStart) : new Date(newSub.start_date),
+                      },
+                      isActive: newSub.status === 'active',
+                    });
+                  }
                 }
                 
-                attempts++;
+                return detectedTier;
+              };
+              
+              // Check immediately
+              newTier = await checkTierUpdate();
+              
+              // If tier already updated, proceed immediately
+              if (newTier !== currentTier && newTier !== 'free' && newTier !== null) {
+                console.log('🎉 Tier upgraded immediately after payment:', { fromTier: currentTier, toTier: newTier });
+                const timestamp = Date.now();
+                navigate(`/?upgrade=success&from=${currentTier}&to=${newTier}&_t=${timestamp}`, { replace: true });
+                return;
               }
               
-              // If we still don't have the new tier, redirect anyway with current tier info
-              // The upgrade detection will handle it when the tier is eventually updated
-              console.warn('⚠️ Tier not updated yet after payment, redirecting anyway:', { currentTier, newTier, attempts });
-              const timestamp = Date.now();
-              // Use navigate instead of window.location.replace to preserve React state
-              // Use currentTier for both from and to - the actual tier will be detected when profile loads
-              navigate(`/?upgrade=success&from=${currentTier}&to=${currentTier}&_t=${timestamp}`, { replace: true });
+              // Poll for updates
+              const pollForTierUpdate = async (): Promise<string | null> => {
+                while (pollAttempts < maxPollAttempts) {
+                  pollAttempts++;
+                  console.log(`🔄 Polling for tier update (attempt ${pollAttempts}/${maxPollAttempts})...`);
+                  
+                  await new Promise(resolve => setTimeout(resolve, pollInterval));
+                  
+                  const detectedTier = await checkTierUpdate();
+                  
+                  if (detectedTier !== currentTier && detectedTier !== 'free' && detectedTier !== null) {
+                    console.log('🎉 Tier upgraded after polling:', { fromTier: currentTier, toTier: detectedTier, attempts: pollAttempts });
+                    return detectedTier;
+                  }
+                }
+                
+                return null;
+              };
+              
+              // Start polling
+              const finalTier = await pollForTierUpdate();
+              
+              if (finalTier && finalTier !== currentTier) {
+                // Tier was updated during polling
+                const timestamp = Date.now();
+                navigate(`/?upgrade=success&from=${currentTier}&to=${finalTier}&_t=${timestamp}`, { replace: true });
+              } else {
+                // Tier not updated yet, but redirect anyway - upgrade detection will handle it
+                console.warn('⚠️ Tier not updated after polling, redirecting anyway:', { currentTier, finalTier, pollAttempts });
+                const timestamp = Date.now();
+                navigate(`/?upgrade=success&from=${currentTier}&to=${currentTier}&_t=${timestamp}`, { replace: true });
+              }
             } catch (error) {
               console.error('Error reloading user data after payment:', error);
               // Simple fallback: reload page

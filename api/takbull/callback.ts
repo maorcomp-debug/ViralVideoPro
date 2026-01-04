@@ -333,18 +333,38 @@ export default async function handler(
           subError = insertError;
         }
 
+        // CRITICAL: If subscription creation/update fails, DO NOT update profile
+        // This prevents inconsistent state where profile shows paid tier but subscription doesn't exist
         if (subError) {
-          console.error('Error creating subscription:', subError);
-          // Don't fail the callback, just log
-        } else {
-          // Update order with subscription_id
-          await supabase
-            .from('takbull_orders')
-            .update({ 
-              subscription_id: subscription.id,
-              next_payment_date: nextPaymentDate.toISOString()
-            })
-            .eq('id', order.id);
+          console.error('❌ CRITICAL: Error creating/updating subscription:', subError);
+          console.error('❌ Subscription error details:', JSON.stringify(subError, null, 2));
+          console.error('❌ SKIPPING profile update to prevent inconsistent state');
+          
+          // Return error response - payment succeeded but subscription failed
+          return res.status(500).json({ 
+            ok: false, 
+            success: false,
+            error: 'Payment succeeded but subscription update failed. Please contact support.',
+            orderId: order.id,
+            orderReference: orderReference,
+            oldTier: oldTier,
+            newTier: oldTier, // Keep old tier since update failed
+            message: 'Payment processed but subscription update failed',
+          });
+        }
+
+        // Subscription was created/updated successfully - now update order
+        const { error: orderUpdateError } = await supabase
+          .from('takbull_orders')
+          .update({ 
+            subscription_id: subscription.id,
+            next_payment_date: nextPaymentDate.toISOString()
+          })
+          .eq('id', order.id);
+
+        if (orderUpdateError) {
+          console.error('⚠️ Warning: Failed to update order with subscription_id:', orderUpdateError);
+          // Don't fail here - subscription was created successfully
         }
 
         // Get tier from plan (more reliable than from order)
@@ -397,6 +417,17 @@ export default async function handler(
           profileUpdate.selected_primary_track = selectedPrimaryTrack;
         }
         
+        // Save old profile data for potential rollback
+        const oldProfileBackup = {
+          subscription_tier: oldProfile?.subscription_tier || 'free',
+          subscription_period: oldProfile?.subscription_period || null,
+          subscription_start_date: oldProfile?.subscription_start_date || null,
+          subscription_end_date: oldProfile?.subscription_end_date || null,
+          subscription_status: oldProfile?.subscription_status || 'inactive',
+          selected_tracks: oldProfile?.selected_tracks || null,
+          selected_primary_track: oldProfile?.selected_primary_track || null,
+        };
+        
         // Update user profile with tier from plan
         const { error: profileUpdateError, data: updatedProfile } = await supabase
           .from('profiles')
@@ -406,8 +437,43 @@ export default async function handler(
           .single();
 
         if (profileUpdateError) {
-          console.error('❌ Error updating profile:', profileUpdateError);
+          console.error('❌ CRITICAL: Error updating profile after subscription was created:', profileUpdateError);
           console.error('❌ Profile update data:', JSON.stringify(profileUpdate, null, 2));
+          console.error('⚠️ Profile and subscription are now out of sync!');
+          
+          // Attempt rollback: verify subscription still exists, if not, rollback profile
+          const { data: verifySub } = await supabase
+            .from('subscriptions')
+            .select('id, status')
+            .eq('id', subscription.id)
+            .single();
+          
+          if (!verifySub || verifySub.status !== 'active') {
+            console.error('❌ Subscription verification failed - attempting profile rollback');
+            // Rollback profile to old state
+            const { error: rollbackError } = await supabase
+              .from('profiles')
+              .update(oldProfileBackup)
+              .eq('user_id', order.user_id);
+            
+            if (rollbackError) {
+              console.error('❌ CRITICAL: Profile rollback failed!', rollbackError);
+            } else {
+              console.log('✅ Profile rolled back to previous state');
+            }
+          }
+          
+          // Return error but don't fail completely - subscription was created
+          return res.status(500).json({ 
+            ok: false, 
+            success: false,
+            error: 'Subscription created but profile update failed. Please contact support.',
+            orderId: order.id,
+            orderReference: orderReference,
+            oldTier: oldTier,
+            newTier: tierToUse,
+            message: 'Subscription created but profile update failed',
+          });
         } else {
           console.log('✅ Profile updated successfully:', {
             userId: order.user_id,

@@ -60,16 +60,22 @@ export const useAuth = (): UseAuthReturn => {
         }
       }
       
-      // Force a page refresh to ensure clean state
+      // CRITICAL: Reset loggingOut state BEFORE reload to prevent button being disabled after reload
+      setLoggingOut(false);
+      
+      // Force a page refresh to ensure clean state (after a small delay to allow state reset)
       setTimeout(() => {
         window.location.reload();
-      }, 100);
+      }, 200);
       
     } catch (error) {
       console.error('Error during logout:', error);
       // Still reset state even if signOut fails
       setUser(null);
       resetUserState();
+      
+      // CRITICAL: Reset loggingOut state even on error
+      setLoggingOut(false);
       
       // Clear storage as fallback
       try {
@@ -80,9 +86,9 @@ export const useAuth = (): UseAuthReturn => {
       }
       
       // Force page reload as last resort
-      window.location.href = '/';
-    } finally {
-      // Don't set loggingOut to false since we're reloading the page
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 200);
     }
   }, [loggingOut, resetUserState]);
 
@@ -129,9 +135,11 @@ export const useAuth = (): UseAuthReturn => {
       // Update user state
       setUser(session?.user ?? null);
       
-      // If user logged out, reset state
+      // If user logged out, reset state and ensure loadingAuth is false
       if (!session?.user) {
         resetUserState();
+        setLoadingAuth(false);
+        setLoggingOut(false);
       } else {
         // Check if user is admin
         try {
