@@ -234,19 +234,21 @@ export default async function handler(
       });
     }
 
-    // Get old profile before update (for upgrade modal)
-    let oldTier: string = 'free';
-    if (isSuccess) {
-      const { data: oldProfile } = await supabase
-        .from('profiles')
-        .select('subscription_tier')
-        .eq('user_id', order.user_id)
-        .single();
-      
-      oldTier = oldProfile?.subscription_tier || 'free';
-      console.log('📊 Old subscription tier:', oldTier);
-      console.log('📊 New subscription tier:', order.subscription_tier);
-    }
+        // Get old profile before update (for upgrade modal and to preserve tracks)
+        let oldTier: string = 'free';
+        let oldProfile: any = null;
+        if (isSuccess) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', order.user_id)
+            .single();
+          
+          oldProfile = profileData;
+          oldTier = oldProfile?.subscription_tier || 'free';
+          console.log('📊 Old subscription tier:', oldTier);
+          console.log('📊 New subscription tier:', order.subscription_tier);
+        }
 
     // If payment successful, process subscription
     if (isSuccess) {
@@ -350,23 +352,34 @@ export default async function handler(
         
         // Determine tracks based on tier
         // For paid tiers (pro, coach, coach-pro), set all 4 tracks
-        // For creator, we'll let them select tracks later
+        // For creator, preserve existing tracks or keep existing track
         // For free, they need to select a track
         let selectedTracks: string[] = [];
         let selectedPrimaryTrack: string | null = null;
         
+        // Get existing tracks from old profile
+        const existingTracks = oldProfile?.selected_tracks || [];
+        const existingPrimaryTrack = oldProfile?.selected_primary_track || null;
+        
         if (tierToUse === 'pro' || tierToUse === 'coach' || tierToUse === 'coach-pro') {
-          // All 4 tracks for pro/coach tiers
+          // All 4 tracks for pro/coach tiers - open all tracks
           selectedTracks = ['actors', 'musicians', 'creators', 'influencers'];
-          selectedPrimaryTrack = 'actors'; // Default primary track
+          selectedPrimaryTrack = existingPrimaryTrack || 'actors'; // Keep existing primary track or default to actors
         } else if (tierToUse === 'creator') {
-          // Creator tier - don't set tracks automatically, let user choose in UpgradeBenefitsModal
-          // User will select tracks through the modal, or keep their existing track if they skip
-          // Don't set any tracks here - they will be set by the user's choice in UpgradeBenefitsModal
+          // Creator tier - preserve existing tracks, or keep existing primary track
+          if (existingTracks.length > 0) {
+            selectedTracks = existingTracks;
+            selectedPrimaryTrack = existingPrimaryTrack || existingTracks[0];
+          } else if (existingPrimaryTrack) {
+            // If no selected_tracks array but has primary track, preserve it
+            selectedTracks = [existingPrimaryTrack];
+            selectedPrimaryTrack = existingPrimaryTrack;
+          }
+          // If no tracks exist, user will select in UpgradeBenefitsModal
         }
         // For 'free' tier, don't set tracks - user must select
         
-        // Build update object
+        // Build update object - ALWAYS update subscription fields
         const profileUpdate: any = {
           subscription_tier: tierToUse,
           subscription_period: order.billing_period,
@@ -376,7 +389,7 @@ export default async function handler(
           updated_at: new Date().toISOString(),
         };
         
-        // Only update tracks if we have them (not for free tier)
+        // Update tracks if we have them (for pro/coach) or preserve them (for creator)
         if (selectedTracks.length > 0) {
           profileUpdate.selected_tracks = selectedTracks;
         }
@@ -385,13 +398,16 @@ export default async function handler(
         }
         
         // Update user profile with tier from plan
-        const { error: profileUpdateError } = await supabase
+        const { error: profileUpdateError, data: updatedProfile } = await supabase
           .from('profiles')
           .update(profileUpdate)
-          .eq('user_id', order.user_id);
+          .eq('user_id', order.user_id)
+          .select()
+          .single();
 
         if (profileUpdateError) {
           console.error('❌ Error updating profile:', profileUpdateError);
+          console.error('❌ Profile update data:', JSON.stringify(profileUpdate, null, 2));
         } else {
           console.log('✅ Profile updated successfully:', {
             userId: order.user_id,
@@ -400,6 +416,8 @@ export default async function handler(
             subscriptionStatus: 'active',
             planId: plan.id,
             planTier: plan.tier,
+            selectedTracks: updatedProfile?.selected_tracks || 'none',
+            selectedPrimaryTrack: updatedProfile?.selected_primary_track || 'none',
           });
         }
       } catch (error: any) {
