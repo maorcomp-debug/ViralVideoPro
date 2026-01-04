@@ -849,6 +849,16 @@ const App = () => {
     }
   }, [subscription]);
 
+  // Helper function to get next tier in upgrade hierarchy
+  const getNextTier = (currentTier: SubscriptionTier): SubscriptionTier | null => {
+    const tierOrder: SubscriptionTier[] = ['free', 'creator', 'pro', 'coach', 'coach-pro'];
+    const currentIndex = tierOrder.indexOf(currentTier);
+    if (currentIndex === -1 || currentIndex === tierOrder.length - 1) {
+      return null; // Already at highest tier or invalid tier
+    }
+    return tierOrder[currentIndex + 1];
+  };
+
   // Subscription Management Functions
   const handleSelectPlan = async (tier: SubscriptionTier, period: BillingPeriod) => {
     console.log('🔔 handleSelectPlan called:', { tier, period, user: user?.email });
@@ -3404,11 +3414,25 @@ const App = () => {
       
       <UpgradeBenefitsModal
         isOpen={showUpgradeBenefitsModal}
-        onClose={() => {
+        onClose={async () => {
           setShowUpgradeBenefitsModal(false);
           // Show completion message after modal closes for ALL upgrades
           if (upgradeFromTier !== upgradeToTier && typeof window !== 'undefined') {
             setShowUpgradeCompletionMessage(true);
+          }
+          
+          // Automatic upgrade to next tier after successful upgrade
+          const nextTier = getNextTier(upgradeToTier);
+          if (nextTier && user) {
+            console.log('🚀 Auto-upgrading to next tier:', { from: upgradeToTier, to: nextTier });
+            // Wait a moment before initiating next upgrade
+            setTimeout(async () => {
+              try {
+                await handleSelectPlan(nextTier, 'monthly');
+              } catch (error) {
+                console.error('Error auto-upgrading to next tier:', error);
+              }
+            }, 1000);
           }
         }}
         oldTier={upgradeFromTier}
