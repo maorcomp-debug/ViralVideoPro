@@ -777,6 +777,7 @@ export const FeatureTitle = styled.h4<{ $selected: boolean }>`
 export const FeatureDesc = styled.p<{ $selected?: boolean }>`
   color: ${props => props.$selected ? '#e0e0e0' : '#d0d0d0'};
   font-size: 0.9rem;
+  font-family: 'Assistant', sans-serif;
   line-height: 1.5;
   margin: 8px 0 0 0;
   font-weight: 600;
@@ -1192,6 +1193,7 @@ export const ExpertScore = styled.span`
 export const ExpertSectionTitle = styled.h5`
   color: #888;
   font-size: 0.85rem;
+  font-family: 'Assistant', sans-serif;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-top: 15px;
