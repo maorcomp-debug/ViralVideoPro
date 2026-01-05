@@ -762,10 +762,12 @@ export const FeatureTitle = styled.h4<{ $selected: boolean }>`
   color: ${props => props.$selected ? '#D4A043' : '#e0e0e0'};
   font-size: 1rem;
   font-weight: 700;
+  font-family: 'Assistant', sans-serif;
   margin: 0;
   line-height: 1.2;
   letter-spacing: 0.5px;
   text-shadow: ${props => props.$selected ? '0 0 8px rgba(212, 160, 67, 0.5)' : 'none'};
+  text-align: center;
   
   @media (max-width: 600px) {
     font-size: 0.95rem;
