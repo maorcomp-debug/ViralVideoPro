@@ -765,7 +765,9 @@ const App = () => {
       
       // Set flag in localStorage to show logout message for ALL upgrades
       // This ensures users know they need to re-login for the upgrade to take effect
-      if (fromTier !== toTier && typeof window !== 'undefined') {
+      // IMPORTANT: This includes coach->coach-pro upgrades
+      const isCoachToCoachPro = fromTier === 'coach' && toTier === 'coach-pro';
+      if ((fromTier !== toTier || isCoachToCoachPro) && typeof window !== 'undefined') {
         localStorage.setItem('pending_package_upgrade', 'true');
       }
       
@@ -3706,14 +3708,21 @@ const App = () => {
         onClose={async () => {
           setShowUpgradeBenefitsModal(false);
           
-          // After upgrade completes, sign out user
+          // After upgrade completes, sign out user for ALL upgrades (including coach->coach-pro)
           // Set flag to show popup message after logout
-          if (upgradeFromTier !== upgradeToTier && typeof window !== 'undefined') {
-            localStorage.setItem('pending_package_upgrade', 'true');
+          // IMPORTANT: This includes coach->coach-pro upgrades
+          // Always set the flag if there's an upgrade (including coach->coach-pro)
+          if (typeof window !== 'undefined') {
+            const isCoachToCoachPro = upgradeFromTier === 'coach' && upgradeToTier === 'coach-pro';
+            if (upgradeFromTier !== upgradeToTier || isCoachToCoachPro) {
+              localStorage.setItem('pending_package_upgrade', 'true');
+            }
           }
           
           // Sign out after upgrade to refresh cache and update profile
           // This ensures the user gets the updated subscription after login
+          // IMPORTANT: This applies to ALL upgrades including coach->coach-pro
+          // Always logout after any upgrade to refresh the profile with new subscription settings
           setTimeout(async () => {
             await handleLogout();
           }, 500);
