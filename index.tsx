@@ -2620,9 +2620,9 @@ const App = () => {
         <Header>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
           <AppLogo />
-          {/* Profile update message removed - auto logout already handles profile refresh */}
-          {/* Removed: Upgrade completion message - auto logout after upgrade already refreshes profile */}
-          {false && typeof window !== 'undefined' && !user && localStorage.getItem('pending_package_upgrade') === 'true' && (
+          {/* Upgrade completion message - shown after logout, as notification bar at top of browser */}
+          {/* Show when pending_package_upgrade flag is set AND user is NOT logged in */}
+          {typeof window !== 'undefined' && !user && localStorage.getItem('pending_package_upgrade') === 'true' && (
             <div style={{ 
               position: 'fixed',
               top: 0,

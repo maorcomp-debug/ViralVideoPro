@@ -311,8 +311,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     setSelectedPeriods(prev => ({ ...prev, [tier]: period }));
   };
 
-  const handleSelectPlan = (tier: SubscriptionTier) => {
-    onSelectPlan(tier, selectedPeriods[tier]);
+  const handleSelectPlan = async (tier: SubscriptionTier) => {
+    console.log('🎯 SubscriptionModal: handleSelectPlan called', { tier, period: selectedPeriods[tier] });
+    // Call parent's onSelectPlan - this should handle payment initiation
+    await onSelectPlan(tier, selectedPeriods[tier]);
   };
 
 
@@ -552,11 +554,12 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 <SubscribeButton
                   $popular={plan.popular}
                   $isFree={plan.id === 'free'}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     if (!isCurrentPlan) {
-                      handleSelectPlan(plan.id);
+                      console.log('🔔 SubscribeButton clicked for plan:', plan.id);
+                      await handleSelectPlan(plan.id);
                     }
                   }}
                   disabled={isCurrentPlan}

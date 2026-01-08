@@ -452,22 +452,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 <p style={{ margin: 0 }}>
                   **חבילה:** {subscription ? getTierDisplayName(subscription.tier) : getTierDisplayName(profile?.subscription_tier || 'free')}
                 </p>
-                {/* Show upgrade message only for free tier users who upgraded (until they log out/in) */}
-                {(!subscription || subscription.tier === 'free') && profile?.subscription_tier === 'free' && 
-                 typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
-                  <div style={{
-                    marginTop: '10px',
-                    padding: '12px',
-                    background: 'rgba(212, 160, 67, 0.15)',
-                    border: '1px solid rgba(212, 160, 67, 0.4)',
-                    borderRadius: '8px',
-                    color: '#D4A043',
-                    fontSize: '0.9rem',
-                    lineHeight: '1.5'
-                  }}>
-                    💡 על מנת שהחבילה תתעדכן ותהיה זמינה לשימוש, אנא צא מהמערכת והכנס מחדש עם המשתמש שלך.
-                  </div>
-                )}
+                {/* Important message removed - auto logout already handles profile refresh */}
               </div>
               <p style={{ margin: '5px 0', color: '#ccc' }}>
                 **סטטוס:** {subscription?.isActive ? 'פעיל' : 'לא פעיל'}
