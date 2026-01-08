@@ -553,6 +553,30 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
           </AdditionalTracksMessage>
         )}
 
+        {canAddMoreTracks && !allTracksOpen && (
+          <AdditionalTracksMessage>
+            <p style={{ marginBottom: '15px', fontWeight: 600, color: '#D4A043', fontSize: '1.05rem' }}>
+              💡 ניתן להוסיף עוד {maxTracksForNewTier - currentTracks.length} תחום{maxTracksForNewTier - currentTracks.length > 1 ? 'ים' : ''} לחבילה שלך
+            </p>
+            <p style={{ marginBottom: '15px', fontSize: '0.95rem', lineHeight: '1.6', color: '#e0e0e0' }}>
+              אפשרות בחירת התחומים הנוספים מחכה לך בהגדרות (Settings) - תוכל לבחור אותם מאוחר יותר מתי שתרצה
+            </p>
+            <TracksPreviewGrid>
+              {TRACKS.filter(t => t.id !== 'coach' && !currentTracks.includes(t.id)).slice(0, maxTracksForNewTier - currentTracks.length).map((track) => {
+                const TrackIconComponent = track.icon;
+                return (
+                  <TrackPreviewCard key={track.id}>
+                    <TrackPreviewIcon>
+                      <TrackIconComponent />
+                    </TrackPreviewIcon>
+                    <TrackPreviewName>{track.label}</TrackPreviewName>
+                  </TrackPreviewCard>
+                );
+              })}
+            </TracksPreviewGrid>
+          </AdditionalTracksMessage>
+        )}
+
         <ButtonGroup>
           <PrimaryButton onClick={handleContinue} disabled={false}>
             מזל טוב, בואו נתחיל!
