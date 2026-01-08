@@ -2580,38 +2580,37 @@ const App = () => {
         <Header>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
           <AppLogo />
-          {/* Upgrade completion message - shown after logout, as popup at top of browser */}
+          {/* Upgrade completion message - shown after logout, as notification bar at top of browser */}
           {/* Show when pending_package_upgrade flag is set AND user is NOT logged in */}
           {typeof window !== 'undefined' && !user && localStorage.getItem('pending_package_upgrade') === 'true' && (
             <div style={{ 
               position: 'fixed',
-              top: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '90%',
-              maxWidth: '500px',
-              zIndex: 10000,
-              animation: 'fadeIn 0.4s ease'
+              top: 0,
+              left: 0,
+              right: 0,
+              width: '100%',
+              zIndex: 9999,
+              animation: 'fadeIn 0.3s ease',
+              paddingTop: '60px' // Push down to not cover logo
             }}>
               <div style={{
-                padding: '12px 20px',
-                background: 'rgba(212, 160, 67, 0.95)',
-                border: '2px solid rgba(212, 160, 67, 0.6)',
-                borderRadius: '12px',
+                padding: '8px 16px',
+                background: 'linear-gradient(135deg, rgba(212, 160, 67, 0.98) 0%, rgba(212, 160, 67, 0.95) 100%)',
+                borderBottom: '1px solid rgba(212, 160, 67, 0.8)',
                 color: '#000',
-                fontSize: '0.95rem',
-                lineHeight: '1.6',
+                fontSize: '0.85rem',
+                lineHeight: '1.5',
                 textAlign: 'center',
-                boxShadow: '0 4px 16px rgba(212, 160, 67, 0.4)',
-                fontWeight: 600,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                fontWeight: 500,
                 direction: 'rtl',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '10px'
+                justifyContent: 'center',
+                gap: '12px'
               }}>
-                <span style={{ flex: 1 }}>
-                  💡 על מנת שהחבילה שלך תתעדכן, אנא היכנס מחדש לפרופיל
+                <span>
+                  על מנת שהחבילה שלך תתעדכן, אנא היכנס מחדש לפרופיל
                 </span>
                 <button
                   onClick={() => {
@@ -2619,16 +2618,20 @@ const App = () => {
                     window.location.reload();
                   }}
                   style={{
-                    padding: '4px 10px',
-                    background: '#000',
-                    color: '#D4A043',
-                    border: 'none',
-                    borderRadius: '6px',
+                    padding: '2px 8px',
+                    background: 'transparent',
+                    color: '#000',
+                    border: '1px solid rgba(0, 0, 0, 0.2)',
+                    borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: 700,
-                    flexShrink: 0
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    flexShrink: 0,
+                    opacity: 0.8,
+                    transition: 'opacity 0.2s ease'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
                 >
                   ✕
                 </button>
