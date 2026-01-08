@@ -15,6 +15,7 @@ export interface AnalysisResult {
     summary: string;
     finalTips: string[];
   };
+  takeRecommendation?: string; // Professional recommendation on whether to submit current take or retake
 }
 
 // --- Coach Edition Types ---

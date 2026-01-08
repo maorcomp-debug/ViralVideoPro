@@ -1868,7 +1868,7 @@ const App = () => {
       // Hook (Golden Tip)
       if (result.hook) {
         html += `
-          <div style="background: #fff9e6; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-right: 4px solid #b8862e;">
+          <div style="background: #fff9e6; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-right: 4px solid #b8862e; page-break-inside: avoid; break-inside: avoid;">
             <h3 style="color: #b8862e; margin: 0 0 10px 0; font-size: 1.2rem;">✨ טיפ זהב של הפאנל</h3>
             <p style="margin: 0; font-size: 1.1rem; font-weight: 600; line-height: 1.6;">"${result.hook}"</p>
           </div>
@@ -1877,23 +1877,23 @@ const App = () => {
 
       // Expert Analysis
       if (result.expertAnalysis && result.expertAnalysis.length > 0) {
-        html += '<h3 class="section-title">ניתוח פאנל המומחים</h3>';
+        html += '<h3 class="section-title" style="page-break-after: avoid; break-after: avoid;">ניתוח פאנל המומחים</h3>';
         html += '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 25px;">';
         
         result.expertAnalysis.forEach((expert) => {
           html += `
-            <div class="card">
-              <h4 style="color: #b8862e; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e6e6e6; display: flex; justify-content: space-between; align-items: center;">
+            <div class="card" style="page-break-inside: avoid; break-inside: avoid;">
+              <h4 style="color: #b8862e; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e6e6e6; display: flex; justify-content: space-between; align-items: center; page-break-after: avoid; break-after: avoid;">
                 ${expert.role}
                 <span class="score-badge">${expert.score}</span>
               </h4>
-              <div style="margin-bottom: 15px;">
+              <div style="margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
                 <strong class="subtle-label" style="display: block; margin-bottom: 8px;">זווית מקצועית:</strong>
-                <p style="margin: 0; line-height: 1.7;">${expert.insight}</p>
+                <p style="margin: 0; line-height: 1.7; orphans: 3; widows: 3;">${expert.insight}</p>
               </div>
-              <div>
+              <div style="page-break-inside: avoid; break-inside: avoid;">
                 <strong class="subtle-label" style="display: block; margin-bottom: 8px;">טיפים לשיפור:</strong>
-                <p style="margin: 0; line-height: 1.7; font-weight: 500;">${expert.tips}</p>
+                <p style="margin: 0; line-height: 1.7; font-weight: 500; orphans: 3; widows: 3;">${expert.tips}</p>
               </div>
             </div>
           `;
@@ -1905,18 +1905,37 @@ const App = () => {
       // Committee Summary
       if (result.committee) {
         html += '<h3 class="section-title">סיכום ועדת המומחים</h3>';
-        html += '<div class="card" style="margin-bottom: 20px;">';
+        html += '<div class="card" style="margin-bottom: 20px; page-break-inside: avoid;">';
         html += `<p style="margin: 0; line-height: 1.7; font-size: 1.05rem;">${result.committee.summary}</p>`;
         html += '</div>';
 
         // Committee Tips (Final Tips)
         if (result.committee.finalTips && result.committee.finalTips.length > 0) {
           html += `
-            <div data-pdf="committee-tips">
+            <div data-pdf="committee-tips" style="page-break-inside: avoid;">
               <h5>טיפים מנצחים לעתיד:</h5>
               <ul>
                 ${result.committee.finalTips.map(tip => `<li>${tip}</li>`).join('')}
               </ul>
+            </div>
+          `;
+        }
+        
+        // Take Recommendation
+        if (result.takeRecommendation) {
+          const isReady = result.takeRecommendation.toLowerCase().includes('ready') || 
+                          result.takeRecommendation.includes('מוכן') || 
+                          result.takeRecommendation.includes('להגיש') ||
+                          result.takeRecommendation.includes('ניתן');
+          const recommendationColor = isReady ? '#4CAF50' : '#FF9800';
+          html += `
+            <div class="card" style="margin-bottom: 20px; page-break-inside: avoid; border-right: 4px solid ${recommendationColor}; background: ${isReady ? '#f1f8f4' : '#fff8f0'};">
+              <h4 style="color: ${recommendationColor}; margin: 0 0 12px 0; font-size: 1.15rem; font-weight: 700;">
+                ${isReady ? '✅ המלצה מקצועית:' : '⚠️ המלצה מקצועית:'}
+              </h4>
+              <p style="margin: 0; line-height: 1.7; font-size: 1.05rem; color: #2b2b2b; font-weight: 500;">
+                ${result.takeRecommendation}
+              </p>
             </div>
           `;
         }
@@ -1960,6 +1979,19 @@ const App = () => {
         color: #2b2b2b;
         line-height: 1.6;
       }
+      /* Prevent breaking inside paragraphs - ensure at least 3 lines before breaking */
+      p {
+        orphans: 3;
+        widows: 3;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      li {
+        orphans: 2;
+        widows: 2;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
       .export-wrapper { max-width: 1040px; margin: 0 auto; }
       .export-header { 
         display: flex;
@@ -1994,6 +2026,8 @@ const App = () => {
         border-radius: 8px;
         color: #b0751f;
         font-weight: 800;
+        page-break-after: avoid;
+        break-after: avoid;
       }
       .card {
         border: 1px solid #e6e6e6;
@@ -2002,6 +2036,8 @@ const App = () => {
         margin-bottom: 14px;
         background: #ffffff;
         box-shadow: 0 4px 18px rgba(0,0,0,0.04);
+        page-break-inside: avoid;
+        break-inside: avoid;
       }
       .score-badge {
         display: inline-block;
@@ -2026,6 +2062,8 @@ const App = () => {
         width: 100% !important;
         margin: 20px auto 30px !important;
         border: 1px dashed #ddd !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       [data-pdf="committee-tips"] h5 {
         color: #b8862e !important;
@@ -2037,12 +2075,16 @@ const App = () => {
       [data-pdf="committee-tips"] ul {
         padding-right: 24px !important;
         margin: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       [data-pdf="committee-tips"] li {
         margin-bottom: 10px !important;
         color: #2b2b2b !important;
         line-height: 1.6 !important;
         list-style-type: disc !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       /* Final Score styling using data attribute */
       [data-pdf="final-score"] {
@@ -2053,6 +2095,8 @@ const App = () => {
         width: 100% !important;
         text-align: center !important;
         padding: 10px 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       [data-pdf="final-score"] .number {
         font-size: 3.5rem !important;
@@ -3324,6 +3368,56 @@ const App = () => {
                         ))}
                       </ul>
                     </CommitteeTips>
+                  )}
+                  
+                  {result.takeRecommendation && (
+                    <div style={{
+                      background: result.takeRecommendation.toLowerCase().includes('ready') || 
+                                  result.takeRecommendation.includes('מוכן') || 
+                                  result.takeRecommendation.includes('להגיש') ||
+                                  result.takeRecommendation.includes('ניתן')
+                        ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                        : 'linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0.05) 100%)',
+                      border: `2px solid ${result.takeRecommendation.toLowerCase().includes('ready') || 
+                                        result.takeRecommendation.includes('מוכן') || 
+                                        result.takeRecommendation.includes('להגיש') ||
+                                        result.takeRecommendation.includes('ניתן')
+                          ? '#4CAF50' : '#FF9800'}`,
+                      borderRadius: '12px',
+                      padding: '20px',
+                      marginTop: '20px',
+                      textAlign: 'right',
+                      direction: 'rtl'
+                    }}>
+                      <h4 style={{
+                        color: result.takeRecommendation.toLowerCase().includes('ready') || 
+                               result.takeRecommendation.includes('מוכן') || 
+                               result.takeRecommendation.includes('להגיש') ||
+                               result.takeRecommendation.includes('ניתן')
+                          ? '#4CAF50' : '#FF9800',
+                        margin: '0 0 12px 0',
+                        fontSize: '1.15rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px'
+                      }}>
+                        {result.takeRecommendation.toLowerCase().includes('ready') || 
+                         result.takeRecommendation.includes('מוכן') || 
+                         result.takeRecommendation.includes('להגיש') ||
+                         result.takeRecommendation.includes('ניתן')
+                          ? '✅' : '⚠️'} המלצה מקצועית:
+                      </h4>
+                      <p style={{
+                        margin: 0,
+                        lineHeight: 1.7,
+                        fontSize: '1.05rem',
+                        color: '#e0e0e0',
+                        fontWeight: 500
+                      }}>
+                        {result.takeRecommendation}
+                      </p>
+                    </div>
                   )}
                   
                   <FinalScore data-pdf="final-score">
