@@ -374,6 +374,7 @@ const SecondaryButton = styled.button`
 interface UpgradeBenefitsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onContinueToTrackSelection?: () => void; // Callback when user wants to select additional tracks
   oldTier: SubscriptionTier;
   newTier: SubscriptionTier;
   onSelectTrack?: (trackId: TrackId, shouldCloseModal?: boolean) => void | Promise<void>;
@@ -385,6 +386,7 @@ interface UpgradeBenefitsModalProps {
 export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   isOpen,
   onClose,
+  onContinueToTrackSelection,
   oldTier,
   newTier,
   onSelectTrack,
@@ -473,8 +475,13 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   const allTracksOpen = newTier === 'pro' || newTier === 'coach' || newTier === 'coach-pro';
 
   const handleContinue = () => {
-    // Close the modal - track selection will be handled separately if needed
-    onClose();
+    // If user can add more tracks, call onContinueToTrackSelection to open track selection modal
+    if (canAddMoreTracks && !allTracksOpen && onContinueToTrackSelection) {
+      onContinueToTrackSelection();
+    } else {
+      // Otherwise just close the modal
+      onClose();
+    }
   };
 
   return (
@@ -553,7 +560,9 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
 
         <ButtonGroup>
           <PrimaryButton onClick={handleContinue} disabled={false}>
-            מזל טוב, בואו נתחיל!
+            {canAddMoreTracks && !allTracksOpen 
+              ? 'המשך לבחירת תחום נוסף' 
+              : 'מזל טוב, בואו נתחיל!'}
           </PrimaryButton>
         </ButtonGroup>
       </ModalContent>

@@ -3557,25 +3557,7 @@ const App = () => {
         onClose={async () => {
           setShowUpgradeBenefitsModal(false);
           
-          // Check if user needs to select additional tracks
-          const maxTracksForNewTier = upgradeToTier === 'free' ? 1 : upgradeToTier === 'creator' ? 2 : upgradeToTier === 'pro' ? 4 : 1;
-          const currentTracksCount = profile?.selected_tracks && profile.selected_tracks.length > 0
-            ? profile.selected_tracks.length
-            : profile?.selected_primary_track
-            ? 1
-            : 0;
-          const canAddMoreTracks = currentTracksCount < maxTracksForNewTier && (upgradeToTier === 'creator' || upgradeToTier === 'pro');
-          const allTracksOpen = upgradeToTier === 'pro' || upgradeToTier === 'coach' || upgradeToTier === 'coach-pro';
-          
-          // If user can add more tracks, show track selection modal
-          if (canAddMoreTracks && !allTracksOpen && user) {
-            console.log('🎯 Opening track selection modal after upgrade');
-            setShowTrackSelectionModal(true);
-            // Don't sign out yet - wait for track selection
-            return;
-          }
-          
-          // After upgrade completes (and track selection if needed), sign out user
+          // After upgrade completes, sign out user
           // Set flag to show popup message after logout
           if (upgradeFromTier !== upgradeToTier && typeof window !== 'undefined') {
             localStorage.setItem('pending_package_upgrade', 'true');
@@ -3586,6 +3568,15 @@ const App = () => {
           setTimeout(async () => {
             await handleLogout();
           }, 500);
+        }}
+        onContinueToTrackSelection={() => {
+          // Close the mazal tov modal and open track selection modal
+          setShowUpgradeBenefitsModal(false);
+          console.log('🎯 Opening track selection modal after clicking continue button');
+          // Small delay to ensure modal transition
+          setTimeout(() => {
+            setShowTrackSelectionModal(true);
+          }, 300);
         }}
         oldTier={upgradeFromTier}
         newTier={upgradeToTier}
