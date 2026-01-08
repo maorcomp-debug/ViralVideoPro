@@ -2570,27 +2570,58 @@ const App = () => {
         <Header>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
           <AppLogo />
-          {/* Upgrade completion message - shown after closing upgrade modal, right under logo */}
-          {/* Show for ALL upgrades, not just free->creator */}
-          {showUpgradeCompletionMessage && upgradeFromTier !== upgradeToTier && typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
+          {/* Upgrade completion message - shown after logout, as popup at top of browser */}
+          {/* Show when pending_package_upgrade flag is set (after upgrade or track selection) */}
+          {typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
             <div style={{ 
-              width: '100%', 
+              position: 'fixed',
+              top: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '90%',
               maxWidth: '500px',
-              marginBottom: '-5px'
+              zIndex: 10000,
+              animation: 'fadeIn 0.4s ease'
             }}>
               <div style={{
-                padding: '10px 16px',
-                background: 'rgba(212, 160, 67, 0.15)',
-                border: '1px solid rgba(212, 160, 67, 0.4)',
-                borderRadius: '10px',
-                color: '#D4A043',
-                fontSize: '0.85rem',
-                lineHeight: '1.5',
+                padding: '12px 20px',
+                background: 'rgba(212, 160, 67, 0.95)',
+                border: '2px solid rgba(212, 160, 67, 0.6)',
+                borderRadius: '12px',
+                color: '#000',
+                fontSize: '0.95rem',
+                lineHeight: '1.6',
                 textAlign: 'center',
-                boxShadow: '0 2px 8px rgba(212, 160, 67, 0.15)',
-                fontWeight: 500
+                boxShadow: '0 4px 16px rgba(212, 160, 67, 0.4)',
+                fontWeight: 600,
+                direction: 'rtl',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px'
               }}>
-                💡 על מנת שהחבילה שלך תתעדכן, אנא צא מהמערכת והכנס מחדש
+                <span style={{ flex: 1 }}>
+                  💡 על מנת שהחבילה שלך תתעדכן, אנא היכנס מחדש לפרופיל
+                </span>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('pending_package_upgrade');
+                    window.location.reload();
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    background: '#000',
+                    color: '#D4A043',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
+                    flexShrink: 0
+                  }}
+                >
+                  ✕
+                </button>
               </div>
             </div>
           )}
@@ -3480,7 +3511,14 @@ const App = () => {
           if (user) {
             setTimeout(async () => {
               await loadUserData(user);
-            }, 200);
+              // After track selection in initial registration, sign out user
+              // Set flag to show popup message after logout
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('pending_package_upgrade', 'true');
+              }
+              // Sign out after track selection to refresh cache
+              await handleLogout();
+            }, 500);
           }
         }}
       />
@@ -3489,24 +3527,18 @@ const App = () => {
         isOpen={showUpgradeBenefitsModal}
         onClose={async () => {
           setShowUpgradeBenefitsModal(false);
-          // Show completion message after modal closes for ALL upgrades
+          
+          // After upgrade completes (including track selection if needed), sign out user
+          // Set flag to show popup message after logout
           if (upgradeFromTier !== upgradeToTier && typeof window !== 'undefined') {
-            setShowUpgradeCompletionMessage(true);
+            localStorage.setItem('pending_package_upgrade', 'true');
           }
           
-          // Automatic upgrade to next tier after successful upgrade
-          const nextTier = getNextTier(upgradeToTier);
-          if (nextTier && user) {
-            console.log('🚀 Auto-upgrading to next tier:', { from: upgradeToTier, to: nextTier });
-            // Wait a moment before initiating next upgrade
-            setTimeout(async () => {
-              try {
-                await handleSelectPlan(nextTier, 'monthly');
-              } catch (error) {
-                console.error('Error auto-upgrading to next tier:', error);
-              }
-            }, 1000);
-          }
+          // Sign out after upgrade to refresh cache and update profile
+          // This ensures the user gets the updated subscription after login
+          setTimeout(async () => {
+            await handleLogout();
+          }, 500);
         }}
         oldTier={upgradeFromTier}
         newTier={upgradeToTier}
@@ -3555,6 +3587,12 @@ const App = () => {
           } catch (error) {
             console.error('Error adding track:', error);
             alert('שגיאה בהוספת התחום. תוכל להוסיף אותו מאוחר יותר מההגדרות.');
+          }
+        }}
+        onFinishTrackSelection={async () => {
+          // After finishing track selection, reload user data
+          if (user) {
+            await loadUserData(user, true);
           }
         }}
       />
