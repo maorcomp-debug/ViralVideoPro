@@ -167,78 +167,6 @@ import {
   ComparisonIcon,
 } from './src/components/icons';
 
-// CapabilitiesModal component has been moved to src/components/modals/CapabilitiesModal.tsx
-
-// SettingsPage and AdminPage are now imported from src/components/pages/
-
-// CoachGuideModal component has been moved to src/components/modals/CoachGuideModal.tsx
-
-// --- Comparison Modal ---
-
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Logo Component ---
-
-// All styled components have been moved to src/styles/indexStyles.ts
-
-// --- Main App Logic ---
-
-// CapabilitiesModal component has been moved to src/components/modals/CapabilitiesModal.tsx
-
-// SettingsPage and AdminPage are now imported from src/components/pages/
-
-// CoachGuideModal component has been moved to src/components/modals/CoachGuideModal.tsx
-
-// SubscriptionModal component has been moved to src/components/modals/SubscriptionModal.tsx
-// ComparisonModal component has been moved to src/components/modals/ComparisonModal.tsx
-// CoachDashboardModal component has been moved to src/components/modals/CoachDashboardModal.tsx
-// AppLogo component has been moved to src/components/AppLogo.tsx
-
-// --- Main App Logic ---
-
 const TRACKS = [
   { id: 'actors', label: 'שחקנים ואודישנים', icon: <TheaterMasksIcon /> },
   { id: 'musicians', label: 'זמרים ומוזיקאים', icon: <MusicNoteIcon /> },
@@ -246,13 +174,6 @@ const TRACKS = [
   { id: 'influencers', label: 'משפיענים ומותגים', icon: <MicrophoneIcon /> },
   { id: 'coach', label: 'מסלול פרימיום', icon: <CoachIcon />, isPremium: true },
 ];
-
-// EXPERTS_BY_TRACK is now imported from src/constants
-
-// SubscriptionModal styled components have been moved to src/components/modals/SubscriptionModal.tsx
-// AuthModal component and styled components have been moved to src/components/modals/AuthModal.tsx
-
-// --- Main App Logic ---
 
 const App = () => {
   const navigate = useNavigate();
@@ -3787,8 +3708,6 @@ const App = () => {
     </>
   );
 };
-
-// Main Router Component
 const AppRouter = () => {
   return (
     <BrowserRouter>
