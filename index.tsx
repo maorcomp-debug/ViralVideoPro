@@ -3584,8 +3584,21 @@ const App = () => {
           if (user) {
             console.log('🔄 Reloading user data before opening track selection modal');
             await loadUserData(user, true);
-            // Small delay to ensure state is updated
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // Wait a bit more to ensure profile state is fully updated
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Verify profile was loaded
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (currentUser) {
+              const { getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
+              const updatedProfile = await getCurrentUserProfile();
+              console.log('✅ Profile loaded for track selection:', {
+                hasProfile: !!updatedProfile,
+                selected_tracks: updatedProfile?.selected_tracks,
+                selected_primary_track: updatedProfile?.selected_primary_track,
+                subscription_tier: updatedProfile?.subscription_tier
+              });
+            }
           }
           
           console.log('🎯 Opening track selection modal after clicking continue button');

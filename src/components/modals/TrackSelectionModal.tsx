@@ -264,10 +264,24 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Update selectedTracks when existingTracks changes (e.g., when profile loads)
+  // Also update when modal opens to ensure we have the latest data
   useEffect(() => {
-    if (mode === 'add' && isOpen) {
-      setSelectedTracks([...existingTracks]);
-      console.log('🔄 Updated selectedTracks from existingTracks:', existingTracks);
+    if (mode === 'add' && isOpen && existingTracks.length > 0) {
+      // Only update if existingTracks has items and selectedTracks is different
+      setSelectedTracks(prev => {
+        const existingSet = new Set(existingTracks);
+        const prevSet = new Set(prev);
+        const hasChanges = existingTracks.length !== prev.length || 
+          !existingTracks.every(t => prev.includes(t));
+        if (hasChanges) {
+          console.log('🔄 Updated selectedTracks from existingTracks:', existingTracks, 'prev:', prev);
+          return [...existingTracks];
+        }
+        return prev;
+      });
+    } else if (mode === 'add' && isOpen && existingTracks.length === 0) {
+      // If no existing tracks, ensure selectedTracks is empty (but allow user to select)
+      setSelectedTracks([]);
     }
   }, [existingTracks, mode, isOpen]);
 
