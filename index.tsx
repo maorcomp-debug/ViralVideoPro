@@ -975,8 +975,11 @@ const App = () => {
           orderReference: data.orderReference 
         });
         
-        // Close subscription modal AFTER opening payment modal
-        setShowSubscriptionModal(false);
+        // Close subscription modal AFTER a small delay to ensure payment modal renders first
+        setTimeout(() => {
+          setShowSubscriptionModal(false);
+          console.log('✅ Subscription modal closed after payment modal opened');
+        }, 100);
         
         return; // IMPORTANT: Exit here, don't update subscription directly!
 
