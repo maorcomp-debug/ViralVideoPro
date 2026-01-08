@@ -115,7 +115,7 @@ const TrackCard = styled.div<{ $selected: boolean; $disabled?: boolean }>`
   padding: 25px;
   cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
   transition: all 0.3s;
-  opacity: ${props => props.$disabled ? 0.5 : 1};
+  opacity: ${props => props.$disabled && !props.$selected ? 0.5 : 1};
   position: relative;
 
   &:hover {
