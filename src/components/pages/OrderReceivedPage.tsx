@@ -363,32 +363,7 @@ export const OrderReceivedPage: React.FC = () => {
             <StatusIcon success={true}>✅</StatusIcon>
             <Title>תשלום התקבל בהצלחה!</Title>
             <Message>{message}</Message>
-            <div style={{
-              background: 'rgba(212, 160, 67, 0.1)',
-              border: '1px solid rgba(212, 160, 67, 0.3)',
-              borderRadius: '8px',
-              padding: '20px',
-              margin: '20px 0',
-              textAlign: 'right',
-              direction: 'rtl'
-            }}>
-              <p style={{
-                color: '#D4A043',
-                fontSize: '1rem',
-                fontWeight: 600,
-                margin: '0 0 10px 0'
-              }}>
-                💡 הערה חשובה:
-              </p>
-              <p style={{
-                color: '#e0e0e0',
-                fontSize: '0.95rem',
-                lineHeight: '1.6',
-                margin: 0
-              }}>
-                כדי שהחבילה שלך תתעדכן ותהיה זמינה לשימוש, אנא צא מהמערכת והכנס מחדש עם המשתמש שלך.
-              </p>
-            </div>
+            {/* Removed important message - auto logout after upgrade already handles profile refresh */}
             <Button onClick={() => navigate('/')}>
               חזרה לדף הבית
             </Button>
