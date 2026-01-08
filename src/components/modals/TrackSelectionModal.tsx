@@ -274,7 +274,8 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
         const hasChanges = existingTracks.length !== prev.length || 
           !existingTracks.every(t => prev.includes(t));
         if (hasChanges) {
-          console.log('🔄 Updated selectedTracks from existingTracks:', existingTracks, 'prev:', prev);
+          // Removed excessive logging - only log on significant state changes
+          // console.log('🔄 Updated selectedTracks from existingTracks:', existingTracks, 'prev:', prev);
           return [...existingTracks];
         }
         return prev;

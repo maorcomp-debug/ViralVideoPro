@@ -2256,29 +2256,69 @@ const App = () => {
         ${extraContext}
         ${pdfContext}
 
+        ANALYSIS REQUIREMENTS - Professional & Authentic:
+        
+        1. TRACK-SPECIFIC EXPERTISE: Each expert must analyze from their unique professional perspective and expertise. Each track has its own professional standards:
+           - Actors & Auditions: Focus on acting technique, emotional authenticity, character development, stage presence, audition-specific requirements
+           - Musicians & Singers: Focus on vocal technique, musicality, performance energy, stage presence, musical interpretation
+           - Content Creators & Social Media: Focus on engagement hooks, content strategy, platform-specific optimization, viral potential, audience connection
+           - Influencers & Brands: Focus on brand alignment, message clarity, authenticity, audience resonance, marketing effectiveness
+        
+        2. BALANCE OF FEEDBACK: Be honest and authentic - praise what deserves praise and criticize what needs improvement. Don't be overly positive or negative - be professional and constructive:
+           - Highlight strengths genuinely when they exist
+           - Point out weaknesses constructively and specifically
+           - Balance encouragement with honest professional assessment
+        
+        3. TEXT & CONTENT ANALYSIS: If the video contains spoken text or script:
+           - Analyze the quality, clarity, and impact of the spoken words
+           - Evaluate if the text matches the visual performance
+           - Assess the message delivery and emotional connection through words
+           - Note if the text is memorable, engaging, or needs improvement
+        
+        4. KEY MOMENTS: Identify and analyze significant moments in the video:
+           - Highlight pivotal scenes or moments that stand out (positively or negatively)
+           - Point out specific timestamps if relevant (e.g., "בדקה 2:15...")
+           - Analyze why these moments are significant from a professional perspective
+           - Connect key moments to overall performance quality
+        
+        5. PROFESSIONAL IMPROVEMENT TIPS: Provide high-value, authentic, and professional tips for improvement:
+           - Tips must be specific, actionable, and track-relevant
+           - Focus on professional standards and industry best practices
+           - Each tip should offer genuine value and be implementable
+           - Tips should reflect deep understanding of the track's professional requirements
+        
+        6. TAKE RECOMMENDATION: At the end, provide an honest professional recommendation:
+           - If the performance is ready: Clearly state if the video/take is ready to submit/upload in its current state, and why
+           - If a retake is needed: Honestly recommend another take if significant improvements are needed, explaining specifically what should be improved
+           - Be authentic - don't always recommend retakes, and don't always say it's ready. Assess professionally and honestly.
+
         Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be Hebrew):
         {
           "expertAnalysis": [
             {
               "role": "Expert Title (Hebrew)",
-              "insight": "Deep professional analysis from this expert's unique POV (Hebrew only)",
-              "tips": "Actionable, specific tips for the next take (Hebrew only)",
-              "score": number (1-100)
+              "insight": "Deep professional analysis from this expert's unique POV. Must include: track-specific professional perspective, balanced praise and criticism, text/content analysis if applicable, key moments identification, and specific professional insights. (Hebrew only)",
+              "tips": "Actionable, specific, professional tips for improvement relevant to this track's expertise. High-value, authentic, and implementable advice. (Hebrew only)",
+              "score": number (1-100, authentic professional assessment)
             }
           ],
           "hook": "The 'Golden Tip'. A single, explosive, game-changing sentence. It must be the absolute secret weapon for this specific video. Phrased as a direct, powerful, and unforgettable command that will transform the user's career. (Hebrew only)",
           "committee": {
-            "summary": "A comprehensive summary from the entire committee, synthesizing the views (Hebrew only)",
-            "finalTips": ["Tip 1 (Hebrew)", "Tip 2 (Hebrew)", "Tip 3 (Hebrew)"]
-          }
+            "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (Hebrew only)",
+            "finalTips": ["Professional tip 1 (Hebrew)", "Professional tip 2 (Hebrew)", "Professional tip 3 (Hebrew)"]
+          },
+          "takeRecommendation": "Honest professional recommendation: 'ready_to_submit' if current take is ready, or 'retake_needed' if improvements are required. Include specific reasoning. (Hebrew only)"
         }
 
         Important:
         - "expertAnalysis" array must contain an object for EACH selected expert in the panel.
+        - Each expert's insight must reflect their unique professional expertise for the selected track.
         - "hook" is NOT a suggestion for a video hook. It is the "Golden Insight" of the analysis.
-        - "score" for each expert must be authentic (1-100).
+        - "score" for each expert must be authentic (1-100) based on professional standards.
+        - "takeRecommendation" must be honest - assess if the take is ready or needs improvement.
         - Use purely Hebrew professional terms.
         - Do not use Markdown formatting inside the JSON strings.
+        - Balance praise and criticism authentically - be professional, not overly positive or negative.
         ${activeTrack === 'coach' && analysisDepth === 'deep' ? `
         - For DEEP analysis: Be extremely detailed, include specific examples, timestamps when possible, multiple layers of feedback, and comprehensive recommendations.
         ` : ''}
@@ -2580,9 +2620,9 @@ const App = () => {
         <Header>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
           <AppLogo />
-          {/* Upgrade completion message - shown after logout, as notification bar at top of browser */}
-          {/* Show when pending_package_upgrade flag is set AND user is NOT logged in */}
-          {typeof window !== 'undefined' && !user && localStorage.getItem('pending_package_upgrade') === 'true' && (
+          {/* Profile update message removed - auto logout already handles profile refresh */}
+          {/* Removed: Upgrade completion message - auto logout after upgrade already refreshes profile */}
+          {false && typeof window !== 'undefined' && !user && localStorage.getItem('pending_package_upgrade') === 'true' && (
             <div style={{ 
               position: 'fixed',
               top: 0,
@@ -3536,11 +3576,12 @@ const App = () => {
             : profile?.selected_primary_track
             ? [profile.selected_primary_track]
             : [];
-          console.log('📋 TrackSelectionModal existingTracks:', tracks, 'from profile:', {
-            hasProfile: !!profile,
-            selected_tracks: profile?.selected_tracks,
-            selected_primary_track: profile?.selected_primary_track
-          });
+          // Removed excessive logging - only log if debug mode or on initial mount
+          // console.log('📋 TrackSelectionModal existingTracks:', tracks, 'from profile:', {
+          //   hasProfile: !!profile,
+          //   selected_tracks: profile?.selected_tracks,
+          //   selected_primary_track: profile?.selected_primary_track
+          // });
           return tracks;
         })()}
         mode="add"
