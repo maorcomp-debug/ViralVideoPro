@@ -378,6 +378,7 @@ interface UpgradeBenefitsModalProps {
   newTier: SubscriptionTier;
   onSelectTrack?: (trackId: TrackId, shouldCloseModal?: boolean) => void | Promise<void>;
   onFinishTrackSelection?: () => void | Promise<void>;
+  onShouldSelectTrack?: () => boolean; // Callback to check if should show track selection after close
   currentTracks?: TrackId[];
 }
 
@@ -388,6 +389,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   newTier,
   onSelectTrack,
   onFinishTrackSelection,
+  onShouldSelectTrack,
   currentTracks = []
 }) => {
   if (!isOpen) return null;
@@ -469,55 +471,9 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   const maxTracksForNewTier = newTier === 'free' ? 1 : newTier === 'creator' ? 2 : newTier === 'pro' ? 4 : 1;
   const canAddMoreTracks = currentTracks.length < maxTracksForNewTier && (newTier === 'creator' || newTier === 'pro');
   const allTracksOpen = newTier === 'pro' || newTier === 'coach' || newTier === 'coach-pro';
-  const remainingTrackSlots = maxTracksForNewTier - currentTracks.length;
-  
-  // Track selection state for additional tracks
-  const [selectedAdditionalTracks, setSelectedAdditionalTracks] = React.useState<TrackId[]>([]);
-  const [showTrackSelection, setShowTrackSelection] = React.useState(false);
 
   const handleContinue = () => {
-    // If user can add more tracks, show track selection instead of closing
-    if (canAddMoreTracks && !allTracksOpen) {
-      setShowTrackSelection(true);
-    } else {
-      onClose();
-    }
-  };
-  
-  const handleTrackSelect = (trackId: TrackId) => {
-    if (selectedAdditionalTracks.includes(trackId)) {
-      // Deselect track if already selected
-      setSelectedAdditionalTracks(prev => prev.filter(id => id !== trackId));
-    } else {
-      // Select track if under limit
-      const totalTracks = currentTracks.length + selectedAdditionalTracks.length;
-      if (totalTracks < maxTracksForNewTier) {
-        setSelectedAdditionalTracks(prev => [...prev, trackId]);
-      }
-    }
-  };
-  
-  const handleFinishTrackSelection = async () => {
-    // User must select at least one new track to continue
-    if (selectedAdditionalTracks.length === 0) {
-      return;
-    }
-    
-    // Update profile with new tracks via onSelectTrack callback
-    if (onSelectTrack && selectedAdditionalTracks.length > 0) {
-      // Add each new track one by one
-      for (const trackId of selectedAdditionalTracks) {
-        await onSelectTrack(trackId, false); // Don't close modal after each track
-      }
-    }
-    
-    // Call onFinishTrackSelection if provided
-    if (onFinishTrackSelection) {
-      await onFinishTrackSelection();
-    }
-    
-    // Close modal and continue with logout flow
-    setShowTrackSelection(false);
+    // Close the modal - track selection will be handled separately if needed
     onClose();
   };
 
@@ -576,7 +532,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
           )}
         </BenefitsList>
 
-        {allTracksOpen && !showTrackSelection && (
+        {allTracksOpen && (
           <AdditionalTracksMessage>
             <h4>🎯 כל תחומי הניתוח פתוחים בפניך לשימוש</h4>
             <TracksPreviewGrid>
@@ -594,93 +550,11 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
             </TracksPreviewGrid>
           </AdditionalTracksMessage>
         )}
-        {canAddMoreTracks && !allTracksOpen && !showTrackSelection && (
-          <AdditionalTracksMessage>
-            <h4>🎯 הוספת תחום ניתוח נוסף</h4>
-            <p>
-              במסגרת החבילה שבחרת, מגיע לך תחום ניתוח נוסף לבחירה.
-            </p>
-            <p style={{ color: '#D4A043', fontWeight: 600, marginBottom: '10px' }}>
-              כרגע יש תחום אחד שכבר בחרת, ותוכל להוסיף עוד תחום נוסף לבחירתך.
-            </p>
-          </AdditionalTracksMessage>
-        )}
-        
-        {showTrackSelection && canAddMoreTracks && !allTracksOpen && (
-          <TracksSection>
-            <h3 style={{ color: '#D4A043', margin: '0 0 20px 0', fontSize: '1.3rem', textAlign: 'right' }}>
-              בחר תחום ניתוח נוסף
-            </h3>
-            <p style={{ color: '#ccc', margin: '0 0 20px 0', fontSize: '1rem', textAlign: 'right' }}>
-              ניתן להוסיף עד {remainingTrackSlots} {remainingTrackSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}
-            </p>
-            <TracksGrid>
-              {TRACKS.filter(t => t.id !== 'coach').map((track) => {
-                const TrackIconComponent = track.icon;
-                const isIncluded = currentTracks.includes(track.id); // Track already in subscription
-                const isSelected = selectedAdditionalTracks.includes(track.id); // Track newly selected
-                // Disable if: already included (can't select existing tracks), or if reached max limit
-                const isDisabled = isIncluded || (!isSelected && (currentTracks.length + selectedAdditionalTracks.length) >= maxTracksForNewTier);
-                
-                return (
-                  <TrackCard
-                    key={track.id}
-                    $selected={isSelected}
-                    $included={isIncluded}
-                    $disabled={isDisabled}
-                    onClick={() => !isDisabled && !isIncluded && handleTrackSelect(track.id)}
-                  >
-                    {isIncluded && (
-                      <IncludedBadge style={{ top: '8px', left: '8px' }}>נוכחי</IncludedBadge>
-                    )}
-                    {isSelected && !isIncluded && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '8px',
-                        right: '8px',
-                        background: '#D4A043',
-                        color: '#000',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                      }}>נבחר</div>
-                    )}
-                    <TrackIcon>
-                      <TrackIconComponent />
-                    </TrackIcon>
-                    <TrackName>{track.label}</TrackName>
-                    <TrackDescription>{track.description}</TrackDescription>
-                  </TrackCard>
-                );
-              })}
-            </TracksGrid>
-            <div style={{ marginTop: '20px', color: '#D4A043', fontSize: '0.9rem', textAlign: 'center' }}>
-              {selectedAdditionalTracks.length > 0 
-                ? `נבחרו: ${selectedAdditionalTracks.length} / ${remainingTrackSlots} תחומים נוספים`
-                : `בחר תחום נוסף מתוך ${remainingTrackSlots} אפשריים`}
-            </div>
-          </TracksSection>
-        )}
 
         <ButtonGroup>
-          {!showTrackSelection ? (
-            <PrimaryButton onClick={handleContinue} disabled={false}>
-              {canAddMoreTracks && !allTracksOpen ? 'המשך לבחירת תחום נוסף' : 'מזל טוב, בואו נתחיל!'}
-            </PrimaryButton>
-          ) : (
-            <>
-              <SecondaryButton onClick={() => setShowTrackSelection(false)}>
-                חזור
-              </SecondaryButton>
-              <PrimaryButton 
-                onClick={handleFinishTrackSelection} 
-                disabled={selectedAdditionalTracks.length === 0}
-              >
-                סיים בחירת תחום {selectedAdditionalTracks.length > 0 && `(${selectedAdditionalTracks.length})`}
-              </PrimaryButton>
-            </>
-          )}
+          <PrimaryButton onClick={handleContinue} disabled={false}>
+            מזל טוב, בואו נתחיל!
+          </PrimaryButton>
         </ButtonGroup>
       </ModalContent>
     </ModalOverlay>

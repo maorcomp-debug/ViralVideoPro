@@ -3511,9 +3511,28 @@ const App = () => {
       <TrackSelectionModal
         isOpen={showTrackSelectionModal}
         onClose={() => {
-          // Don't allow closing without selection - user must choose a track
+          // Allow closing - user can skip track selection if they want
+          setShowTrackSelectionModal(false);
+          // After closing track selection after upgrade, sign out
+          if (typeof window !== 'undefined') {
+            const hasUpgradeFlag = localStorage.getItem('pending_package_upgrade') === 'true';
+            if (!hasUpgradeFlag) {
+              localStorage.setItem('pending_package_upgrade', 'true');
+            }
+          }
+          setTimeout(async () => {
+            await handleLogout();
+          }, 500);
         }}
-        subscriptionTier={pendingSubscriptionTier || subscription?.tier || 'free'}
+        subscriptionTier={pendingSubscriptionTier || subscription?.tier || upgradeToTier || 'free'}
+        existingTracks={
+          profile?.selected_tracks && profile.selected_tracks.length > 0
+            ? profile.selected_tracks
+            : profile?.selected_primary_track
+            ? [profile.selected_primary_track]
+            : []
+        }
+        mode="add"
         onSelect={async (trackIds) => {
           setActiveTrack(trackIds[0]);
           setShowTrackSelectionModal(false);
@@ -3521,7 +3540,7 @@ const App = () => {
           if (user) {
             setTimeout(async () => {
               await loadUserData(user);
-              // After track selection in initial registration, sign out user
+              // After track selection after upgrade, sign out user
               // Set flag to show popup message after logout
               if (typeof window !== 'undefined') {
                 localStorage.setItem('pending_package_upgrade', 'true');
@@ -3538,7 +3557,25 @@ const App = () => {
         onClose={async () => {
           setShowUpgradeBenefitsModal(false);
           
-          // After upgrade completes (including track selection if needed), sign out user
+          // Check if user needs to select additional tracks
+          const maxTracksForNewTier = upgradeToTier === 'free' ? 1 : upgradeToTier === 'creator' ? 2 : upgradeToTier === 'pro' ? 4 : 1;
+          const currentTracksCount = profile?.selected_tracks && profile.selected_tracks.length > 0
+            ? profile.selected_tracks.length
+            : profile?.selected_primary_track
+            ? 1
+            : 0;
+          const canAddMoreTracks = currentTracksCount < maxTracksForNewTier && (upgradeToTier === 'creator' || upgradeToTier === 'pro');
+          const allTracksOpen = upgradeToTier === 'pro' || upgradeToTier === 'coach' || upgradeToTier === 'coach-pro';
+          
+          // If user can add more tracks, show track selection modal
+          if (canAddMoreTracks && !allTracksOpen && user) {
+            console.log('🎯 Opening track selection modal after upgrade');
+            setShowTrackSelectionModal(true);
+            // Don't sign out yet - wait for track selection
+            return;
+          }
+          
+          // After upgrade completes (and track selection if needed), sign out user
           // Set flag to show popup message after logout
           if (upgradeFromTier !== upgradeToTier && typeof window !== 'undefined') {
             localStorage.setItem('pending_package_upgrade', 'true');
