@@ -498,8 +498,8 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   };
   
   const handleFinishTrackSelection = async () => {
-    if (selectedAdditionalTracks.length === 0 && currentTracks.length < maxTracksForNewTier) {
-      // User must select at least one track if slots are available
+    // User must select at least one new track to continue
+    if (selectedAdditionalTracks.length === 0) {
       return;
     }
     
@@ -615,11 +615,12 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
               ניתן להוסיף עד {remainingTrackSlots} {remainingTrackSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}
             </p>
             <TracksGrid>
-              {TRACKS.filter(t => t.id !== 'coach' && !currentTracks.includes(t.id)).map((track) => {
+              {TRACKS.filter(t => t.id !== 'coach').map((track) => {
                 const TrackIconComponent = track.icon;
-                const isSelected = selectedAdditionalTracks.includes(track.id);
-                const isIncluded = currentTracks.includes(track.id);
-                const isDisabled = !isSelected && !isIncluded && (currentTracks.length + selectedAdditionalTracks.length) >= maxTracksForNewTier;
+                const isIncluded = currentTracks.includes(track.id); // Track already in subscription
+                const isSelected = selectedAdditionalTracks.includes(track.id); // Track newly selected
+                // Disable if: already included (can't select existing tracks), or if reached max limit
+                const isDisabled = isIncluded || (!isSelected && (currentTracks.length + selectedAdditionalTracks.length) >= maxTracksForNewTier);
                 
                 return (
                   <TrackCard
@@ -629,7 +630,9 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
                     $disabled={isDisabled}
                     onClick={() => !isDisabled && !isIncluded && handleTrackSelect(track.id)}
                   >
-                    {isIncluded && <IncludedBadge>נוכחי</IncludedBadge>}
+                    {isIncluded && (
+                      <IncludedBadge style={{ top: '8px', left: '8px' }}>נוכחי</IncludedBadge>
+                    )}
                     {isSelected && !isIncluded && (
                       <div style={{
                         position: 'absolute',
@@ -653,7 +656,9 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
               })}
             </TracksGrid>
             <div style={{ marginTop: '20px', color: '#D4A043', fontSize: '0.9rem', textAlign: 'center' }}>
-              נבחרו: {selectedAdditionalTracks.length} / {remainingTrackSlots} תחומים נוספים
+              {selectedAdditionalTracks.length > 0 
+                ? `נבחרו: ${selectedAdditionalTracks.length} / ${remainingTrackSlots} תחומים נוספים`
+                : `בחר תחום נוסף מתוך ${remainingTrackSlots} אפשריים`}
             </div>
           </TracksSection>
         )}
@@ -670,9 +675,9 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
               </SecondaryButton>
               <PrimaryButton 
                 onClick={handleFinishTrackSelection} 
-                disabled={selectedAdditionalTracks.length === 0 && currentTracks.length < maxTracksForNewTier}
+                disabled={selectedAdditionalTracks.length === 0}
               >
-                סיים בחירת תחום
+                סיים בחירת תחום {selectedAdditionalTracks.length > 0 && `(${selectedAdditionalTracks.length})`}
               </PrimaryButton>
             </>
           )}
