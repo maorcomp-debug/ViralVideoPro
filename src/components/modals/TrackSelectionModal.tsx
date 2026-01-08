@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { updateCurrentUserProfile } from '../../lib/supabase-helpers';
@@ -263,6 +263,14 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Update selectedTracks when existingTracks changes (e.g., when profile loads)
+  useEffect(() => {
+    if (mode === 'add' && isOpen) {
+      setSelectedTracks([...existingTracks]);
+      console.log('🔄 Updated selectedTracks from existingTracks:', existingTracks);
+    }
+  }, [existingTracks, mode, isOpen]);
+
   // Determine max tracks allowed based on subscription tier
   const maxTracks = subscriptionTier === 'free' ? 1 : subscriptionTier === 'creator' ? 2 : 4;
   
@@ -334,23 +342,29 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
     setError(null);
 
     try {
+      console.log('💾 Saving track selection:', { selectedTracks, existingTracks, mode });
+      
       // Update user profile with selected tracks
       const primaryTrack = selectedTracks[0];
-      await updateCurrentUserProfile({
+      const updateResult = await updateCurrentUserProfile({
         selected_primary_track: primaryTrack,
         selected_tracks: selectedTracks,
       });
+      
+      console.log('✅ Track selection saved successfully:', updateResult);
+
+      // Reset loading state first
+      setLoading(false);
 
       // Call onSelect callback with all selected tracks
       onSelect(selectedTracks);
       
-      // Close modal
+      // Close modal after callback
       onClose();
     } catch (err: any) {
-      console.error('Error saving track selection:', err);
+      console.error('❌ Error saving track selection:', err);
       setError(err.message || 'שגיאה בשמירת הבחירה. נסה שוב.');
-    } finally {
-      setLoading(false);
+      setLoading(false); // Reset loading on error
     }
   };
 
@@ -444,7 +458,7 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
           {loading 
             ? 'שומר...' 
             : mode === 'add'
-            ? `הוסף תחום נוסף (${selectedTracks.length - existingTracks.length} חדש${selectedTracks.length - existingTracks.length > 0 ? 'ים' : ''}/${remainingSlots})`
+            ? 'הוסף תחום נוסף'
             : `אשר בחירה והמשך (${selectedTracks.length}/${maxTracks})`
           }
         </SubmitButton>

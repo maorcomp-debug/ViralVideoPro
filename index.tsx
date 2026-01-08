@@ -3569,14 +3569,20 @@ const App = () => {
             await handleLogout();
           }, 500);
         }}
-        onContinueToTrackSelection={() => {
-          // Close the mazal tov modal and open track selection modal
+        onContinueToTrackSelection={async () => {
+          // Close the mazal tov modal
           setShowUpgradeBenefitsModal(false);
+          
+          // Reload user data to ensure profile is up to date before opening track selection
+          if (user) {
+            console.log('🔄 Reloading user data before opening track selection modal');
+            await loadUserData(user, true);
+            // Small delay to ensure state is updated
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          
           console.log('🎯 Opening track selection modal after clicking continue button');
-          // Small delay to ensure modal transition
-          setTimeout(() => {
-            setShowTrackSelectionModal(true);
-          }, 300);
+          setShowTrackSelectionModal(true);
         }}
         oldTier={upgradeFromTier}
         newTier={upgradeToTier}
