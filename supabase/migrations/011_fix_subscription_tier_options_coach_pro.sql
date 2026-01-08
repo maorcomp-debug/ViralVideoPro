@@ -1,21 +1,9 @@
--- Migration: Fix subscription_tier_options to include coach-pro
+-- Migration: Fix subscription_tier_options foreign key constraint for coach-pro
 -- This fixes the foreign key constraint error when updating profiles with coach-pro tier
-
--- First, ensure subscription_tier_options table exists with all tiers including coach-pro
-CREATE TABLE IF NOT EXISTS public.subscription_tier_options (
-    tier TEXT PRIMARY KEY
-);
-
--- Insert all tiers including coach-pro (ignore conflicts if already exist)
-INSERT INTO public.subscription_tier_options (tier) VALUES 
-    ('free'),
-    ('creator'),
-    ('pro'),
-    ('coach'),
-    ('coach-pro')
-ON CONFLICT (tier) DO NOTHING;
+-- The simplest solution is to remove the foreign key constraint since we have CHECK constraints
 
 -- Drop the existing foreign key constraint if it exists (it's causing the issue)
+-- We already have CHECK constraints that validate the tier values, so the foreign key is redundant
 DO $$
 BEGIN
     -- Drop existing foreign key constraint if it exists
@@ -30,19 +18,32 @@ BEGIN
         RAISE NOTICE 'Dropped existing profiles_subscription_tier_fkey constraint';
     END IF;
     
-    -- Recreate the foreign key constraint to include coach-pro
-    ALTER TABLE public.profiles
-    ADD CONSTRAINT profiles_subscription_tier_fkey 
-    FOREIGN KEY (subscription_tier) 
-    REFERENCES public.subscription_tier_options(tier);
+    -- If subscription_tier_options table exists and has coach-pro, we can optionally recreate the FK
+    -- But since we have CHECK constraints, it's safer to just remove the FK
+    RAISE NOTICE 'Foreign key constraint removed. Using CHECK constraint for validation instead.';
+EXCEPTION
+    WHEN OTHERS THEN
+        -- If dropping fails, log the error but continue
+        RAISE NOTICE 'Error dropping constraint: %', SQLERRM;
+END $$;
+
+-- Ensure the CHECK constraint includes coach-pro (this should already be done by migration 010)
+-- But let's make sure it's there
+DO $$
+BEGIN
+    -- Drop and recreate the CHECK constraint to ensure coach-pro is included
+    ALTER TABLE public.profiles 
+    DROP CONSTRAINT IF EXISTS profiles_subscription_tier_check;
     
-    RAISE NOTICE 'Created profiles_subscription_tier_fkey constraint with coach-pro support';
+    ALTER TABLE public.profiles 
+    ADD CONSTRAINT profiles_subscription_tier_check 
+    CHECK (subscription_tier IN ('free', 'creator', 'pro', 'coach', 'coach-pro'));
+    
+    RAISE NOTICE 'Updated profiles_subscription_tier_check constraint to include coach-pro';
 EXCEPTION
     WHEN duplicate_object THEN
-        -- Constraint already exists, do nothing
-        RAISE NOTICE 'Constraint already exists';
+        RAISE NOTICE 'CHECK constraint already exists with coach-pro';
     WHEN OTHERS THEN
-        -- If constraint creation fails, we'll rely on CHECK constraint instead
-        RAISE NOTICE 'Could not create foreign key constraint, using CHECK constraint instead';
+        RAISE NOTICE 'Error updating CHECK constraint: %', SQLERRM;
 END $$;
 
