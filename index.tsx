@@ -3525,13 +3525,20 @@ const App = () => {
           }, 500);
         }}
         subscriptionTier={pendingSubscriptionTier || subscription?.tier || upgradeToTier || 'free'}
-        existingTracks={
-          profile?.selected_tracks && profile.selected_tracks.length > 0
+        existingTracks={(() => {
+          // Get existing tracks from profile - check both selected_tracks and selected_primary_track
+          const tracks = profile?.selected_tracks && profile.selected_tracks.length > 0
             ? profile.selected_tracks
             : profile?.selected_primary_track
             ? [profile.selected_primary_track]
-            : []
-        }
+            : [];
+          console.log('📋 TrackSelectionModal existingTracks:', tracks, 'from profile:', {
+            hasProfile: !!profile,
+            selected_tracks: profile?.selected_tracks,
+            selected_primary_track: profile?.selected_primary_track
+          });
+          return tracks;
+        })()}
         mode="add"
         onSelect={async (trackIds) => {
           setActiveTrack(trackIds[0]);
