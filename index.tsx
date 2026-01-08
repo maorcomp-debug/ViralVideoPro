@@ -954,6 +954,7 @@ const App = () => {
         }
 
         console.log('✅ Payment URL received, opening payment modal...');
+        console.log('🔍 Current payment state:', { isProcessingPayment, showTakbullPayment });
         
         // Prevent multiple payment windows from opening
         if (isProcessingPayment || showTakbullPayment) {
@@ -961,11 +962,20 @@ const App = () => {
           return;
         }
         
-        // Set processing flag and open payment modal
+        // Set payment data FIRST (before closing subscription modal)
         setIsProcessingPayment(true);
         setTakbullPaymentUrl(data.paymentUrl);
         setTakbullOrderReference(data.orderReference);
+        
+        // Open payment modal IMMEDIATELY
         setShowTakbullPayment(true);
+        console.log('🚀 Payment modal opened:', { 
+          showTakbullPayment: true,
+          hasPaymentUrl: !!data.paymentUrl,
+          orderReference: data.orderReference 
+        });
+        
+        // Close subscription modal AFTER opening payment modal
         setShowSubscriptionModal(false);
         
         return; // IMPORTANT: Exit here, don't update subscription directly!
@@ -2571,8 +2581,8 @@ const App = () => {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
           <AppLogo />
           {/* Upgrade completion message - shown after logout, as popup at top of browser */}
-          {/* Show when pending_package_upgrade flag is set (after upgrade or track selection) */}
-          {typeof window !== 'undefined' && localStorage.getItem('pending_package_upgrade') === 'true' && (
+          {/* Show when pending_package_upgrade flag is set AND user is NOT logged in */}
+          {typeof window !== 'undefined' && !user && localStorage.getItem('pending_package_upgrade') === 'true' && (
             <div style={{ 
               position: 'fixed',
               top: '20px',
