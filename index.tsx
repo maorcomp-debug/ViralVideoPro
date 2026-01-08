@@ -2590,26 +2590,26 @@ const App = () => {
               right: 0,
               width: '100%',
               zIndex: 9999,
-              animation: 'fadeIn 0.3s ease',
-              paddingTop: '60px' // Push down to not cover logo
+              animation: 'fadeIn 0.3s ease'
             }}>
               <div style={{
-                padding: '8px 16px',
+                padding: '6px 16px',
                 background: 'linear-gradient(135deg, rgba(212, 160, 67, 0.98) 0%, rgba(212, 160, 67, 0.95) 100%)',
                 borderBottom: '1px solid rgba(212, 160, 67, 0.8)',
                 color: '#000',
-                fontSize: '0.85rem',
-                lineHeight: '1.5',
+                fontSize: '0.8rem',
+                lineHeight: '1.4',
                 textAlign: 'center',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.2)',
                 fontWeight: 500,
                 direction: 'rtl',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '12px'
+                gap: '10px',
+                marginTop: '0'
               }}>
-                <span>
+                <span style={{ fontSize: '0.8rem' }}>
                   על מנת שהחבילה שלך תתעדכן, אנא היכנס מחדש לפרופיל
                 </span>
                 <button
@@ -2618,17 +2618,18 @@ const App = () => {
                     window.location.reload();
                   }}
                   style={{
-                    padding: '2px 8px',
+                    padding: '1px 6px',
                     background: 'transparent',
                     color: '#000',
                     border: '1px solid rgba(0, 0, 0, 0.2)',
-                    borderRadius: '4px',
+                    borderRadius: '3px',
                     cursor: 'pointer',
-                    fontSize: '0.8rem',
+                    fontSize: '0.75rem',
                     fontWeight: 600,
                     flexShrink: 0,
                     opacity: 0.8,
-                    transition: 'opacity 0.2s ease'
+                    transition: 'opacity 0.2s ease',
+                    lineHeight: '1.2'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                   onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
