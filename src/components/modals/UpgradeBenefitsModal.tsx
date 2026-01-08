@@ -475,13 +475,8 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   const allTracksOpen = newTier === 'pro' || newTier === 'coach' || newTier === 'coach-pro';
 
   const handleContinue = () => {
-    // If user can add more tracks, call onContinueToTrackSelection to open track selection modal
-    if (canAddMoreTracks && !allTracksOpen && onContinueToTrackSelection) {
-      onContinueToTrackSelection();
-    } else {
-      // Otherwise just close the modal
-      onClose();
-    }
+    // Always close the modal - track selection will be available in Settings later
+    onClose();
   };
 
   return (
@@ -560,9 +555,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
 
         <ButtonGroup>
           <PrimaryButton onClick={handleContinue} disabled={false}>
-            {canAddMoreTracks && !allTracksOpen 
-              ? 'המשך לבחירת תחום נוסף' 
-              : 'מזל טוב, בואו נתחיל!'}
+            מזל טוב, בואו נתחיל!
           </PrimaryButton>
         </ButtonGroup>
       </ModalContent>

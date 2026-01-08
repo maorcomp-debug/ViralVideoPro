@@ -3580,34 +3580,7 @@ const App = () => {
             await handleLogout();
           }, 500);
         }}
-        onContinueToTrackSelection={async () => {
-          // Close the mazal tov modal
-          setShowUpgradeBenefitsModal(false);
-          
-          // Reload user data to ensure profile is up to date before opening track selection
-          if (user) {
-            console.log('🔄 Reloading user data before opening track selection modal');
-            await loadUserData(user, true);
-            // Wait a bit more to ensure profile state is fully updated
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Verify profile was loaded
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
-            if (currentUser) {
-              const { getCurrentUserProfile } = await import('./src/lib/supabase-helpers');
-              const updatedProfile = await getCurrentUserProfile();
-              console.log('✅ Profile loaded for track selection:', {
-                hasProfile: !!updatedProfile,
-                selected_tracks: updatedProfile?.selected_tracks,
-                selected_primary_track: updatedProfile?.selected_primary_track,
-                subscription_tier: updatedProfile?.subscription_tier
-              });
-            }
-          }
-          
-          console.log('🎯 Opening track selection modal after clicking continue button');
-          setShowTrackSelectionModal(true);
-        }}
+        onContinueToTrackSelection={undefined}
         oldTier={upgradeFromTier}
         newTier={upgradeToTier}
         currentTracks={
