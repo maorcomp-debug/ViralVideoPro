@@ -390,30 +390,22 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
             const TrackIconComponent = track.icon;
             const isSelected = selectedTracks.includes(track.id);
             const isExisting = mode === 'add' && existingTracks.includes(track.id);
-            const isDisabled = mode === 'add' && remainingSlots === 0 && !isExisting && !isSelected;
+            // Disable if: existing track (can't select), or reached max limit and not selected
+            const isDisabled = isExisting || (mode === 'add' && remainingSlots === 0 && !isExisting && !isSelected);
             
             return (
               <TrackCard
                 key={track.id}
-                $selected={isSelected}
+                $selected={isSelected || isExisting} // Show as selected if existing or newly selected
                 $disabled={isDisabled}
-                onClick={() => !isDisabled && handleSelectTrack(track.id)}
+                onClick={() => !isDisabled && !isExisting && handleSelectTrack(track.id)}
+                style={{
+                  cursor: isExisting ? 'default' : (isDisabled ? 'not-allowed' : 'pointer'),
+                  opacity: isDisabled && !isExisting ? 0.5 : 1
+                }}
               >
-                {isSelected && (
-                  <SelectedBadge>{isExisting ? '✓ קיים' : '✓ נבחר'}</SelectedBadge>
-                )}
-                {isExisting && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '15px',
-                    left: '15px',
-                    background: '#4CAF50',
-                    color: '#fff',
-                    padding: '5px 12px',
-                    borderRadius: '20px',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                  }}>נוכחי</div>
+                {(isSelected || isExisting) && (
+                  <SelectedBadge>✓ נבחר</SelectedBadge>
                 )}
                 <TrackIcon>
                   <TrackIconComponent />
