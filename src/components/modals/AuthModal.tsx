@@ -184,8 +184,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [testPackageTier, setTestPackageTier] = useState<SubscriptionTier>('free');
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [passwordResetSent, setPasswordResetSent] = useState(false);
-  const [signupTier, setSignupTier] = useState<SubscriptionTier>('free');
-  const [signupTrack, setSignupTrack] = useState<TrackId | ''>('');
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('free');
+  const [selectedTrack, setSelectedTrack] = useState<TrackId | ''>('');
   
   // Check if current email is test account
   const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
@@ -281,7 +281,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }
 
           // Require track selection עבור ניסיון / יוצרים
-          if (tierRequiresTrack(signupTier) && !signupTrack) {
+          if (tierRequiresTrack(selectedTier) && !selectedTrack) {
             setError('נא לבחור תחום ניתוח התחלתי');
             setLoading(false);
             return;
@@ -330,11 +330,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             data: {
               full_name: displayName,
               phone: cleanPhone,
-              requested_tier: selectedTier,
-              requested_track: selectedTrack || null,
               test_package_tier: isTestAccount ? testPackageTier : undefined, // Store package tier for test accounts
-              signup_tier: signupTier,
-              signup_primary_track: signupTrack || undefined,
+              signup_tier: selectedTier,
+              signup_primary_track: selectedTrack || undefined,
             },
             emailRedirectTo: redirectUrl,
           },
@@ -450,10 +448,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           // Set initial track selection for ניסיון / יוצרים (other חבילות פתוחות לכל התחומים)
           try {
-            if (tierRequiresTrack(signupTier) && signupTrack) {
+            if (tierRequiresTrack(selectedTier) && selectedTrack) {
               await updateCurrentUserProfile({
-                selected_primary_track: signupTrack,
-                selected_tracks: [signupTrack],
+                selected_primary_track: selectedTrack,
+                selected_tracks: [selectedTrack],
               });
             }
           } catch (trackError) {
@@ -728,7 +726,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   מספר טלפון ישראלי (10 ספרות)
                 </div>
               </div>
-<<<<<<< HEAD
 
               <div
                 style={{
