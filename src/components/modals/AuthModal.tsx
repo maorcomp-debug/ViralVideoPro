@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
-import { checkEmailExists, checkPhoneExists, validateCoupon, redeemCoupon } from '../../lib/supabase-helpers';
+import { checkEmailExists, checkPhoneExists, validateCoupon, redeemCoupon, updateCurrentUserProfile } from '../../lib/supabase-helpers';
 import { TEST_ACCOUNT_EMAIL, SUBSCRIPTION_PLANS } from '../../constants';
-import type { SubscriptionTier } from '../../types';
+import type { SubscriptionTier, TrackId } from '../../types';
 
 // --- Auth Modal Styled Components ---
 const AuthModalOverlay = styled.div<{ $isOpen: boolean }>`
@@ -152,6 +152,13 @@ const PackageSelect = styled.select`
   }
 `;
 
+const TRACK_OPTIONS: { id: TrackId; label: string }[] = [
+  { id: 'actors', label: 'שחקנים ואודישנים' },
+  { id: 'musicians', label: 'זמרים ומוזיקאים' },
+  { id: 'creators', label: 'יוצרי תוכן וכוכבי רשת' },
+  { id: 'influencers', label: 'משפיענים ומותגים' },
+];
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -176,9 +183,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [testPackageTier, setTestPackageTier] = useState<SubscriptionTier>('free');
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [passwordResetSent, setPasswordResetSent] = useState(false);
+  const [signupTier, setSignupTier] = useState<SubscriptionTier>('free');
+  const [signupTrack, setSignupTrack] = useState<TrackId | ''>('');
   
   // Check if current email is test account
   const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
+
+  const tierRequiresTrack = (tier: SubscriptionTier) => tier === 'free' || tier === 'creator';
 
   // Validate coupon code
   const handleCouponValidation = async (code: string) => {
@@ -240,7 +251,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setLoading(true);
 
-      try {
+    try {
         if (isSignUp) {
           // Validate full name (must contain first name and last name - at least 2 words)
           const trimmedFullName = fullName.trim();
@@ -257,13 +268,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             setLoading(false);
             return;
           }
-          
+
           // Validate phone format (basic validation - Israeli phone number)
           const phoneRegex = /^0[2-9]\d{7,8}$/;
           const cleanPhone = phone.trim().replace(/\D/g, ''); // Remove non-digits
           
           if (!cleanPhone || cleanPhone.length < 9) {
             setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
+            setLoading(false);
+            return;
+          }
+
+          // Require track selection for ניסיון ויוצרים
+          if (tierRequiresTrack(signupTier) && !signupTrack) {
+            setError('נא לבחור תחום ניתוח');
             setLoading(false);
             return;
           }
@@ -312,6 +330,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               full_name: displayName,
               phone: cleanPhone,
               test_package_tier: isTestAccount ? testPackageTier : undefined, // Store package tier for test accounts
+              signup_tier: signupTier,
+              signup_primary_track: signupTrack || undefined,
             },
             emailRedirectTo: redirectUrl,
           },
@@ -424,7 +444,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               alert(`נרשמת בהצלחה, אך היה בעיה בשימוש בקוד הקופון: ${couponError.message}. אנא פנה לתמיכה.`);
             }
           }
-          
+
+          // Set initial track selection for ניסיון / יוצרים (other חבילות פתוחות לכל התחומים)
+          try {
+            if (tierRequiresTrack(signupTier) && signupTrack) {
+              await updateCurrentUserProfile({
+                selected_primary_track: signupTrack,
+                selected_tracks: [signupTrack],
+              });
+            }
+          } catch (trackError) {
+            console.error('Error setting initial track on signup:', trackError);
+            // Don't block signup flow on this
+          }
+
           // Check if email confirmation is required
           if (data.user.email_confirmed_at) {
             // User is already confirmed, log them in
@@ -692,6 +725,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   מספר טלפון ישראלי (10 ספרות)
                 </div>
               </div>
+
+              <div style={{ marginTop: '10px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                  בחר חבילה *
+                </label>
+                <PackageSelect
+                  value={signupTier}
+                  onChange={(e) => {
+                    const tier = e.target.value as SubscriptionTier;
+                    setSignupTier(tier);
+                    if (!tierRequiresTrack(tier)) {
+                      setSignupTrack('');
+                    }
+                  }}
+                >
+                  <option value="free">ניסיון (חינם)</option>
+                  <option value="creator">יוצרים</option>
+                  <option value="pro">יוצרים באקסטרים</option>
+                </PackageSelect>
+              </div>
+
+              {tierRequiresTrack(signupTier) && (
+                <div style={{ marginTop: '10px' }}>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                    בחר תחום ניתוח <span style={{ color: '#ff6b6b' }}>*</span>
+                  </label>
+                  <PackageSelect
+                    value={signupTrack || ''}
+                    onChange={(e) => setSignupTrack(e.target.value as TrackId)}
+                  >
+                    <option value="">-- בחר תחום ניתוח --</option>
+                    {TRACK_OPTIONS.map((track) => (
+                      <option key={track.id} value={track.id}>
+                        {track.label}
+                      </option>
+                    ))}
+                  </PackageSelect>
+                </div>
+              )}
               <div style={{ 
                 background: 'rgba(212, 160, 67, 0.05)', 
                 padding: '15px', 
