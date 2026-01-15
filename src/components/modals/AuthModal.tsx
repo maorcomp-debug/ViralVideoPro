@@ -176,6 +176,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [couponCode, setCouponCode] = useState('');
+  const [showCouponField, setShowCouponField] = useState(false);
   const [couponValidating, setCouponValidating] = useState(false);
   const [couponValid, setCouponValid] = useState<{ valid: boolean; coupon?: any; error?: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -252,7 +253,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-        if (isSignUp) {
+      if (isSignUp) {
           // Validate full name (must contain first name and last name - at least 2 words)
           const trimmedFullName = fullName.trim();
           const nameWords = trimmedFullName.split(/\s+/).filter(word => word.length > 0);
@@ -279,9 +280,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             return;
           }
 
-          // Require track selection for ניסיון ויוצרים
+          // Require track selection עבור ניסיון / יוצרים
           if (tierRequiresTrack(signupTier) && !signupTrack) {
-            setError('נא לבחור תחום ניתוח');
+            setError('נא לבחור תחום ניתוח התחלתי');
             setLoading(false);
             return;
           }
@@ -329,6 +330,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             data: {
               full_name: displayName,
               phone: cleanPhone,
+              requested_tier: selectedTier,
+              requested_track: selectedTrack || null,
               test_package_tier: isTestAccount ? testPackageTier : undefined, // Store package tier for test accounts
               signup_tier: signupTier,
               signup_primary_track: signupTrack || undefined,
@@ -725,114 +728,121 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   מספר טלפון ישראלי (10 ספרות)
                 </div>
               </div>
+<<<<<<< HEAD
 
-              <div style={{ marginTop: '10px' }}>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                  בחר חבילה *
-                </label>
-                <PackageSelect
-                  value={signupTier}
-                  onChange={(e) => {
-                    const tier = e.target.value as SubscriptionTier;
-                    setSignupTier(tier);
-                    if (!tierRequiresTrack(tier)) {
-                      setSignupTrack('');
-                    }
+              <div
+                style={{
+                  background: 'rgba(212, 160, 67, 0.05)',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(212, 160, 67, 0.2)',
+                  marginTop: '10px',
+                }}
+              >
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    color: '#D4A043',
+                    fontSize: '0.95rem',
+                    fontWeight: 600,
+                    marginBottom: '8px',
                   }}
                 >
-                  <option value="free">ניסיון (חינם)</option>
-                  <option value="creator">יוצרים</option>
-                  <option value="pro">יוצרים באקסטרים</option>
-                </PackageSelect>
-              </div>
-
-              {tierRequiresTrack(signupTier) && (
-                <div style={{ marginTop: '10px' }}>
-                  <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                    בחר תחום ניתוח <span style={{ color: '#ff6b6b' }}>*</span>
-                  </label>
-                  <PackageSelect
-                    value={signupTrack || ''}
-                    onChange={(e) => setSignupTrack(e.target.value as TrackId)}
-                  >
-                    <option value="">-- בחר תחום ניתוח --</option>
-                    {TRACK_OPTIONS.map((track) => (
-                      <option key={track.id} value={track.id}>
-                        {track.label}
-                      </option>
-                    ))}
-                  </PackageSelect>
-                </div>
-              )}
-              <div style={{ 
-                background: 'rgba(212, 160, 67, 0.05)', 
-                padding: '15px', 
-                borderRadius: '8px', 
-                border: '1px solid rgba(212, 160, 67, 0.2)',
-                marginTop: '10px'
-              }}>
-                <label style={{ color: '#D4A043', fontSize: '0.95rem', textAlign: 'right', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                  🎫 קוד קופון (אופציונלי)
+                  <span>🎫 קוד קופון (אופציונלי)</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#ccc' }}>
+                    <input
+                      type="checkbox"
+                      checked={showCouponField}
+                      onChange={(e) => {
+                        setShowCouponField(e.target.checked);
+                        if (!e.target.checked) {
+                          setCouponCode('');
+                          setCouponValid(null);
+                        }
+                      }}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    הפעל שדה קופון
+                  </span>
                 </label>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => {
-                      const code = e.target.value.toUpperCase().trim();
-                      setCouponCode(code);
-                      if (code.length >= 3) {
-                        handleCouponValidation(code);
-                      } else {
-                        setCouponValid(null);
-                      }
-                    }}
-                    placeholder="הכנס קוד קופון"
-                    style={{
-                      flex: 1,
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: `2px solid ${couponValid?.valid ? 'rgba(76, 175, 80, 0.6)' : couponValid?.valid === false ? 'rgba(244, 67, 54, 0.6)' : 'rgba(212, 160, 67, 0.4)'}`,
-                      borderRadius: '8px',
-                      padding: '12px',
-                      color: '#fff',
-                      fontSize: '1rem',
-                      direction: 'ltr',
-                      textAlign: 'center',
-                      textTransform: 'uppercase',
-                      fontWeight: 600,
-                    }}
-                  />
-                  {couponValidating && (
-                    <span style={{ color: '#D4A043', fontSize: '0.9rem', lineHeight: '44px', fontWeight: 600 }}>בודק...</span>
-                  )}
-                </div>
-                {couponValid?.valid && (
-                  <div style={{ 
-                    marginTop: '8px', 
-                    padding: '10px', 
-                    background: 'rgba(76, 175, 80, 0.2)', 
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    color: '#4CAF50',
-                    textAlign: 'right',
-                    border: '1px solid rgba(76, 175, 80, 0.3)'
-                  }}>
-                    ✓ קוד קופון תקין{couponValid.coupon?.description ? `: ${couponValid.coupon.description}` : ''}
-                  </div>
-                )}
-                {couponValid?.valid === false && (
-                  <div style={{ 
-                    marginTop: '8px', 
-                    padding: '10px', 
-                    background: 'rgba(244, 67, 54, 0.2)', 
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    color: '#F44336',
-                    textAlign: 'right',
-                    border: '1px solid rgba(244, 67, 54, 0.3)'
-                  }}>
-                    ✗ {couponValid.error || 'קוד קופון לא תקין'}
-                  </div>
+
+                {showCouponField && (
+                  <>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => {
+                          const code = e.target.value.toUpperCase().trim();
+                          setCouponCode(code);
+                          if (code.length >= 3) {
+                            handleCouponValidation(code);
+                          } else {
+                            setCouponValid(null);
+                          }
+                        }}
+                        placeholder="הכנס קוד קופון"
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: `2px solid ${
+                            couponValid?.valid
+                              ? 'rgba(76, 175, 80, 0.6)'
+                              : couponValid?.valid === false
+                              ? 'rgba(244, 67, 54, 0.6)'
+                              : 'rgba(212, 160, 67, 0.4)'
+                          }`,
+                          borderRadius: '8px',
+                          padding: '12px',
+                          color: '#fff',
+                          fontSize: '1rem',
+                          direction: 'ltr',
+                          textAlign: 'center',
+                          textTransform: 'uppercase',
+                          fontWeight: 600,
+                        }}
+                      />
+                      {couponValidating && (
+                        <span style={{ color: '#D4A043', fontSize: '0.9rem', lineHeight: '44px', fontWeight: 600 }}>
+                          בודק...
+                        </span>
+                      )}
+                    </div>
+                    {couponValid?.valid && (
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          padding: '10px',
+                          background: 'rgba(76, 175, 80, 0.2)',
+                          borderRadius: '6px',
+                          fontSize: '0.85rem',
+                          color: '#4CAF50',
+                          textAlign: 'right',
+                          border: '1px solid rgba(76, 175, 80, 0.3)',
+                        }}
+                      >
+                        ✓ קוד קופון תקין{couponValid.coupon?.description ? `: ${couponValid.coupon.description}` : ''}
+                      </div>
+                    )}
+                    {couponValid?.valid === false && (
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          padding: '10px',
+                          background: 'rgba(244, 67, 54, 0.2)',
+                          borderRadius: '6px',
+                          fontSize: '0.85rem',
+                          color: '#F44336',
+                          textAlign: 'right',
+                          border: '1px solid rgba(244, 67, 54, 0.3)',
+                        }}
+                      >
+                        ✗ {couponValid.error || 'קוד קופון לא תקין'}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </>
@@ -877,6 +887,71 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Package selection for new users */}
+          {isSignUp && !isTestAccount && (
+            <>
+              <div>
+                <label
+                  style={{
+                    color: '#D4A043',
+                    fontSize: '0.9rem',
+                    textAlign: 'right',
+                    display: 'block',
+                    marginBottom: '5px',
+                  }}
+                >
+                  בחירת חבילה התחלתית *
+                </label>
+                <PackageSelect
+                  value={selectedTier}
+                  onChange={(e) => {
+                    const tier = e.target.value as SubscriptionTier;
+                    setSelectedTier(tier);
+                    // Reset track if switching to tier שלא דורש בחירת תחום
+                    if (tier !== 'free' && tier !== 'creator') {
+                      setSelectedTrack('');
+                    }
+                  }}
+                >
+                  <option value="free">ניסיון (חינם)</option>
+                  <option value="creator">יוצרים</option>
+                  <option value="pro">יוצרים באקסטרים</option>
+                  <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                  <option value="coach-pro">מאמנים פרו</option>
+                </PackageSelect>
+                <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
+                  שדרוג לחבילות בתשלום יתבצע לאחר ההרשמה בעזרת תשלום מאובטח.
+                </div>
+              </div>
+
+              {(selectedTier === 'free' || selectedTier === 'creator') && (
+                <div>
+                  <label
+                    style={{
+                      color: '#D4A043',
+                      fontSize: '0.9rem',
+                      textAlign: 'right',
+                      display: 'block',
+                      marginBottom: '5px',
+                    }}
+                  >
+                    בחר תחום ניתוח התחלתי *
+                  </label>
+                  <PackageSelect
+                    value={selectedTrack || ''}
+                    onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
+                  >
+                    <option value="">-- בחר תחום ניתוח --</option>
+                    <option value="actors">שחקנים ואודישנים</option>
+                    <option value="musicians">זמרים ומוזיקאים</option>
+                    <option value="creators">יוצרי תוכן וכוכבי רשת</option>
+                    <option value="influencers">משפיענים ומותגים</option>
+                  </PackageSelect>
+                </div>
+              )}
+            </>
+          )}
 
           <div>
             <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
