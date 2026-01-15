@@ -459,21 +459,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             // Don't block signup flow on this
           }
 
-          // Check if email confirmation is required
-          if (data.user.email_confirmed_at) {
-            // User is already confirmed, log them in
-            console.log('✅ User email already confirmed');
-            alert('נרשמת בהצלחה!');
-            onAuthSuccess();
-            onClose();
-          } else {
-            // Email confirmation required - don't allow login until email is confirmed
-            console.log('📧 Email confirmation required. Confirmation email should be sent.');
-            // Sign out the user to prevent login without confirmation
-            await supabase.auth.signOut();
-            alert('נרשמת בהצלחה! אנא בדוק את תיבת הדואר שלך כדי לאשר את האימייל. לא תוכל להתחבר עד שתאשר את האימייל.');
-            onClose();
-          }
+          // Email confirmation is DISABLED in this environment - login user immediately after signup
+          console.log('✅ Registration completed (email confirmation disabled). Logging user in immediately.');
+          alert('נרשמת בהצלחה!');
+          onAuthSuccess();
+          onClose();
         } else {
           console.error('❌ User creation failed - no user data returned');
           throw new Error('לא ניתן ליצור משתמש. נסה שוב.');
@@ -506,27 +496,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           throw new Error(errorMessage);
         }
 
-        // Additional safety check: Verify email is confirmed before allowing login
-        // Need to fetch fresh user data because signInWithPassword doesn't always return email_confirmed_at
-        if (signInData?.user) {
-          const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-          
-          if (userError) {
-            console.error('Error fetching user after sign in:', userError);
-            throw new Error('שגיאה בבדיקת פרטי המשתמש. נסה שוב.');
-          }
-          
-          if (currentUser && !currentUser.email_confirmed_at) {
-            console.warn('⚠️ Attempted login with unconfirmed email. Signing out user.');
-            await supabase.auth.signOut();
-            throw new Error('נא לאשר את האימייל שלך לפני הכניסה. בדוק את תיבת הדואר שלך ואשר את האימייל.');
-          }
-          
-          console.log('✅ User logged in successfully:', {
-            email: currentUser?.email || signInData.user.email,
-            email_confirmed: currentUser?.email_confirmed_at ? 'Yes' : 'No'
-          });
-        }
+        // Email confirmation is disabled - no extra blocking checks here
+        console.log('✅ User logged in successfully (email confirmation disabled):', {
+          email: signInData?.user?.email
+        });
         
         onAuthSuccess();
         onClose();
