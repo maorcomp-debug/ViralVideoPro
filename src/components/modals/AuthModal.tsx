@@ -30,6 +30,8 @@ const AuthModalContent = styled.div`
   padding: 40px;
   max-width: 500px;
   width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(212, 160, 67, 0.3);
   animation: ${fadeIn} 0.3s ease;
   position: relative;
@@ -699,6 +701,134 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   מספר טלפון ישראלי (10 ספרות)
                 </div>
               </div>
+            </>
+          )}
+
+          <div>
+            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+              אימייל
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                // Reset package tier when email changes (if not test account)
+                if (e.target.value.trim().toLowerCase() !== TEST_ACCOUNT_EMAIL.toLowerCase()) {
+                  setTestPackageTier('free');
+                }
+              }}
+              required
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: '#fff',
+                fontSize: '1rem',
+                direction: 'ltr',
+                textAlign: 'left',
+              }}
+            />
+            {isTestAccount && (
+              <div style={{ 
+                marginTop: '5px', 
+                fontSize: '0.85rem', 
+                color: '#D4A043',
+                textAlign: 'right',
+                fontStyle: 'italic'
+              }}>
+                📧 מייל בדיקות - ניתן לרישום מרובה עם חבילות שונות
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+              סיסמה
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(212, 160, 67, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: '#fff',
+                fontSize: '1rem',
+                direction: 'ltr',
+              }}
+            />
+          </div>
+
+          {/* Package selection for new users */}
+          {isSignUp && !isTestAccount && (
+            <>
+              <div>
+                <label
+                  style={{
+                    color: '#D4A043',
+                    fontSize: '0.9rem',
+                    textAlign: 'right',
+                    display: 'block',
+                    marginBottom: '5px',
+                  }}
+                >
+                  בחירת חבילה התחלתית *
+                </label>
+                <PackageSelect
+                  value={selectedTier}
+                  onChange={(e) => {
+                    const tier = e.target.value as SubscriptionTier;
+                    setSelectedTier(tier);
+                    // Reset track if switching to tier שלא דורש בחירת תחום
+                    if (tier !== 'free' && tier !== 'creator') {
+                      setSelectedTrack('');
+                    }
+                  }}
+                >
+                  <option value="free">ניסיון (חינם)</option>
+                  <option value="creator">יוצרים</option>
+                  <option value="pro">יוצרים באקסטרים</option>
+                  <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                  <option value="coach-pro">מאמנים פרו</option>
+                </PackageSelect>
+                <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
+                  שדרוג לחבילות בתשלום יתבצע לאחר ההרשמה בעזרת תשלום מאובטח.
+                </div>
+              </div>
+
+              {(selectedTier === 'free' || selectedTier === 'creator') && (
+                <div>
+                  <label
+                    style={{
+                      color: '#D4A043',
+                      fontSize: '0.9rem',
+                      textAlign: 'right',
+                      display: 'block',
+                      marginBottom: '5px',
+                    }}
+                  >
+                    בחר תחום ניתוח התחלתי *
+                  </label>
+                  <PackageSelect
+                    value={selectedTrack || ''}
+                    onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
+                  >
+                    <option value="">-- בחר תחום ניתוח --</option>
+                    <option value="actors">שחקנים ואודישנים</option>
+                    <option value="musicians">זמרים ומוזיקאים</option>
+                    <option value="creators">יוצרי תוכן וכוכבי רשת</option>
+                    <option value="influencers">משפיענים ומותגים</option>
+                  </PackageSelect>
+                </div>
+              )}
 
               <div
                 style={{
@@ -817,134 +947,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             </>
           )}
-
-          <div>
-            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-              אימייל
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                // Reset package tier when email changes (if not test account)
-                if (e.target.value.trim().toLowerCase() !== TEST_ACCOUNT_EMAIL.toLowerCase()) {
-                  setTestPackageTier('free');
-                }
-              }}
-              required
-              style={{
-                width: '100%',
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(212, 160, 67, 0.3)',
-                borderRadius: '8px',
-                padding: '12px',
-                color: '#fff',
-                fontSize: '1rem',
-                direction: 'ltr',
-                textAlign: 'left',
-              }}
-            />
-            {isTestAccount && (
-              <div style={{ 
-                marginTop: '5px', 
-                fontSize: '0.85rem', 
-                color: '#D4A043',
-                textAlign: 'right',
-                fontStyle: 'italic'
-              }}>
-                📧 מייל בדיקות - ניתן לרישום מרובה עם חבילות שונות
-              </div>
-            )}
-          </div>
-
-          {/* Package selection for new users */}
-          {isSignUp && !isTestAccount && (
-            <>
-              <div>
-                <label
-                  style={{
-                    color: '#D4A043',
-                    fontSize: '0.9rem',
-                    textAlign: 'right',
-                    display: 'block',
-                    marginBottom: '5px',
-                  }}
-                >
-                  בחירת חבילה התחלתית *
-                </label>
-                <PackageSelect
-                  value={selectedTier}
-                  onChange={(e) => {
-                    const tier = e.target.value as SubscriptionTier;
-                    setSelectedTier(tier);
-                    // Reset track if switching to tier שלא דורש בחירת תחום
-                    if (tier !== 'free' && tier !== 'creator') {
-                      setSelectedTrack('');
-                    }
-                  }}
-                >
-                  <option value="free">ניסיון (חינם)</option>
-                  <option value="creator">יוצרים</option>
-                  <option value="pro">יוצרים באקסטרים</option>
-                  <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
-                  <option value="coach-pro">מאמנים פרו</option>
-                </PackageSelect>
-                <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
-                  שדרוג לחבילות בתשלום יתבצע לאחר ההרשמה בעזרת תשלום מאובטח.
-                </div>
-              </div>
-
-              {(selectedTier === 'free' || selectedTier === 'creator') && (
-                <div>
-                  <label
-                    style={{
-                      color: '#D4A043',
-                      fontSize: '0.9rem',
-                      textAlign: 'right',
-                      display: 'block',
-                      marginBottom: '5px',
-                    }}
-                  >
-                    בחר תחום ניתוח התחלתי *
-                  </label>
-                  <PackageSelect
-                    value={selectedTrack || ''}
-                    onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
-                  >
-                    <option value="">-- בחר תחום ניתוח --</option>
-                    <option value="actors">שחקנים ואודישנים</option>
-                    <option value="musicians">זמרים ומוזיקאים</option>
-                    <option value="creators">יוצרי תוכן וכוכבי רשת</option>
-                    <option value="influencers">משפיענים ומותגים</option>
-                  </PackageSelect>
-                </div>
-              )}
-            </>
-          )}
-
-          <div>
-            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-              סיסמה
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              style={{
-                width: '100%',
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(212, 160, 67, 0.3)',
-                borderRadius: '8px',
-                padding: '12px',
-                color: '#fff',
-                fontSize: '1rem',
-                direction: 'ltr',
-              }}
-            />
-          </div>
 
           {error && (
             <div style={{ color: '#ff6b6b', textAlign: 'right', fontSize: '0.9rem' }}>
