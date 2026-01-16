@@ -540,10 +540,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               
               console.log('✅ Profile update verified successfully:', verifiedProfile);
               
-              // Wait a bit more to ensure the update is fully committed to DB
-              // This helps prevent race condition with onAuthStateChange
-              // Increased delay to ensure DB consistency
-              await new Promise(resolve => setTimeout(resolve, 500));
+              // CRITICAL: Poll to ensure profile is fully updated and accessible
+              // Based on clean app - poll up to 6 times with 500ms delays
+              let profileFullyUpdated = false;
+              for (let pollAttempt = 0; pollAttempt < 6; pollAttempt++) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const { data: polledProfile, error: pollError } = await supabase
+                  .from('profiles')
+                  .select('subscription_tier, subscription_status, selected_primary_track, selected_tracks')
+                  .eq('user_id', data.user.id)
+                  .single();
+                
+                if (!pollError && polledProfile) {
+                  // Verify all critical fields are set correctly
+                  if (polledProfile.subscription_tier === selectedTier && 
+                      polledProfile.subscription_status === 'active' &&
+                      (!tierRequiresTrack(selectedTier) || polledProfile.selected_primary_track === selectedTrack)) {
+                    profileFullyUpdated = true;
+                    console.log(`✅ Profile fully updated and verified (attempt ${pollAttempt + 1}/6):`, polledProfile);
+                    break;
+                  } else {
+                    console.log(`⏳ Profile update in progress (attempt ${pollAttempt + 1}/6)...`, polledProfile);
+                  }
+                } else {
+                  console.warn(`⚠️ Profile poll error (attempt ${pollAttempt + 1}/6):`, pollError);
+                }
+              }
+              
+              if (!profileFullyUpdated) {
+                console.warn('⚠️ Profile update verification incomplete after 6 attempts, but continuing...');
+              }
               
               // One more verification to ensure the status is set correctly
               const { data: finalCheck } = await supabase
@@ -599,6 +626,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           
           // User stays logged in and enters directly with the selected package
           console.log('✅ Registration completed (email confirmation disabled). User logged in with selected package:', selectedTier);
+          
+          // CRITICAL: Wait additional time to ensure all DB updates are committed
+          // Based on clean app - wait 1500ms before triggering reload
+          console.log('⏳ Waiting 1500ms for all DB updates to complete before reloading...');
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
           alert('נרשמת בהצלחה!');
           
           // Call onAuthSuccess which will force reload user data with updated profile
@@ -606,7 +639,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           onAuthSuccess();
           
           // Wait a moment for the reload to complete before closing modal
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           onClose();
         } else {

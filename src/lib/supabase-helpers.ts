@@ -359,70 +359,58 @@ export async function isAdmin(): Promise<boolean> {
       return false;
     }
 
-    console.log('🔍 isAdmin: User found, calling is_admin() RPC function for user:', user.id);
+    console.log('🔍 isAdmin: User found, checking admin status for user:', user.id);
 
-    // Use the RPC function is_admin() which is defined in the database
-    // This avoids RLS recursion issues and is faster
-    const rpcQuery = supabase.rpc('is_admin');
+    // Try RPC function first (if available)
+    try {
+      const rpcQuery = supabase.rpc('is_admin');
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+        setTimeout(() => {
+          resolve({ data: null, error: { message: 'Timeout' } });
+        }, 2000); // 2 second timeout
+      });
 
-    console.log('🔍 isAdmin: RPC query initiated, waiting for response...');
+      const result = await Promise.race([rpcQuery, timeoutPromise]);
 
-    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
-      setTimeout(() => {
-        console.warn('⏱️ isAdmin: Timeout reached (3 seconds)');
-        resolve({ data: null, error: { message: 'Timeout' } });
-      }, 3000); // 3 second timeout (shorter since RPC should be fast)
-    });
-
-    const result = await Promise.race([rpcQuery, timeoutPromise]);
-
-    console.log('🔍 isAdmin: RPC query completed, result:', result);
-
-    if (result.error && result.error.message === 'Timeout') {
-      console.error('❌ isAdmin: RPC query timed out after 3 seconds');
-      // Fallback to direct query if RPC fails
-      console.log('🔍 isAdmin: Falling back to direct profile query...');
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (profileError) {
-        console.error('❌ isAdmin: Fallback query also failed:', profileError);
-        return false;
+      if (result.error && result.error.message === 'Timeout') {
+        console.warn('⏱️ isAdmin: RPC timeout, falling back to direct query');
+      } else {
+        const { data: isAdminResult, error: rpcError } = result as any;
+        
+        if (!rpcError && typeof isAdminResult === 'boolean') {
+          console.log('🔍 isAdmin: RPC result:', { userId: user.id, isAdmin: isAdminResult });
+          return isAdminResult;
+        }
+        
+        // If RPC returned error (function doesn't exist), fall through to direct query
+        if (rpcError) {
+          console.warn('⚠️ isAdmin: RPC function not available or error:', rpcError.message);
+        }
       }
-      
-      const isAdminUser = profile?.role === 'admin';
-      console.log('🔍 isAdmin: Fallback result:', { userId: user.id, role: profile?.role, isAdmin: isAdminUser });
-      return isAdminUser;
+    } catch (rpcErr) {
+      console.warn('⚠️ isAdmin: RPC call failed, using direct query:', rpcErr);
     }
 
-    const { data: isAdminResult, error } = result as any;
-
-    if (error) {
-      console.error('❌ isAdmin: Error calling RPC function:', error);
-      console.error('❌ isAdmin: Error details:', JSON.stringify(error, null, 2));
-      // Fallback to direct query
-      console.log('🔍 isAdmin: Falling back to direct profile query...');
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (profileError) {
-        console.error('❌ isAdmin: Fallback query also failed:', profileError);
-        return false;
-      }
-      
-      const isAdminUser = profile?.role === 'admin';
-      console.log('🔍 isAdmin: Fallback result:', { userId: user.id, role: profile?.role, isAdmin: isAdminUser });
-      return isAdminUser;
+    // Fallback to direct query (always works)
+    console.log('🔍 isAdmin: Using direct profile query...');
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    if (profileError) {
+      console.error('❌ isAdmin: Profile query failed:', profileError);
+      return false;
     }
-
-    const isAdminUser = isAdminResult === true;
-    console.log('🔍 isAdmin: Admin status result:', { userId: user.id, isAdmin: isAdminUser });
+    
+    if (!profile) {
+      console.warn('⚠️ isAdmin: Profile not found for user:', user.id);
+      return false;
+    }
+    
+    const isAdminUser = profile.role === 'admin';
+    console.log('🔍 isAdmin: Admin status result:', { userId: user.id, role: profile.role, isAdmin: isAdminUser });
     return isAdminUser;
   } catch (error) {
     console.error('❌ isAdmin: Exception:', error);

@@ -363,9 +363,16 @@ const App = () => {
         
         isLoadingUserData = true;
         try {
+          // CRITICAL: Wait for trigger/updates to complete before loading data
+          // This is especially important after SIGNED_IN when profile was just updated
+          // Based on clean app: delay of 1500ms for SIGNED_IN, 500ms for TOKEN_REFRESHED
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            const delay = event === 'SIGNED_IN' ? 1500 : 500;
+            console.log(`[Auth] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          
           // Force refresh after signup/signin to ensure latest profile data is loaded
-          // This is especially important after registration when profile was just updated
-          // Always force refresh on SIGNED_IN to ensure fresh data after registration
           const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED';
           console.log('🔄 Auth state changed:', { event, shouldForceRefresh, userId: session.user.id });
           await loadUserData(session.user, shouldForceRefresh);

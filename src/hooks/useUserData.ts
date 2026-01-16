@@ -72,9 +72,9 @@ export const useUserData = ({
     setUserIsAdmin(false);
   }, [setHasShownPackageModal, setHasShownTrackModal]);
 
-  const loadUserData = useCallback(async (currentUser: User, forceRefresh = false) => {
+  const loadUserData = useCallback(async (currentUser: User, forceRefresh = false, retryCount = 0) => {
     try {
-      console.log('🔄 loadUserData called', { userId: currentUser.id, forceRefresh });
+      console.log('🔄 loadUserData called', { userId: currentUser.id, forceRefresh, retryCount });
       
       // Verify user is still authenticated before loading data
       const { data: { user: verifiedUser } } = await supabase.auth.getUser();
@@ -95,6 +95,15 @@ export const useUserData = ({
 
       // Load profile (force fresh fetch if forceRefresh is true)
       const userProfile = await getCurrentUserProfile(forceRefresh);
+      
+      // If profile not found and this is after signup, retry with delays (like clean app)
+      if (!userProfile && retryCount < 3) {
+        console.log(`[loadUserData] Profile not found, retrying... (${retryCount + 1}/3)`);
+        setTimeout(() => {
+          loadUserData(currentUser, forceRefresh, retryCount + 1);
+        }, 1000 * (retryCount + 1)); // 1s, 2s, 3s delays
+        return;
+      }
       
       console.log('📋 Profile loaded:', {
         subscriptionTier: userProfile?.subscription_tier,
