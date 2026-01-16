@@ -527,11 +527,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
           }
           
+          // Wait for profile update to complete and verify it was saved correctly
+          if (data.user.id) {
+            console.log('⏳ Waiting for profile update to complete...');
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second for DB update
+            
+            // Verify profile was updated correctly by fetching it
+            try {
+              const { data: updatedProfile, error: verifyError } = await supabase
+                .from('profiles')
+                .select('subscription_tier, selected_primary_track, selected_tracks')
+                .eq('user_id', data.user.id)
+                .single();
+              
+              if (!verifyError && updatedProfile) {
+                console.log('✅ Profile verified after update:', {
+                  tier: updatedProfile.subscription_tier,
+                  primaryTrack: updatedProfile.selected_primary_track,
+                  tracks: updatedProfile.selected_tracks,
+                });
+              } else {
+                console.warn('⚠️ Could not verify profile update:', verifyError);
+              }
+            } catch (verifyErr) {
+              console.warn('⚠️ Error verifying profile update:', verifyErr);
+            }
+          }
+          
           // User stays logged in and enters directly with the selected package
           console.log('✅ Registration completed (email confirmation disabled). User logged in with selected package:', selectedTier);
           alert('נרשמת בהצלחה!');
           
-          // Wait a moment for profile update to complete and auth state to sync
+          // Wait a bit more for auth state to sync across the app
           await new Promise(resolve => setTimeout(resolve, 500));
           
           onAuthSuccess();

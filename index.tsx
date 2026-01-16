@@ -355,7 +355,10 @@ const App = () => {
         
         isLoadingUserData = true;
         try {
-          await loadUserData(session.user);
+          // Force refresh after signup/signin to ensure latest profile data is loaded
+          // This is especially important after registration when profile was just updated
+          const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED';
+          await loadUserData(session.user, shouldForceRefresh);
         } catch (err) {
           console.error('Error loading user data in auth state change:', err);
           // Don't block UI if user data loading fails
@@ -1061,6 +1064,7 @@ const App = () => {
     
     // If profile or subscription haven't loaded yet, don't block tracks (wait for data to load)
     if (!profile || !subscription) {
+      console.log('⏳ Profile or subscription not loaded yet, allowing track access temporarily');
       return true; // Don't show restrictions until data is loaded
     }
 
@@ -1070,16 +1074,37 @@ const App = () => {
     }
 
     const tier = subscription.tier;
+    
+    console.log('🔍 Checking track availability:', {
+      trackId,
+      tier,
+      profileSelectedPrimaryTrack: profile.selected_primary_track,
+      profileSelectedTracks: profile.selected_tracks,
+    });
 
     // Free tier: only selected_primary_track is available
     if (tier === 'free') {
-      return trackId === profile.selected_primary_track;
+      const isAvailable = trackId === profile.selected_primary_track;
+      if (!isAvailable) {
+        console.log('❌ Track not available for free tier:', {
+          trackId,
+          selectedPrimaryTrack: profile.selected_primary_track,
+        });
+      }
+      return isAvailable;
     }
 
     // Creator tier: up to 2 tracks from selected_tracks array
     if (tier === 'creator') {
       const selectedTracks = profile.selected_tracks || [];
-      return selectedTracks.includes(trackId);
+      const isAvailable = selectedTracks.includes(trackId);
+      if (!isAvailable) {
+        console.log('❌ Track not available for creator tier:', {
+          trackId,
+          selectedTracks,
+        });
+      }
+      return isAvailable;
     }
 
     // Pro and Coach tiers: all tracks available (except coach requires feature)
