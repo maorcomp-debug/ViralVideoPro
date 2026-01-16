@@ -193,9 +193,17 @@ const App = () => {
   // Determine current page from route
   const isHomePage = currentPath === '/';
   const isSettingsPage = currentPath === '/settings';
-  const isAdminPage = currentPath === '/admin';
+  // Check both React Router path and window.location for admin page (React Router can be delayed)
+  const isAdminPage = currentPath === '/admin' || (typeof window !== 'undefined' && window.location.pathname === '/admin');
   const isAnalysisPage = currentPath.startsWith('/analysis');
   const isCreatorPage = currentPath === '/creator';
+  
+  // Debug: Log path changes
+  useEffect(() => {
+    if (currentPath === '/admin' || (typeof window !== 'undefined' && window.location.pathname === '/admin')) {
+      console.log('🔍 App: Admin page detected:', { currentPath, windowPath: typeof window !== 'undefined' ? window.location.pathname : 'N/A', isAdminPage });
+    }
+  }, [currentPath, isAdminPage]);
   
   const [activeTrack, setActiveTrack] = useState<TrackId>('actors');
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -405,12 +413,19 @@ const App = () => {
       // Load profile (force fresh fetch if forceRefresh is true)
       const userProfile = await getCurrentUserProfile();
       
-      // Only log profile load details on force refresh or initial load
-      if (forceRefresh || !profile) {
+      // Always log profile load details to help debug
+      if (userProfile) {
         console.log('📋 Profile loaded:', {
-          subscriptionTier: userProfile?.subscription_tier,
-          subscriptionStatus: userProfile?.subscription_status,
-          subscriptionPeriod: userProfile?.subscription_period,
+          subscriptionTier: userProfile.subscription_tier,
+          subscriptionStatus: userProfile.subscription_status,
+          subscriptionPeriod: userProfile.subscription_period,
+          primaryTrack: userProfile.selected_primary_track,
+          tracks: userProfile.selected_tracks,
+        });
+      } else {
+        console.warn('⚠️ Profile not found or failed to load:', {
+          userId: currentUser.id,
+          forceRefresh,
         });
       }
       
@@ -2569,6 +2584,7 @@ const App = () => {
 
   if (isAdminPage) {
     // AdminPage handles its own authentication check internally
+    console.log('🔍 App: Rendering AdminPage, currentPath:', currentPath, 'isAdminPage:', isAdminPage);
     return (
       <>
         <GlobalStyle />
@@ -2701,20 +2717,11 @@ const App = () => {
                       console.log('🔍 App: Admin button clicked, navigating to /admin');
                       console.log('🔍 App: Current path:', location.pathname);
                       console.log('🔍 App: Navigate function:', typeof navigate);
-                      try {
-                        navigate('/admin', { replace: false });
-                        console.log('✅ App: Navigate called successfully');
-                        // Fallback: if navigate doesn't work, use window.location
-                        setTimeout(() => {
-                          if (window.location.pathname !== '/admin') {
-                            console.log('⚠️ App: Navigate did not change path, using window.location');
-                            window.location.href = '/admin';
-                          }
-                        }, 500);
-                      } catch (error) {
-                        console.error('❌ App: Error navigating:', error);
-                        window.location.href = '/admin';
-                      }
+                      console.log('🔍 App: userIsAdmin:', userIsAdmin);
+                      // Use window.location.href directly for admin page to ensure immediate navigation
+                      // React Router navigate() can be delayed, causing isAdminPage check to fail
+                      console.log('✅ App: Using window.location.href for immediate navigation');
+                      window.location.href = '/admin';
                     }}
                     style={{
                       background: 'rgba(244, 67, 54, 0.2)',

@@ -3,22 +3,46 @@ import type { Database } from './supabase';
 
 // Helper functions for common operations
 
-export async function getCurrentUserProfile() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+export async function getCurrentUserProfile(forceRefresh = false) {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('❌ getCurrentUserProfile: Error getting user:', userError);
+      return null;
+    }
+    if (!user) {
+      console.warn('⚠️ getCurrentUserProfile: No user found');
+      return null;
+    }
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle();
+    // Add cache-busting parameter if forceRefresh is true
+    let query = supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id);
+    
+    // Add timestamp to force fresh fetch (Supabase doesn't cache by default, but this ensures fresh data)
+    if (forceRefresh) {
+      query = query.order('updated_at', { ascending: false });
+    }
+    
+    const { data, error } = await query.maybeSingle();
 
-  if (error) {
-    console.error('Error fetching profile:', error);
+    if (error) {
+      console.error('❌ getCurrentUserProfile: Error fetching profile:', error);
+      return null;
+    }
+
+    if (!data) {
+      console.warn('⚠️ getCurrentUserProfile: Profile not found for user:', user.id);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error('❌ getCurrentUserProfile: Exception:', err);
     return null;
   }
-
-  return data;
 }
 
 export async function checkEmailExists(email: string): Promise<boolean> {

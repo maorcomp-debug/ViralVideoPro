@@ -574,6 +574,7 @@ export const AdminPage: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log('🔍 AdminPage: Component mounted, checking admin status...');
     checkAdminStatus();
   }, []);
 
@@ -600,17 +601,23 @@ export const AdminPage: React.FC = () => {
   const checkAdminStatus = async () => {
     setCheckingAdmin(true);
     try {
+      console.log('🔍 AdminPage: Checking admin status...');
       const adminStatus = await isAdmin();
+      console.log('🔍 AdminPage: Admin status result:', adminStatus);
       setIsUserAdmin(adminStatus);
       if (adminStatus) {
+        console.log('✅ AdminPage: User is admin, loading stats and users...');
         await loadStats();
         await loadUsers();
+      } else {
+        console.warn('⚠️ AdminPage: User is not admin');
       }
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      console.error('❌ AdminPage: Error checking admin status:', error);
       setIsUserAdmin(false);
     } finally {
       setCheckingAdmin(false);
+      console.log('🔍 AdminPage: Admin check completed');
     }
   };
 
@@ -1075,6 +1082,7 @@ export const AdminPage: React.FC = () => {
   });
 
   if (checkingAdmin) {
+    console.log('🔍 AdminPage: Still checking admin status, showing loading...');
     return (
       <AppContainer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column' }}>
         <LoadingSpinner>בודק הרשאות...</LoadingSpinner>
@@ -1083,6 +1091,7 @@ export const AdminPage: React.FC = () => {
   }
 
   if (!isUserAdmin) {
+    console.log('⚠️ AdminPage: User is not admin, showing access denied');
     return (
       <AppContainer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column' }}>
         <h1 style={{ color: '#F44336', marginBottom: '20px' }}>גישה נדחתה</h1>
@@ -1091,6 +1100,8 @@ export const AdminPage: React.FC = () => {
       </AppContainer>
     );
   }
+
+  console.log('✅ AdminPage: User is admin, rendering admin panel');
 
   return (
     <AppContainer>

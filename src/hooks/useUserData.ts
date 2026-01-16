@@ -92,8 +92,8 @@ export const useUserData = ({
         }
       }
 
-      // Load profile
-      const userProfile = await getCurrentUserProfile();
+      // Load profile (force fresh fetch if forceRefresh is true)
+      const userProfile = await getCurrentUserProfile(forceRefresh);
       
       console.log('📋 Profile loaded:', {
         subscriptionTier: userProfile?.subscription_tier,
@@ -173,7 +173,11 @@ export const useUserData = ({
       // Determine subscription tier
       const profileTier = userProfile?.subscription_tier as SubscriptionTier | undefined;
       const profileStatus = userProfile?.subscription_status;
-      const isProfileActive = profileStatus === 'active';
+      // For free tier, treat null status as active (free tier is always active)
+      // For other tiers, require explicit 'active' status
+      const isProfileActive = profileTier === 'free' 
+        ? (profileStatus === 'active' || profileStatus === null) // Free tier: null or 'active' both mean active
+        : profileStatus === 'active'; // Paid tiers: must be explicitly 'active'
       const validTiers: SubscriptionTier[] = ['free', 'creator', 'pro', 'coach', 'coach-pro'];
       const isValidProfileTier = profileTier && validTiers.includes(profileTier);
       

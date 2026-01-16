@@ -542,7 +542,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               
               // Wait a bit more to ensure the update is fully committed to DB
               // This helps prevent race condition with onAuthStateChange
-              await new Promise(resolve => setTimeout(resolve, 300));
+              // Increased delay to ensure DB consistency
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              // One more verification to ensure the status is set correctly
+              const { data: finalCheck } = await supabase
+                .from('profiles')
+                .select('subscription_status, subscription_tier')
+                .eq('user_id', data.user.id)
+                .single();
+              
+              if (finalCheck && finalCheck.subscription_status !== 'active' && selectedTier === 'free') {
+                // For free tier, ensure status is set to active
+                await supabase
+                  .from('profiles')
+                  .update({ subscription_status: 'active' })
+                  .eq('user_id', data.user.id);
+                console.log('✅ Ensured subscription_status is active for free tier');
+              }
             } catch (profileError) {
               console.error('❌ Critical error updating profile after signup:', profileError);
               // Don't continue if profile update failed - user needs correct settings
