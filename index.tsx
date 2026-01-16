@@ -403,11 +403,14 @@ const App = () => {
       // Load profile (force fresh fetch if forceRefresh is true)
       const userProfile = await getCurrentUserProfile();
       
-      console.log('📋 Profile loaded:', {
-        subscriptionTier: userProfile?.subscription_tier,
-        subscriptionStatus: userProfile?.subscription_status,
-        subscriptionPeriod: userProfile?.subscription_period,
-      });
+      // Only log profile load details on force refresh or initial load
+      if (forceRefresh || !profile) {
+        console.log('📋 Profile loaded:', {
+          subscriptionTier: userProfile?.subscription_tier,
+          subscriptionStatus: userProfile?.subscription_status,
+          subscriptionPeriod: userProfile?.subscription_period,
+        });
+      }
       
       // Verify user is still authenticated after profile load
       const { data: { user: verifiedUser2 } } = await supabase.auth.getUser();
@@ -532,24 +535,17 @@ const App = () => {
         });
       }
       
-      console.log('📊 Setting subscription state:', {
-        hasSubscriptionRecord: !!subData,
-        subscriptionTier: subData?.plans?.tier,
-        profileTier,
-        profileStatus,
-        finalTier,
-        finalIsActive,
-      });
-      
-      // Always update subscription state - don't check if tier changed
-      // This ensures subscription is updated even if it was already set
-      // The issue was that if subscription was already set to 'free', it wouldn't update to the new tier
-      console.log('🔄 Setting subscription state (force update):', {
-        previousTier: subscription?.tier,
-        newTier: finalTier,
-        previousIsActive: subscription?.isActive,
-        newIsActive: finalIsActive,
-      });
+      // Only log subscription state changes on force refresh or when tier actually changes
+      if (forceRefresh || subscription?.tier !== finalTier) {
+        console.log('📊 Setting subscription state:', {
+          hasSubscriptionRecord: !!subData,
+          subscriptionTier: subData?.plans?.tier,
+          profileTier,
+          profileStatus,
+          finalTier,
+          finalIsActive,
+        });
+      }
       
       setSubscription({
         tier: finalTier,
@@ -1098,28 +1094,13 @@ const App = () => {
 
     // Free tier: only selected_primary_track is available
     if (tier === 'free') {
-      const isAvailable = trackId === profile.selected_primary_track;
-      if (!isAvailable) {
-        console.warn('❌ Track not available for free tier:', {
-          trackId,
-          selectedPrimaryTrack: profile.selected_primary_track,
-          profileTracks: profile.selected_tracks,
-        });
-      }
-      return isAvailable;
+      return trackId === profile.selected_primary_track;
     }
 
     // Creator tier: up to 2 tracks from selected_tracks array
     if (tier === 'creator') {
       const selectedTracks = profile.selected_tracks || [];
-      const isAvailable = selectedTracks.includes(trackId);
-      if (!isAvailable) {
-        console.warn('❌ Track not available for creator tier:', {
-          trackId,
-          selectedTracks,
-        });
-      }
-      return isAvailable;
+      return selectedTracks.includes(trackId);
     }
 
     // Pro and Coach tiers: all tracks available (except coach requires feature)
