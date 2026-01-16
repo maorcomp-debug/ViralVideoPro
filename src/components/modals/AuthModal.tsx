@@ -412,64 +412,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
-          // CRITICAL: Update profile IMMEDIATELY before onAuthStateChange triggers loadUserData
-          // This must happen BEFORE any other async operations
-          // Update profile first, then handle other things (test accounts, coupons, etc.)
+          // Profile is created automatically by database trigger with metadata from signup
+          // The trigger (handle_new_user) reads signup_tier and signup_primary_track from metadata
+          // and creates the profile with correct values immediately - no update needed!
+          // Just wait a tiny bit for trigger to complete before loadUserData runs
           if (data.user.id) {
-            try {
-              const profileUpdate: any = {
-                subscription_tier: selectedTier,
-                subscription_status: 'active',
-                subscription_start_date: new Date().toISOString(),
-              };
-
-              // Set subscription end date based on tier (free/creator have no end date, paid tiers have 30 days trial)
-              if (selectedTier === 'free' || selectedTier === 'creator') {
-                // Free and creator tiers don't expire
-                profileUpdate.subscription_end_date = null;
-              } else {
-                // Paid tiers get 30 days from signup
-                const endDate = new Date();
-                endDate.setDate(endDate.getDate() + 30);
-                profileUpdate.subscription_end_date = endDate.toISOString();
-                profileUpdate.subscription_period = 'monthly';
-              }
-
-              // Set track selection for ניסיון / יוצרים (other חבילות פתוחות לכל התחומים)
-              if (tierRequiresTrack(selectedTier) && selectedTrack) {
-                profileUpdate.selected_primary_track = selectedTrack;
-                profileUpdate.selected_tracks = [selectedTrack];
-              } else if (!tierRequiresTrack(selectedTier)) {
-                // For paid tiers, all tracks are open by default
-                profileUpdate.selected_tracks = ['actors', 'musicians', 'creators', 'influencers'];
-                profileUpdate.selected_primary_track = 'actors'; // Default primary track
-              }
-
-              // Update profile immediately - simple and fast like login
-              const { error: profileUpdateError } = await supabase
-                .from('profiles')
-                .update(profileUpdate)
-                .eq('user_id', data.user.id);
-
-              if (profileUpdateError) {
-                console.error('❌ Error updating profile after signup:', profileUpdateError);
-                throw profileUpdateError;
-              }
-              
-              console.log('✅ Profile updated with selected tier and settings:', {
-                tier: selectedTier,
-                track: selectedTrack,
-              });
-              
-              // Small delay to ensure update is committed before loadUserData runs
-              await new Promise(resolve => setTimeout(resolve, 300));
-            } catch (profileError) {
-              console.error('❌ Critical error updating profile after signup:', profileError);
-              // Don't continue if profile update failed - user needs correct settings
-              setError('שגיאה בעדכון הפרופיל. אנא נסה שוב או פנה לתמיכה.');
-              setLoading(false);
-              return;
-            }
+            // Give trigger 200ms to create profile with metadata
+            await new Promise(resolve => setTimeout(resolve, 200));
+            console.log('✅ Profile created by trigger with metadata:', {
+              tier: selectedTier,
+              track: selectedTrack,
+            });
           }
 
           // Handle test accounts and coupons AFTER profile update

@@ -381,10 +381,10 @@ const App = () => {
           // For sign-up (new user), AuthModal takes ~5-6 seconds, but we handle that in AuthModal itself
           // So we use shorter delay here and let AuthModal handle the longer wait for signup
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            // Short delay for both - AuthModal now updates profile immediately (no polling/verification delays)
-            // VERSION: 2.2 - Simplified AuthModal, so short delay is enough (like login)
-            const delay = 500; // 500ms for both SIGNED_IN and TOKEN_REFRESHED (same as login)
-            console.log(`[Auth v2.2] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
+            // Very short delay - database trigger creates profile with metadata immediately
+            // VERSION: 2.3 - Profile created by trigger, so minimal delay needed (like login)
+            const delay = 300; // 300ms - trigger creates profile with metadata, AuthModal also waits 200ms
+            console.log(`[Auth v2.3] Waiting ${delay}ms for trigger to create profile...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
           
@@ -476,67 +476,8 @@ const App = () => {
         new URLSearchParams(window.location.search).get('upgrade') === 'success';
       
       if (userProfile) {
-        // After SIGNED_IN with forceRefresh, verify profile has been updated (not just default free tier)
-        // If profile still has default values after signup, it might not be updated yet
-        // Check if this looks like a fresh signup (no subscription_status or missing required fields)
-        // For free/creator tiers, we need both subscription_status='active' AND selected_primary_track
-        const isLikelyFreshSignup = forceRefresh && (
-          !userProfile.subscription_status || 
-          (userProfile.subscription_tier === 'free' && !userProfile.selected_primary_track) ||
-          (userProfile.subscription_tier === 'creator' && !userProfile.selected_primary_track)
-        );
-        
-        // If this is after SIGNED_IN and profile looks incomplete, retry a few times
-        // AuthModal now updates profile immediately (no delays), so retries should be quick
-        // VERSION: 2.2 - Simplified retry logic (3 retries) since AuthModal is fast now
-        if (isLikelyFreshSignup && retryCount === 0) {
-          console.log('⚠️ [v2.2] Profile looks incomplete after signup, retrying...');
-          
-          // Retry up to 3 times with 500ms delays (total max ~1.5s) - AuthModal is fast now
-          let signupRetryCount = 0;
-          const maxSignupRetries = 3;
-          let updatedProfile = null;
-          
-          while (signupRetryCount < maxSignupRetries && !updatedProfile) {
-            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between retries
-            
-            const retryProfile = await getCurrentUserProfile(true);
-            signupRetryCount++;
-            
-            // Check if profile has been updated with subscription_status
-            // For free tier, subscription_status should be 'active'
-            // Also check if primary_track is set if it's a tier that requires it
-            if (retryProfile && retryProfile.subscription_status) {
-              // Profile has subscription_status - check if it's complete
-              const isComplete = retryProfile.subscription_status === 'active';
-              const tierRequiresTrack = retryProfile.subscription_tier === 'free' || retryProfile.subscription_tier === 'creator';
-              const hasRequiredTrack = !tierRequiresTrack || retryProfile.selected_primary_track;
-              
-              if (isComplete && hasRequiredTrack) {
-                console.log(`✅ [v2.2] Profile fully updated after signup (retry ${signupRetryCount}/${maxSignupRetries}):`, {
-                  tier: retryProfile.subscription_tier,
-                  status: retryProfile.subscription_status,
-                  primaryTrack: retryProfile.selected_primary_track,
-                });
-                updatedProfile = retryProfile;
-                break;
-              } else {
-                console.log(`⏳ [v2.2] Profile update in progress (retry ${signupRetryCount}/${maxSignupRetries})...`, {
-                  status: retryProfile.subscription_status,
-                  primaryTrack: retryProfile.selected_primary_track,
-                });
-              }
-            } else {
-              console.log(`⏳ [v2.2] Waiting for profile update (retry ${signupRetryCount}/${maxSignupRetries})...`);
-            }
-          }
-          
-          if (updatedProfile) {
-            userProfile = updatedProfile;
-          } else {
-            console.warn('⚠️ Profile update verification incomplete after signup, using current profile state');
-          }
-        }
+        // Profile is created by database trigger with metadata - should be complete immediately
+        // VERSION: 2.3 - No retry needed, trigger creates profile with correct values from metadata
         
         setProfile(userProfile);
         // Reset the log flag when profile is loaded
