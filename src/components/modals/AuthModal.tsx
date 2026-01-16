@@ -448,8 +448,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
           }
 
-          // Update profile with selected tier and track immediately after signup
-          // This ensures the user enters with the correct package settings
+          // CRITICAL: Update profile with selected tier and track IMMEDIATELY after signup
+          // This must happen BEFORE onAuthStateChange triggers loadUserData
+          // Otherwise loadUserData will load the old profile without the selected settings
           if (data.user.id) {
             try {
               const profileUpdate: any = {
@@ -480,26 +481,74 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 profileUpdate.selected_primary_track = 'actors'; // Default primary track
               }
 
-              // Update profile directly using Supabase (updateCurrentUserProfile doesn't support subscription fields)
+              // CRITICAL: Update profile IMMEDIATELY and wait for it to complete
+              // This must happen BEFORE onAuthStateChange triggers loadUserData
+              // onAuthStateChange is called asynchronously by Supabase, but we need to ensure
+              // the profile is updated before it loads
               const { error: profileUpdateError } = await supabase
                 .from('profiles')
                 .update(profileUpdate)
                 .eq('user_id', data.user.id);
 
               if (profileUpdateError) {
-                console.error('Error updating profile after signup:', profileUpdateError);
-                // Don't block signup flow - user can still login and settings will be applied
-              } else {
-                console.log('✅ Profile updated with selected tier and settings:', {
-                  tier: selectedTier,
-                  track: selectedTrack,
-                  profileUpdate,
-                });
+                console.error('❌ Error updating profile after signup:', profileUpdateError);
+                throw profileUpdateError; // Throw to prevent continuing with old profile
               }
+              
+              console.log('✅ Profile updated with selected tier and settings:', {
+                tier: selectedTier,
+                track: selectedTrack,
+                profileUpdate,
+              });
+              
+              // CRITICAL: Verify the update was saved with retries to ensure DB consistency
+              // onAuthStateChange may fire while we're updating, so we need to ensure it's done
+              let verifiedProfile = null;
+              let verifyError = null;
+              for (let attempt = 0; attempt < 3; attempt++) {
+                if (attempt > 0) {
+                  await new Promise(resolve => setTimeout(resolve, 200 * attempt)); // 200ms, 400ms delays
+                }
+                
+                const { data: verified, error: err } = await supabase
+                  .from('profiles')
+                  .select('subscription_tier, selected_primary_track, selected_tracks, subscription_status')
+                  .eq('user_id', data.user.id)
+                  .single();
+                
+                if (!err && verified) {
+                  verifiedProfile = verified;
+                  verifyError = null;
+                  break;
+                }
+                verifyError = err;
+              }
+              
+              if (!verifiedProfile) {
+                console.error('❌ Could not verify profile update after 3 attempts:', verifyError);
+                throw new Error('Profile update verification failed');
+              }
+              
+              if (verifiedProfile.subscription_tier !== selectedTier || 
+                  (tierRequiresTrack(selectedTier) && verifiedProfile.selected_primary_track !== selectedTrack)) {
+                console.error('❌ Profile update verification failed - values do not match:', {
+                  expected: { tier: selectedTier, track: selectedTrack },
+                  actual: verifiedProfile,
+                });
+                throw new Error('Profile update verification failed - values mismatch');
+              }
+              
+              console.log('✅ Profile update verified successfully:', verifiedProfile);
+              
+              // Wait a bit more to ensure the update is fully committed to DB
+              // This helps prevent race condition with onAuthStateChange
+              await new Promise(resolve => setTimeout(resolve, 300));
             } catch (profileError) {
-              console.error('Error updating profile after signup:', profileError);
-              // Don't block signup flow - user can still login and settings will be applied
-              // The profile might be updated by trigger or on next login
+              console.error('❌ Critical error updating profile after signup:', profileError);
+              // Don't continue if profile update failed - user needs correct settings
+              setError('שגיאה בעדכון הפרופיל. אנא נסה שוב או פנה לתמיכה.');
+              setLoading(false);
+              return;
             }
           }
 
@@ -527,41 +576,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
           }
           
-          // Wait for profile update to complete and verify it was saved correctly
-          if (data.user.id) {
-            console.log('⏳ Waiting for profile update to complete...');
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second for DB update
-            
-            // Verify profile was updated correctly by fetching it
-            try {
-              const { data: updatedProfile, error: verifyError } = await supabase
-                .from('profiles')
-                .select('subscription_tier, selected_primary_track, selected_tracks')
-                .eq('user_id', data.user.id)
-                .single();
-              
-              if (!verifyError && updatedProfile) {
-                console.log('✅ Profile verified after update:', {
-                  tier: updatedProfile.subscription_tier,
-                  primaryTrack: updatedProfile.selected_primary_track,
-                  tracks: updatedProfile.selected_tracks,
-                });
-              } else {
-                console.warn('⚠️ Could not verify profile update:', verifyError);
-              }
-            } catch (verifyErr) {
-              console.warn('⚠️ Error verifying profile update:', verifyErr);
-            }
-          }
+          // Profile update is now complete and verified above
+          // Now sign in if needed - this will trigger onAuthStateChange which should load the updated profile
           
           // User stays logged in and enters directly with the selected package
+          // Profile is already updated and verified, so onAuthStateChange will load the correct data
           console.log('✅ Registration completed (email confirmation disabled). User logged in with selected package:', selectedTier);
           alert('נרשמת בהצלחה!');
           
-          // Wait for auth state to sync and profile to be loaded
-          // onAuthStateChange will trigger loadUserData with forceRefresh=true
-          // Give it time to complete before closing modal
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          // Wait a moment for onAuthStateChange to trigger and loadUserData to complete
+          // The profile is already updated and verified, so loadUserData should load the correct data
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           onAuthSuccess();
           onClose();
