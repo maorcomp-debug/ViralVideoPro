@@ -9,6 +9,7 @@ import {
   getAnalyses,
   isAdmin,
 } from '../lib/supabase-helpers';
+import { SUBSCRIPTION_PLANS } from '../constants';
 import type {
   UserSubscription,
   SubscriptionTier,
@@ -178,7 +179,9 @@ export const useUserData = ({
       const isProfileActive = profileTier === 'free' 
         ? (profileStatus === 'active' || profileStatus === null) // Free tier: null or 'active' both mean active
         : profileStatus === 'active'; // Paid tiers: must be explicitly 'active'
-      const validTiers: SubscriptionTier[] = ['free', 'creator', 'pro', 'coach', 'coach-pro'];
+      
+      // Validation - verify tier exists in SUBSCRIPTION_PLANS (using same validation as usePlanAccess)
+      const validTiers: SubscriptionTier[] = Object.keys(SUBSCRIPTION_PLANS) as SubscriptionTier[];
       const isValidProfileTier = profileTier && validTiers.includes(profileTier);
       
       let finalTier: SubscriptionTier = 'free';

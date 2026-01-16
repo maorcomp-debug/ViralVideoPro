@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { UserSubscription, SubscriptionTier, BillingPeriod, SubscriptionLimits, TrackId } from '../types';
 import { SUBSCRIPTION_PLANS } from '../constants';
 import { getUsageForCurrentPeriod } from '../lib/supabase-helpers';
+import { getPlanAccess, isTrackAvailableForTier, getAvailableTracksForTier } from './usePlanAccess';
 
 interface UseSubscriptionReturn {
   subscription: UserSubscription | null;
@@ -55,7 +56,11 @@ export const useSubscription = (
       return { allowed: false, message: 'יש לבחור חבילה תחילה' };
     }
 
-    const plan = SUBSCRIPTION_PLANS[subscription.tier];
+    // Use pure function from usePlanAccess for consistency
+    const planAccess = getPlanAccess(subscription);
+    if (!planAccess) {
+      return { allowed: false, message: 'חבילה לא פעילה. יש לחדש את המנוי' };
+    }
     
     // For free tier, always allow (we only check usage limits)
     // For paid tiers, check if subscription is active
@@ -72,12 +77,11 @@ export const useSubscription = (
     }
 
     const analysesUsed = currentUsage.analysesUsed;
-    const limit = plan.limits.maxAnalysesPerPeriod;
 
-    // Check analysis limit based on tier
-    if (subscription.tier === 'free') {
-      // Free tier: 2 analyses per month (resets monthly)
-      if (analysesUsed >= limit) {
+    // Check analysis limit using pure function
+    if (!planAccess.canRunAnalysis(analysesUsed)) {
+      if (subscription.tier === 'free') {
+        // Free tier: 2 analyses per month (resets monthly)
         const now = new Date();
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -85,13 +89,8 @@ export const useSubscription = (
           allowed: false, 
           message: `סיימת את 2 הניתוחים החינמיים לחודש זה. הניתוחים יתאפסו בעוד ${daysLeft} ימים (תחילת חודש) או שדרג לחבילה כדי להמשיך` 
         };
-      }
-    } else if (limit === -1) {
-      // Unlimited (coach tier)
-      return { allowed: true };
-    } else {
-      // Paid tiers: check within subscription period
-      if (analysesUsed >= limit) {
+      } else {
+        // Paid tiers: check within subscription period
         return { 
           allowed: false, 
           message: `סיימת את הניתוחים בתקופת המנוי. יתאפס בתקופת החיוב הבאה או שדרג לחבילה גבוהה יותר` 
@@ -126,8 +125,12 @@ export const useSubscription = (
     // Admin email gets all features
     if (user?.email === 'viralypro@gmail.com') return true;
     if (!subscription) return false;
-    const plan = SUBSCRIPTION_PLANS[subscription.tier];
-    return plan.limits.features[feature];
+    
+    // Use pure function from usePlanAccess for consistency
+    const planAccess = getPlanAccess(subscription);
+    if (!planAccess) return false;
+    
+    return planAccess.hasFeature(feature);
   }, [user, subscription]);
 
   const isTrackAvailable = useCallback((trackId: TrackId, user: any, profile: any): boolean => {
@@ -144,25 +147,19 @@ export const useSubscription = (
 
     // Coach track always requires traineeManagement feature
     if (trackId === 'coach') {
-      return canUseFeature('traineeManagement');
+      const planAccess = getPlanAccess(subscription);
+      return planAccess?.hasFeature('traineeManagement') ?? false;
     }
 
-    const tier = subscription.tier;
-
-    // Free tier: only selected_primary_track is available
-    if (tier === 'free') {
-      return trackId === profile.selected_primary_track;
-    }
-
-    // Creator tier: up to 2 tracks from selected_tracks array
-    if (tier === 'creator') {
-      const selectedTracks = profile.selected_tracks || [];
-      return selectedTracks.includes(trackId);
-    }
-
-    // Pro and Coach tiers: all tracks available (except coach requires feature)
-    return true;
-  }, [subscription, canUseFeature]);
+    // Use pure function from usePlanAccess for consistency
+    // This ensures the same logic is used everywhere
+    return isTrackAvailableForTier(
+      trackId,
+      subscription.tier,
+      profile.selected_tracks as TrackId[] | null,
+      profile.selected_primary_track as TrackId | null
+    );
+  }, [subscription]);
 
   const shouldShowTrackRestrictions = useCallback((trackId: TrackId, user: any): boolean => {
     // Don't show restrictions if user is not logged in
@@ -177,24 +174,20 @@ export const useSubscription = (
   const getAvailableTracks = useCallback((profile: any): TrackId[] => {
     if (!profile || !subscription) return [];
     
-    const tier = subscription.tier;
-    
-    if (tier === 'free') {
-      return profile.selected_primary_track ? [profile.selected_primary_track as TrackId] : [];
-    }
-    
-    if (tier === 'creator') {
-      return (profile.selected_tracks || []) as TrackId[];
-    }
-    
-    // Pro and Coach tiers: all tracks available
-    return ['actors', 'musicians', 'creators', 'influencers', 'coach'] as TrackId[];
+    // Use pure function from usePlanAccess for consistency
+    return getAvailableTracksForTier(
+      subscription.tier,
+      profile.selected_tracks as TrackId[] | null,
+      profile.selected_primary_track as TrackId | null
+    );
   }, [subscription]);
 
   const getMaxExperts = useCallback((): number => {
     if (!subscription) return 3; // Default for free tier
-    const plan = SUBSCRIPTION_PLANS[subscription.tier];
-    return plan.limits.maxExperts || 3;
+    
+    // Use pure function from usePlanAccess for consistency
+    const planAccess = getPlanAccess(subscription);
+    return planAccess?.maxExperts || 3;
   }, [subscription]);
 
   return {
