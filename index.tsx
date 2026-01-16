@@ -481,14 +481,54 @@ const App = () => {
                                     !userProfile.subscription_status && 
                                     (!userProfile.selected_primary_track || userProfile.subscription_tier === 'free');
         
-        // If this is after SIGNED_IN and profile looks incomplete, wait a bit more and retry
+        // If this is after SIGNED_IN and profile looks incomplete, wait longer and retry multiple times
+        // AuthModal takes ~5-6 seconds to complete all updates (profile update + verification + polling)
         if (isLikelyFreshSignup && retryCount === 0) {
-          console.log('⚠️ Profile looks incomplete after signup, waiting 2s and retrying...');
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 more seconds
-          const retryProfile = await getCurrentUserProfile(true);
-          if (retryProfile && retryProfile.subscription_status) {
-            console.log('✅ Retry profile loaded with updated values:', retryProfile);
-            userProfile = retryProfile;
+          console.log('⚠️ Profile looks incomplete after signup, waiting and retrying until updated...');
+          
+          // Retry up to 5 times with increasing delays (2s, 2s, 2s, 2s, 2s = max 10s total)
+          let signupRetryCount = 0;
+          const maxSignupRetries = 5;
+          let updatedProfile = null;
+          
+          while (signupRetryCount < maxSignupRetries && !updatedProfile) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between retries
+            
+            const retryProfile = await getCurrentUserProfile(true);
+            signupRetryCount++;
+            
+            // Check if profile has been updated with subscription_status
+            // For free tier, subscription_status should be 'active'
+            // Also check if primary_track is set if it's a tier that requires it
+            if (retryProfile && retryProfile.subscription_status) {
+              // Profile has subscription_status - check if it's complete
+              const isComplete = retryProfile.subscription_status === 'active';
+              const tierRequiresTrack = retryProfile.subscription_tier === 'free' || retryProfile.subscription_tier === 'creator';
+              const hasRequiredTrack = !tierRequiresTrack || retryProfile.selected_primary_track;
+              
+              if (isComplete && hasRequiredTrack) {
+                console.log(`✅ Profile fully updated after signup (retry ${signupRetryCount}/${maxSignupRetries}):`, {
+                  tier: retryProfile.subscription_tier,
+                  status: retryProfile.subscription_status,
+                  primaryTrack: retryProfile.selected_primary_track,
+                });
+                updatedProfile = retryProfile;
+                break;
+              } else {
+                console.log(`⏳ Profile update in progress (retry ${signupRetryCount}/${maxSignupRetries})...`, {
+                  status: retryProfile.subscription_status,
+                  primaryTrack: retryProfile.selected_primary_track,
+                });
+              }
+            } else {
+              console.log(`⏳ Waiting for profile update (retry ${signupRetryCount}/${maxSignupRetries})...`);
+            }
+          }
+          
+          if (updatedProfile) {
+            userProfile = updatedProfile;
+          } else {
+            console.warn('⚠️ Profile update verification incomplete after signup, using current profile state');
           }
         }
         
