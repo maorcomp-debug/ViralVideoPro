@@ -94,15 +94,16 @@ export const useUserData = ({
       }
 
       // Load profile (force fresh fetch if forceRefresh is true)
-      const userProfile = await getCurrentUserProfile(forceRefresh);
+      // Add retry logic if profile not found (especially after signup)
+      let userProfile = await getCurrentUserProfile(forceRefresh);
+      let currentRetryCount = retryCount;
+      const maxRetries = 3;
       
-      // If profile not found and this is after signup, retry with delays (like clean app)
-      if (!userProfile && retryCount < 3) {
-        console.log(`[loadUserData] Profile not found, retrying... (${retryCount + 1}/3)`);
-        setTimeout(() => {
-          loadUserData(currentUser, forceRefresh, retryCount + 1);
-        }, 1000 * (retryCount + 1)); // 1s, 2s, 3s delays
-        return;
+      while (!userProfile && currentRetryCount < maxRetries) {
+        console.log(`[loadUserData] Profile not found, retrying... (${currentRetryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (currentRetryCount + 1))); // 1s, 2s, 3s delays
+        userProfile = await getCurrentUserProfile(true); // Force refresh on retry
+        currentRetryCount++;
       }
       
       console.log('📋 Profile loaded:', {
