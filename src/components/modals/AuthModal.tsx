@@ -412,45 +412,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
-          // Profile will be created by trigger - no need to wait or check immediately
-          // The profile check will happen in loadUserData after auth state changes
-
-          // For test accounts, update subscription_tier immediately
-          if (isTestAccount && data.user.id) {
-            try {
-              const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ subscription_tier: testPackageTier })
-                .eq('user_id', data.user.id);
-              
-              if (updateError) {
-                console.error('Error updating test account subscription tier:', updateError);
-                // Continue anyway - user can update manually
-              } else {
-                console.log(`✅ Test account subscription tier set to: ${testPackageTier}`);
-              }
-            } catch (err) {
-              console.error('Error updating test account profile:', err);
-              // Continue anyway
-            }
-          }
-
-          // Apply coupon if provided
-          if (couponCode.trim() && couponValid?.valid && data.user.id) {
-            try {
-              await redeemCoupon(couponCode.trim(), data.user.id);
-              console.log('✅ Coupon redeemed successfully');
-            } catch (couponError: any) {
-              console.error('Error redeeming coupon:', couponError);
-              // Don't block registration if coupon fails - user is already created
-              // Show warning but continue
-              alert(`נרשמת בהצלחה, אך היה בעיה בשימוש בקוד הקופון: ${couponError.message}. אנא פנה לתמיכה.`);
-            }
-          }
-
-          // CRITICAL: Update profile with selected tier and track IMMEDIATELY after signup
-          // This must happen BEFORE onAuthStateChange triggers loadUserData
-          // Otherwise loadUserData will load the old profile without the selected settings
+          // CRITICAL: Update profile IMMEDIATELY before onAuthStateChange triggers loadUserData
+          // This must happen BEFORE any other async operations
+          // Update profile first, then handle other things (test accounts, coupons, etc.)
           if (data.user.id) {
             try {
               const profileUpdate: any = {
@@ -496,12 +460,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 tier: selectedTier,
                 track: selectedTrack,
               });
+              
+              // Small delay to ensure update is committed before loadUserData runs
+              await new Promise(resolve => setTimeout(resolve, 300));
             } catch (profileError) {
               console.error('❌ Critical error updating profile after signup:', profileError);
               // Don't continue if profile update failed - user needs correct settings
               setError('שגיאה בעדכון הפרופיל. אנא נסה שוב או פנה לתמיכה.');
               setLoading(false);
               return;
+            }
+          }
+
+          // Handle test accounts and coupons AFTER profile update
+          if (isTestAccount && data.user.id) {
+            try {
+              const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ subscription_tier: testPackageTier })
+                .eq('user_id', data.user.id);
+              
+              if (updateError) {
+                console.error('Error updating test account subscription tier:', updateError);
+              } else {
+                console.log(`✅ Test account subscription tier set to: ${testPackageTier}`);
+              }
+            } catch (err) {
+              console.error('Error updating test account profile:', err);
+            }
+          }
+
+          // Apply coupon if provided
+          if (couponCode.trim() && couponValid?.valid && data.user.id) {
+            try {
+              await redeemCoupon(couponCode.trim(), data.user.id);
+              console.log('✅ Coupon redeemed successfully');
+            } catch (couponError: any) {
+              console.error('Error redeeming coupon:', couponError);
+              alert(`נרשמת בהצלחה, אך היה בעיה בשימוש בקוד הקופון: ${couponError.message}. אנא פנה לתמיכה.`);
             }
           }
 
