@@ -334,11 +334,27 @@ export async function isAdmin(): Promise<boolean> {
       return false;
     }
 
-    const { data: profile, error } = await supabase
+    // Query profiles with timeout to prevent hanging
+    // The RLS policies should allow this query since we're querying the current user's profile
+    // Use Promise.race with a timeout to prevent infinite waiting
+    const profileQuery = supabase
       .from('profiles')
       .select('role')
       .eq('user_id', user.id)
       .maybeSingle();
+
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+      setTimeout(() => resolve({ data: null, error: { message: 'Timeout' } }), 5000); // 5 second timeout
+    });
+
+    const result = await Promise.race([profileQuery, timeoutPromise]);
+
+    if (result.error && result.error.message === 'Timeout') {
+      console.error('❌ isAdmin: Query timed out after 5 seconds');
+      return false;
+    }
+
+    const { data: profile, error } = result as any;
 
     if (error) {
       console.error('❌ isAdmin: Error checking admin status:', error);
@@ -346,7 +362,6 @@ export async function isAdmin(): Promise<boolean> {
     }
 
     const isAdminUser = profile?.role === 'admin';
-    
     return isAdminUser;
   } catch (error) {
     console.error('❌ isAdmin: Exception:', error);
