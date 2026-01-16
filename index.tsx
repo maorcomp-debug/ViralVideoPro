@@ -365,9 +365,10 @@ const App = () => {
         try {
           // CRITICAL: Wait for trigger/updates to complete before loading data
           // This is especially important after SIGNED_IN when profile was just updated
-          // Based on clean app: delay of 1500ms for SIGNED_IN, 500ms for TOKEN_REFRESHED
+          // AuthModal takes ~5-6 seconds to complete profile update (verify + polling + delays)
+          // So we need to wait longer to ensure profile is fully updated before loading
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            const delay = event === 'SIGNED_IN' ? 1500 : 500;
+            const delay = event === 'SIGNED_IN' ? 5000 : 500; // 5 seconds for SIGNED_IN to allow AuthModal to complete
             console.log(`[Auth] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
@@ -460,6 +461,24 @@ const App = () => {
         new URLSearchParams(window.location.search).get('upgrade') === 'success';
       
       if (userProfile) {
+        // After SIGNED_IN with forceRefresh, verify profile has been updated (not just default free tier)
+        // If profile still has default values after signup, it might not be updated yet
+        // Check if this looks like a fresh signup (no subscription_status or null tier)
+        const isLikelyFreshSignup = forceRefresh && 
+                                    !userProfile.subscription_status && 
+                                    (!userProfile.selected_primary_track || userProfile.subscription_tier === 'free');
+        
+        // If this is after SIGNED_IN and profile looks incomplete, wait a bit more and retry
+        if (isLikelyFreshSignup && retryCount === 0) {
+          console.log('⚠️ Profile looks incomplete after signup, waiting 2s and retrying...');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 more seconds
+          const retryProfile = await getCurrentUserProfile(true);
+          if (retryProfile && retryProfile.subscription_status) {
+            console.log('✅ Retry profile loaded with updated values:', retryProfile);
+            userProfile = retryProfile;
+          }
+        }
+        
         setProfile(userProfile);
         // Reset the log flag when profile is loaded
         profileNotLoadedLoggedRef.current = false;
