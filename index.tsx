@@ -454,47 +454,14 @@ const App = () => {
       // User has paid subscription if either subscription record exists OR profile shows active paid tier
       const hasPaidSubscription = hasSubscriptionRecord || hasActivePaidProfile;
       
-      // Check if user needs to select a package/track (new user without selected_primary_track)
-      // Only show if:
-      // 1. User is logged in and profile exists
-      // 2. No primary track selected
-      // 3. User has free tier OR no paid subscription (paid tiers should have tracks set automatically)
-      // 4. Hasn't shown modal yet
-      const isFreeTier = userTier === 'free';
-      const needsTrackSelection = !userProfile?.selected_primary_track;
-      
-      // Don't show package selection if user has a paid subscription (they already paid)
-      if (hasPaidSubscription) {
-        console.log('✅ User has paid subscription, skipping package selection modal', {
-          hasSubscriptionRecord,
-          hasActivePaidProfile,
-          userTier,
-          profileStatus: profileStatusCheck,
-        });
-        // If they have paid subscription but no tracks, show UpgradeBenefitsModal to let them choose tracks
-        // This can happen if user skipped track selection or modal didn't open after payment
-        if (needsTrackSelection && userTier === 'creator' && userProfile) {
-          console.warn('⚠️ Paid subscription user (creator) without tracks - showing UpgradeBenefitsModal to select tracks');
-          // Show UpgradeBenefitsModal for creator tier users without tracks
-          setUpgradeFromTier('free');
-          setUpgradeToTier('creator');
-          setShowUpgradeBenefitsModal(true);
-        } else if (needsTrackSelection) {
-          console.warn('⚠️ Paid subscription user without tracks - tracks should be set automatically after payment');
-        }
-      } else if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && isFreeTier) {
-        // Show package selection first for new users with free tier
-        setHasShownPackageModal(true);
-        setShowPackageSelectionModal(true);
-      } else if (userProfile && needsTrackSelection && currentUser && !hasShownPackageModal && !isFreeTier && !hasPaidSubscription) {
-        // For paid tiers without tracks and without subscription, this shouldn't happen
-        console.warn('⚠️ Paid tier user without tracks and without subscription - this should not happen', {
-          userTier,
-          profileStatus: profileStatusCheck,
-          hasSubscriptionRecord,
-          hasActivePaidProfile,
-        });
-      }
+      // DISABLED: Package and track selection modals after signup
+      // User already selected package and track during registration
+      // These modals were causing issues with immediate login flow
+      // const isFreeTier = userTier === 'free';
+      // const needsTrackSelection = !userProfile?.selected_primary_track;
+      // 
+      // All package and track selection is now handled during registration in AuthModal
+      // No need to show modals after login - user enters directly with selected settings
 
       // Check if user is admin
       const adminStatus = await isAdmin();
@@ -2590,9 +2557,10 @@ const App = () => {
         <Header>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
           <AppLogo />
-          {/* Upgrade completion message - shown after logout, as notification bar at top of browser */}
-          {/* Show when pending_package_upgrade flag is set AND user is NOT logged in */}
-          {typeof window !== 'undefined' && !user && localStorage.getItem('pending_package_upgrade') === 'true' && (
+          {/* DISABLED: Upgrade completion message popup */}
+          {/* This popup was causing issues with immediate login flow after registration */}
+          {/* User now enters directly with selected package and settings */}
+          {/* {typeof window !== 'undefined' && !user && localStorage.getItem('pending_package_upgrade') === 'true' && (
             <div style={{ 
               position: 'fixed',
               top: 0,
@@ -2648,7 +2616,7 @@ const App = () => {
                 </button>
               </div>
             </div>
-          )}
+          )} */}
             {user ? (
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
