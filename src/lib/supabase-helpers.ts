@@ -367,7 +367,7 @@ export async function isAdmin(): Promise<boolean> {
       const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
         setTimeout(() => {
           resolve({ data: null, error: { message: 'Timeout' } });
-        }, 2000); // 2 second timeout
+        }, 3000); // 3 second timeout (increased to handle slow DB)
       });
 
       const result = await Promise.race([rpcQuery, timeoutPromise]);

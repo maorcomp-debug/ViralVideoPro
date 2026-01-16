@@ -365,10 +365,11 @@ const App = () => {
         try {
           // CRITICAL: Wait for trigger/updates to complete before loading data
           // This is especially important after SIGNED_IN when profile was just updated
-          // AuthModal takes ~5-6 seconds to complete profile update (verify + polling + delays)
-          // So we need to wait longer to ensure profile is fully updated before loading
+          // For sign-in (existing user), short delay is enough (1500ms)
+          // For sign-up (new user), AuthModal takes ~5-6 seconds, but we handle that in AuthModal itself
+          // So we use shorter delay here and let AuthModal handle the longer wait for signup
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            const delay = event === 'SIGNED_IN' ? 5000 : 500; // 5 seconds for SIGNED_IN to allow AuthModal to complete
+            const delay = event === 'SIGNED_IN' ? 1500 : 500; // 1.5 seconds for SIGNED_IN (sign-in or sign-up)
             console.log(`[Auth] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
