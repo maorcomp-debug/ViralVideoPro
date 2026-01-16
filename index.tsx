@@ -381,12 +381,10 @@ const App = () => {
           // For sign-up (new user), AuthModal takes ~5-6 seconds, but we handle that in AuthModal itself
           // So we use shorter delay here and let AuthModal handle the longer wait for signup
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            // For SIGNED_IN, wait longer (6s) to give AuthModal time to complete profile updates
-            // AuthModal takes ~5-6 seconds to complete all updates (profile update + verification + polling + 1.5s wait)
-            // We need to wait long enough to let AuthModal finish before loadUserData runs
-            // VERSION: 2.1 - Increased delay to 6s to ensure AuthModal completes updates before loading
-            const delay = event === 'SIGNED_IN' ? 6000 : 500; // 6 seconds for SIGNED_IN (sign-in or sign-up)
-            console.log(`[Auth v2.1] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
+            // Short delay for both - AuthModal now updates profile immediately (no polling/verification delays)
+            // VERSION: 2.2 - Simplified AuthModal, so short delay is enough (like login)
+            const delay = 500; // 500ms for both SIGNED_IN and TOKEN_REFRESHED (same as login)
+            console.log(`[Auth v2.2] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
           
@@ -488,21 +486,19 @@ const App = () => {
           (userProfile.subscription_tier === 'creator' && !userProfile.selected_primary_track)
         );
         
-        // If this is after SIGNED_IN and profile looks incomplete, wait longer and retry multiple times
-        // AuthModal takes ~7-8 seconds to complete all updates (profile update + verification + polling + wait)
-        // VERSION: 2.1 - Improved delay (6s) and retry logic (8 retries) to ensure AuthModal completes
+        // If this is after SIGNED_IN and profile looks incomplete, retry a few times
+        // AuthModal now updates profile immediately (no delays), so retries should be quick
+        // VERSION: 2.2 - Simplified retry logic (3 retries) since AuthModal is fast now
         if (isLikelyFreshSignup && retryCount === 0) {
-          console.log('⚠️ [v2.0] Profile looks incomplete after signup, waiting and retrying until updated...');
+          console.log('⚠️ [v2.2] Profile looks incomplete after signup, retrying...');
           
-          // Retry up to 8 times with 1.5s delays (total max ~12s) to ensure AuthModal completes
-          // AuthModal takes ~7-8 seconds total (update + verification + polling + wait)
-          // So we wait 6s initial + up to 12s retry = max 18s total to ensure completion
+          // Retry up to 3 times with 500ms delays (total max ~1.5s) - AuthModal is fast now
           let signupRetryCount = 0;
-          const maxSignupRetries = 8;
+          const maxSignupRetries = 3;
           let updatedProfile = null;
           
           while (signupRetryCount < maxSignupRetries && !updatedProfile) {
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5 seconds between retries
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between retries
             
             const retryProfile = await getCurrentUserProfile(true);
             signupRetryCount++;
@@ -517,7 +513,7 @@ const App = () => {
               const hasRequiredTrack = !tierRequiresTrack || retryProfile.selected_primary_track;
               
               if (isComplete && hasRequiredTrack) {
-                console.log(`✅ [v2.0] Profile fully updated after signup (retry ${signupRetryCount}/${maxSignupRetries}):`, {
+                console.log(`✅ [v2.2] Profile fully updated after signup (retry ${signupRetryCount}/${maxSignupRetries}):`, {
                   tier: retryProfile.subscription_tier,
                   status: retryProfile.subscription_status,
                   primaryTrack: retryProfile.selected_primary_track,
@@ -525,13 +521,13 @@ const App = () => {
                 updatedProfile = retryProfile;
                 break;
               } else {
-                console.log(`⏳ [v2.0] Profile update in progress (retry ${signupRetryCount}/${maxSignupRetries})...`, {
+                console.log(`⏳ [v2.2] Profile update in progress (retry ${signupRetryCount}/${maxSignupRetries})...`, {
                   status: retryProfile.subscription_status,
                   primaryTrack: retryProfile.selected_primary_track,
                 });
               }
             } else {
-              console.log(`⏳ [v2.0] Waiting for profile update (retry ${signupRetryCount}/${maxSignupRetries})...`);
+              console.log(`⏳ [v2.2] Waiting for profile update (retry ${signupRetryCount}/${maxSignupRetries})...`);
             }
           }
           

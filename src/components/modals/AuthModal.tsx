@@ -481,10 +481,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 profileUpdate.selected_primary_track = 'actors'; // Default primary track
               }
 
-              // CRITICAL: Update profile IMMEDIATELY and wait for it to complete
-              // This must happen BEFORE onAuthStateChange triggers loadUserData
-              // onAuthStateChange is called asynchronously by Supabase, but we need to ensure
-              // the profile is updated before it loads
+              // Update profile immediately - simple and fast like login
               const { error: profileUpdateError } = await supabase
                 .from('profiles')
                 .update(profileUpdate)
@@ -492,101 +489,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               if (profileUpdateError) {
                 console.error('❌ Error updating profile after signup:', profileUpdateError);
-                throw profileUpdateError; // Throw to prevent continuing with old profile
+                throw profileUpdateError;
               }
               
               console.log('✅ Profile updated with selected tier and settings:', {
                 tier: selectedTier,
                 track: selectedTrack,
-                profileUpdate,
               });
-              
-              // CRITICAL: Verify the update was saved with retries to ensure DB consistency
-              // onAuthStateChange may fire while we're updating, so we need to ensure it's done
-              let verifiedProfile = null;
-              let verifyError = null;
-              for (let attempt = 0; attempt < 3; attempt++) {
-                if (attempt > 0) {
-                  await new Promise(resolve => setTimeout(resolve, 200 * attempt)); // 200ms, 400ms delays
-                }
-                
-                const { data: verified, error: err } = await supabase
-                  .from('profiles')
-                  .select('subscription_tier, selected_primary_track, selected_tracks, subscription_status')
-                  .eq('user_id', data.user.id)
-                  .single();
-                
-                if (!err && verified) {
-                  verifiedProfile = verified;
-                  verifyError = null;
-                  break;
-                }
-                verifyError = err;
-              }
-              
-              if (!verifiedProfile) {
-                console.error('❌ Could not verify profile update after 3 attempts:', verifyError);
-                throw new Error('Profile update verification failed');
-              }
-              
-              if (verifiedProfile.subscription_tier !== selectedTier || 
-                  (tierRequiresTrack(selectedTier) && verifiedProfile.selected_primary_track !== selectedTrack)) {
-                console.error('❌ Profile update verification failed - values do not match:', {
-                  expected: { tier: selectedTier, track: selectedTrack },
-                  actual: verifiedProfile,
-                });
-                throw new Error('Profile update verification failed - values mismatch');
-              }
-              
-              console.log('✅ Profile update verified successfully:', verifiedProfile);
-              
-              // CRITICAL: Poll to ensure profile is fully updated and accessible
-              // Based on clean app - poll up to 6 times with 500ms delays
-              let profileFullyUpdated = false;
-              for (let pollAttempt = 0; pollAttempt < 6; pollAttempt++) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                const { data: polledProfile, error: pollError } = await supabase
-                  .from('profiles')
-                  .select('subscription_tier, subscription_status, selected_primary_track, selected_tracks')
-                  .eq('user_id', data.user.id)
-                  .single();
-                
-                if (!pollError && polledProfile) {
-                  // Verify all critical fields are set correctly
-                  if (polledProfile.subscription_tier === selectedTier && 
-                      polledProfile.subscription_status === 'active' &&
-                      (!tierRequiresTrack(selectedTier) || polledProfile.selected_primary_track === selectedTrack)) {
-                    profileFullyUpdated = true;
-                    console.log(`✅ Profile fully updated and verified (attempt ${pollAttempt + 1}/6):`, polledProfile);
-                    break;
-                  } else {
-                    console.log(`⏳ Profile update in progress (attempt ${pollAttempt + 1}/6)...`, polledProfile);
-                  }
-                } else {
-                  console.warn(`⚠️ Profile poll error (attempt ${pollAttempt + 1}/6):`, pollError);
-                }
-              }
-              
-              if (!profileFullyUpdated) {
-                console.warn('⚠️ Profile update verification incomplete after 6 attempts, but continuing...');
-              }
-              
-              // One more verification to ensure the status is set correctly
-              const { data: finalCheck } = await supabase
-                .from('profiles')
-                .select('subscription_status, subscription_tier')
-                .eq('user_id', data.user.id)
-                .single();
-              
-              if (finalCheck && finalCheck.subscription_status !== 'active' && selectedTier === 'free') {
-                // For free tier, ensure status is set to active
-                await supabase
-                  .from('profiles')
-                  .update({ subscription_status: 'active' })
-                  .eq('user_id', data.user.id);
-                console.log('✅ Ensured subscription_status is active for free tier');
-              }
             } catch (profileError) {
               console.error('❌ Critical error updating profile after signup:', profileError);
               // Don't continue if profile update failed - user needs correct settings
@@ -620,26 +529,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
           }
           
-          // Profile update is now complete and verified above
-          // onAuthStateChange may have already triggered and loaded old profile data
-          // We need to call onAuthSuccess which will force reload the updated profile
-          
-          // User stays logged in and enters directly with the selected package
-          console.log('✅ Registration completed (email confirmation disabled). User logged in with selected package:', selectedTier);
-          
-          // CRITICAL: Wait additional time to ensure all DB updates are committed
-          // Based on clean app - wait 1500ms before triggering reload
-          console.log('⏳ Waiting 1500ms for all DB updates to complete before reloading...');
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          // Profile update complete - call onAuthSuccess immediately (like login)
+          console.log('✅ Registration completed. User logged in with selected package:', selectedTier);
           
           alert('נרשמת בהצלחה!');
           
-          // Call onAuthSuccess which will force reload user data with updated profile
-          // This ensures we have the latest profile data even if onAuthStateChange loaded old data
+          // Call onAuthSuccess to reload user data with updated profile
           onAuthSuccess();
-          
-          // Wait a moment for the reload to complete before closing modal
-          await new Promise(resolve => setTimeout(resolve, 500));
           
           onClose();
         } else {
