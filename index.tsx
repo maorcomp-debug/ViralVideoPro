@@ -422,10 +422,19 @@ const App = () => {
         new URLSearchParams(window.location.search).get('upgrade') === 'success';
       
       if (userProfile) {
-      setProfile(userProfile);
+        setProfile(userProfile);
+        // Reset the log flag when profile is loaded
+        profileNotLoadedLoggedRef.current = false;
+        console.log('✅ Profile loaded successfully:', {
+          tier: userProfile.subscription_tier,
+          primaryTrack: userProfile.selected_primary_track,
+          tracks: userProfile.selected_tracks,
+          subscriptionStatus: userProfile.subscription_status,
+        });
       } else if (!isUpgradeFlow) {
         // Only clear profile if not in upgrade flow (might be loading)
         setProfile(null);
+        console.warn('⚠️ Profile not found for user');
       }
 
       // Load subscription first to check if user has paid subscription
@@ -1054,6 +1063,9 @@ const App = () => {
     return plan.limits.features[feature];
   };
 
+  // Track if we've already logged the "profile not loaded" message to prevent spam
+  const profileNotLoadedLoggedRef = useRef(false);
+  
   // Check if a track is available for the current user (for usage, not display)
   const isTrackAvailable = (trackId: TrackId): boolean => {
     // If no user logged in, allow viewing but not using
@@ -1063,9 +1075,18 @@ const App = () => {
     if (user.email === 'viralypro@gmail.com') return true;
     
     // If profile or subscription haven't loaded yet, don't block tracks (wait for data to load)
+    // Only log once to prevent spam
     if (!profile || !subscription) {
-      console.log('⏳ Profile or subscription not loaded yet, allowing track access temporarily');
+      if (!profileNotLoadedLoggedRef.current) {
+        console.log('⏳ Profile or subscription not loaded yet, allowing track access temporarily');
+        profileNotLoadedLoggedRef.current = true;
+      }
       return true; // Don't show restrictions until data is loaded
+    }
+    
+    // Reset the log flag once profile is loaded
+    if (profileNotLoadedLoggedRef.current) {
+      profileNotLoadedLoggedRef.current = false;
     }
 
     // Coach track always requires traineeManagement feature
@@ -1074,21 +1095,15 @@ const App = () => {
     }
 
     const tier = subscription.tier;
-    
-    console.log('🔍 Checking track availability:', {
-      trackId,
-      tier,
-      profileSelectedPrimaryTrack: profile.selected_primary_track,
-      profileSelectedTracks: profile.selected_tracks,
-    });
 
     // Free tier: only selected_primary_track is available
     if (tier === 'free') {
       const isAvailable = trackId === profile.selected_primary_track;
       if (!isAvailable) {
-        console.log('❌ Track not available for free tier:', {
+        console.warn('❌ Track not available for free tier:', {
           trackId,
           selectedPrimaryTrack: profile.selected_primary_track,
+          profileTracks: profile.selected_tracks,
         });
       }
       return isAvailable;
@@ -1099,7 +1114,7 @@ const App = () => {
       const selectedTracks = profile.selected_tracks || [];
       const isAvailable = selectedTracks.includes(trackId);
       if (!isAvailable) {
-        console.log('❌ Track not available for creator tier:', {
+        console.warn('❌ Track not available for creator tier:', {
           trackId,
           selectedTracks,
         });
