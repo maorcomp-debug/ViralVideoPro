@@ -558,8 +558,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           console.log('✅ Registration completed (email confirmation disabled). User logged in with selected package:', selectedTier);
           alert('נרשמת בהצלחה!');
           
-          // Wait a bit more for auth state to sync across the app
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Wait for auth state to sync and profile to be loaded
+          // onAuthStateChange will trigger loadUserData with forceRefresh=true
+          // Give it time to complete before closing modal
+          await new Promise(resolve => setTimeout(resolve, 1500));
           
           onAuthSuccess();
           onClose();

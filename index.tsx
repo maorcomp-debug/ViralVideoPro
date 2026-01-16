@@ -357,7 +357,9 @@ const App = () => {
         try {
           // Force refresh after signup/signin to ensure latest profile data is loaded
           // This is especially important after registration when profile was just updated
+          // Always force refresh on SIGNED_IN to ensure fresh data after registration
           const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED';
+          console.log('🔄 Auth state changed:', { event, shouldForceRefresh, userId: session.user.id });
           await loadUserData(session.user, shouldForceRefresh);
         } catch (err) {
           console.error('Error loading user data in auth state change:', err);
@@ -428,16 +430,20 @@ const App = () => {
         setProfile(userProfile);
         // Reset the log flag when profile is loaded
         profileNotLoadedLoggedRef.current = false;
+        // Always log profile load to help debug
         console.log('✅ Profile loaded successfully:', {
           tier: userProfile.subscription_tier,
           primaryTrack: userProfile.selected_primary_track,
           tracks: userProfile.selected_tracks,
           subscriptionStatus: userProfile.subscription_status,
         });
-      } else if (!isUpgradeFlow) {
-        // Only clear profile if not in upgrade flow (might be loading)
-        setProfile(null);
-        console.warn('⚠️ Profile not found for user');
+      } else {
+        // Profile not found - this shouldn't happen for registered users
+        // But don't clear profile if we're in upgrade flow (might be loading)
+        if (!isUpgradeFlow) {
+          setProfile(null);
+          console.warn('⚠️ Profile not found for user - this may cause issues');
+        }
       }
 
       // Load subscription first to check if user has paid subscription
@@ -1070,14 +1076,14 @@ const App = () => {
     // Admin email gets all tracks
     if (user.email === 'viralypro@gmail.com') return true;
     
-    // If profile or subscription haven't loaded yet, don't block tracks (wait for data to load)
-    // Only log once to prevent spam
+    // If profile or subscription haven't loaded yet, show restrictions (don't allow access)
+    // This prevents showing all tracks as available before data loads
     if (!profile || !subscription) {
       if (!profileNotLoadedLoggedRef.current) {
-        console.log('⏳ Profile or subscription not loaded yet, allowing track access temporarily');
+        console.log('⏳ Profile or subscription not loaded yet, showing restrictions until data loads');
         profileNotLoadedLoggedRef.current = true;
       }
-      return true; // Don't show restrictions until data is loaded
+      return false; // Show restrictions until data is loaded
     }
     
     // Reset the log flag once profile is loaded
