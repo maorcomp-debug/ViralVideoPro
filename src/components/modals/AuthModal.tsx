@@ -577,18 +577,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }
           
           // Profile update is now complete and verified above
-          // Now sign in if needed - this will trigger onAuthStateChange which should load the updated profile
+          // onAuthStateChange may have already triggered and loaded old profile data
+          // We need to call onAuthSuccess which will force reload the updated profile
           
           // User stays logged in and enters directly with the selected package
-          // Profile is already updated and verified, so onAuthStateChange will load the correct data
           console.log('✅ Registration completed (email confirmation disabled). User logged in with selected package:', selectedTier);
           alert('נרשמת בהצלחה!');
           
-          // Wait a moment for onAuthStateChange to trigger and loadUserData to complete
-          // The profile is already updated and verified, so loadUserData should load the correct data
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
+          // Call onAuthSuccess which will force reload user data with updated profile
+          // This ensures we have the latest profile data even if onAuthStateChange loaded old data
           onAuthSuccess();
+          
+          // Wait a moment for the reload to complete before closing modal
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
           onClose();
         } else {
           console.error('❌ User creation failed - no user data returned');

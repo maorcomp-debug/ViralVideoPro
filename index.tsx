@@ -3534,8 +3534,14 @@ const App = () => {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        onAuthSuccess={() => {
-          // Auth state will be updated via onAuthStateChange
+        onAuthSuccess={async () => {
+          // After registration, profile is updated but onAuthStateChange may have already loaded old data
+          // Force reload user data to ensure we have the latest profile with updated settings
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (currentUser) {
+            console.log('🔄 Force reloading user data after registration to get updated profile');
+            await loadUserData(currentUser, true); // forceRefresh = true
+          }
         }}
       />
       
