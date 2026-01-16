@@ -1,9 +1,20 @@
 -- ============================================
 -- UPDATE PROFILE TRIGGER TO USE SIGNUP METADATA
 -- ============================================
--- This migration updates the handle_new_user function to create profiles
--- with the correct tier and track from signup metadata, eliminating the
--- need for a separate profile update after signup.
+-- ⚠️⚠️⚠️ CRITICAL - DO NOT MODIFY THIS FUNCTION ⚠️⚠️⚠️
+-- 
+-- This migration FIXES the signup race condition issue that took many efforts to solve.
+-- The trigger creates profiles with correct values from signup metadata IMMEDIATELY,
+-- eliminating the need for separate profile updates after signup.
+--
+-- PROBLEM SOLVED: Profile was created with default values, then updated later,
+-- causing race condition where loadUserData loaded incomplete profile.
+-- SOLUTION: Trigger reads metadata (signup_tier, signup_primary_track) and creates
+-- profile with all correct values from the start.
+--
+-- ⚠️ DO NOT MODIFY THIS FUNCTION - IT SOLVES A CRITICAL RACE CONDITION ⚠️
+-- Date fixed: 2026-01-16
+-- Status: WORKING - DO NOT TOUCH
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
