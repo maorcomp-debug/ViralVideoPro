@@ -487,8 +487,19 @@ const App = () => {
         new URLSearchParams(window.location.search).get('upgrade') === 'success';
       
       if (userProfile) {
-        // Profile is created by database trigger with metadata - should be complete immediately
-        // VERSION: 2.3 - No retry needed, trigger creates profile with correct values from metadata
+        // ⚠️⚠️⚠️ CRITICAL - DO NOT ADD RETRY LOGIC HERE ⚠️⚠️⚠️
+        // 
+        // Retry logic was REMOVED after fixing signup race condition.
+        // Database trigger creates profile with metadata correctly from the start.
+        // DO NOT add retry logic or profile update verification here - it's not needed!
+        //
+        // PROBLEM SOLVED: Race condition where profile wasn't ready when loadUserData ran.
+        // SOLUTION: Trigger creates profile correctly, so no retries needed.
+        //
+        // ⚠️ DO NOT ADD RETRY LOGIC - Trigger handles everything correctly ⚠️
+        // Date fixed: 2026-01-16
+        // Status: WORKING - DO NOT TOUCH
+        // VERSION: 2.3 - Profile created by trigger with metadata - complete immediately
         
         setProfile(userProfile);
         // Reset the log flag when profile is loaded

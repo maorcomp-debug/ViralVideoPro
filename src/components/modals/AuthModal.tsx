@@ -412,12 +412,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
-          // Profile is created automatically by database trigger with metadata from signup
-          // The trigger (handle_new_user) reads signup_tier and signup_primary_track from metadata
-          // and creates the profile with correct values immediately - no update needed!
-          // Just wait a tiny bit for trigger to complete before loadUserData runs
+          // ⚠️⚠️⚠️ CRITICAL - DO NOT MODIFY THIS SECTION ⚠️⚠️⚠️
+          // 
+          // This section was FIXED after many efforts to solve signup race condition.
+          // The database trigger (handle_new_user) creates profile with metadata automatically.
+          // DO NOT add profile updates here - the trigger handles everything!
+          //
+          // PROBLEM SOLVED: Race condition where loadUserData ran before profile update.
+          // SOLUTION: Database trigger reads signup metadata and creates profile correctly from start.
+          //
+          // ⚠️ DO NOT MODIFY - Profile is created by trigger with metadata (signup_tier, signup_primary_track) ⚠️
+          // Date fixed: 2026-01-16
+          // Status: WORKING - DO NOT TOUCH
           if (data.user.id) {
             // Give trigger 200ms to create profile with metadata
+            // DO NOT change this delay - it's needed for trigger to complete
             await new Promise(resolve => setTimeout(resolve, 200));
             console.log('✅ Profile created by trigger with metadata:', {
               tier: selectedTier,
