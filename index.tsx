@@ -381,11 +381,12 @@ const App = () => {
           // For sign-up (new user), AuthModal takes ~5-6 seconds, but we handle that in AuthModal itself
           // So we use shorter delay here and let AuthModal handle the longer wait for signup
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            // For SIGNED_IN, wait longer (3s) to give AuthModal time to complete profile updates
-            // AuthModal takes ~5-6 seconds to complete all updates, so 3s initial delay + retry logic handles it
-            // VERSION: 2.0 - Increased delay to 3s and improved retry logic
-            const delay = event === 'SIGNED_IN' ? 3000 : 500; // 3 seconds for SIGNED_IN (sign-in or sign-up)
-            console.log(`[Auth v2.0] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
+            // For SIGNED_IN, wait longer (6s) to give AuthModal time to complete profile updates
+            // AuthModal takes ~5-6 seconds to complete all updates (profile update + verification + polling + 1.5s wait)
+            // We need to wait long enough to let AuthModal finish before loadUserData runs
+            // VERSION: 2.1 - Increased delay to 6s to ensure AuthModal completes updates before loading
+            const delay = event === 'SIGNED_IN' ? 6000 : 500; // 6 seconds for SIGNED_IN (sign-in or sign-up)
+            console.log(`[Auth v2.1] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
           
@@ -488,18 +489,20 @@ const App = () => {
         );
         
         // If this is after SIGNED_IN and profile looks incomplete, wait longer and retry multiple times
-        // AuthModal takes ~5-6 seconds to complete all updates (profile update + verification + polling)
-        // VERSION: 2.0 - New retry logic with proper detection and multiple retries
+        // AuthModal takes ~7-8 seconds to complete all updates (profile update + verification + polling + wait)
+        // VERSION: 2.1 - Improved delay (6s) and retry logic (8 retries) to ensure AuthModal completes
         if (isLikelyFreshSignup && retryCount === 0) {
           console.log('⚠️ [v2.0] Profile looks incomplete after signup, waiting and retrying until updated...');
           
-          // Retry up to 5 times with increasing delays (2s, 2s, 2s, 2s, 2s = max 10s total)
+          // Retry up to 8 times with 1.5s delays (total max ~12s) to ensure AuthModal completes
+          // AuthModal takes ~7-8 seconds total (update + verification + polling + wait)
+          // So we wait 6s initial + up to 12s retry = max 18s total to ensure completion
           let signupRetryCount = 0;
-          const maxSignupRetries = 5;
+          const maxSignupRetries = 8;
           let updatedProfile = null;
           
           while (signupRetryCount < maxSignupRetries && !updatedProfile) {
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between retries
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5 seconds between retries
             
             const retryProfile = await getCurrentUserProfile(true);
             signupRetryCount++;
