@@ -448,21 +448,64 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
           }
 
-          // Set initial track selection for ניסיון / יוצרים (other חבילות פתוחות לכל התחומים)
-          try {
-            if (tierRequiresTrack(selectedTier) && selectedTrack) {
-              await updateCurrentUserProfile({
-                selected_primary_track: selectedTrack,
-                selected_tracks: [selectedTrack],
-              });
+          // Update profile with selected tier and track immediately after signup
+          // This ensures the user enters with the correct package settings
+          if (data.user.id) {
+            try {
+              const profileUpdate: any = {
+                subscription_tier: selectedTier,
+                subscription_status: 'active',
+                subscription_start_date: new Date().toISOString(),
+              };
+
+              // Set subscription end date based on tier (free/creator have no end date, paid tiers have 30 days trial)
+              if (selectedTier === 'free' || selectedTier === 'creator') {
+                // Free and creator tiers don't expire
+                profileUpdate.subscription_end_date = null;
+              } else {
+                // Paid tiers get 30 days from signup
+                const endDate = new Date();
+                endDate.setDate(endDate.getDate() + 30);
+                profileUpdate.subscription_end_date = endDate.toISOString();
+                profileUpdate.subscription_period = 'monthly';
+              }
+
+              // Set track selection for ניסיון / יוצרים (other חבילות פתוחות לכל התחומים)
+              if (tierRequiresTrack(selectedTier) && selectedTrack) {
+                profileUpdate.selected_primary_track = selectedTrack;
+                profileUpdate.selected_tracks = [selectedTrack];
+              } else if (!tierRequiresTrack(selectedTier)) {
+                // For paid tiers, all tracks are open by default
+                profileUpdate.selected_tracks = ['actors', 'musicians', 'creators', 'influencers'];
+                profileUpdate.selected_primary_track = 'actors'; // Default primary track
+              }
+
+              // Update profile directly using Supabase (updateCurrentUserProfile doesn't support subscription fields)
+              const { error: profileUpdateError } = await supabase
+                .from('profiles')
+                .update(profileUpdate)
+                .eq('user_id', data.user.id);
+
+              if (profileUpdateError) {
+                console.error('Error updating profile after signup:', profileUpdateError);
+                // Don't block signup flow - user can still login and settings will be applied
+              } else {
+                console.log('✅ Profile updated with selected tier and settings:', {
+                  tier: selectedTier,
+                  track: selectedTrack,
+                  profileUpdate,
+                });
+              }
+            } catch (profileError) {
+              console.error('Error updating profile after signup:', profileError);
+              // Don't block signup flow - user can still login and settings will be applied
+              // The profile might be updated by trigger or on next login
             }
-          } catch (trackError) {
-            console.error('Error setting initial track on signup:', trackError);
-            // Don't block signup flow on this
           }
 
           // Email confirmation is DISABLED in this environment - login user immediately after signup
-          console.log('✅ Registration completed (email confirmation disabled). Logging user in immediately.');
+          // User stays logged in and enters directly with the selected package
+          console.log('✅ Registration completed (email confirmation disabled). User logged in with selected package:', selectedTier);
           alert('נרשמת בהצלחה!');
           onAuthSuccess();
           onClose();
