@@ -381,7 +381,9 @@ const App = () => {
           // For sign-up (new user), AuthModal takes ~5-6 seconds, but we handle that in AuthModal itself
           // So we use shorter delay here and let AuthModal handle the longer wait for signup
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            const delay = event === 'SIGNED_IN' ? 1500 : 500; // 1.5 seconds for SIGNED_IN (sign-in or sign-up)
+            // For SIGNED_IN, wait longer (3s) to give AuthModal time to complete profile updates
+            // AuthModal takes ~5-6 seconds to complete all updates, so 3s initial delay + retry logic handles it
+            const delay = event === 'SIGNED_IN' ? 3000 : 500; // 3 seconds for SIGNED_IN (sign-in or sign-up)
             console.log(`[Auth] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
@@ -476,10 +478,13 @@ const App = () => {
       if (userProfile) {
         // After SIGNED_IN with forceRefresh, verify profile has been updated (not just default free tier)
         // If profile still has default values after signup, it might not be updated yet
-        // Check if this looks like a fresh signup (no subscription_status or null tier)
-        const isLikelyFreshSignup = forceRefresh && 
-                                    !userProfile.subscription_status && 
-                                    (!userProfile.selected_primary_track || userProfile.subscription_tier === 'free');
+        // Check if this looks like a fresh signup (no subscription_status or missing required fields)
+        // For free/creator tiers, we need both subscription_status='active' AND selected_primary_track
+        const isLikelyFreshSignup = forceRefresh && (
+          !userProfile.subscription_status || 
+          (userProfile.subscription_tier === 'free' && !userProfile.selected_primary_track) ||
+          (userProfile.subscription_tier === 'creator' && !userProfile.selected_primary_track)
+        );
         
         // If this is after SIGNED_IN and profile looks incomplete, wait longer and retry multiple times
         // AuthModal takes ~5-6 seconds to complete all updates (profile update + verification + polling)
