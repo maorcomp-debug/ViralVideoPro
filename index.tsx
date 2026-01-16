@@ -383,8 +383,9 @@ const App = () => {
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             // For SIGNED_IN, wait longer (3s) to give AuthModal time to complete profile updates
             // AuthModal takes ~5-6 seconds to complete all updates, so 3s initial delay + retry logic handles it
+            // VERSION: 2.0 - Increased delay to 3s and improved retry logic
             const delay = event === 'SIGNED_IN' ? 3000 : 500; // 3 seconds for SIGNED_IN (sign-in or sign-up)
-            console.log(`[Auth] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
+            console.log(`[Auth v2.0] Waiting ${delay}ms for trigger/updates to complete before loading data...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
           
@@ -488,8 +489,9 @@ const App = () => {
         
         // If this is after SIGNED_IN and profile looks incomplete, wait longer and retry multiple times
         // AuthModal takes ~5-6 seconds to complete all updates (profile update + verification + polling)
+        // VERSION: 2.0 - New retry logic with proper detection and multiple retries
         if (isLikelyFreshSignup && retryCount === 0) {
-          console.log('⚠️ Profile looks incomplete after signup, waiting and retrying until updated...');
+          console.log('⚠️ [v2.0] Profile looks incomplete after signup, waiting and retrying until updated...');
           
           // Retry up to 5 times with increasing delays (2s, 2s, 2s, 2s, 2s = max 10s total)
           let signupRetryCount = 0;
@@ -512,7 +514,7 @@ const App = () => {
               const hasRequiredTrack = !tierRequiresTrack || retryProfile.selected_primary_track;
               
               if (isComplete && hasRequiredTrack) {
-                console.log(`✅ Profile fully updated after signup (retry ${signupRetryCount}/${maxSignupRetries}):`, {
+                console.log(`✅ [v2.0] Profile fully updated after signup (retry ${signupRetryCount}/${maxSignupRetries}):`, {
                   tier: retryProfile.subscription_tier,
                   status: retryProfile.subscription_status,
                   primaryTrack: retryProfile.selected_primary_track,
@@ -520,13 +522,13 @@ const App = () => {
                 updatedProfile = retryProfile;
                 break;
               } else {
-                console.log(`⏳ Profile update in progress (retry ${signupRetryCount}/${maxSignupRetries})...`, {
+                console.log(`⏳ [v2.0] Profile update in progress (retry ${signupRetryCount}/${maxSignupRetries})...`, {
                   status: retryProfile.subscription_status,
                   primaryTrack: retryProfile.selected_primary_track,
                 });
               }
             } else {
-              console.log(`⏳ Waiting for profile update (retry ${signupRetryCount}/${maxSignupRetries})...`);
+              console.log(`⏳ [v2.0] Waiting for profile update (retry ${signupRetryCount}/${maxSignupRetries})...`);
             }
           }
           
