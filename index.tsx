@@ -340,8 +340,20 @@ const App = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       
+      // Log auth state changes (matching clean app behavior)
+      console.log('[App] Auth state changed:', event, session?.user?.id);
+      
       // Update user state
       setUser(session?.user ?? null);
+      
+      // Handle INITIAL_SESSION event (when app first loads)
+      if (event === 'INITIAL_SESSION') {
+        if (!session?.user) {
+          console.log('[App] User logged out');
+        } else {
+          console.log('[App] User logged in:', { id: session.user.id, email: session.user.email });
+        }
+      }
       
       // If this is an email confirmation event, close other tabs/windows that might be showing old data
       if (event === 'SIGNED_IN' && session?.user) {
