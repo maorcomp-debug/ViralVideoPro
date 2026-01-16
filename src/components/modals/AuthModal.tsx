@@ -504,9 +504,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }
 
           // Email confirmation is DISABLED in this environment - login user immediately after signup
+          // If signUp didn't create a session (common when email confirmation is disabled), sign in immediately
+          let session = data.session;
+          if (!session && data.user) {
+            console.log('🔄 No session after signup, signing in automatically...');
+            try {
+              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+              });
+              
+              if (signInError) {
+                console.error('Error signing in after signup:', signInError);
+                // Continue anyway - user might still be logged in
+              } else if (signInData.session) {
+                session = signInData.session;
+                console.log('✅ Successfully signed in after signup');
+              }
+            } catch (signInErr) {
+              console.error('Exception during auto sign-in after signup:', signInErr);
+              // Continue anyway
+            }
+          }
+          
           // User stays logged in and enters directly with the selected package
           console.log('✅ Registration completed (email confirmation disabled). User logged in with selected package:', selectedTier);
           alert('נרשמת בהצלחה!');
+          
+          // Wait a moment for profile update to complete and auth state to sync
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           onAuthSuccess();
           onClose();
         } else {
