@@ -930,21 +930,21 @@ const App = () => {
         }
       }
 
-      // Close modals first
-      setShowSubscriptionModal(false);
-      setShowPackageSelectionModal(false);
-
-      // Reload user data to reflect changes (don't await - let it happen in background)
+      // Reload user data immediately to reflect changes
       if (user) {
         console.log('🔄 Reloading user data after subscription update...');
-        // Don't await - reload in background to avoid blocking
-        loadUserData(user, true).then(() => {
+        try {
+          await loadUserData(user, true);
           console.log('✅ User data reloaded successfully');
-        }).catch((reloadError) => {
+        } catch (reloadError) {
           console.error('⚠️ Error reloading user data:', reloadError);
-          // Don't block the success message if reload fails
-        });
+          // Continue even if reload fails - the update was successful
+        }
       }
+
+      // Close modals after reload
+      setShowSubscriptionModal(false);
+      setShowPackageSelectionModal(false);
 
       alert(`החבילה עודכנה בהצלחה ל-${SUBSCRIPTION_PLANS[tier]?.name || tier}`);
       
