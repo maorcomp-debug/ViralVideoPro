@@ -2834,32 +2834,49 @@ const App = () => {
             קבל ניתוח עומק, הערות מקצועיות וליווי עד לפריצה הגדולה.
           </Description>
           <Divider />
-          {!user && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!loggingOut && !loadingAuth) {
-                  setShowAuthModal(true);
-                }
-              }}
-              disabled={loggingOut || loadingAuth}
-              style={{
-                background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
-                border: 'none',
-                color: '#000',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: 700,
-                opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
-                cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
-                marginBottom: '20px',
-              }}
-            >
-              התחבר / הרשם
-            </button>
-          )}
+          <div style={{ minHeight: '48px', marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            {!user && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!loggingOut && !loadingAuth) {
+                    setShowAuthModal(true);
+                  }
+                }}
+                disabled={loggingOut || loadingAuth}
+                style={{
+                  background: 'linear-gradient(135deg, #b8862e 0%, #e6be74 50%, #b8862e 100%)',
+                  backgroundSize: '200% auto',
+                  border: 'none',
+                  color: '#000',
+                  padding: '12px 35px',
+                  borderRadius: '50px',
+                  fontSize: '1rem',
+                  fontFamily: 'Assistant, sans-serif',
+                  fontWeight: 700,
+                  opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
+                  cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 15px rgba(212, 160, 67, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!loggingOut && !loadingAuth) {
+                    e.currentTarget.style.backgroundPosition = 'right center';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(212, 160, 67, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundPosition = 'left center';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(212, 160, 67, 0.3)';
+                }}
+              >
+                🔒 התחבר / הרשם
+              </button>
+            )}
+          </div>
           <CTAButton onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
             העלה סרטון וקבל ניתוח מלא
           </CTAButton>
