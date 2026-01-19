@@ -222,6 +222,7 @@ const App = () => {
   const [usage, setUsage] = useState<{ analysesUsed: number; periodStart: Date; periodEnd: Date } | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isUpdatingSubscription, setIsUpdatingSubscription] = useState(false);
+  const updatingSubscriptionRef = useRef(false);
   
   // Calculate premium access based on subscription
   const hasPremiumAccess = subscription ? subscription.tier !== 'free' : false;
@@ -842,7 +843,7 @@ const App = () => {
 
   // Subscription Management Functions
   const handleSelectPlan = async (tier: SubscriptionTier, period: BillingPeriod) => {
-    console.log('🔔 handleSelectPlan called:', { tier, period, user: user?.email });
+    console.log('🔔 handleSelectPlan called:', { tier, period, user: user?.email, isUpdatingSubscription });
     
     if (!user) {
       alert('יש להיכנס למערכת תחילה');
@@ -851,15 +852,21 @@ const App = () => {
       return;
     }
 
-    // Prevent duplicate calls
-    if (isUpdatingSubscription) {
-      console.warn('⚠️ Subscription update already in progress, ignoring duplicate call');
+    // Prevent duplicate calls using both state and ref
+    if (isUpdatingSubscription || updatingSubscriptionRef.current) {
+      console.warn('⚠️ Subscription update already in progress, ignoring duplicate call', { 
+        isUpdatingSubscription, 
+        refValue: updatingSubscriptionRef.current 
+      });
       return;
     }
+    
+    // Set flags immediately to prevent duplicate calls
+    updatingSubscriptionRef.current = true;
+    setIsUpdatingSubscription(true);
 
     // Direct upgrade without payment (temporarily - for testing)
     // Update subscription directly for all tiers
-    setIsUpdatingSubscription(true);
     try {
       console.log('🔄 Updating subscription directly (no payment)...');
       console.log('🔍 Updating to tier:', tier, 'period:', period);
@@ -946,6 +953,7 @@ const App = () => {
       alert(error.message || 'אירעה שגיאה בעדכון החבילה. נסה שוב.');
     } finally {
       console.log('🔄 Resetting isUpdatingSubscription flag');
+      updatingSubscriptionRef.current = false;
       setIsUpdatingSubscription(false);
     }
     

@@ -280,8 +280,17 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
 
   const isTestAccount = userEmail?.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
 
-  const handlePackageSelect = async (tier: SubscriptionTier) => {
-    if (loading) return;
+  const handlePackageSelect = async (tier: SubscriptionTier, e?: React.MouseEvent) => {
+    // Prevent event bubbling
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    if (loading) {
+      console.warn('⚠️ PackageSelectionModal: Already processing, ignoring duplicate call');
+      return;
+    }
     
     // Don't allow selecting current tier
     if (tier === currentTier) {
@@ -295,8 +304,12 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
     if (isPaidTier) {
       // Just call onSelect - parent will handle payment through handleSelectPlan
       // Don't close modal here - let parent handle it after payment starts
-      onSelect(tier);
-      setLoading(null);
+      try {
+        await onSelect(tier);
+      } catch (error) {
+        console.error('❌ Error in onSelect:', error);
+        setLoading(null);
+      }
       return;
     }
     
@@ -430,7 +443,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                   </li>
                 </PackageFeatures>
                 <PackageButton
-                  onClick={() => handlePackageSelect(plan.tier)}
+                  onClick={(e) => handlePackageSelect(plan.tier, e)}
                   disabled={loading !== null || isCurrentTier}
                 >
                   {loading === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : 'הרשמה לחבילה זו'}
