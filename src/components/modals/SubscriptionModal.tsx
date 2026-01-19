@@ -498,6 +498,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   onSelectPlan,
   activeTrack,
 }) => {
+  // All hooks must be called before any conditional returns
   const [selectedPeriods, setSelectedPeriods] = useState<Record<SubscriptionTier, BillingPeriod>>({
     free: 'monthly',
     creator: 'monthly',
@@ -507,14 +508,14 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   });
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showContactForm, setShowContactForm] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
+  // Conditional return after all hooks
   if (!isOpen) return null;
 
   const handlePeriodChange = (tier: SubscriptionTier, period: BillingPeriod) => {
     setSelectedPeriods(prev => ({ ...prev, [tier]: period }));
   };
-
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleSelectPlan = async (tier: SubscriptionTier) => {
     if (isProcessing) {
