@@ -850,131 +850,47 @@ const App = () => {
       return;
     }
 
-    // Check if this is a paid tier (not free)
-    const isPaidTier = tier !== 'free';
-    
-    // For paid tiers, ALWAYS go through payment gateway - never update directly
-    if (isPaidTier) {
-      try {
-        console.log('💰 Paid tier selected, initiating payment through Takbull...');
-        console.log('🔍 Looking for plan with tier:', tier);
-        
-        // Get plan from database (try with is_active first, then without if not found)
-        let { data: planData, error: planError } = await supabase
-          .from('plans')
-          .select('*')
-          .eq('tier', tier)
-          .eq('is_active', true)
-          .single();
+    // Direct upgrade without payment (temporarily - for testing)
+    // Update subscription directly for all tiers
+    try {
+      console.log('🔄 Updating subscription directly (no payment)...');
+      console.log('🔍 Updating to tier:', tier, 'period:', period);
+      
+      // Update profile subscription tier directly
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          subscription_tier: tier,
+          subscription_period: period,
+          subscription_status: 'active',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
 
-        // If not found with is_active, try without it (in case plan exists but is marked inactive)
-        if (planError || !planData) {
-          console.warn('⚠️ Plan not found with is_active=true, trying without filter...');
-          const retryResult = await supabase
-            .from('plans')
-            .select('*')
-            .eq('tier', tier)
-            .single();
-          
-          planData = retryResult.data;
-          planError = retryResult.error;
-        }
-
-        if (planError) {
-          console.error('❌ Error fetching plan:', planError);
-          console.error('❌ Plan error details:', JSON.stringify(planError, null, 2));
-          throw new Error(`שגיאה בטעינת תוכנית: ${planError.message || 'Plan not found'}`);
-        }
-
-        if (!planData) {
-          console.error('❌ Plan not found for tier:', tier);
-          console.error('❌ Available tiers in database - checking...');
-          // Try to list all plans to help debug
-          const { data: allPlans } = await supabase
-            .from('plans')
-            .select('tier, name, is_active')
-            .order('tier');
-          console.error('❌ Available plans:', allPlans);
-          throw new Error(`תוכנית לא נמצאה: ${tier}. אנא ודא שהמיגרציה 010 רצה במסד הנתונים.`);
-        }
-
-        console.log('✅ Plan found:', { id: planData.id, name: planData.name, price: planData.monthly_price, is_active: planData.is_active });
-
-        // Call Takbull init-order API
-        console.log('📞 Calling Takbull API...');
-        const response = await fetch('/api/takbull/init-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            subscriptionTier: tier,
-            billingPeriod: period,
-            planId: planData.id,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ Takbull API error:', response.status, errorText);
-          throw new Error(`שגיאה בחיבור למערכת התשלומים: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.ok) {
-          console.error('❌ Takbull API returned error:', data);
-          throw new Error(data.error || 'שגיאה בהתחלת תהליך התשלום');
-        }
-
-        if (!data.paymentUrl) {
-          console.error('❌ No payment URL returned:', data);
-          throw new Error('לא התקבל קישור תשלום מהמערכת');
-        }
-
-        console.log('✅ Payment URL received, opening payment modal...');
-        console.log('🔍 Current payment state:', { isProcessingPayment, showTakbullPayment });
-        
-        // Prevent multiple payment windows from opening
-        if (isProcessingPayment || showTakbullPayment) {
-          console.warn('⚠️ Payment already in progress, ignoring duplicate request');
-          return;
-        }
-        
-        // Set payment data FIRST (before closing subscription modal)
-        setIsProcessingPayment(true);
-        setTakbullPaymentUrl(data.paymentUrl);
-        setTakbullOrderReference(data.orderReference);
-        
-        // Open payment modal IMMEDIATELY
-        setShowTakbullPayment(true);
-        console.log('🚀 Payment modal opened:', { 
-          showTakbullPayment: true,
-          hasPaymentUrl: !!data.paymentUrl,
-          orderReference: data.orderReference 
-        });
-        
-        // Close package selection modal AFTER a small delay to ensure payment modal renders first
-        setTimeout(() => {
-          setShowPackageSelectionModal(false);
-          console.log('✅ Package selection modal closed after payment modal opened');
-        }, 100);
-        
-        return; // IMPORTANT: Exit here, don't update subscription directly!
-
-      } catch (error: any) {
-        console.error('❌ Error in handleSelectPlan (paid tier):', error);
-        
-        // CRITICAL: Reset processing state to allow retry
-        setIsProcessingPayment(false);
-        setShowTakbullPayment(false);
-        
-        alert(error.message || 'אירעה שגיאה בהתחלת תהליך התשלום. נסה שוב.');
-        // DO NOT update subscription directly - payment is required!
-        return;
+      if (updateError) {
+        console.error('❌ Error updating profile:', updateError);
+        throw new Error(`שגיאה בעדכון החבילה: ${updateError.message}`);
       }
+
+      console.log('✅ Profile updated successfully');
+
+      // Reload user data to reflect changes
+      if (user) {
+        await loadUserData(user.id, true);
+      }
+
+      // Close modals
+      setShowSubscriptionModal(false);
+      setShowPackageSelectionModal(false);
+
+      alert(`החבילה עודכנה בהצלחה ל-${SUBSCRIPTION_PLANS[tier]?.name || tier}`);
+      
+    } catch (error: any) {
+      console.error('❌ Error in handleSelectPlan:', error);
+      alert(error.message || 'אירעה שגיאה בעדכון החבילה. נסה שוב.');
     }
+    
+    return;
 
     // Only for FREE tier - update directly without payment
     try {

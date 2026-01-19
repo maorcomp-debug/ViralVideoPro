@@ -515,6 +515,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         return `${plan.limits.maxAnalysesPerPeriod} ניתוח/חודש`;
       case 'minutes':
         if (tier === 'free') return ''; // Hide minutes for free tier
+        if (tier === 'coach' || tier === 'coach-pro') return ''; // Hide minutes for coach tiers
         return `${plan.limits.maxVideoMinutesPerPeriod} דקה/חודש`;
       case 'videoLength':
         const seconds = plan.limits.maxVideoSeconds;
@@ -529,13 +530,24 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       case 'tracks':
         if (tier === 'free') return 'תחום/מסלול אחד';
         if (tier === 'creator') return 'תחום/מסלול אחד';
+        if (tier === 'coach' || tier === 'coach-pro') return 'תחום מאמנים';
         return 'כל התחומים (4)';
+      case 'trainees':
+        if (tier === 'coach' || tier === 'coach-pro') {
+          if (plan.limits.maxTrainees === -1) return 'ללא הגבלה';
+          return `עד ${plan.limits.maxTrainees} מתאמנים`;
+        }
+        return '';
       case 'pdfExport':
         return plan.limits.features.pdfExport ? '✓' : '✗';
       case 'advancedAnalysis':
         return plan.limits.features.advancedAnalysis ? '✓' : '✗';
       case 'videoComparison':
         return plan.limits.features.comparison ? '✓' : '✗';
+      case 'traineeManagement':
+        return (tier === 'coach' || tier === 'coach-pro') && plan.limits.features.traineeManagement ? '✓' : '✗';
+      case 'coachDashboard':
+        return (tier === 'coach' || tier === 'coach-pro') && plan.limits.features.coachDashboard ? '✓' : '✗';
       default:
         return '';
     }
@@ -577,7 +589,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           </p>
         </SubscriptionModalHeader>
 
-        {/* Show only regular plans (free, creator, pro) in PackageSelectionModal format */}
+        {/* Show regular plans (free, creator, pro) in PackageSelectionModal format */}
         {!(currentSubscription?.tier === 'coach' || currentSubscription?.tier === 'coach-pro' || activeTrack === 'coach') && (
           <>
             <PackagesGrid>
@@ -684,231 +696,121 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           </>
         )}
 
-        {/* Show coach plans in old format if needed */}
+        {/* Show coach plans in PackageSelectionModal format */}
         {(currentSubscription?.tier === 'coach' || currentSubscription?.tier === 'coach-pro' || activeTrack === 'coach') && (
-          <PricingPlansGrid>
-            {(currentSubscription?.tier === 'coach'
-              ? [SUBSCRIPTION_PLANS['coach-pro']] // Only show PRO upgrade for coach users
-              : currentSubscription?.tier === 'coach-pro'
-              ? [] // No upgrades available for coach-pro (it's the highest tier)
-              : activeTrack === 'coach'
-              ? [SUBSCRIPTION_PLANS.coach, SUBSCRIPTION_PLANS['coach-pro']] // Show both coach plans for coach track users without coach subscription
-              : []
-            ).map(plan => {
-            const isCurrentPlan = currentSubscription?.tier === plan.id;
-            const isUpgrade = !currentSubscription || 
-              (currentSubscription.tier === 'free' && plan.id !== 'free') ||
-              (currentSubscription.tier === 'creator' && plan.id === 'pro') ||
-              (currentSubscription.tier === 'creator' && (plan.id === 'coach' || plan.id === 'coach-pro')) ||
-              (currentSubscription.tier === 'pro' && (plan.id === 'coach' || plan.id === 'coach-pro')) ||
-              (currentSubscription.tier === 'coach' && plan.id === 'coach-pro');
-            
-            const selectedPeriod = selectedPeriods[plan.id];
-            const price = selectedPeriod === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
-            // For coach and coach-pro tiers, hide analyses limit (don't show "unlimited")
-            const analysesLimit = (plan.id === 'coach' || plan.id === 'coach-pro')
-              ? null // Don't show analyses limit for coach tiers
-              : plan.limits.maxAnalysesPerPeriod === -1 
-              ? 'ללא הגבלה' 
-              : plan.limits.maxAnalysesPerPeriod === 2
-              ? `${plan.limits.maxAnalysesPerPeriod} ניתוחים בסך הכל`
-              : selectedPeriod === 'yearly'
-              ? `${plan.limits.maxAnalysesPerPeriod * 12} ניתוחים בשנה`
-              : `${plan.limits.maxAnalysesPerPeriod} ניתוחים בחודש`;
-            
-            const maxSeconds = plan.limits.maxVideoSeconds;
-            const maxMB = plan.limits.maxFileBytes / (1024 * 1024);
-            const durationText = maxSeconds >= 60 
-              ? `${Math.floor(maxSeconds / 60)} דקות`
-              : `${maxSeconds} שניות`;
-            
-            // Monthly video minutes limit
-            const videoMinutesLimit = plan.limits.maxVideoMinutesPerPeriod > 0
-              ? `${plan.limits.maxVideoMinutesPerPeriod} דקות בחודש`
-              : null;
-            
-            // Max trainees (for coach tiers)
-            const maxTraineesText = plan.limits.maxTrainees !== undefined
-              ? plan.limits.maxTrainees === -1
-                ? 'ללא הגבלה'
-                : `עד ${plan.limits.maxTrainees} מתאמנים`
-              : null;
-
-            return (
-              <PricingPlanCard 
-                key={plan.id}
-                $popular={plan.popular}
-                $isFree={plan.id === 'free'}
-                onClick={(e) => {
-                  // Prevent card click from interfering with button click
-                  e.stopPropagation();
-                }}
-              >
-                <PlanHeader>
-                  <PlanName>
-                    {plan.name}
-                  </PlanName>
-                  {plan.id === 'coach-pro' && plan.description && plan.badge ? (
-                    <div style={{ 
-                      marginTop: '8px',
-                      marginBottom: '20px',
-                      textAlign: 'center',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '10px',
-                      flexWrap: 'wrap'
-                    }}>
-                      <PlanDescription style={{ margin: 0, display: 'inline' }}>
-                        {plan.description}
-                      </PlanDescription>
-                      <PlanBadge $color="#FF8C00" style={{ 
-                        position: 'static',
-                        display: 'inline-block',
-                        fontSize: '0.75rem',
-                        padding: '4px 12px',
-                        verticalAlign: 'middle'
-                      }}>
-                        {plan.badge}
-                      </PlanBadge>
-                    </div>
-                  ) : plan.description ? (
-                    <PlanDescription>{plan.description}</PlanDescription>
-                  ) : plan.badge && plan.id !== 'coach-pro' ? (
-                    <div style={{ 
-                      marginTop: '8px',
-                      marginBottom: '20px',
-                      textAlign: 'center'
-                    }}>
-                      <PlanBadge $color={(plan.id === 'coach') ? '#D4A043' : undefined}>
-                        {plan.badge}
-                      </PlanBadge>
-                    </div>
-                  ) : null}
-                </PlanHeader>
-
-                {plan.id !== 'free' && (
-                  <BillingToggle style={{ marginBottom: '20px', width: '100%' }}>
-                    <BillingToggleButton 
-                      $active={selectedPeriods[plan.id] === 'monthly'}
-                      onClick={() => handlePeriodChange(plan.id, 'monthly')}
-                    >
-                      חודשי
-                    </BillingToggleButton>
-                    <BillingToggleButton 
-                      $active={selectedPeriods[plan.id] === 'yearly'}
-                      onClick={() => handlePeriodChange(plan.id, 'yearly')}
-                    >
-                      שנתי
-                      <span style={{ fontSize: '0.8rem', marginRight: '5px', color: '#D4A043' }}>
-                        (חיסכון 17%)
-                      </span>
-                    </BillingToggleButton>
-                  </BillingToggle>
-                )}
-
-                <PlanPrice>
-                  {plan.id === 'free' ? (
-                    <PriceAmount>₪0</PriceAmount>
-                  ) : (
-                    <>
-                      <PriceAmount>
-                        ₪{price}
-                        <span className="currency">{selectedPeriod === 'yearly' ? '/שנה' : '/חודש'}</span>
-                      </PriceAmount>
-                      {selectedPeriod === 'yearly' && (
-                        <PricePeriod>
-                          ₪{Math.round(price / 12)}/חודש (חיסכון 17%)
-                        </PricePeriod>
+          <>
+            <PackagesGrid>
+              {(currentSubscription?.tier === 'coach'
+                ? [{ tier: 'coach-pro' as SubscriptionTier, name: SUBSCRIPTION_PLANS['coach-pro'].name, subtitle: 'coach_pro', recommended: true }]
+                : currentSubscription?.tier === 'coach-pro'
+                ? []
+                : activeTrack === 'coach'
+                ? [
+                    { tier: 'coach' as SubscriptionTier, name: SUBSCRIPTION_PLANS.coach.name, subtitle: 'coach' },
+                    { tier: 'coach-pro' as SubscriptionTier, name: SUBSCRIPTION_PLANS['coach-pro'].name, subtitle: 'coach_pro', recommended: true }
+                  ]
+                : []
+              ).map((plan) => {
+                const planData = SUBSCRIPTION_PLANS[plan.tier];
+                const isCurrentTier = plan.tier === currentSubscription?.tier;
+                return (
+                  <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
+                    {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
+                    {isCurrentTier && <ActiveBadge>חבילה פעילה</ActiveBadge>}
+                    <PackageTitle>{plan.name}</PackageTitle>
+                    <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
+                    <PackageFeatures>
+                      {getFeatureText(plan.tier, 'analyses') && <li>{getFeatureText(plan.tier, 'analyses')}</li>}
+                      {getFeatureText(plan.tier, 'videoLength') && <li>{getFeatureText(plan.tier, 'videoLength')}</li>}
+                      {getFeatureText(plan.tier, 'experts') && <li>{getFeatureText(plan.tier, 'experts')}</li>}
+                      {getFeatureText(plan.tier, 'tracks') && <li>{getFeatureText(plan.tier, 'tracks')}</li>}
+                      {getFeatureText(plan.tier, 'trainees') && <li>{getFeatureText(plan.tier, 'trainees')}</li>}
+                      <li className={planData.limits.features.pdfExport ? '' : 'unavailable'}>
+                        יצוא PDF
+                      </li>
+                      <li className={planData.limits.features.advancedAnalysis ? '' : 'unavailable'}>
+                        ניתוח מתקדם
+                      </li>
+                      <li className={planData.limits.features.comparison ? '' : 'unavailable'}>
+                        השוואת סרטונים
+                      </li>
+                      {(plan.tier === 'coach' || plan.tier === 'coach-pro') && (
+                        <>
+                          <li className={planData.limits.features.traineeManagement ? '' : 'unavailable'}>
+                            ניהול מתאמנים
+                          </li>
+                          <li className={planData.limits.features.coachDashboard ? '' : 'unavailable'}>
+                            דשבורד מאמן
+                          </li>
+                        </>
                       )}
-                    </>
-                  )}
-                </PlanPrice>
+                    </PackageFeatures>
+                    <PackageButton
+                      onClick={async () => {
+                        if (!isCurrentTier) {
+                          await handleSelectPlan(plan.tier);
+                        }
+                      }}
+                      disabled={isCurrentTier}
+                    >
+                      {isCurrentTier ? 'חבילה פעילה' : 'שדרג עכשיו'}
+                    </PackageButton>
+                  </PackageCard>
+                );
+              })}
+            </PackagesGrid>
 
-                <PlanLimits>
-                  {analysesLimit && (
-                    <LimitText>
-                      <strong>{analysesLimit}</strong>
-                    </LimitText>
-                  )}
-                  <LimitText>
-                    עד <strong>{durationText}</strong> או <strong>{maxMB}MB</strong>
-                  </LimitText>
-                  {videoMinutesLimit && (
-                    <LimitText>
-                      <strong>{videoMinutesLimit}</strong>
-                    </LimitText>
-                  )}
-                  {maxTraineesText && (
-                    <LimitText>
-                      <strong>{maxTraineesText}</strong>
-                    </LimitText>
-                  )}
-                </PlanLimits>
-
-                <PlanFeatures>
-                  <PlanFeature $disabled={!plan.limits.features.saveHistory}>
-                    שמירת היסטוריה
-                  </PlanFeature>
-                  <PlanFeature $disabled={!plan.limits.features.improvementTracking}>
-                    מעקב שיפור
-                  </PlanFeature>
-                  <PlanFeature $disabled={!plan.limits.features.comparison}>
-                    השוואה בין סרטונים
-                  </PlanFeature>
-                  <PlanFeature $disabled={!plan.limits.features.advancedAnalysis}>
-                    ניתוח מתקדם
-                  </PlanFeature>
-                  <PlanFeature $disabled={!plan.limits.features.pdfExport}>
-                    יצוא PDF
-                  </PlanFeature>
-                  {(plan.id === 'coach' || plan.id === 'coach-pro') && (
-                    <>
-                      <PlanFeature $disabled={!plan.limits.features.traineeManagement}>
-                        ניהול מתאמנים
-                      </PlanFeature>
-                      <PlanFeature $disabled={!plan.limits.features.coachDashboard}>
-                        דשבורד מאמן
-                      </PlanFeature>
-                    </>
-                  )}
-                  {plan.id === 'creator' ? (
-                    <PlanFeature $disabled={false}>
-                      אפשרות לבחירת תחום ניתוח נוסף
-                    </PlanFeature>
-                  ) : (
-                    <PlanFeature $disabled={!plan.limits.features.customExperts}>
-                      בחירת מומחים מותאמת
-                    </PlanFeature>
-                  )}
-                </PlanFeatures>
-
-                <SubscribeButton
-                  $popular={plan.popular}
-                  $isFree={plan.id === 'free'}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!isCurrentPlan) {
-                      console.log('🔔 SubscribeButton clicked for plan:', plan.id);
-                      await handleSelectPlan(plan.id);
-                    }
-                  }}
-                  disabled={isCurrentPlan}
-                  type="button"
-                >
-                  {isCurrentPlan 
-                    ? 'החבילה הנוכחית שלך'
-                    : plan.id === 'free'
-                    ? 'התחל חינם'
-                    : isUpgrade
-                    ? 'שדרג עכשיו'
-                    : 'בחר חבילה'}
-                </SubscribeButton>
-              </PricingPlanCard>
-            );
-          })}
-        </PricingPlansGrid>
+            {/* Comparison Table for Coach Plans */}
+            {activeTrack === 'coach' && (currentSubscription?.tier !== 'coach' && currentSubscription?.tier !== 'coach-pro') && (
+              <ComparisonTable>
+                <TableHeader>
+                  <TableHeaderCell>תכונה</TableHeaderCell>
+                  <TableHeaderCell>{SUBSCRIPTION_PLANS.coach.name}</TableHeaderCell>
+                  <TableHeaderCell>{SUBSCRIPTION_PLANS['coach-pro'].name}</TableHeaderCell>
+                </TableHeader>
+                <TableRow>
+                  <TableLabel>אורך סרטון</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'videoLength')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'videoLength')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableLabel>מספר מומחים</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'experts')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'experts')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableLabel>מספר מתאמנים</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'trainees')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'trainees')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableLabel>יצוא PDF</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'pdfExport')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'pdfExport')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableLabel>ניתוח מתקדם</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'advancedAnalysis')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'advancedAnalysis')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableLabel>השוואת סרטונים</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'videoComparison')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'videoComparison')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableLabel>ניהול מתאמנים</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'traineeManagement')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'traineeManagement')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableLabel>דשבורד מאמן</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'coachDashboard')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'coachDashboard')}</TableCell>
+                </TableRow>
+              </ComparisonTable>
+            )}
+          </>
         )}
 
         {/* 7-Day Refund Policy */}
