@@ -335,6 +335,20 @@ const ActiveBadge = styled.div`
   text-transform: uppercase;
 `;
 
+const PremiumBadge = styled.div`
+  position: absolute;
+  top: -12px;
+  left: 20px;
+  background: linear-gradient(135deg, #FF8C00 0%, #FFA500 100%);
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(255, 140, 0, 0.4);
+`;
+
 const PackageTitle = styled.h3`
   color: #D4A043;
   font-size: 1.5rem;
@@ -729,6 +743,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 return (
                   <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
                     {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
+                    {plan.tier === 'coach-pro' && <PremiumBadge>גרסת פרו</PremiumBadge>}
                     {isCurrentTier && <ActiveBadge>חבילה פעילה</ActiveBadge>}
                     <PackageTitle>{plan.name}</PackageTitle>
                     <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
