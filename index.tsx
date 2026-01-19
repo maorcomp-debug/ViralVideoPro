@@ -3253,7 +3253,27 @@ const App = () => {
               <UploadTitle>
                 {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
               </UploadTitle>
-              <UploadSubtitle>
+              
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '10px' }}>
+                <button 
+                  onClick={() => setShowSubscriptionModal(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
+                    border: 'none',
+                    color: '#000',
+                    padding: '8px 20px',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {subscription?.tier === 'free' ? 'שדרג חבילה' : 'נהל מנוי'}
+                </button>
+              </div>
+              
+              <UploadSubtitle style={{ textAlign: 'center', marginBottom: '25px' }}>
                 {getUploadLimitText(activeTrack, subscription || undefined)}
                 {subscription && (
                   <span style={{ display: 'block', marginTop: '8px', fontSize: '0.85rem', color: '#D4A043' }}>
@@ -3265,23 +3285,6 @@ const App = () => {
                     )}
                   </span>
                 )}
-                <button 
-                  onClick={() => setShowSubscriptionModal(true)}
-                  style={{
-                    display: 'inline-block',
-                    marginTop: '10px',
-                    background: 'rgba(212, 160, 67, 0.2)',
-                    border: '1px solid #D4A043',
-                    color: '#D4A043',
-                    padding: '6px 15px',
-                    borderRadius: '20px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  {subscription?.tier === 'free' ? 'שדרג חבילה' : 'נהל מנוי'}
-                </button>
               </UploadSubtitle>
               
               <UploadButton>
