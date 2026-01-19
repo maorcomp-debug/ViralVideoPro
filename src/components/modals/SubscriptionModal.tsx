@@ -909,6 +909,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             );
           })}
         </PricingPlansGrid>
+        )}
 
         {/* 7-Day Refund Policy */}
         <div style={{ 
