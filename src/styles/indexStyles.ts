@@ -75,7 +75,7 @@ export const CapabilitiesButton = styled.button`
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  margin: 20px 0 40px 0;
+  margin: 20px 0 20px 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -92,6 +92,35 @@ export const CapabilitiesButton = styled.button`
     background: linear-gradient(90deg, #D4A043, #e6be74);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+`;
+
+export const Divider = styled.hr`
+  width: 100%;
+  max-width: 600px;
+  border: none;
+  border-top: 1px solid rgba(212, 160, 67, 0.3);
+  margin: 30px 0;
+`;
+
+export const PackagesButton = styled.button`
+  background: #000;
+  border: 1px solid #D4A043;
+  color: #D4A043;
+  border-radius: 50px;
+  padding: 10px 30px;
+  font-family: 'Assistant', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 20px 0 40px 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px rgba(212, 160, 67, 0.1);
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.1);
+    box-shadow: 0 0 15px rgba(212, 160, 67, 0.3);
+    transform: translateY(-2px);
   }
 `;
 

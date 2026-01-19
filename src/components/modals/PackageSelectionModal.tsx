@@ -27,7 +27,7 @@ const ModalContent = styled.div`
   border: 2px solid #D4A043;
   border-radius: 20px;
   padding: 40px;
-  max-width: 700px;
+  max-width: 1200px;
   width: 100%;
   box-shadow: 0 20px 60px rgba(212, 160, 67, 0.4);
   animation: ${fadeIn} 0.4s ease;
@@ -39,14 +39,37 @@ const ModalContent = styled.div`
   }
 `;
 
+const CloseButton = styled.button`
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: transparent;
+  border: none;
+  color: #D4A043;
+  font-size: 2rem;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s;
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.2);
+    transform: rotate(90deg);
+  }
+`;
+
 const ModalHeader = styled.div`
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
   
   h2 {
     color: #D4A043;
     font-size: 2rem;
-    margin: 0 0 15px 0;
+    margin: 0 0 10px 0;
     font-family: 'Frank Ruhl Libre', serif;
   }
   
@@ -58,60 +81,180 @@ const ModalHeader = styled.div`
   }
 `;
 
-const PackageSelect = styled.select`
-  width: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(212, 160, 67, 0.3);
-  border-radius: 8px;
-  padding: 12px;
-  color: #fff;
-  font-size: 1rem;
-  direction: rtl;
-  cursor: pointer;
-  margin-bottom: 20px;
+const PackagesGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 40px;
 
-  option {
-    background: #1a1a1a;
-    color: #fff;
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
   }
 `;
 
-const InfoMessage = styled.div`
-  background: rgba(212, 160, 67, 0.1);
-  border: 1px solid rgba(212, 160, 67, 0.3);
-  border-radius: 10px;
-  padding: 15px;
-  margin-bottom: 25px;
+const PackageCard = styled.div<{ $isRecommended?: boolean }>`
+  background: ${props => props.$isRecommended 
+    ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.15) 0%, rgba(212, 160, 67, 0.05) 100%)' 
+    : 'linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%)'};
+  border: 2px solid ${props => props.$isRecommended ? '#D4A043' : 'rgba(212, 160, 67, 0.3)'};
+  border-radius: 12px;
+  padding: 30px 20px;
   text-align: center;
-  color: #D4A043;
-  font-size: 0.9rem;
-  line-height: 1.6;
+  position: relative;
+  transition: all 0.3s;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(212, 160, 67, 0.3);
+    border-color: #D4A043;
+  }
 `;
 
-const SubmitButton = styled.button`
+const RecommendedBadge = styled.div`
+  position: absolute;
+  top: -12px;
+  right: 20px;
+  background: #D4A043;
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+`;
+
+const PackageTitle = styled.h3`
+  color: #D4A043;
+  font-size: 1.5rem;
+  margin: 0 0 10px 0;
+  font-family: 'Frank Ruhl Libre', serif;
+`;
+
+const PackageSubtitle = styled.div`
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  text-transform: lowercase;
+`;
+
+const PackageFeatures = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0 0 25px 0;
+  text-align: right;
+  
+  li {
+    color: #ccc;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    padding-right: 20px;
+    position: relative;
+
+    &::before {
+      content: '✓';
+      position: absolute;
+      right: 0;
+      color: #D4A043;
+      font-weight: bold;
+    }
+
+    &.unavailable {
+      opacity: 0.5;
+      
+      &::before {
+        content: '✗';
+        color: #666;
+      }
+    }
+  }
+`;
+
+const PackageButton = styled.button`
   width: 100%;
   background: #D4A043;
   color: #000;
   border: none;
-  padding: 15px 25px;
-  border-radius: 10px;
-  font-size: 1.1rem;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s;
-  text-transform: uppercase;
-  letter-spacing: 1px;
 
   &:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(212, 160, 67, 0.4);
     background: #F5C842;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(212, 160, 67, 0.4);
   }
   
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
+`;
+
+const ComparisonTable = styled.div`
+  background: rgba(20, 20, 20, 0.6);
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 30px;
+`;
+
+const TableHeader = styled.div`
+  display: grid;
+  grid-template-columns: 200px repeat(3, 1fr);
+  background: rgba(212, 160, 67, 0.1);
+  border-bottom: 2px solid #D4A043;
+  padding: 15px;
+  gap: 10px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 150px repeat(3, 1fr);
+    font-size: 0.85rem;
+  }
+`;
+
+const TableHeaderCell = styled.div`
+  color: #D4A043;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-align: center;
+`;
+
+const TableRow = styled.div`
+  display: grid;
+  grid-template-columns: 200px repeat(3, 1fr);
+  padding: 15px;
+  border-bottom: 1px solid #222;
+  gap: 10px;
+  align-items: center;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.05);
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: 150px repeat(3, 1fr);
+    font-size: 0.85rem;
+  }
+`;
+
+const TableLabel = styled.div`
+  color: #aaa;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: right;
+`;
+
+const TableCell = styled.div`
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  text-align: center;
 `;
 
 interface PackageSelectionModalProps {
@@ -127,100 +270,203 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
   onSelect,
   userEmail
 }) => {
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('free');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<SubscriptionTier | null>(null);
 
   const isTestAccount = userEmail?.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
 
-  const handleSubmit = async () => {
-    // Prevent double submission
+  const handlePackageSelect = async (tier: SubscriptionTier) => {
     if (loading) return;
     
+    setLoading(tier);
+    
     // For paid tiers, don't update directly - let parent handle payment
-    const isPaidTier = selectedTier !== 'free';
+    const isPaidTier = tier !== 'free';
     if (isPaidTier) {
       // Just call onSelect - parent will handle payment through handleSelectPlan
-      onSelect(selectedTier);
+      onSelect(tier);
       onClose();
+      setLoading(null);
       return;
     }
     
     // Only for FREE tier - update directly
-    setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         alert('שגיאה: משתמש לא מחובר');
-        setLoading(false);
+        setLoading(null);
         return;
       }
       
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ subscription_tier: selectedTier })
+        .update({ subscription_tier: tier })
         .eq('user_id', user.id);
       
       if (updateError) {
         console.error('Error updating subscription tier:', updateError);
         alert('שגיאה בעדכון החבילה. נסה שוב.');
-        setLoading(false);
+        setLoading(null);
         return;
       }
 
-      onSelect(selectedTier);
+      onSelect(tier);
       onClose();
     } catch (err: any) {
       console.error('Error saving package selection:', err);
       alert('שגיאה בשמירת הבחירה. נסה שוב.');
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
   if (!isOpen) return null;
 
+  const plans = [
+    { tier: 'free' as SubscriptionTier, name: 'ניסיון', subtitle: 'trial' },
+    { tier: 'creator' as SubscriptionTier, name: 'יוצרים', subtitle: 'creators', recommended: true },
+    { tier: 'pro' as SubscriptionTier, name: 'יוצרים באקסטרים', subtitle: 'creators_extreme' },
+  ];
+
+  const getFeatureText = (tier: SubscriptionTier, feature: string): string => {
+    const plan = SUBSCRIPTION_PLANS[tier];
+    switch (feature) {
+      case 'analyses':
+        if (plan.limits.maxAnalysesPerPeriod === -1) return 'ללא הגבלה';
+        return `${plan.limits.maxAnalysesPerPeriod} ניתוח/חודש`;
+      case 'minutes':
+        return `${plan.limits.maxVideoMinutesPerPeriod} דקה/חודש`;
+      case 'videoLength':
+        const seconds = plan.limits.maxVideoSeconds;
+        const mb = plan.limits.maxFileBytes / (1024 * 1024);
+        if (seconds >= 60) {
+          const minutes = Math.floor(seconds / 60);
+          return `עד ${minutes} דק' או ${mb}MB`;
+        }
+        return `עד ${seconds} שניות או ${mb}MB`;
+      case 'experts':
+        return tier === 'free' ? '3 מומחים' : 'כל המומחים (8)';
+      case 'tracks':
+        if (tier === 'free') return 'תחום/מסלול אחד';
+        if (tier === 'creator') return 'תחום/מסלול אחד';
+        return 'כל התחומים (4)';
+      case 'pdfExport':
+        return plan.limits.features.pdfExport ? '✓' : '✗';
+      case 'advancedAnalysis':
+        return plan.limits.features.advancedAnalysis ? '✓' : '✗';
+      case 'videoComparison':
+        return plan.limits.features.comparison ? '✓' : '✗';
+      default:
+        return '';
+    }
+  };
+
   return (
     <ModalOverlay $isOpen={isOpen} onClick={(e) => {
-      // Don't close on overlay click - user must select a package
-      e.stopPropagation();
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
     }}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
+        <CloseButton onClick={onClose}>×</CloseButton>
+        
         <ModalHeader>
-          <h2>בחר חבילה</h2>
-          <p>
-            {isTestAccount 
-              ? 'בחר חבילה לבדיקה. תוכל ליצור מספר חשבונות עם חבילות שונות.'
-              : 'בחר את החבילה המתאימה לך. תוכל לשדרג מאוחר יותר.'}
-          </p>
+          <h2>חבילות והצעות</h2>
+          <p>בחר את החבילה המתאימה לך ביותר</p>
         </ModalHeader>
 
-        <PackageSelect
-          value={selectedTier}
-          onChange={(e) => setSelectedTier(e.target.value as SubscriptionTier)}
-        >
-          <option value="free">חבילת ניסיון (חינם)</option>
-          <option value="creator">חבילת יוצרים</option>
-          <option value="pro">חבילת יוצרים באקסטרים</option>
-          <option value="coach">חבילת מאמנים, סוכנויות ובתי ספר למשחק</option>
-          <option value="coach-pro">חבילת מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
-        </PackageSelect>
+        <PackagesGrid>
+          {plans.map((plan) => {
+            const planData = SUBSCRIPTION_PLANS[plan.tier];
+            return (
+              <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
+                {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
+                <PackageTitle>{plan.name}</PackageTitle>
+                <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
+                <PackageFeatures>
+                  <li>{getFeatureText(plan.tier, 'analyses')}</li>
+                  <li>{getFeatureText(plan.tier, 'minutes')}</li>
+                  <li>{getFeatureText(plan.tier, 'videoLength')}</li>
+                  <li>{getFeatureText(plan.tier, 'experts')}</li>
+                  <li>{getFeatureText(plan.tier, 'tracks')}</li>
+                  <li className={planData.limits.features.pdfExport ? '' : 'unavailable'}>
+                    {planData.limits.features.pdfExport ? 'יצוא PDF' : 'יצוא PDF'}
+                  </li>
+                  <li className={planData.limits.features.advancedAnalysis ? '' : 'unavailable'}>
+                    {planData.limits.features.advancedAnalysis ? 'ניתוח מתקדם' : 'ניתוח מתקדם'}
+                  </li>
+                  <li className={planData.limits.features.comparison ? '' : 'unavailable'}>
+                    {planData.limits.features.comparison ? 'השוואת סרטונים' : 'השוואת סרטונים'}
+                  </li>
+                </PackageFeatures>
+                <PackageButton
+                  onClick={() => handlePackageSelect(plan.tier)}
+                  disabled={loading !== null}
+                >
+                  {loading === plan.tier ? 'מעבד...' : 'הרשמה לחבילה זו'}
+                </PackageButton>
+              </PackageCard>
+            );
+          })}
+        </PackagesGrid>
 
-        <InfoMessage>
-          {selectedTier === 'free' && 'חבילת ניסיון כוללת 2 ניתוחים בחודש, עד דקה או 10MB, ותחום ניתוח אחד.'}
-          {selectedTier === 'creator' && 'חבילת יוצרים כוללת 10 ניתוחים בחודש, עד 3 דקות או 15MB, ושני תחומי ניתוח.'}
-          {selectedTier === 'pro' && 'חבילת יוצרים באקסטרים כוללת 30 ניתוחים בחודש, עד 5 דקות או 40MB, וכל תחומי הניתוח.'}
-          {selectedTier === 'coach' && 'חבילת מאמנים כוללת ניתוחים ללא הגבלה, עד 5 דקות או 40MB, כל תחומי הניתוח, ופיצ\'רים למאמנים.'}
-          {selectedTier === 'coach-pro' && 'חבילת מאמנים פרו כוללת ניתוחים ללא הגבלה, עד 5 דקות או 40MB, כל תחומי הניתוח, יותר מתאמנים (30), ויותר דקות ניתוח (300 דקות בחודש).'}
-        </InfoMessage>
-
-        <SubmitButton
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? 'שומר...' : selectedTier === 'free' ? 'המשך לבחירת תחום ניתוח' : 'המשך לתשלום'}
-        </SubmitButton>
+        <ComparisonTable>
+          <TableHeader>
+            <TableHeaderCell>תכונה</TableHeaderCell>
+            <TableHeaderCell>ניסיון</TableHeaderCell>
+            <TableHeaderCell>יוצרים</TableHeaderCell>
+            <TableHeaderCell>יוצרים באקסטרים</TableHeaderCell>
+          </TableHeader>
+          <TableRow>
+            <TableLabel>ניתוחים חודשיים</TableLabel>
+            <TableCell>{getFeatureText('free', 'analyses')}</TableCell>
+            <TableCell>{getFeatureText('creator', 'analyses')}</TableCell>
+            <TableCell>{getFeatureText('pro', 'analyses')}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableLabel>דקות חודשיות</TableLabel>
+            <TableCell>{getFeatureText('free', 'minutes')}</TableCell>
+            <TableCell>{getFeatureText('creator', 'minutes')}</TableCell>
+            <TableCell>{getFeatureText('pro', 'minutes')}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableLabel>אורך סרטון</TableLabel>
+            <TableCell>{getFeatureText('free', 'videoLength')}</TableCell>
+            <TableCell>{getFeatureText('creator', 'videoLength')}</TableCell>
+            <TableCell>{getFeatureText('pro', 'videoLength')}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableLabel>מספר מומחים</TableLabel>
+            <TableCell>{getFeatureText('free', 'experts')}</TableCell>
+            <TableCell>{getFeatureText('creator', 'experts')}</TableCell>
+            <TableCell>{getFeatureText('pro', 'experts')}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableLabel>מספר תחומים</TableLabel>
+            <TableCell>{getFeatureText('free', 'tracks')}</TableCell>
+            <TableCell>{getFeatureText('creator', 'tracks')}</TableCell>
+            <TableCell>{getFeatureText('pro', 'tracks')}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableLabel>יצוא PDF</TableLabel>
+            <TableCell>{getFeatureText('free', 'pdfExport')}</TableCell>
+            <TableCell>{getFeatureText('creator', 'pdfExport')}</TableCell>
+            <TableCell>{getFeatureText('pro', 'pdfExport')}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableLabel>ניתוח מתקדם</TableLabel>
+            <TableCell>{getFeatureText('free', 'advancedAnalysis')}</TableCell>
+            <TableCell>{getFeatureText('creator', 'advancedAnalysis')}</TableCell>
+            <TableCell>{getFeatureText('pro', 'advancedAnalysis')}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableLabel>השוואת סרטונים</TableLabel>
+            <TableCell>{getFeatureText('free', 'videoComparison')}</TableCell>
+            <TableCell>{getFeatureText('creator', 'videoComparison')}</TableCell>
+            <TableCell>{getFeatureText('pro', 'videoComparison')}</TableCell>
+          </TableRow>
+        </ComparisonTable>
       </ModalContent>
     </ModalOverlay>
   );
 };
-

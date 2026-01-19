@@ -146,6 +146,8 @@ import {
   PremiumBadge,
   LogoPlaceholder,
   HiddenLogoInput,
+  Divider,
+  PackagesButton,
 } from './src/styles/indexStyles';
 import {
   PhoneStarIcon,
@@ -2821,30 +2823,6 @@ const App = () => {
                   {loggingOut ? 'מתנתק...' : 'התנתק'}
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!loggingOut && !loadingAuth) {
-                    setShowAuthModal(true);
-                  }
-                }}
-                disabled={loggingOut || loadingAuth}
-                style={{
-                  background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
-                  border: 'none',
-                  color: '#000',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontWeight: 700,
-                  opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
-                  cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
-                }}
-              >
-                התחבר / הרשם
-              </button>
             )}
           </div>
           <Title>Video Director Pro</Title>
@@ -2853,6 +2831,33 @@ const App = () => {
             סוכן על שמשלב ריאליטי, קולנוע, מוזיקה ומשפיענים.<br/>
             קבל ניתוח עומק, הערות מקצועיות וליווי עד לפריצה הגדולה.
           </Description>
+          <Divider />
+          {!user && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!loggingOut && !loadingAuth) {
+                  setShowAuthModal(true);
+                }
+              }}
+              disabled={loggingOut || loadingAuth}
+              style={{
+                background: 'linear-gradient(135deg, #D4A043 0%, #F5C842 100%)',
+                border: 'none',
+                color: '#000',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: 700,
+                opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
+                cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
+                marginBottom: '20px',
+              }}
+            >
+              התחבר / הרשם
+            </button>
+          )}
           <CTAButton onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
             העלה סרטון וקבל ניתוח מלא
           </CTAButton>
@@ -2860,6 +2865,10 @@ const App = () => {
           <CapabilitiesButton onClick={() => setIsModalOpen(true)}>
              יכולות האפליקציה של סוכן העל <SparklesIcon />
           </CapabilitiesButton>
+          
+          <PackagesButton onClick={() => setShowPackageSelectionModal(true)}>
+            חבילות והצעות
+          </PackagesButton>
         </Header>
         
         <CapabilitiesModal 
