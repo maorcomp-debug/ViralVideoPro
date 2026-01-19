@@ -2721,7 +2721,56 @@ const App = () => {
               </div>
             </div>
           )} */}
-            {user && (
+          </div>
+          <Title>Video Director Pro</Title>
+          <Subtitle>בינת וידאו לשחקנים, זמרים ויוצרי תוכן</Subtitle>
+          <Description>
+            סוכן על שמשלב ריאליטי, קולנוע, מוזיקה ומשפיענים.<br/>
+            קבל ניתוח עומק, הערות מקצועיות וליווי עד לפריצה הגדולה.
+          </Description>
+          <Divider />
+          <div style={{ minHeight: '48px', marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            {!user ? (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!loggingOut && !loadingAuth) {
+                    setShowAuthModal(true);
+                  }
+                }}
+                disabled={loggingOut || loadingAuth}
+                style={{
+                  background: 'linear-gradient(135deg, #b8862e 0%, #e6be74 50%, #b8862e 100%)',
+                  backgroundSize: '200% auto',
+                  border: 'none',
+                  color: '#000',
+                  padding: '12px 35px',
+                  borderRadius: '50px',
+                  fontSize: '1rem',
+                  fontFamily: 'Assistant, sans-serif',
+                  fontWeight: 700,
+                  opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
+                  cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 15px rgba(212, 160, 67, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!loggingOut && !loadingAuth) {
+                    e.currentTarget.style.backgroundPosition = 'right center';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(212, 160, 67, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundPosition = 'left center';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(212, 160, 67, 0.3)';
+                }}
+              >
+                🔒 התחבר / הרשם
+              </button>
+            ) : (
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                   <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
@@ -2825,56 +2874,6 @@ const App = () => {
                   {loggingOut ? 'מתנתק...' : 'התנתק'}
                 </button>
               </div>
-            )}
-          </div>
-          <Title>Video Director Pro</Title>
-          <Subtitle>בינת וידאו לשחקנים, זמרים ויוצרי תוכן</Subtitle>
-          <Description>
-            סוכן על שמשלב ריאליטי, קולנוע, מוזיקה ומשפיענים.<br/>
-            קבל ניתוח עומק, הערות מקצועיות וליווי עד לפריצה הגדולה.
-          </Description>
-          <Divider />
-          <div style={{ minHeight: '48px', marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            {!user && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!loggingOut && !loadingAuth) {
-                    setShowAuthModal(true);
-                  }
-                }}
-                disabled={loggingOut || loadingAuth}
-                style={{
-                  background: 'linear-gradient(135deg, #b8862e 0%, #e6be74 50%, #b8862e 100%)',
-                  backgroundSize: '200% auto',
-                  border: 'none',
-                  color: '#000',
-                  padding: '12px 35px',
-                  borderRadius: '50px',
-                  fontSize: '1rem',
-                  fontFamily: 'Assistant, sans-serif',
-                  fontWeight: 700,
-                  opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
-                  cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 15px rgba(212, 160, 67, 0.3)',
-                }}
-                onMouseEnter={(e) => {
-                  if (!loggingOut && !loadingAuth) {
-                    e.currentTarget.style.backgroundPosition = 'right center';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(212, 160, 67, 0.5)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundPosition = 'left center';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(212, 160, 67, 0.3)';
-                }}
-              >
-                🔒 התחבר / הרשם
-              </button>
             )}
           </div>
           <CTAButton onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
