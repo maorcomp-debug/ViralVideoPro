@@ -865,7 +865,8 @@ const App = () => {
       console.log('🔍 Updating to tier:', tier, 'period:', period);
       
       // Update profile subscription tier directly
-      const { error: updateError } = await supabase
+      console.log('📝 Attempting to update profile:', { userId: user.id, tier, period });
+      const { data: updateData, error: updateError } = await supabase
         .from('profiles')
         .update({
           subscription_tier: tier,
@@ -873,14 +874,29 @@ const App = () => {
           subscription_status: 'active',
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
 
       if (updateError) {
         console.error('❌ Error updating profile:', updateError);
+        console.error('❌ Error details:', JSON.stringify(updateError, null, 2));
         throw new Error(`שגיאה בעדכון החבילה: ${updateError.message}`);
       }
 
-      console.log('✅ Profile updated successfully');
+      console.log('✅ Profile updated successfully:', updateData);
+      
+      // Verify the update was applied
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('subscription_tier, subscription_period, subscription_status')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (verifyError) {
+        console.error('⚠️ Error verifying update:', verifyError);
+      } else {
+        console.log('✅ Verified profile update:', verifyData);
+      }
 
       // Close modals first
       setShowSubscriptionModal(false);
