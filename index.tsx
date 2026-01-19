@@ -3650,21 +3650,23 @@ const App = () => {
       <PackageSelectionModal
         isOpen={showPackageSelectionModal}
         onClose={() => {
-          // Don't allow closing without selection
+          setShowPackageSelectionModal(false);
         }}
         onSelect={async (tier) => {
           setPendingSubscriptionTier(tier);
-          setShowPackageSelectionModal(false);
           
           // Check if this is a paid tier - if so, initiate payment
           const isPaidTier = tier !== 'free';
           if (isPaidTier) {
+            // Don't close modal yet - let payment flow handle it
             // For paid tiers, call handleSelectPlan to initiate payment
             await handleSelectPlan(tier, 'monthly');
+            // Modal will be closed by payment flow or user action
             return; // Exit - payment flow will handle the rest
           }
           
-          // For free tier only - show track selection
+          // For free tier only - close modal and show track selection
+          setShowPackageSelectionModal(false);
           if (tier === 'free') {
             if (!hasShownTrackModal) {
               setHasShownTrackModal(true);
@@ -3673,6 +3675,7 @@ const App = () => {
           }
         }}
         userEmail={user?.email}
+        currentTier={subscription?.tier || profile?.subscription_tier || 'free'}
       />
       
       <TrackSelectionModal

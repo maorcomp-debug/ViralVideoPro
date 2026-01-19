@@ -67,11 +67,22 @@ export const ModalCloseBtn = styled.button`
   right: 15px;
   background: transparent;
   border: none;
-  color: #666;
-  font-size: 24px;
+  color: #D4A043;
+  font-size: 28px;
   cursor: pointer;
-  transition: color 0.2s;
-  &:hover { color: #D4A043; }
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s;
+  z-index: 100;
+  &:hover { 
+    color: #F5C842;
+    background: rgba(212, 160, 67, 0.2);
+    transform: rotate(90deg);
+  }
 `;
 
 export const ModalTabs = styled.div`

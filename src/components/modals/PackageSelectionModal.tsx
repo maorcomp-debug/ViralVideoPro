@@ -262,13 +262,15 @@ interface PackageSelectionModalProps {
   onClose: () => void;
   onSelect: (tier: SubscriptionTier) => void;
   userEmail?: string;
+  currentTier?: SubscriptionTier;
 }
 
 export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
   isOpen,
   onClose,
   onSelect,
-  userEmail
+  userEmail,
+  currentTier = 'free'
 }) => {
   const [loading, setLoading] = useState<SubscriptionTier | null>(null);
 
@@ -277,14 +279,19 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
   const handlePackageSelect = async (tier: SubscriptionTier) => {
     if (loading) return;
     
+    // Don't allow selecting current tier
+    if (tier === currentTier) {
+      return;
+    }
+    
     setLoading(tier);
     
     // For paid tiers, don't update directly - let parent handle payment
     const isPaidTier = tier !== 'free';
     if (isPaidTier) {
       // Just call onSelect - parent will handle payment through handleSelectPlan
+      // Don't close modal here - let parent handle it after payment starts
       onSelect(tier);
-      onClose();
       setLoading(null);
       return;
     }
@@ -333,8 +340,10 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
     switch (feature) {
       case 'analyses':
         if (plan.limits.maxAnalysesPerPeriod === -1) return 'ללא הגבלה';
+        if (tier === 'free') return 'ניתוח טעימה';
         return `${plan.limits.maxAnalysesPerPeriod} ניתוח/חודש`;
       case 'minutes':
+        if (tier === 'free') return ''; // Hide minutes for free tier
         return `${plan.limits.maxVideoMinutesPerPeriod} דקה/חודש`;
       case 'videoLength':
         const seconds = plan.limits.maxVideoSeconds;
@@ -378,14 +387,31 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
         <PackagesGrid>
           {plans.map((plan) => {
             const planData = SUBSCRIPTION_PLANS[plan.tier];
+            const isCurrentTier = plan.tier === currentTier;
             return (
               <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
                 {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
+                {isCurrentTier && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    background: '#D4A043',
+                    color: '#000',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                  }}>
+                    חבילה פעילה
+                  </div>
+                )}
                 <PackageTitle>{plan.name}</PackageTitle>
                 <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
                 <PackageFeatures>
                   <li>{getFeatureText(plan.tier, 'analyses')}</li>
-                  <li>{getFeatureText(plan.tier, 'minutes')}</li>
+                  {getFeatureText(plan.tier, 'minutes') && <li>{getFeatureText(plan.tier, 'minutes')}</li>}
                   <li>{getFeatureText(plan.tier, 'videoLength')}</li>
                   <li>{getFeatureText(plan.tier, 'experts')}</li>
                   <li>{getFeatureText(plan.tier, 'tracks')}</li>
@@ -401,9 +427,9 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                 </PackageFeatures>
                 <PackageButton
                   onClick={() => handlePackageSelect(plan.tier)}
-                  disabled={loading !== null}
+                  disabled={loading !== null || isCurrentTier}
                 >
-                  {loading === plan.tier ? 'מעבד...' : 'הרשמה לחבילה זו'}
+                  {loading === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : 'הרשמה לחבילה זו'}
                 </PackageButton>
               </PackageCard>
             );
@@ -425,7 +451,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
           </TableRow>
           <TableRow>
             <TableLabel>דקות חודשיות</TableLabel>
-            <TableCell>{getFeatureText('free', 'minutes')}</TableCell>
+            <TableCell>-</TableCell>
             <TableCell>{getFeatureText('creator', 'minutes')}</TableCell>
             <TableCell>{getFeatureText('pro', 'minutes')}</TableCell>
           </TableRow>
