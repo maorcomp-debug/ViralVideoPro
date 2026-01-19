@@ -866,6 +866,22 @@ const App = () => {
       
       // Update profile subscription tier directly
       console.log('📝 Attempting to update profile:', { userId: user.id, tier, period });
+      
+      // First, get the plan from Supabase to ensure it exists
+      const { data: planData, error: planError } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('tier', tier)
+        .eq('is_active', true)
+        .single();
+      
+      if (planError || !planData) {
+        console.error('❌ Plan not found in database:', { tier, planError });
+        throw new Error(`חבילה לא נמצאה במסד הנתונים: ${tier}. אנא ודא שהמיגרציה 020 רצה.`);
+      }
+      
+      console.log('✅ Plan found in database:', { id: planData.id, name: planData.name, price: planData.monthly_price });
+      
       const { data: updateData, error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -883,6 +899,11 @@ const App = () => {
         throw new Error(`שגיאה בעדכון החבילה: ${updateError.message}`);
       }
 
+      if (!updateData || updateData.length === 0) {
+        console.error('❌ No rows updated - check RLS policies or user permissions');
+        throw new Error('לא נמצא פרופיל לעדכון. בדוק הרשאות או נסה שוב.');
+      }
+
       console.log('✅ Profile updated successfully:', updateData);
       
       // Verify the update was applied
@@ -896,6 +917,10 @@ const App = () => {
         console.error('⚠️ Error verifying update:', verifyError);
       } else {
         console.log('✅ Verified profile update:', verifyData);
+        if (verifyData.subscription_tier !== tier) {
+          console.error('❌ Update verification failed - tier mismatch:', { expected: tier, actual: verifyData.subscription_tier });
+          throw new Error('העדכון לא הצליח - החבילה לא עודכנה במסד הנתונים');
+        }
       }
 
       // Close modals first

@@ -514,10 +514,29 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     setSelectedPeriods(prev => ({ ...prev, [tier]: period }));
   };
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const handleSelectPlan = async (tier: SubscriptionTier) => {
+    if (isProcessing) {
+      console.warn('⚠️ SubscriptionModal: Already processing, ignoring duplicate call');
+      return;
+    }
+    
     console.log('🎯 SubscriptionModal: handleSelectPlan called', { tier, period: selectedPeriods[tier] });
-    // Call parent's onSelectPlan - this should handle payment initiation
-    await onSelectPlan(tier, selectedPeriods[tier]);
+    setIsProcessing(true);
+    
+    try {
+      // Call parent's onSelectPlan - this should handle payment initiation
+      await onSelectPlan(tier, selectedPeriods[tier]);
+    } catch (error) {
+      console.error('❌ Error in SubscriptionModal handleSelectPlan:', error);
+      throw error;
+    } finally {
+      // Reset after a delay to allow parent to process
+      setTimeout(() => {
+        setIsProcessing(false);
+      }, 1000);
+    }
   };
 
   const getFeatureText = (tier: SubscriptionTier, feature: string): string => {
@@ -650,14 +669,16 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       </li>
                     </PackageFeatures>
                     <PackageButton
-                      onClick={async () => {
-                        if (!isCurrentTier) {
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!isCurrentTier && !isProcessing) {
                           await handleSelectPlan(plan.tier);
                         }
                       }}
-                      disabled={isCurrentTier}
+                      disabled={isCurrentTier || isProcessing}
                     >
-                      {isCurrentTier ? 'חבילה פעילה' : plan.tier === 'free' ? 'התחל חינם' : 'שדרג עכשיו'}
+                      {isProcessing ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : plan.tier === 'free' ? 'התחל חינם' : 'שדרג עכשיו'}
                     </PackageButton>
                   </PackageCard>
                 );
