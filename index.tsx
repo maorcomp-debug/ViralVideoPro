@@ -2721,7 +2721,7 @@ const App = () => {
               </div>
             </div>
           )} */}
-            {user ? (
+            {user && (
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                   <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
@@ -2754,21 +2754,23 @@ const App = () => {
                     );
                   })()}
                 </div>
-                <button
-                  onClick={() => navigate('/settings')}
-                  style={{
-                    background: 'rgba(212, 160, 67, 0.2)',
-                    border: '1px solid #D4A043',
-                    color: '#D4A043',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  ⚙️ הגדרות
-                </button>
+                {!userIsAdmin && (
+                  <button
+                    onClick={() => navigate('/settings')}
+                    style={{
+                      background: 'rgba(212, 160, 67, 0.2)',
+                      border: '1px solid #D4A043',
+                      color: '#D4A043',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    ⚙️ הגדרות
+                  </button>
+                )}
                 {userIsAdmin && (
                   <button
                     type="button"
