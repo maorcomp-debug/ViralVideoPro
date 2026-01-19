@@ -947,8 +947,8 @@ const App = () => {
       }
       
       // Update subscription state immediately
-      const planData = SUBSCRIPTION_PLANS[tier];
-      if (planData) {
+      const subscriptionPlanData = SUBSCRIPTION_PLANS[tier];
+      if (subscriptionPlanData) {
         const newSubscription: UserSubscription = {
           tier,
           billingPeriod: period,
