@@ -13,7 +13,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     monthlyPrice: 0,
     yearlyPrice: 0,
     limits: {
-      maxAnalysesPerPeriod: 2, // 2 analyses per month
+      maxAnalysesPerPeriod: 1, // 1 analysis total
       maxVideoSeconds: 60, // 1 minute
       maxFileBytes: 10 * 1024 * 1024, // 10MB
       maxVideoMinutesPerPeriod: 0, // No monthly limit for free tier (only per video limit)

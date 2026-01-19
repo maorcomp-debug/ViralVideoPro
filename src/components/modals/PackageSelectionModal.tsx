@@ -135,8 +135,9 @@ const PackageTitle = styled.h3`
 `;
 
 const PackageSubtitle = styled.div`
-  color: #888;
-  font-size: 0.9rem;
+  color: #D4A043;
+  font-size: 1.2rem;
+  font-weight: 700;
   margin-bottom: 20px;
 `;
 

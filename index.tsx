@@ -221,6 +221,7 @@ const App = () => {
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [usage, setUsage] = useState<{ analysesUsed: number; periodStart: Date; periodEnd: Date } | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [isUpdatingSubscription, setIsUpdatingSubscription] = useState(false);
   
   // Calculate premium access based on subscription
   const hasPremiumAccess = subscription ? subscription.tier !== 'free' : false;
@@ -850,8 +851,15 @@ const App = () => {
       return;
     }
 
+    // Prevent duplicate calls
+    if (isUpdatingSubscription) {
+      console.warn('⚠️ Subscription update already in progress, ignoring duplicate call');
+      return;
+    }
+
     // Direct upgrade without payment (temporarily - for testing)
     // Update subscription directly for all tiers
+    setIsUpdatingSubscription(true);
     try {
       console.log('🔄 Updating subscription directly (no payment)...');
       console.log('🔍 Updating to tier:', tier, 'period:', period);
@@ -888,6 +896,8 @@ const App = () => {
     } catch (error: any) {
       console.error('❌ Error in handleSelectPlan:', error);
       alert(error.message || 'אירעה שגיאה בעדכון החבילה. נסה שוב.');
+    } finally {
+      setIsUpdatingSubscription(false);
     }
     
     return;
