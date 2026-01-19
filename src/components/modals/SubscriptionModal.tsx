@@ -510,13 +510,26 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     const plan = SUBSCRIPTION_PLANS[tier];
     switch (feature) {
       case 'analyses':
+        if (tier === 'coach' || tier === 'coach-pro') {
+          // For coach tiers, return empty - will use analysesUnlimited instead
+          return '';
+        }
         if (plan.limits.maxAnalysesPerPeriod === -1) return 'ללא הגבלה';
         if (tier === 'free') return 'ניתוח טעימה';
         return `${plan.limits.maxAnalysesPerPeriod} ניתוח/חודש`;
       case 'minutes':
         if (tier === 'free') return ''; // Hide minutes for free tier
-        if (tier === 'coach' || tier === 'coach-pro') return ''; // Hide minutes for coach tiers
-        return `${plan.limits.maxVideoMinutesPerPeriod} דקה/חודש`;
+        if (tier === 'coach' || tier === 'coach-pro') return ''; // Hide minutes for coach tiers (handled separately)
+        return `${plan.limits.maxVideoMinutesPerPeriod} דק'/חודש`;
+      case 'coachMinutes':
+        if (tier === 'coach') return 'עד 200 דק\'/חודש';
+        if (tier === 'coach-pro') return 'עד 300 דק\'/חודש';
+        return '';
+      case 'analysesUnlimited':
+        if (tier === 'coach' || tier === 'coach-pro') {
+          if (plan.limits.maxAnalysesPerPeriod === -1) return 'ללא הגבלת ניתוחים';
+        }
+        return '';
       case 'videoLength':
         const seconds = plan.limits.maxVideoSeconds;
         const mb = plan.limits.maxFileBytes / (1024 * 1024);
@@ -594,9 +607,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           <>
             <PackagesGrid>
               {[
-                { tier: 'free' as SubscriptionTier, name: 'ניסיון', subtitle: 'trial' },
-                { tier: 'creator' as SubscriptionTier, name: 'יוצרים', subtitle: 'creators', recommended: true },
-                { tier: 'pro' as SubscriptionTier, name: 'יוצרים באקסטרים', subtitle: 'creators_extreme' },
+                { tier: 'free' as SubscriptionTier, name: 'ניסיון', subtitle: 'חינם' },
+                { tier: 'creator' as SubscriptionTier, name: 'יוצרים', subtitle: '₪49', recommended: true },
+                { tier: 'pro' as SubscriptionTier, name: 'יוצרים באקסטרים', subtitle: '₪99' },
               ].map((plan) => {
                 const planData = SUBSCRIPTION_PLANS[plan.tier];
                 const isCurrentTier = plan.tier === currentSubscription?.tier;
@@ -701,13 +714,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           <>
             <PackagesGrid>
               {(currentSubscription?.tier === 'coach'
-                ? [{ tier: 'coach-pro' as SubscriptionTier, name: SUBSCRIPTION_PLANS['coach-pro'].name, subtitle: 'coach_pro', recommended: true }]
+                ? [{ tier: 'coach-pro' as SubscriptionTier, name: SUBSCRIPTION_PLANS['coach-pro'].name, subtitle: '₪299', recommended: true }]
                 : currentSubscription?.tier === 'coach-pro'
                 ? []
                 : activeTrack === 'coach'
                 ? [
-                    { tier: 'coach' as SubscriptionTier, name: SUBSCRIPTION_PLANS.coach.name, subtitle: 'coach' },
-                    { tier: 'coach-pro' as SubscriptionTier, name: SUBSCRIPTION_PLANS['coach-pro'].name, subtitle: 'coach_pro', recommended: true }
+                    { tier: 'coach' as SubscriptionTier, name: SUBSCRIPTION_PLANS.coach.name, subtitle: '₪199' },
+                    { tier: 'coach-pro' as SubscriptionTier, name: SUBSCRIPTION_PLANS['coach-pro'].name, subtitle: '₪299', recommended: true }
                   ]
                 : []
               ).map((plan) => {
@@ -720,7 +733,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     <PackageTitle>{plan.name}</PackageTitle>
                     <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
                     <PackageFeatures>
-                      {getFeatureText(plan.tier, 'analyses') && <li>{getFeatureText(plan.tier, 'analyses')}</li>}
+                      {getFeatureText(plan.tier, 'analysesUnlimited') && <li>{getFeatureText(plan.tier, 'analysesUnlimited')}</li>}
+                      {getFeatureText(plan.tier, 'coachMinutes') && <li>{getFeatureText(plan.tier, 'coachMinutes')}</li>}
                       {getFeatureText(plan.tier, 'videoLength') && <li>{getFeatureText(plan.tier, 'videoLength')}</li>}
                       {getFeatureText(plan.tier, 'experts') && <li>{getFeatureText(plan.tier, 'experts')}</li>}
                       {getFeatureText(plan.tier, 'tracks') && <li>{getFeatureText(plan.tier, 'tracks')}</li>}
@@ -768,6 +782,16 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   <TableHeaderCell>{SUBSCRIPTION_PLANS.coach.name}</TableHeaderCell>
                   <TableHeaderCell>{SUBSCRIPTION_PLANS['coach-pro'].name}</TableHeaderCell>
                 </TableHeader>
+                <TableRow>
+                  <TableLabel>ניתוחים</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'analysesUnlimited')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'analysesUnlimited')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableLabel>דקות חודשיות</TableLabel>
+                  <TableCell>{getFeatureText('coach', 'coachMinutes')}</TableCell>
+                  <TableCell>{getFeatureText('coach-pro', 'coachMinutes')}</TableCell>
+                </TableRow>
                 <TableRow>
                   <TableLabel>אורך סרטון</TableLabel>
                   <TableCell>{getFeatureText('coach', 'videoLength')}</TableCell>
