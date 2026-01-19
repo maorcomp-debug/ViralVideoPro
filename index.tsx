@@ -2728,9 +2728,120 @@ const App = () => {
             סוכן על שמשלב ריאליטי, קולנוע, מוזיקה ומשפיענים.<br/>
             קבל ניתוח עומק, הערות מקצועיות וליווי עד לפריצה הגדולה.
           </Description>
+          {user && (
+            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
+                  מחובר כ: <span style={{ color: '#fff' }}>{profile?.full_name || user.email}</span>
+                </span>
+                {(() => {
+                  const currentTier = subscription?.tier || profile?.subscription_tier || 'free';
+                  let tierName = SUBSCRIPTION_PLANS[currentTier as SubscriptionTier]?.name || 'ניסיון';
+                  // Add "גרסת פרו" for coach-pro tier
+                  if (currentTier === 'coach-pro') {
+                    tierName = 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
+                  }
+                  return (
+                    <span style={{ 
+                      color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      background: currentTier === 'free' 
+                        ? 'rgba(136, 136, 136, 0.15)' 
+                        : currentTier === 'coach'
+                        ? 'rgba(212, 160, 67, 0.15)'
+                        : 'rgba(230, 190, 116, 0.15)',
+                      border: `1px solid ${currentTier === 'free' ? 'rgba(136, 136, 136, 0.3)' : currentTier === 'coach' ? 'rgba(212, 160, 67, 0.3)' : 'rgba(230, 190, 116, 0.3)'}`,
+                      letterSpacing: '0.5px'
+                    }}>
+                      {tierName}
+                    </span>
+                  );
+                })()}
+              </div>
+              {!userIsAdmin && (
+                <button
+                  onClick={() => navigate('/settings')}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #fff',
+                    color: '#fff',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  ⚙️ הגדרות
+                </button>
+              )}
+              {userIsAdmin && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🔍 App: Admin button clicked, navigating to /admin');
+                    console.log('🔍 App: Current path:', location.pathname);
+                    console.log('🔍 App: Navigate function:', typeof navigate);
+                    console.log('🔍 App: userIsAdmin:', userIsAdmin);
+                    // Use window.location.href directly for admin page to ensure immediate navigation
+                    // React Router navigate() can be delayed, causing isAdminPage check to fail
+                    console.log('✅ App: Using window.location.href for immediate navigation');
+                    window.location.href = '/admin';
+                  }}
+                  style={{
+                    background: 'rgba(244, 67, 54, 0.2)',
+                    border: '1px solid #F44336',
+                    color: '#F44336',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
+                    position: 'relative',
+                    zIndex: 10,
+                  }}
+                >
+                  🔐 מנהל
+                </button>
+              )}
+              {/* Debug: Show admin status */}
+              {process.env.NODE_ENV === 'development' && (
+                <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '5px' }}>
+                  Admin: {userIsAdmin ? 'Yes' : 'No'} | User: {user?.email || 'Not logged in'}
+                </div>
+              )}
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #fff',
+                  color: '#fff',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  cursor: loggingOut ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem',
+                  opacity: loggingOut ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                🚪 {loggingOut ? 'מתנתק...' : 'התנתק'}
+              </button>
+            </div>
+          )}
           <Divider />
-          <div style={{ minHeight: '48px', marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            {!user ? (
+          {!user && (
+            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -2770,112 +2881,8 @@ const App = () => {
               >
                 🔒 התחבר / הרשם
               </button>
-            ) : (
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
-                    {profile?.full_name || user.email}
-                  </span>
-                  {(() => {
-                    const currentTier = subscription?.tier || profile?.subscription_tier || 'free';
-                    let tierName = SUBSCRIPTION_PLANS[currentTier as SubscriptionTier]?.name || 'ניסיון';
-                    // Add "גרסת פרו" for coach-pro tier
-                    if (currentTier === 'coach-pro') {
-                      tierName = 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
-                    }
-                    return (
-                      <span style={{ 
-                        color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        background: currentTier === 'free' 
-                          ? 'rgba(136, 136, 136, 0.15)' 
-                          : currentTier === 'coach'
-                          ? 'rgba(212, 160, 67, 0.15)'
-                          : 'rgba(230, 190, 116, 0.15)',
-                        border: `1px solid ${currentTier === 'free' ? 'rgba(136, 136, 136, 0.3)' : currentTier === 'coach' ? 'rgba(212, 160, 67, 0.3)' : 'rgba(230, 190, 116, 0.3)'}`,
-                        letterSpacing: '0.5px'
-                      }}>
-                        {tierName}
-                      </span>
-                    );
-                  })()}
-                </div>
-                {!userIsAdmin && (
-                  <button
-                    onClick={() => navigate('/settings')}
-                    style={{
-                      background: 'rgba(212, 160, 67, 0.2)',
-                      border: '1px solid #D4A043',
-                      color: '#D4A043',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      fontWeight: 600,
-                    }}
-                  >
-                    ⚙️ הגדרות
-                  </button>
-                )}
-                {userIsAdmin && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('🔍 App: Admin button clicked, navigating to /admin');
-                      console.log('🔍 App: Current path:', location.pathname);
-                      console.log('🔍 App: Navigate function:', typeof navigate);
-                      console.log('🔍 App: userIsAdmin:', userIsAdmin);
-                      // Use window.location.href directly for admin page to ensure immediate navigation
-                      // React Router navigate() can be delayed, causing isAdminPage check to fail
-                      console.log('✅ App: Using window.location.href for immediate navigation');
-                      window.location.href = '/admin';
-                    }}
-                    style={{
-                      background: 'rgba(244, 67, 54, 0.2)',
-                      border: '1px solid #F44336',
-                      color: '#F44336',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      position: 'relative',
-                      zIndex: 10,
-                    }}
-                  >
-                    🔐 מנהל
-                  </button>
-                )}
-                {/* Debug: Show admin status */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '5px' }}>
-                    Admin: {userIsAdmin ? 'Yes' : 'No'} | User: {user?.email || 'Not logged in'}
-                  </div>
-                )}
-                <button
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  style={{
-                    background: 'rgba(212, 160, 67, 0.2)',
-                    border: '1px solid #D4A043',
-                    color: '#D4A043',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    cursor: loggingOut ? 'not-allowed' : 'pointer',
-                    fontSize: '0.9rem',
-                    opacity: loggingOut ? 0.6 : 1,
-                  }}
-                >
-                  {loggingOut ? 'מתנתק...' : 'התנתק'}
-                </button>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
           <CTAButton onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
             העלה סרטון וקבל ניתוח מלא
           </CTAButton>

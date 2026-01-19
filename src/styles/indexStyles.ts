@@ -97,7 +97,7 @@ export const CapabilitiesButton = styled.button`
 
 export const Divider = styled.hr`
   width: 100%;
-  max-width: 350px;
+  max-width: 300px;
   border: none;
   border-top: 1px solid rgba(212, 160, 67, 0.3);
   margin: 30px 0;
