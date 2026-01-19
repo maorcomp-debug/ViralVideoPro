@@ -930,19 +930,55 @@ const App = () => {
         }
       }
 
-      // Reload user data immediately to reflect changes
-      if (user) {
-        console.log('🔄 Reloading user data after subscription update...');
-        try {
-          await loadUserData(user, true);
-          console.log('✅ User data reloaded successfully');
-        } catch (reloadError) {
-          console.error('⚠️ Error reloading user data:', reloadError);
-          // Continue even if reload fails - the update was successful
-        }
+      // Immediately update local state to reflect the change
+      console.log('🔄 Updating local state immediately...');
+      
+      // Update profile state immediately
+      if (profile) {
+        const updatedProfile = {
+          ...profile,
+          subscription_tier: tier,
+          subscription_period: period,
+          subscription_status: 'active',
+          updated_at: new Date().toISOString(),
+        };
+        setProfile(updatedProfile);
+        console.log('✅ Profile state updated locally:', updatedProfile);
+      }
+      
+      // Update subscription state immediately
+      const planData = SUBSCRIPTION_PLANS[tier];
+      if (planData) {
+        const newSubscription: UserSubscription = {
+          tier,
+          billingPeriod: period,
+          startDate: new Date(),
+          endDate: period === 'monthly' 
+            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          usage: {
+            analysesUsed: 0,
+            lastResetDate: new Date(),
+          },
+          isActive: true,
+        };
+        setSubscription(newSubscription);
+        console.log('✅ Subscription state updated locally:', newSubscription);
       }
 
-      // Close modals after reload
+      // Reload user data in background to sync with database
+      if (user) {
+        console.log('🔄 Reloading user data from database to sync...');
+        // Don't await - let it happen in background while UI updates immediately
+        loadUserData(user, true).then(() => {
+          console.log('✅ User data synced from database');
+        }).catch((reloadError) => {
+          console.error('⚠️ Error syncing user data:', reloadError);
+          // Continue - local state is already updated
+        });
+      }
+
+      // Close modals immediately
       setShowSubscriptionModal(false);
       setShowPackageSelectionModal(false);
 
