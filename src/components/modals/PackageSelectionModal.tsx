@@ -27,8 +27,10 @@ const ModalContent = styled.div`
   border: 2px solid #D4A043;
   border-radius: 20px;
   padding: 40px;
-  max-width: 1200px;
-  width: 100%;
+  max-width: 900px;
+  width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(212, 160, 67, 0.4);
   animation: ${fadeIn} 0.4s ease;
   position: relative;
@@ -36,6 +38,8 @@ const ModalContent = styled.div`
   @media (max-width: 768px) {
     padding: 30px 20px;
     border-radius: 15px;
+    width: 98%;
+    max-height: 95vh;
   }
 `;
 

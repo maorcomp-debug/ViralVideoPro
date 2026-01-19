@@ -955,10 +955,10 @@ const App = () => {
           orderReference: data.orderReference 
         });
         
-        // Close subscription modal AFTER a small delay to ensure payment modal renders first
+        // Close package selection modal AFTER a small delay to ensure payment modal renders first
         setTimeout(() => {
-          setShowSubscriptionModal(false);
-          console.log('✅ Subscription modal closed after payment modal opened');
+          setShowPackageSelectionModal(false);
+          console.log('✅ Package selection modal closed after payment modal opened');
         }, 100);
         
         return; // IMPORTANT: Exit here, don't update subscription directly!
@@ -3658,10 +3658,14 @@ const App = () => {
           // Check if this is a paid tier - if so, initiate payment
           const isPaidTier = tier !== 'free';
           if (isPaidTier) {
-            // Don't close modal yet - let payment flow handle it
             // For paid tiers, call handleSelectPlan to initiate payment
-            await handleSelectPlan(tier, 'monthly');
-            // Modal will be closed by payment flow or user action
+            // handleSelectPlan will close the modal after opening payment modal
+            try {
+              await handleSelectPlan(tier, 'monthly');
+            } catch (error: any) {
+              console.error('Error in handleSelectPlan:', error);
+              // If payment fails, keep modal open so user can try again
+            }
             return; // Exit - payment flow will handle the rest
           }
           
