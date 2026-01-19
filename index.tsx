@@ -2835,7 +2835,7 @@ const App = () => {
                   gap: '8px',
                 }}
               >
-                🚪 {loggingOut ? 'מתנתק...' : 'התנתק'}
+                {loggingOut ? 'מתנתק...' : 'התנתק'}
               </button>
             </div>
           )}
