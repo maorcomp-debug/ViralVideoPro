@@ -280,6 +280,195 @@ const CloseModalButton = styled.button`
   }
 `;
 
+const PackagesGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 40px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const PackageCard = styled.div<{ $isRecommended?: boolean }>`
+  background: ${props => props.$isRecommended 
+    ? 'linear-gradient(135deg, rgba(212, 160, 67, 0.15) 0%, rgba(212, 160, 67, 0.05) 100%)' 
+    : 'linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%)'};
+  border: 2px solid ${props => props.$isRecommended ? '#D4A043' : 'rgba(212, 160, 67, 0.3)'};
+  border-radius: 12px;
+  padding: 30px 20px;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(212, 160, 67, 0.3);
+    border-color: #D4A043;
+  }
+`;
+
+const RecommendedBadge = styled.div`
+  position: absolute;
+  top: -12px;
+  right: 20px;
+  background: #D4A043;
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+`;
+
+const ActiveBadge = styled.div`
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #D4A043;
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+`;
+
+const PackageTitle = styled.h3`
+  color: #D4A043;
+  font-size: 1.5rem;
+  margin: 0 0 10px 0;
+  font-family: 'Frank Ruhl Libre', serif;
+`;
+
+const PackageSubtitle = styled.div`
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  text-transform: lowercase;
+`;
+
+const PackageFeatures = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0 0 25px 0;
+  text-align: right;
+  
+  li {
+    color: #ccc;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    padding-right: 20px;
+    position: relative;
+
+    &::before {
+      content: '✓';
+      position: absolute;
+      right: 0;
+      color: #D4A043;
+      font-weight: bold;
+    }
+
+    &.unavailable {
+      opacity: 0.5;
+      
+      &::before {
+        content: '✗';
+        color: #666;
+      }
+    }
+  }
+`;
+
+const PackageButton = styled.button`
+  width: 100%;
+  background: #D4A043;
+  color: #000;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+
+  &:hover:not(:disabled) {
+    background: #F5C842;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(212, 160, 67, 0.4);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const ComparisonTable = styled.div`
+  background: rgba(20, 20, 20, 0.6);
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 30px;
+`;
+
+const TableHeader = styled.div`
+  display: grid;
+  grid-template-columns: 200px repeat(3, 1fr);
+  background: rgba(212, 160, 67, 0.1);
+  border-bottom: 2px solid #D4A043;
+  padding: 15px;
+  gap: 10px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 150px repeat(3, 1fr);
+    font-size: 0.85rem;
+  }
+`;
+
+const TableHeaderCell = styled.div`
+  color: #D4A043;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-align: center;
+`;
+
+const TableRow = styled.div`
+  display: grid;
+  grid-template-columns: 200px repeat(3, 1fr);
+  padding: 15px;
+  border-bottom: 1px solid #222;
+  gap: 10px;
+  align-items: center;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.05);
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: 150px repeat(3, 1fr);
+    font-size: 0.85rem;
+  }
+`;
+
+const TableLabel = styled.div`
+  color: #aaa;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: right;
+`;
+
+const TableCell = styled.div`
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  text-align: center;
+`;
+
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -317,6 +506,40 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     await onSelectPlan(tier, selectedPeriods[tier]);
   };
 
+  const getFeatureText = (tier: SubscriptionTier, feature: string): string => {
+    const plan = SUBSCRIPTION_PLANS[tier];
+    switch (feature) {
+      case 'analyses':
+        if (plan.limits.maxAnalysesPerPeriod === -1) return 'ללא הגבלה';
+        if (tier === 'free') return 'ניתוח טעימה';
+        return `${plan.limits.maxAnalysesPerPeriod} ניתוח/חודש`;
+      case 'minutes':
+        if (tier === 'free') return ''; // Hide minutes for free tier
+        return `${plan.limits.maxVideoMinutesPerPeriod} דקה/חודש`;
+      case 'videoLength':
+        const seconds = plan.limits.maxVideoSeconds;
+        const mb = plan.limits.maxFileBytes / (1024 * 1024);
+        if (seconds >= 60) {
+          const minutes = Math.floor(seconds / 60);
+          return `עד ${minutes} דק' או ${mb}MB`;
+        }
+        return `עד ${seconds} שניות או ${mb}MB`;
+      case 'experts':
+        return tier === 'free' ? '3 מומחים' : 'כל המומחים (8)';
+      case 'tracks':
+        if (tier === 'free') return 'תחום/מסלול אחד';
+        if (tier === 'creator') return 'תחום/מסלול אחד';
+        return 'כל התחומים (4)';
+      case 'pdfExport':
+        return plan.limits.features.pdfExport ? '✓' : '✗';
+      case 'advancedAnalysis':
+        return plan.limits.features.advancedAnalysis ? '✓' : '✗';
+      case 'videoComparison':
+        return plan.limits.features.comparison ? '✓' : '✗';
+      default:
+        return '';
+    }
+  };
 
   const faqItems = [
     {
@@ -337,7 +560,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     },
     {
       question: 'האם אפשר לקבל החזר כספי?',
-      answer: 'כן, יש לנו מדיניות החזר של 7 ימים. אם אתה לא מרוצה, פנה אלינו ונחזיר לך את הכסף.',
+      answer: 'יש לנו מדיניות החזר של 7 ימים, אם אתה לא מרוצה, פנה אלינו ונחזיר לך את החלק היחסי של הכסף.',
     },
   ];
 
@@ -354,15 +577,124 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           </p>
         </SubscriptionModalHeader>
 
-        <PricingPlansGrid>
-          {(currentSubscription?.tier === 'coach'
-            ? [SUBSCRIPTION_PLANS['coach-pro']] // Only show PRO upgrade for coach users
-            : currentSubscription?.tier === 'coach-pro'
-            ? [] // No upgrades available for coach-pro (it's the highest tier)
-            : activeTrack === 'coach'
-            ? [SUBSCRIPTION_PLANS.coach, SUBSCRIPTION_PLANS['coach-pro']] // Show both coach plans for coach track users without coach subscription
-            : Object.values(SUBSCRIPTION_PLANS).filter(p => p.id !== 'coach-pro' && p.id !== 'coach')
-          ).map(plan => {
+        {/* Show only regular plans (free, creator, pro) in PackageSelectionModal format */}
+        {!(currentSubscription?.tier === 'coach' || currentSubscription?.tier === 'coach-pro' || activeTrack === 'coach') && (
+          <>
+            <PackagesGrid>
+              {[
+                { tier: 'free' as SubscriptionTier, name: 'ניסיון', subtitle: 'trial' },
+                { tier: 'creator' as SubscriptionTier, name: 'יוצרים', subtitle: 'creators', recommended: true },
+                { tier: 'pro' as SubscriptionTier, name: 'יוצרים באקסטרים', subtitle: 'creators_extreme' },
+              ].map((plan) => {
+                const planData = SUBSCRIPTION_PLANS[plan.tier];
+                const isCurrentTier = plan.tier === currentSubscription?.tier;
+                return (
+                  <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
+                    {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
+                    {isCurrentTier && <ActiveBadge>חבילה פעילה</ActiveBadge>}
+                    <PackageTitle>{plan.name}</PackageTitle>
+                    <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
+                    <PackageFeatures>
+                      <li>{getFeatureText(plan.tier, 'analyses')}</li>
+                      {getFeatureText(plan.tier, 'minutes') && <li>{getFeatureText(plan.tier, 'minutes')}</li>}
+                      <li>{getFeatureText(plan.tier, 'videoLength')}</li>
+                      <li>{getFeatureText(plan.tier, 'experts')}</li>
+                      <li>{getFeatureText(plan.tier, 'tracks')}</li>
+                      <li className={planData.limits.features.pdfExport ? '' : 'unavailable'}>
+                        {planData.limits.features.pdfExport ? 'יצוא PDF' : 'יצוא PDF'}
+                      </li>
+                      <li className={planData.limits.features.advancedAnalysis ? '' : 'unavailable'}>
+                        {planData.limits.features.advancedAnalysis ? 'ניתוח מתקדם' : 'ניתוח מתקדם'}
+                      </li>
+                      <li className={planData.limits.features.comparison ? '' : 'unavailable'}>
+                        {planData.limits.features.comparison ? 'השוואת סרטונים' : 'השוואת סרטונים'}
+                      </li>
+                    </PackageFeatures>
+                    <PackageButton
+                      onClick={async () => {
+                        if (!isCurrentTier) {
+                          await handleSelectPlan(plan.tier);
+                        }
+                      }}
+                      disabled={isCurrentTier}
+                    >
+                      {isCurrentTier ? 'חבילה פעילה' : plan.tier === 'free' ? 'התחל חינם' : 'שדרג עכשיו'}
+                    </PackageButton>
+                  </PackageCard>
+                );
+              })}
+            </PackagesGrid>
+
+            <ComparisonTable>
+              <TableHeader>
+                <TableHeaderCell>תכונה</TableHeaderCell>
+                <TableHeaderCell>ניסיון</TableHeaderCell>
+                <TableHeaderCell>יוצרים</TableHeaderCell>
+                <TableHeaderCell>יוצרים באקסטרים</TableHeaderCell>
+              </TableHeader>
+              <TableRow>
+                <TableLabel>ניתוחים חודשיים</TableLabel>
+                <TableCell>{getFeatureText('free', 'analyses')}</TableCell>
+                <TableCell>{getFeatureText('creator', 'analyses')}</TableCell>
+                <TableCell>{getFeatureText('pro', 'analyses')}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableLabel>דקות חודשיות</TableLabel>
+                <TableCell>-</TableCell>
+                <TableCell>{getFeatureText('creator', 'minutes')}</TableCell>
+                <TableCell>{getFeatureText('pro', 'minutes')}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableLabel>אורך סרטון</TableLabel>
+                <TableCell>{getFeatureText('free', 'videoLength')}</TableCell>
+                <TableCell>{getFeatureText('creator', 'videoLength')}</TableCell>
+                <TableCell>{getFeatureText('pro', 'videoLength')}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableLabel>מספר מומחים</TableLabel>
+                <TableCell>{getFeatureText('free', 'experts')}</TableCell>
+                <TableCell>{getFeatureText('creator', 'experts')}</TableCell>
+                <TableCell>{getFeatureText('pro', 'experts')}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableLabel>מספר תחומים</TableLabel>
+                <TableCell>{getFeatureText('free', 'tracks')}</TableCell>
+                <TableCell>{getFeatureText('creator', 'tracks')}</TableCell>
+                <TableCell>{getFeatureText('pro', 'tracks')}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableLabel>יצוא PDF</TableLabel>
+                <TableCell>{getFeatureText('free', 'pdfExport')}</TableCell>
+                <TableCell>{getFeatureText('creator', 'pdfExport')}</TableCell>
+                <TableCell>{getFeatureText('pro', 'pdfExport')}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableLabel>ניתוח מתקדם</TableLabel>
+                <TableCell>{getFeatureText('free', 'advancedAnalysis')}</TableCell>
+                <TableCell>{getFeatureText('creator', 'advancedAnalysis')}</TableCell>
+                <TableCell>{getFeatureText('pro', 'advancedAnalysis')}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableLabel>השוואת סרטונים</TableLabel>
+                <TableCell>{getFeatureText('free', 'videoComparison')}</TableCell>
+                <TableCell>{getFeatureText('creator', 'videoComparison')}</TableCell>
+                <TableCell>{getFeatureText('pro', 'videoComparison')}</TableCell>
+              </TableRow>
+            </ComparisonTable>
+          </>
+        )}
+
+        {/* Show coach plans in old format if needed */}
+        {(currentSubscription?.tier === 'coach' || currentSubscription?.tier === 'coach-pro' || activeTrack === 'coach') && (
+          <PricingPlansGrid>
+            {(currentSubscription?.tier === 'coach'
+              ? [SUBSCRIPTION_PLANS['coach-pro']] // Only show PRO upgrade for coach users
+              : currentSubscription?.tier === 'coach-pro'
+              ? [] // No upgrades available for coach-pro (it's the highest tier)
+              : activeTrack === 'coach'
+              ? [SUBSCRIPTION_PLANS.coach, SUBSCRIPTION_PLANS['coach-pro']] // Show both coach plans for coach track users without coach subscription
+              : []
+            ).map(plan => {
             const isCurrentPlan = currentSubscription?.tier === plan.id;
             const isUpgrade = !currentSubscription || 
               (currentSubscription.tier === 'free' && plan.id !== 'free') ||
@@ -588,7 +920,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           border: '1px solid rgba(212, 160, 67, 0.3)'
         }}>
           <h3 style={{ color: '#D4A043', fontSize: '2rem', margin: '0 0 15px 0', fontFamily: "'Frank Ruhl Libre', serif" }}>
-            אחריות 7 ימים - החזר מלא
+            אחריות 7 ימים
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <p style={{ color: '#fff', fontSize: '1.1rem', margin: 0, lineHeight: '1.6' }}>
