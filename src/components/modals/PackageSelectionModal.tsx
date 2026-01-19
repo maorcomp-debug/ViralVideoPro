@@ -138,7 +138,6 @@ const PackageSubtitle = styled.div`
   color: #888;
   font-size: 0.9rem;
   margin-bottom: 20px;
-  text-transform: lowercase;
 `;
 
 const PackageFeatures = styled.ul`
@@ -334,9 +333,9 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
   if (!isOpen) return null;
 
   const plans = [
-    { tier: 'free' as SubscriptionTier, name: 'ניסיון', subtitle: 'trial' },
-    { tier: 'creator' as SubscriptionTier, name: 'יוצרים', subtitle: 'creators', recommended: true },
-    { tier: 'pro' as SubscriptionTier, name: 'יוצרים באקסטרים', subtitle: 'creators_extreme' },
+    { tier: 'free' as SubscriptionTier, name: 'ניסיון', subtitle: 'חינם' },
+    { tier: 'creator' as SubscriptionTier, name: 'יוצרים', subtitle: '₪49', recommended: true },
+    { tier: 'pro' as SubscriptionTier, name: 'יוצרים באקסטרים', subtitle: '₪99' },
   ];
 
   const getFeatureText = (tier: SubscriptionTier, feature: string): string => {
@@ -348,7 +347,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
         return `${plan.limits.maxAnalysesPerPeriod} ניתוח/חודש`;
       case 'minutes':
         if (tier === 'free') return ''; // Hide minutes for free tier
-        return `${plan.limits.maxVideoMinutesPerPeriod} דקה/חודש`;
+        return `${plan.limits.maxVideoMinutesPerPeriod} דק'/חודש`;
       case 'videoLength':
         const seconds = plan.limits.maxVideoSeconds;
         const mb = plan.limits.maxFileBytes / (1024 * 1024);
