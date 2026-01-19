@@ -882,14 +882,21 @@ const App = () => {
 
       console.log('✅ Profile updated successfully');
 
-      // Reload user data to reflect changes
-      if (user) {
-        await loadUserData(user.id, true);
-      }
-
-      // Close modals
+      // Close modals first
       setShowSubscriptionModal(false);
       setShowPackageSelectionModal(false);
+
+      // Reload user data to reflect changes (don't await - let it happen in background)
+      if (user) {
+        console.log('🔄 Reloading user data after subscription update...');
+        // Don't await - reload in background to avoid blocking
+        loadUserData(user, true).then(() => {
+          console.log('✅ User data reloaded successfully');
+        }).catch((reloadError) => {
+          console.error('⚠️ Error reloading user data:', reloadError);
+          // Don't block the success message if reload fails
+        });
+      }
 
       alert(`החבילה עודכנה בהצלחה ל-${SUBSCRIPTION_PLANS[tier]?.name || tier}`);
       
@@ -897,6 +904,7 @@ const App = () => {
       console.error('❌ Error in handleSelectPlan:', error);
       alert(error.message || 'אירעה שגיאה בעדכון החבילה. נסה שוב.');
     } finally {
+      console.log('🔄 Resetting isUpdatingSubscription flag');
       setIsUpdatingSubscription(false);
     }
     
