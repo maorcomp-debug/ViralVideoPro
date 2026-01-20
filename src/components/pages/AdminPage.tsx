@@ -447,7 +447,6 @@ type SubTab = 'send-update' | 'coupons' | 'trials' | 'history';
 
 export const AdminPage: React.FC = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [activeTab, setActiveTab] = useState<MainTab>('overview');
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('send-update');
@@ -484,28 +483,23 @@ export const AdminPage: React.FC = () => {
   });
 
   useEffect(() => {
-    checkAdminAccess();
-  }, []);
-
-  useEffect(() => {
-    if (isAdminUser) {
-      loadData();
-    }
-  }, [isAdminUser, activeTab, activeSubTab]);
-
-  const checkAdminAccess = async () => {
-    try {
+    // Check admin access immediately - no loading state
+    const checkAccess = async () => {
       const adminStatus = await isAdmin();
       if (!adminStatus) {
         navigate('/');
         return;
       }
       setIsAdminUser(true);
-      setLoading(false);
-    } catch (error) {
-      navigate('/');
+    };
+    checkAccess();
+  }, [navigate]);
+
+  useEffect(() => {
+    if (isAdminUser) {
+      loadData();
     }
-  };
+  }, [isAdminUser, activeTab, activeSubTab]);
 
   const loadData = async () => {
     try {
@@ -649,7 +643,7 @@ export const AdminPage: React.FC = () => {
     return matchesSearch && matchesTier && matchesRole;
   });
 
-  if (loading) {
+  if (!isAdminUser) {
     return (
       <AdminContainer>
         <EmptyState>בודק הרשאות...</EmptyState>
@@ -657,11 +651,7 @@ export const AdminPage: React.FC = () => {
     );
   }
 
-  if (!isAdminUser) {
-    return null;
-  }
-
-  return (
+    return (
     <AdminContainer>
       <Header>
         <BackButton onClick={() => navigate('/')}>
