@@ -2490,6 +2490,32 @@ const App = () => {
     if (!isSettingsPage) return;
     navigate('/admin', { replace: true });
   }, [isSettingsPage, user, userIsAdmin, navigate]);
+
+  // Ensure profile is always loaded after refresh (fixes stuck email display)
+  useEffect(() => {
+    if (!user) return;
+    if (profile) return; // Already loaded
+    
+    // If user exists but profile is null, load it
+    const loadProfileIfMissing = async () => {
+      console.log('🔄 Profile missing after refresh, loading...', { userId: user.id });
+      try {
+        const userProfile = await getCurrentUserProfile(true);
+        if (userProfile) {
+          console.log('✅ Profile loaded after refresh:', { fullName: userProfile.full_name, email: userProfile.email });
+          setProfile(userProfile);
+        } else {
+          console.warn('⚠️ Profile still not found after refresh load attempt');
+        }
+      } catch (error) {
+        console.error('❌ Error loading profile after refresh:', error);
+      }
+    };
+    
+    // Small delay to avoid race with loadUserData
+    const timeoutId = setTimeout(loadProfileIfMissing, 500);
+    return () => clearTimeout(timeoutId);
+  }, [user, profile]);
   
   const handleLogout = async () => {
     // Prevent double-click

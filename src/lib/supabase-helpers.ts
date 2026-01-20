@@ -377,6 +377,8 @@ export async function isAdmin(): Promise<boolean> {
 
 export async function getAllUsers() {
   try {
+    console.log('🔍 getAllUsers: Starting fetch...');
+    
     // קודם כל ננסה להשתמש בפונקציה אדמינית (עוקפת RLS) אם קיימת
     try {
       const { data, error } = await supabase
@@ -384,31 +386,49 @@ export async function getAllUsers() {
 
       if (!error && data) {
         console.log('✅ getAllUsers: loaded via admin_get_all_users RPC, count =', data.length);
+        if (data.length > 0) {
+          console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role });
+        }
         return data;
       }
 
       if (error) {
-        console.warn('⚠️ getAllUsers: admin_get_all_users RPC failed, falling back to direct select:', error);
+        console.error('❌ getAllUsers: admin_get_all_users RPC failed:', error);
+        console.warn('⚠️ getAllUsers: Falling back to direct select...');
       }
-    } catch (rpcError) {
-      console.warn('⚠️ getAllUsers: exception in admin_get_all_users RPC, falling back to direct select:', rpcError);
+    } catch (rpcError: any) {
+      console.error('❌ getAllUsers: Exception in admin_get_all_users RPC:', rpcError);
+      console.warn('⚠️ getAllUsers: Falling back to direct select...');
     }
 
     // Fallback ישיר לטבלת profiles (יעבוד אם RLS מוגדר נכון לאדמין)
+    console.log('🔍 getAllUsers: Attempting direct select from profiles...');
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching all users (direct select):', error);
+      console.error('❌ getAllUsers: Direct select error:', error);
+      console.error('❌ getAllUsers: Error details:', { 
+        message: error.message, 
+        code: error.code, 
+        details: error.details,
+        hint: error.hint 
+      });
       throw error;
     }
 
     console.log('ℹ️ getAllUsers: loaded via direct select, count =', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role });
+    } else {
+      console.warn('⚠️ getAllUsers: No users returned from direct select - this might be an RLS issue');
+    }
     return data || [];
   } catch (error: any) {
-    console.error('Error in getAllUsers:', error);
+    console.error('❌ getAllUsers: Final error:', error);
+    console.error('❌ getAllUsers: Error stack:', error.stack);
     throw error;
   }
 }

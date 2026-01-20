@@ -498,32 +498,54 @@ export const AdminPage: React.FC = () => {
 
   const loadData = async () => {
     try {
+      console.log('🔄 AdminPage: loadData called', { activeTab, activeSubTab });
+      
       if (activeTab === 'overview') {
+        console.log('📊 Loading overview stats...');
         const statsData = await getAdminStats();
+        console.log('✅ Overview stats loaded:', statsData);
         setStats(statsData);
       } else if (activeTab === 'users') {
+        console.log('👥 Loading users...');
         const usersData = await getAllUsers();
+        console.log('✅ Users loaded:', { count: usersData?.length || 0, firstUser: usersData?.[0] });
         setUsers(usersData || []);
       } else if (activeTab === 'analyses') {
+        console.log('📄 Loading analyses...');
         const analysesData = await getAllAnalyses();
+        console.log('✅ Analyses loaded:', { count: analysesData?.length || 0 });
         setAnalyses(analysesData || []);
       } else if (activeTab === 'video') {
+        console.log('🎬 Loading videos...');
         const videosData = await getAllVideos();
+        console.log('✅ Videos loaded:', { count: videosData?.length || 0 });
         setVideos(videosData || []);
       } else if (activeTab === 'alerts') {
         if (activeSubTab === 'send-update') {
+          console.log('📢 Loading announcements...');
           const announcementsData = await getAllAnnouncements();
+          console.log('✅ Announcements loaded:', { count: announcementsData?.length || 0 });
           setAnnouncements(announcementsData || []);
         } else if (activeSubTab === 'coupons') {
+          console.log('🏷️ Loading coupons...');
           const couponsData = await getAllCoupons();
+          console.log('✅ Coupons loaded:', { count: couponsData?.length || 0 });
           setCoupons(couponsData || []);
         } else if (activeSubTab === 'trials') {
+          console.log('⭐ Loading trials...');
           const trialsData = await getAllTrials();
+          console.log('✅ Trials loaded:', { count: trialsData?.length || 0 });
           setTrials(trialsData || []);
         }
       }
-    } catch (error) {
-      console.error('Error loading data:', error);
+    } catch (error: any) {
+      console.error('❌ AdminPage: Error loading data:', error);
+      console.error('❌ AdminPage: Error details:', { 
+        message: error.message, 
+        stack: error.stack,
+        activeTab,
+        activeSubTab
+      });
     }
   };
 
