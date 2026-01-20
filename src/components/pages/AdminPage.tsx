@@ -495,7 +495,6 @@ export const AdminPage: React.FC = () => {
 
   const checkAdminAccess = async () => {
     try {
-      // Quick admin check - no delays, no timeouts
       const adminStatus = await isAdmin();
       if (!adminStatus) {
         navigate('/');
@@ -504,7 +503,6 @@ export const AdminPage: React.FC = () => {
       setIsAdminUser(true);
       setLoading(false);
     } catch (error) {
-      console.error('Error checking admin access:', error);
       navigate('/');
     }
   };
