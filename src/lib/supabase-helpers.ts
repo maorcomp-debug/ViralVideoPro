@@ -377,49 +377,71 @@ export async function isAdmin(): Promise<boolean> {
 
 export async function getAllUsers() {
   try {
-    console.log('🔍 getAllUsers: Starting simple direct fetch from profiles...');
+    console.log('🔍 getAllUsers: Starting fetch...');
     
-    // Add timeout to prevent hanging
-    const fetchPromise = supabase
+    // ננסה קודם RPC (עוקף RLS לחלוטין)
+    console.log('🔍 getAllUsers: Attempting admin_get_all_users RPC (bypasses RLS)...');
+    
+    const rpcPromise = supabase.rpc('admin_get_all_users');
+    const rpcTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('RPC timeout after 10 seconds')), 10000)
+    );
+    
+    try {
+      const rpcResult = await Promise.race([rpcPromise, rpcTimeoutPromise]) as { data: any, error: any };
+      const { data, error } = rpcResult;
+
+      if (!error && data) {
+        console.log('✅ getAllUsers: loaded via admin_get_all_users RPC, count =', data.length);
+        if (data.length > 0) {
+          console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
+        }
+        return data;
+      }
+
+      if (error) {
+        console.warn('⚠️ getAllUsers: RPC error (will try direct select):', error.message);
+      }
+    } catch (rpcError: any) {
+      console.warn('⚠️ getAllUsers: RPC timeout/exception (will try direct select):', rpcError.message);
+    }
+
+    // Fallback: SELECT ישיר (עם timeout קצר יותר)
+    console.log('🔍 getAllUsers: Attempting direct select from profiles (with RLS)...');
+    
+    const selectPromise = supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
     
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('getAllUsers: Request timeout after 15 seconds')), 15000)
+    const selectTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Select timeout after 8 seconds')), 8000)
     );
     
-    console.log('⏳ getAllUsers: Waiting for Supabase response...');
-    const result = await Promise.race([fetchPromise, timeoutPromise]) as { data: any, error: any };
-    const { data, error } = result;
+    const selectResult = await Promise.race([selectPromise, selectTimeoutPromise]) as { data: any, error: any };
+    const { data, error } = selectResult;
 
     if (error) {
-      console.error('❌ getAllUsers: Supabase error:', error);
+      console.error('❌ getAllUsers: Direct select error:', error);
       console.error('❌ getAllUsers: Error details:', { 
         message: error.message, 
         code: error.code, 
         details: error.details,
         hint: error.hint 
       });
-      // Return empty array instead of throwing to prevent UI crash
       return [];
     }
 
     console.log('✅ getAllUsers: loaded via direct select, count =', data?.length || 0);
     if (data && data.length > 0) {
       console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
-      console.log('📋 getAllUsers: All users:', data.map((u: any) => ({ email: u.email, role: u.role, fullName: u.full_name })));
     } else {
       console.warn('⚠️ getAllUsers: No users returned (empty array or null)');
     }
     return data || [];
   } catch (error: any) {
-    console.error('❌ getAllUsers: Exception caught:', error);
+    console.error('❌ getAllUsers: Final exception:', error);
     console.error('❌ getAllUsers: Exception message:', error.message);
-    if (error.stack) {
-      console.error('❌ getAllUsers: Exception stack:', error.stack);
-    }
-    // Return empty array instead of throwing to prevent UI crash
     return [];
   }
 }
