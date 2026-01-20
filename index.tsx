@@ -2474,6 +2474,13 @@ const App = () => {
     return selectedExperts.length === currentExpertsList.length;
   };
 
+  // Redirect admin users from settings route ישירות לפאנל ניהול
+  useEffect(() => {
+    if (!user || !userIsAdmin) return;
+    if (!isSettingsPage) return;
+    navigate('/admin', { replace: true });
+  }, [isSettingsPage, user, userIsAdmin, navigate]);
+
   // Show loading screen while checking auth
   if (loadingAuth) {
     return (
@@ -2575,14 +2582,7 @@ const App = () => {
       }, 200);
     }
   };
-
-  // Redirect admin users from settings route ישירות לפאנל ניהול
-  useEffect(() => {
-    if (!user || !userIsAdmin) return;
-    if (!isSettingsPage) return;
-    navigate('/admin', { replace: true });
-  }, [isSettingsPage, user, userIsAdmin, navigate]);
-
+  
   // Render different pages based on route (ללא useEffect בתוך תנאי!)
   if (isSettingsPage) {
     // For admin users we don't מציגים את עמוד ההגדרות (הם כבר מופנים ל-/admin מה-useEffect)
