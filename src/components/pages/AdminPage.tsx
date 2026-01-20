@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+image.pngimport React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { 
@@ -445,13 +445,9 @@ const ActionsCell = styled(TableCell)`
 type MainTab = 'overview' | 'users' | 'analyses' | 'video' | 'alerts';
 type SubTab = 'send-update' | 'coupons' | 'trials' | 'history';
 
-interface AdminPageProps {
-  userIsAdmin: boolean;
-}
-
-export const AdminPage: React.FC<AdminPageProps> = ({ userIsAdmin }) => {
+export const AdminPage: React.FC = () => {
   const navigate = useNavigate();
-  const [isAdminUser, setIsAdminUser] = useState(userIsAdmin);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const [activeTab, setActiveTab] = useState<MainTab>('overview');
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('send-update');
   
@@ -487,14 +483,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({ userIsAdmin }) => {
   });
 
   useEffect(() => {
-    // Use admin status passed from App for immediate access (no extra Supabase check)
-    if (userIsAdmin) {
+    // Always verify admin access when entering /admin
+    const checkAccess = async () => {
+      const adminStatus = await isAdmin();
+      if (!adminStatus) {
+        navigate('/');
+        return;
+      }
       setIsAdminUser(true);
-    } else {
-      // If somehow reached /admin without admin rights, redirect home
-      navigate('/');
-    }
-  }, [userIsAdmin, navigate]);
+    };
+    checkAccess();
+  }, [navigate]);
 
   useEffect(() => {
     if (isAdminUser) {
