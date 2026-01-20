@@ -487,8 +487,6 @@ const App = () => {
         // VERSION: 2.3 - Profile created by trigger with metadata - complete immediately
         
         setProfile(userProfile);
-        // Reset the log flag when profile is loaded
-        profileNotLoadedLoggedRef.current = false;
         // Always log profile load to help debug
         console.log('✅ Profile loaded successfully:', {
           tier: userProfile.subscription_tier,
@@ -707,18 +705,7 @@ const App = () => {
     const fromTier = searchParams.get('from') as SubscriptionTier | null;
     const toTier = searchParams.get('to') as SubscriptionTier | null;
     
-    console.log('🔍 Checking for upgrade params:', {
-      upgradeParam,
-      fromTier,
-      toTier,
-      hasUser: !!user,
-      hasProfile: !!profile,
-      locationSearch: location.search,
-    });
-    
     if (upgradeParam === 'success' && fromTier && toTier) {
-      console.log('🎉 Upgrade detected, showing UpgradeBenefitsModal:', { fromTier, toTier, hasUser: !!user, hasProfile: !!profile });
-      
       // Set the tiers immediately
       setUpgradeFromTier(fromTier);
       setUpgradeToTier(toTier);
@@ -772,14 +759,6 @@ const App = () => {
         }
       }
       
-    } else if (upgradeParam === 'success') {
-      console.log('⚠️ Upgrade param found but conditions not met:', {
-        hasFromTier: !!fromTier,
-        hasToTier: !!toTier,
-        tiersMatch: fromTier === toTier,
-        hasUser: !!user,
-        hasProfile: !!profile,
-      });
     }
   }, [location.search, user, profile, navigate, location.pathname]);
 
@@ -1140,9 +1119,6 @@ const App = () => {
     return plan.limits.features[feature];
   };
 
-  // Track if we've already logged the "profile not loaded" message to prevent spam
-  const profileNotLoadedLoggedRef = useRef(false);
-  
   // Check if a track is available for the current user (for usage, not display)
   const isTrackAvailable = (trackId: TrackId): boolean => {
     // If no user logged in, allow viewing but not using
@@ -1154,16 +1130,7 @@ const App = () => {
     // If profile or subscription haven't loaded yet, show restrictions (don't allow access)
     // This prevents showing all tracks as available before data loads
     if (!profile || !subscription) {
-      if (!profileNotLoadedLoggedRef.current) {
-        console.log('⏳ Profile or subscription not loaded yet, showing restrictions until data loads');
-        profileNotLoadedLoggedRef.current = true;
-      }
       return false; // Show restrictions until data is loaded
-    }
-    
-    // Reset the log flag once profile is loaded
-    if (profileNotLoadedLoggedRef.current) {
-      profileNotLoadedLoggedRef.current = false;
     }
 
     // Coach track always requires traineeManagement feature
@@ -2610,7 +2577,24 @@ const App = () => {
   };
 
   // Render different pages based on route
+  // If admin tries to access settings, redirect to admin panel
   if (isSettingsPage) {
+    // Check if user is admin and redirect to admin panel
+    useEffect(() => {
+      const checkAndRedirect = async () => {
+        if (user && userIsAdmin) {
+          navigate('/admin', { replace: true });
+          return;
+        }
+      };
+      checkAndRedirect();
+    }, [user, userIsAdmin, navigate]);
+    
+    // If admin, don't render settings page (will redirect)
+    if (userIsAdmin) {
+      return null; // Will redirect to admin
+    }
+    
     return (
       <>
         <GlobalStyle />
