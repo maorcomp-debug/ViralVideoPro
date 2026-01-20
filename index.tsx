@@ -2656,7 +2656,7 @@ const App = () => {
     return (
       <>
         <GlobalStyle />
-        <AdminPage />
+        <AdminPage userIsAdmin={userIsAdmin} />
       </>
     );
   }

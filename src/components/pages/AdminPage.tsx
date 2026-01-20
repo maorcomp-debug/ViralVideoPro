@@ -483,7 +483,13 @@ export const AdminPage: React.FC = () => {
   });
 
   useEffect(() => {
-    // Check admin access immediately - no loading state
+    // If admin status passed as prop, use it immediately
+    if (propUserIsAdmin === true) {
+      setIsAdminUser(true);
+      return;
+    }
+    
+    // Otherwise check admin access
     const checkAccess = async () => {
       const adminStatus = await isAdmin();
       if (!adminStatus) {
@@ -493,7 +499,7 @@ export const AdminPage: React.FC = () => {
       setIsAdminUser(true);
     };
     checkAccess();
-  }, [navigate]);
+  }, [navigate, propUserIsAdmin]);
 
   useEffect(() => {
     if (isAdminUser) {
