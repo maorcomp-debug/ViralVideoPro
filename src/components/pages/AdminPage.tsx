@@ -445,7 +445,11 @@ const ActionsCell = styled(TableCell)`
 type MainTab = 'overview' | 'users' | 'analyses' | 'video' | 'alerts';
 type SubTab = 'send-update' | 'coupons' | 'trials' | 'history';
 
-export const AdminPage: React.FC = () => {
+interface AdminPageProps {
+  userIsAdmin?: boolean;
+}
+
+export const AdminPage: React.FC<AdminPageProps> = () => {
   const navigate = useNavigate();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [activeTab, setActiveTab] = useState<MainTab>('overview');
