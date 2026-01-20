@@ -379,51 +379,109 @@ export async function getAllUsers() {
   try {
     console.log('🔍 getAllUsers: Starting fetch...');
     
-    // ננסה קודם RPC (עוקף RLS לחלוטין)
-    console.log('🔍 getAllUsers: Attempting admin_get_all_users RPC (bypasses RLS)...');
+    // Get current session for auth header
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.error('❌ getAllUsers: Error getting session:', sessionError);
+    }
     
-    const rpcPromise = supabase.rpc('admin_get_all_users');
-    const rpcTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('RPC timeout after 10 seconds')), 10000)
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
+    
+    console.log('🔍 getAllUsers: Supabase URL:', supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING');
+    console.log('🔍 getAllUsers: Has session:', !!session);
+    console.log('🔍 getAllUsers: Session token length:', session?.access_token?.length || 0);
+    
+    // Try direct fetch first (bypasses Supabase client, might work if client has issues)
+    console.log('🔍 getAllUsers: Attempting direct fetch to Supabase REST API...');
+    
+    const fetchUrl = `${supabaseUrl}/rest/v1/profiles?select=*&order=created_at.desc`;
+    console.log('🔍 getAllUsers: Fetch URL:', fetchUrl.substring(0, 80) + '...');
+    
+    const headers: HeadersInit = {
+      'apikey': supabaseAnonKey,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    };
+    
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+      console.log('🔍 getAllUsers: Added Authorization header');
+    } else {
+      console.warn('⚠️ getAllUsers: No session token, request might fail due to RLS');
+    }
+    
+    const fetchPromise = fetch(fetchUrl, {
+      method: 'GET',
+      headers,
+      // Add signal for timeout
+    });
+    
+    const fetchTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Fetch timeout after 10 seconds')), 10000)
     );
     
     try {
-      const rpcResult = await Promise.race([rpcPromise, rpcTimeoutPromise]) as { data: any, error: any };
-      const { data, error } = rpcResult;
-
-      if (!error && data) {
-        console.log('✅ getAllUsers: loaded via admin_get_all_users RPC, count =', data.length);
-        if (data.length > 0) {
-          console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
-        }
-        return data;
+      console.log('⏳ getAllUsers: Sending fetch request...');
+      const response = await Promise.race([fetchPromise, fetchTimeoutPromise]) as Response;
+      
+      console.log('📡 getAllUsers: Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ getAllUsers: Response not OK:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText.substring(0, 200)
+        });
+        
+        // Fallback to Supabase client
+        console.log('🔄 getAllUsers: Falling back to Supabase client...');
+        return await getAllUsersViaClient();
       }
-
-      if (error) {
-        console.warn('⚠️ getAllUsers: RPC error (will try direct select):', error.message);
+      
+      const data = await response.json();
+      console.log('✅ getAllUsers: loaded via direct fetch, count =', data?.length || 0);
+      if (data && data.length > 0) {
+        console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
       }
-    } catch (rpcError: any) {
-      console.warn('⚠️ getAllUsers: RPC timeout/exception (will try direct select):', rpcError.message);
+      return data || [];
+    } catch (fetchError: any) {
+      console.error('❌ getAllUsers: Direct fetch failed:', fetchError.message);
+      console.error('❌ getAllUsers: Fetch error details:', {
+        name: fetchError.name,
+        message: fetchError.message,
+        stack: fetchError.stack?.substring(0, 200)
+      });
+      
+      // Fallback to Supabase client
+      console.log('🔄 getAllUsers: Falling back to Supabase client...');
+      return await getAllUsersViaClient();
     }
+  } catch (error: any) {
+    console.error('❌ getAllUsers: Final exception:', error);
+    console.error('❌ getAllUsers: Exception message:', error.message);
+    return [];
+  }
+}
 
-    // Fallback: SELECT ישיר (עם timeout קצר יותר)
-    console.log('🔍 getAllUsers: Attempting direct select from profiles (with RLS)...');
+async function getAllUsersViaClient() {
+  try {
+    console.log('🔍 getAllUsersViaClient: Using Supabase client...');
     
-    const selectPromise = supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
-    
-    const selectTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Select timeout after 8 seconds')), 8000)
-    );
-    
-    const selectResult = await Promise.race([selectPromise, selectTimeoutPromise]) as { data: any, error: any };
-    const { data, error } = selectResult;
 
     if (error) {
-      console.error('❌ getAllUsers: Direct select error:', error);
-      console.error('❌ getAllUsers: Error details:', { 
+      console.error('❌ getAllUsersViaClient: Error:', error);
+      console.error('❌ getAllUsersViaClient: Error details:', { 
         message: error.message, 
         code: error.code, 
         details: error.details,
@@ -432,16 +490,13 @@ export async function getAllUsers() {
       return [];
     }
 
-    console.log('✅ getAllUsers: loaded via direct select, count =', data?.length || 0);
+    console.log('✅ getAllUsersViaClient: loaded, count =', data?.length || 0);
     if (data && data.length > 0) {
-      console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
-    } else {
-      console.warn('⚠️ getAllUsers: No users returned (empty array or null)');
+      console.log('📋 getAllUsersViaClient: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
     }
     return data || [];
   } catch (error: any) {
-    console.error('❌ getAllUsers: Final exception:', error);
-    console.error('❌ getAllUsers: Exception message:', error.message);
+    console.error('❌ getAllUsersViaClient: Exception:', error);
     return [];
   }
 }
