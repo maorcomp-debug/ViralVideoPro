@@ -2782,29 +2782,23 @@ const App = () => {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('🔍 App: Admin button clicked, navigating to /admin');
-                      console.log('🔍 App: Current path:', location.pathname);
-                      console.log('🔍 App: Navigate function:', typeof navigate);
-                      console.log('🔍 App: userIsAdmin:', userIsAdmin);
-                      // Use window.location.href directly for admin page to ensure immediate navigation
-                      // React Router navigate() can be delayed, causing isAdminPage check to fail
-                      console.log('✅ App: Using window.location.href for immediate navigation');
                       window.location.href = '/admin';
                     }}
                     style={{
-                      background: 'rgba(244, 67, 54, 0.2)',
-                      border: '1px solid #F44336',
-                      color: '#F44336',
+                      background: 'transparent',
+                      border: '1px solid #fff',
+                      color: '#fff',
                       padding: '8px 16px',
                       borderRadius: '50px',
                       cursor: 'pointer',
                       fontSize: '0.9rem',
-                      fontWeight: 700,
-                      position: 'relative',
-                      zIndex: 10,
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
                     }}
                   >
-                    🔐 מנהל
+                    ⚙️ פאנל ניהול
                   </button>
                 )}
                 {/* Debug: Show admin status */}
