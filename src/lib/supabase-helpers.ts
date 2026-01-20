@@ -379,18 +379,48 @@ export async function getAllUsers() {
   try {
     console.log('🔍 getAllUsers: Starting fetch...');
     
-    // קודם כל ננסה להשתמש בפונקציה אדמינית (עוקפת RLS) אם קיימת
-    // עם timeout כדי למנוע תקיעות
+    // קודם כל ננסה SELECT ישיר (מהיר יותר, עובד אם RLS מוגדר נכון)
+    console.log('🔍 getAllUsers: Attempting direct select from profiles (with RLS)...');
+    
+    const selectPromise = supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    const selectTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Select timeout after 8 seconds')), 8000)
+    );
+    
     try {
-      console.log('🔍 getAllUsers: Attempting admin_get_all_users RPC...');
-      
+      const selectResult = await Promise.race([selectPromise, selectTimeoutPromise]) as { data: any, error: any };
+      const { data, error } = selectResult;
+
+      if (!error && data && data.length > 0) {
+        console.log('✅ getAllUsers: loaded via direct select, count =', data.length);
+        console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role });
+        return data;
+      }
+
+      if (error) {
+        console.warn('⚠️ getAllUsers: Direct select error (will try RPC):', error.message);
+      } else if (!data || data.length === 0) {
+        console.warn('⚠️ getAllUsers: Direct select returned empty (will try RPC)');
+      }
+    } catch (selectError: any) {
+      console.warn('⚠️ getAllUsers: Direct select timeout/exception (will try RPC):', selectError.message);
+    }
+
+    // Fallback ל-RPC אם SELECT ישיר לא עבד
+    console.log('🔍 getAllUsers: Attempting admin_get_all_users RPC as fallback...');
+    
+    try {
       const rpcPromise = supabase.rpc('admin_get_all_users');
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('RPC timeout after 10 seconds')), 10000)
+      const rpcTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RPC timeout after 8 seconds')), 8000)
       );
       
-      const result = await Promise.race([rpcPromise, timeoutPromise]) as { data: any, error: any };
-      const { data, error } = result;
+      const rpcResult = await Promise.race([rpcPromise, rpcTimeoutPromise]) as { data: any, error: any };
+      const { data, error } = rpcResult;
 
       if (!error && data) {
         console.log('✅ getAllUsers: loaded via admin_get_all_users RPC, count =', data.length);
@@ -408,7 +438,6 @@ export async function getAllUsers() {
           details: error.details,
           hint: error.hint 
         });
-        console.warn('⚠️ getAllUsers: Falling back to direct select...');
       }
     } catch (rpcError: any) {
       console.error('❌ getAllUsers: Exception in admin_get_all_users RPC:', rpcError);
@@ -416,46 +445,16 @@ export async function getAllUsers() {
         message: rpcError.message, 
         stack: rpcError.stack 
       });
-      console.warn('⚠️ getAllUsers: Falling back to direct select...');
     }
 
-    // Fallback ישיר לטבלת profiles (יעבוד אם RLS מוגדר נכון לאדמין)
-    console.log('🔍 getAllUsers: Attempting direct select from profiles...');
-    
-    const selectPromise = supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    const selectTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Select timeout after 10 seconds')), 10000)
-    );
-    
-    const selectResult = await Promise.race([selectPromise, selectTimeoutPromise]) as { data: any, error: any };
-    const { data, error } = selectResult;
-
-    if (error) {
-      console.error('❌ getAllUsers: Direct select error:', error);
-      console.error('❌ getAllUsers: Error details:', { 
-        message: error.message, 
-        code: error.code, 
-        details: error.details,
-        hint: error.hint 
-      });
-      throw error;
-    }
-
-    console.log('ℹ️ getAllUsers: loaded via direct select, count =', data?.length || 0);
-    if (data && data.length > 0) {
-      console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role });
-    } else {
-      console.warn('⚠️ getAllUsers: No users returned from direct select - this might be an RLS issue');
-    }
-    return data || [];
+    // אם גם RPC נכשל, נחזיר רשימה ריקה (לא נזרוק שגיאה כדי לא לשבור את הפאנל)
+    console.warn('⚠️ getAllUsers: Both direct select and RPC failed, returning empty array');
+    return [];
   } catch (error: any) {
     console.error('❌ getAllUsers: Final error:', error);
     console.error('❌ getAllUsers: Error stack:', error.stack);
-    throw error;
+    // לא נזרוק שגיאה - נחזיר רשימה ריקה כדי שהפאנל לא יקרוס
+    return [];
   }
 }
 
