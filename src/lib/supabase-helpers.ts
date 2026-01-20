@@ -380,9 +380,17 @@ export async function getAllUsers() {
     console.log('🔍 getAllUsers: Starting fetch...');
     
     // קודם כל ננסה להשתמש בפונקציה אדמינית (עוקפת RLS) אם קיימת
+    // עם timeout כדי למנוע תקיעות
     try {
-      const { data, error } = await supabase
-        .rpc('admin_get_all_users');
+      console.log('🔍 getAllUsers: Attempting admin_get_all_users RPC...');
+      
+      const rpcPromise = supabase.rpc('admin_get_all_users');
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RPC timeout after 10 seconds')), 10000)
+      );
+      
+      const result = await Promise.race([rpcPromise, timeoutPromise]) as { data: any, error: any };
+      const { data, error } = result;
 
       if (!error && data) {
         console.log('✅ getAllUsers: loaded via admin_get_all_users RPC, count =', data.length);
@@ -394,19 +402,37 @@ export async function getAllUsers() {
 
       if (error) {
         console.error('❌ getAllUsers: admin_get_all_users RPC failed:', error);
+        console.error('❌ getAllUsers: RPC error details:', { 
+          message: error.message, 
+          code: error.code, 
+          details: error.details,
+          hint: error.hint 
+        });
         console.warn('⚠️ getAllUsers: Falling back to direct select...');
       }
     } catch (rpcError: any) {
       console.error('❌ getAllUsers: Exception in admin_get_all_users RPC:', rpcError);
+      console.error('❌ getAllUsers: Exception details:', { 
+        message: rpcError.message, 
+        stack: rpcError.stack 
+      });
       console.warn('⚠️ getAllUsers: Falling back to direct select...');
     }
 
     // Fallback ישיר לטבלת profiles (יעבוד אם RLS מוגדר נכון לאדמין)
     console.log('🔍 getAllUsers: Attempting direct select from profiles...');
-    const { data, error } = await supabase
+    
+    const selectPromise = supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    const selectTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Select timeout after 10 seconds')), 10000)
+    );
+    
+    const selectResult = await Promise.race([selectPromise, selectTimeoutPromise]) as { data: any, error: any };
+    const { data, error } = selectResult;
 
     if (error) {
       console.error('❌ getAllUsers: Direct select error:', error);
