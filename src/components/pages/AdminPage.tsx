@@ -446,12 +446,12 @@ type MainTab = 'overview' | 'users' | 'analyses' | 'video' | 'alerts';
 type SubTab = 'send-update' | 'coupons' | 'trials' | 'history';
 
 interface AdminPageProps {
-  userIsAdmin?: boolean;
+  userIsAdmin: boolean;
 }
 
-export const AdminPage: React.FC<AdminPageProps> = () => {
+export const AdminPage: React.FC<AdminPageProps> = ({ userIsAdmin }) => {
   const navigate = useNavigate();
-  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(userIsAdmin);
   const [activeTab, setActiveTab] = useState<MainTab>('overview');
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('send-update');
   
@@ -487,17 +487,14 @@ export const AdminPage: React.FC<AdminPageProps> = () => {
   });
 
   useEffect(() => {
-    // Always check admin access directly - don't rely on prop which might not be set yet
-    const checkAccess = async () => {
-      const adminStatus = await isAdmin();
-      if (!adminStatus) {
-        navigate('/');
-        return;
-      }
+    // Use admin status passed from App for immediate access (no extra Supabase check)
+    if (userIsAdmin) {
       setIsAdminUser(true);
-    };
-    checkAccess();
-  }, [navigate]);
+    } else {
+      // If somehow reached /admin without admin rights, redirect home
+      navigate('/');
+    }
+  }, [userIsAdmin, navigate]);
 
   useEffect(() => {
     if (isAdminUser) {
