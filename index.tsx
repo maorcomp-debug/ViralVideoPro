@@ -194,17 +194,9 @@ const App = () => {
   // Determine current page from route
   const isHomePage = currentPath === '/';
   const isSettingsPage = currentPath === '/settings';
-  // Check both React Router path and window.location for admin page (React Router can be delayed)
-  const isAdminPage = currentPath === '/admin' || (typeof window !== 'undefined' && window.location.pathname === '/admin');
+  const isAdminPage = currentPath === '/admin';
   const isAnalysisPage = currentPath.startsWith('/analysis');
   const isCreatorPage = currentPath === '/creator';
-  
-  // Debug: Log path changes
-  useEffect(() => {
-    if (currentPath === '/admin' || (typeof window !== 'undefined' && window.location.pathname === '/admin')) {
-      console.log('🔍 App: Admin page detected:', { currentPath, windowPath: typeof window !== 'undefined' ? window.location.pathname : 'N/A', isAdminPage });
-    }
-  }, [currentPath, isAdminPage]);
   
   const [activeTrack, setActiveTrack] = useState<TrackId>('actors');
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -563,7 +555,6 @@ const App = () => {
 
       // Check if user is admin
       const adminStatus = await isAdmin();
-      console.log('🔍 App: Admin status check result:', adminStatus, 'for user:', currentUser.email);
       setUserIsAdmin(adminStatus);
 
       // Determine subscription tier: prioritize subscription record, but use profile if subscription record doesn't exist yet
@@ -1152,8 +1143,8 @@ const App = () => {
   };
 
   const canUseFeature = (feature: keyof SubscriptionLimits['features']): boolean => {
-    // Admin email gets all features
-    if (user?.email === 'viralypro@gmail.com') return true;
+    // Admin gets all features
+    if (userIsAdmin) return true;
     if (!subscription) return false;
     const plan = SUBSCRIPTION_PLANS[subscription.tier];
     return plan.limits.features[feature];
@@ -1167,8 +1158,8 @@ const App = () => {
     // If no user logged in, allow viewing but not using
     if (!user) return false;
     
-    // Admin email gets all tracks
-    if (user.email === 'viralypro@gmail.com') return true;
+    // Admin gets all tracks
+    if (userIsAdmin) return true;
     
     // If profile or subscription haven't loaded yet, show restrictions (don't allow access)
     // This prevents showing all tracks as available before data loads
@@ -1212,8 +1203,8 @@ const App = () => {
     // Don't show restrictions if user is not logged in
     if (!user) return false;
     
-    // Admin email has no restrictions
-    if (user.email === 'viralypro@gmail.com') return false;
+    // Admin has no restrictions
+    if (userIsAdmin) return false;
     
     return !isTrackAvailable(trackId);
   };
@@ -1242,8 +1233,8 @@ const App = () => {
 
   // Get max number of experts allowed for current subscription
   const getMaxExperts = (): number => {
-    // Admin email gets 8 experts
-    if (user?.email === 'viralypro@gmail.com') return 8;
+    // Admin gets 8 experts
+    if (userIsAdmin) return 8;
     if (!subscription) return 3; // Default to 3 for free
     if (subscription.tier === 'free') return 3;
     // Creator, Pro, Coach all get 8 experts
@@ -2662,8 +2653,6 @@ const App = () => {
   }
 
   if (isAdminPage) {
-    // AdminPage handles its own authentication check internally
-    console.log('🔍 App: Rendering AdminPage, currentPath:', currentPath, 'isAdminPage:', isAdminPage);
     return (
       <>
         <GlobalStyle />
