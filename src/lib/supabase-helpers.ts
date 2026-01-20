@@ -378,25 +378,48 @@ export async function isAdmin(): Promise<boolean> {
 export async function getAllUsers() {
   try {
     console.log('🔍 getAllUsers: Starting simple direct fetch from profiles...');
-
-    const { data, error } = await supabase
+    
+    // Add timeout to prevent hanging
+    const fetchPromise = supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getAllUsers: Request timeout after 15 seconds')), 15000)
+    );
+    
+    console.log('⏳ getAllUsers: Waiting for Supabase response...');
+    const result = await Promise.race([fetchPromise, timeoutPromise]) as { data: any, error: any };
+    const { data, error } = result;
 
     if (error) {
-      console.error('❌ getAllUsers: Direct select error:', error);
-      throw error;
+      console.error('❌ getAllUsers: Supabase error:', error);
+      console.error('❌ getAllUsers: Error details:', { 
+        message: error.message, 
+        code: error.code, 
+        details: error.details,
+        hint: error.hint 
+      });
+      // Return empty array instead of throwing to prevent UI crash
+      return [];
     }
 
     console.log('✅ getAllUsers: loaded via direct select, count =', data?.length || 0);
     if (data && data.length > 0) {
-      console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role });
+      console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
+      console.log('📋 getAllUsers: All users:', data.map((u: any) => ({ email: u.email, role: u.role, fullName: u.full_name })));
+    } else {
+      console.warn('⚠️ getAllUsers: No users returned (empty array or null)');
     }
-
     return data || [];
   } catch (error: any) {
-    console.error('❌ getAllUsers: Final error:', error);
+    console.error('❌ getAllUsers: Exception caught:', error);
+    console.error('❌ getAllUsers: Exception message:', error.message);
+    if (error.stack) {
+      console.error('❌ getAllUsers: Exception stack:', error.stack);
+    }
+    // Return empty array instead of throwing to prevent UI crash
     return [];
   }
 }
