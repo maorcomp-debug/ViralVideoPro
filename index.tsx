@@ -376,27 +376,17 @@ const App = () => {
           // For sign-up (new user), AuthModal takes ~5-6 seconds, but we handle that in AuthModal itself
           // So we use shorter delay here and let AuthModal handle the longer wait for signup
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            // ⚠️⚠️⚠️ CRITICAL - DO NOT MODIFY THIS DELAY ⚠️⚠️⚠️
-            // 
-            // This delay was FIXED after many efforts to solve signup race condition.
-            // Database trigger creates profile with metadata - 300ms is enough for trigger to complete.
-            // DO NOT increase this delay or remove it - it's needed for trigger to finish.
-            //
-            // PROBLEM SOLVED: Profile wasn't ready when loadUserData ran.
-            // SOLUTION: 300ms delay allows trigger to create profile with metadata before loadUserData runs.
-            //
-            // ⚠️ DO NOT MODIFY THIS DELAY (300ms) - IT'S PERFECTLY TUNED FOR TRIGGER ⚠️
-            // Date fixed: 2026-01-16
-            // Status: WORKING - DO NOT TOUCH
-            // VERSION: 2.3 - Profile created by trigger, minimal delay needed (like login)
-            const delay = 300; // 300ms - trigger creates profile with metadata, AuthModal also waits 200ms
-            console.log(`[Auth v2.3] Waiting ${delay}ms for trigger to create profile...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            // Skip delay if already on admin page - admin access should be immediate
+            const isOnAdminPage = typeof window !== 'undefined' && window.location.pathname === '/admin';
+            if (!isOnAdminPage) {
+              // Only delay for non-admin pages to allow trigger to complete
+              const delay = 300;
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
           }
           
           // Force refresh after signup/signin to ensure latest profile data is loaded
           const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED';
-          console.log('🔄 Auth state changed:', { event, shouldForceRefresh, userId: session.user.id });
           await loadUserData(session.user, shouldForceRefresh);
         } catch (err) {
           console.error('Error loading user data in auth state change:', err);
