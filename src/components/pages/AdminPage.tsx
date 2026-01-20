@@ -136,6 +136,11 @@ const ContentArea = styled.div`
   border-radius: 8px;
   padding: 30px;
   min-height: 400px;
+  overflow-x: auto;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
 `;
 
 const StatsGrid = styled.div`
@@ -257,6 +262,7 @@ const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
+  min-width: 700px;
 `;
 
 const TableHeader = styled.thead`
@@ -478,6 +484,12 @@ export const AdminPage: React.FC = () => {
     days: '',
     package: 'all',
     active: true,
+    // שדות נוספים לשליטה בסוגי ההטבות
+    percent: '', // עבור % הנחה
+    analysesCount: '', // עבור "ניתוחים מתנה"
+    registrationType: 'percentage' as 'percentage' | 'fixed_amount' | 'free_analyses',
+    registrationValue: '', // ערך ההנחה (אחוז או סכום)
+    registrationAnalysesCount: '', // מספר ניתוחים במתנה בהרשמה
   });
 
   useEffect(() => {
@@ -571,16 +583,30 @@ export const AdminPage: React.FC = () => {
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Map benefit type to discount_type
-      const discountTypeMap: Record<string, 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription'> = {
-        'free_week': 'trial_subscription',
-        'free_month': 'trial_subscription',
-        'discount_percent': 'percentage',
-        'gift_analyses': 'free_analyses',
-        'registration_discount': 'percentage',
-      };
+      // Map benefit type to discount_type + ערכים מספריים
+      let discountType: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription' = 'trial_subscription';
+      let discountValue: number | undefined;
+      let freeAnalysesCount: number | undefined;
 
-      const discountType = discountTypeMap[couponForm.benefitType] || 'trial_subscription';
+      if (couponForm.benefitType === 'discount_percent') {
+        discountType = 'percentage';
+        discountValue = couponForm.percent ? parseInt(couponForm.percent, 10) : 10;
+      } else if (couponForm.benefitType === 'gift_analyses') {
+        discountType = 'free_analyses';
+        freeAnalysesCount = couponForm.analysesCount ? parseInt(couponForm.analysesCount, 10) : 1;
+      } else if (couponForm.benefitType === 'registration_discount') {
+        discountType = couponForm.registrationType;
+        if (couponForm.registrationType === 'percentage' || couponForm.registrationType === 'fixed_amount') {
+          discountValue = couponForm.registrationValue ? parseFloat(couponForm.registrationValue) : undefined;
+        }
+        if (couponForm.registrationType === 'free_analyses') {
+          freeAnalysesCount = couponForm.registrationAnalysesCount
+            ? parseInt(couponForm.registrationAnalysesCount, 10)
+            : 1;
+        }
+      } else {
+        discountType = 'trial_subscription';
+      }
       
       // Generate code from title
       const code = couponForm.title
@@ -592,8 +618,8 @@ export const AdminPage: React.FC = () => {
         code,
         description: couponForm.description || couponForm.title,
         discount_type: discountType,
-        discount_value: discountType === 'percentage' ? 10 : undefined,
-        free_analyses_count: discountType === 'free_analyses' ? (couponForm.days ? parseInt(couponForm.days) : 1) : undefined,
+        discount_value: discountValue,
+        free_analyses_count: freeAnalysesCount,
         trial_tier: (couponForm.package !== 'all' && ['creator', 'pro', 'coach'].includes(couponForm.package)) 
           ? couponForm.package as 'creator' | 'pro' | 'coach'
           : undefined,
@@ -609,6 +635,11 @@ export const AdminPage: React.FC = () => {
         days: '',
         package: 'all',
         active: true,
+        percent: '',
+        analysesCount: '',
+        registrationType: 'percentage',
+        registrationValue: '',
+        registrationAnalysesCount: '',
       });
       await loadData();
     } catch (error: any) {
@@ -946,6 +977,95 @@ export const AdminPage: React.FC = () => {
                   onChange={(e) => setCouponForm({ ...couponForm, days: e.target.value })}
                 />
               </FormGroup>
+
+      {/* שדות דינמיים בהתאם לסוג ההטבה */}
+      {couponForm.benefitType === 'discount_percent' && (
+        <FormGroup>
+          <FormLabel>אחוז הנחה (%)</FormLabel>
+          <FormInput
+            type="number"
+            min="1"
+            max="100"
+            placeholder="לדוגמה: 20"
+            value={couponForm.percent}
+            onChange={(e) => setCouponForm({ ...couponForm, percent: e.target.value })}
+          />
+        </FormGroup>
+      )}
+
+      {couponForm.benefitType === 'gift_analyses' && (
+        <FormGroup>
+          <FormLabel>מספר ניתוחים במתנה</FormLabel>
+          <FormInput
+            type="number"
+            min="1"
+            placeholder="לדוגמה: 3"
+            value={couponForm.analysesCount}
+            onChange={(e) => setCouponForm({ ...couponForm, analysesCount: e.target.value })}
+          />
+        </FormGroup>
+      )}
+
+      {couponForm.benefitType === 'registration_discount' && (
+        <>
+          <FormGroup>
+            <FormLabel>סוג ההנחה להרשמה</FormLabel>
+            <FormSelect
+              value={couponForm.registrationType}
+              onChange={(e) => setCouponForm({ 
+                ...couponForm, 
+                registrationType: e.target.value as 'percentage' | 'fixed_amount' | 'free_analyses',
+                registrationValue: '',
+                registrationAnalysesCount: '',
+              })}
+            >
+              <option value="percentage">אחוז הנחה</option>
+              <option value="fixed_amount">סכום הנחה</option>
+              <option value="free_analyses">ניתוחים מתנה</option>
+            </FormSelect>
+          </FormGroup>
+
+          {couponForm.registrationType === 'percentage' && (
+            <FormGroup>
+              <FormLabel>אחוז הנחה להרשמה (%)</FormLabel>
+              <FormInput
+                type="number"
+                min="1"
+                max="100"
+                placeholder="לדוגמה: 15"
+                value={couponForm.registrationValue}
+                onChange={(e) => setCouponForm({ ...couponForm, registrationValue: e.target.value })}
+              />
+            </FormGroup>
+          )}
+
+          {couponForm.registrationType === 'fixed_amount' && (
+            <FormGroup>
+              <FormLabel>סכום הנחה להרשמה (₪)</FormLabel>
+              <FormInput
+                type="number"
+                min="1"
+                placeholder="לדוגמה: 30"
+                value={couponForm.registrationValue}
+                onChange={(e) => setCouponForm({ ...couponForm, registrationValue: e.target.value })}
+              />
+            </FormGroup>
+          )}
+
+          {couponForm.registrationType === 'free_analyses' && (
+            <FormGroup>
+              <FormLabel>מספר ניתוחים במתנה בהרשמה</FormLabel>
+              <FormInput
+                type="number"
+                min="1"
+                placeholder="לדוגמה: 2"
+                value={couponForm.registrationAnalysesCount}
+                onChange={(e) => setCouponForm({ ...couponForm, registrationAnalysesCount: e.target.value })}
+              />
+            </FormGroup>
+          )}
+        </>
+      )}
               <FormGroup>
                 <FormLabel>חבילה (אופציונלי)</FormLabel>
                 <FormSelect
