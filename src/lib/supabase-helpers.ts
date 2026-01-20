@@ -352,7 +352,12 @@ export async function isAdmin(): Promise<boolean> {
       return false;
     }
 
-    // Direct query - no RPC, no timeouts, no delays
+    // Fast path: primary admin by email (robust גם אם יש בעיות RLS על profiles)
+    if (user.email && user.email.toLowerCase() === 'viralypro@gmail.com') {
+      return true;
+    }
+
+    // Otherwise: בדיקה לפי role בפרופיל (כש-RLS מאפשר)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
