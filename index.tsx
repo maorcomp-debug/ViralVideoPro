@@ -189,7 +189,6 @@ const App = () => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   // Determine current page from route

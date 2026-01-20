@@ -495,9 +495,9 @@ export const AdminPage: React.FC = () => {
 
   const checkAdminAccess = async () => {
     try {
+      // Quick admin check - no delays, no timeouts
       const adminStatus = await isAdmin();
       if (!adminStatus) {
-        console.error('Access denied: User is not an admin');
         navigate('/');
         return;
       }
