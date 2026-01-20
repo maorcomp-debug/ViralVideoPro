@@ -377,16 +377,35 @@ export async function isAdmin(): Promise<boolean> {
 
 export async function getAllUsers() {
   try {
+    // קודם כל ננסה להשתמש בפונקציה אדמינית (עוקפת RLS) אם קיימת
+    try {
+      const { data, error } = await supabase
+        .rpc('admin_get_all_users');
+
+      if (!error && data) {
+        console.log('✅ getAllUsers: loaded via admin_get_all_users RPC, count =', data.length);
+        return data;
+      }
+
+      if (error) {
+        console.warn('⚠️ getAllUsers: admin_get_all_users RPC failed, falling back to direct select:', error);
+      }
+    } catch (rpcError) {
+      console.warn('⚠️ getAllUsers: exception in admin_get_all_users RPC, falling back to direct select:', rpcError);
+    }
+
+    // Fallback ישיר לטבלת profiles (יעבוד אם RLS מוגדר נכון לאדמין)
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching all users:', error);
+      console.error('Error fetching all users (direct select):', error);
       throw error;
     }
 
+    console.log('ℹ️ getAllUsers: loaded via direct select, count =', data?.length || 0);
     return data || [];
   } catch (error: any) {
     console.error('Error in getAllUsers:', error);

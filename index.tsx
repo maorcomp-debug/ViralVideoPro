@@ -265,6 +265,16 @@ const App = () => {
     setUserIsAdmin(false);
   };
 
+  // Fast-path: אם זה המייל של האדמין הראשי, נגדיר userIsAdmin מיד גם בלי קריאת isAdmin()
+  useEffect(() => {
+    if (user?.email && user.email.toLowerCase() === 'viralypro@gmail.com') {
+      if (!userIsAdmin) {
+        console.log('✅ Admin fast-path: setting userIsAdmin=true based on email viralypro@gmail.com');
+        setUserIsAdmin(true);
+      }
+    }
+  }, [user?.email, userIsAdmin]);
+
   // Initialize Supabase Auth
   useEffect(() => {
     let mounted = true;
