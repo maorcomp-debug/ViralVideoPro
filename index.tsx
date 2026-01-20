@@ -2576,20 +2576,15 @@ const App = () => {
     }
   };
 
+  // Redirect admin users from settings to admin panel
+  useEffect(() => {
+    if (isSettingsPage && user && userIsAdmin) {
+      navigate('/admin', { replace: true });
+    }
+  }, [isSettingsPage, user, userIsAdmin, navigate]);
+
   // Render different pages based on route
-  // If admin tries to access settings, redirect to admin panel
   if (isSettingsPage) {
-    // Check if user is admin and redirect to admin panel
-    useEffect(() => {
-      const checkAndRedirect = async () => {
-        if (user && userIsAdmin) {
-          navigate('/admin', { replace: true });
-          return;
-        }
-      };
-      checkAndRedirect();
-    }, [user, userIsAdmin, navigate]);
-    
     // If admin, don't render settings page (will redirect)
     if (userIsAdmin) {
       return null; // Will redirect to admin
