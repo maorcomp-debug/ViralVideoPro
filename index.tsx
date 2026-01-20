@@ -2800,12 +2800,6 @@ const App = () => {
                     ⚙️ פאנל ניהול
                   </button>
                 )}
-                {/* Debug: Show admin status */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '5px' }}>
-                    Admin: {userIsAdmin ? 'Yes' : 'No'} | User: {user?.email || 'Not logged in'}
-                  </div>
-                )}
                 <button
                   onClick={handleLogout}
                   disabled={loggingOut}
