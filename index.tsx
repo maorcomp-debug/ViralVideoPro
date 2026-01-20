@@ -2576,18 +2576,18 @@ const App = () => {
     }
   };
 
-  // Redirect admin users from settings to admin panel
+  // Redirect admin users from settings route ישירות לפאנל ניהול
   useEffect(() => {
-    if (isSettingsPage && user && userIsAdmin) {
-      navigate('/admin', { replace: true });
-    }
+    if (!user || !userIsAdmin) return;
+    if (!isSettingsPage) return;
+    navigate('/admin', { replace: true });
   }, [isSettingsPage, user, userIsAdmin, navigate]);
 
-  // Render different pages based on route
+  // Render different pages based on route (ללא useEffect בתוך תנאי!)
   if (isSettingsPage) {
-    // If admin, don't render settings page (will redirect)
+    // For admin users we don't מציגים את עמוד ההגדרות (הם כבר מופנים ל-/admin מה-useEffect)
     if (userIsAdmin) {
-      return null; // Will redirect to admin
+      return null;
     }
     
     return (
