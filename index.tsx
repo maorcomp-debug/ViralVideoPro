@@ -2480,17 +2480,6 @@ const App = () => {
     if (!isSettingsPage) return;
     navigate('/admin', { replace: true });
   }, [isSettingsPage, user, userIsAdmin, navigate]);
-
-  // Show loading screen while checking auth
-  if (loadingAuth) {
-    return (
-      <AppContainer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div style={{ textAlign: 'center', color: '#D4A043' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '20px' }}>טוען...</div>
-        </div>
-      </AppContainer>
-    );
-  }
   
   const handleLogout = async () => {
     // Prevent double-click
