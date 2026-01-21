@@ -2615,30 +2615,43 @@ const App = () => {
       setTakbullPaymentUrl('');
       setTakbullOrderReference('');
       
-      // Sign out from Supabase WITHOUT timeout (let it complete naturally)
+      // Sign out from Supabase WITH timeout (prevent hanging)
       console.log('🔄 Signing out from Supabase...');
-      const { error } = await supabase.auth.signOut();
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('SignOut timeout after 3s')), 3000)
+      );
       
-      if (error) {
-        console.warn('⚠️ SignOut returned error (continuing anyway):', error.message);
-      } else {
-        console.log('✅ Signed out successfully');
+      try {
+        const { error } = await Promise.race([signOutPromise, timeoutPromise]) as { error: any };
+        if (error) {
+          console.warn('⚠️ SignOut error (continuing anyway):', error.message);
+        } else {
+          console.log('✅ Signed out successfully');
+        }
+      } catch (timeoutError: any) {
+        console.warn('⚠️ SignOut timeout (forcing logout):', timeoutError.message);
       }
       
       // Reset all state
       setUser(null);
       resetUserState();
       
+      // Clear all storage
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {
+        console.error('Error clearing storage:', e);
+      }
+      
       // Set logout flag
       localStorage.setItem('just_logged_out', 'true');
       
-      // Navigate to home page if needed
-      if (location.pathname !== '/') {
-        console.log('📍 Navigating to home...');
-        navigate('/', { replace: true });
-      }
+      console.log('✅ Logout complete, reloading page...');
       
-      console.log('✅ Logout complete');
+      // Force page reload to ensure clean state
+      window.location.reload();
       
     } catch (error) {
       console.error('❌ Error during logout:', error);
@@ -2647,19 +2660,17 @@ const App = () => {
       setUser(null);
       resetUserState();
       
+      // Clear storage
       try {
+        localStorage.clear();
+        sessionStorage.clear();
         localStorage.setItem('just_logged_out', 'true');
       } catch (e) {
-        console.error('Error setting logout flag:', e);
+        console.error('Error clearing storage:', e);
       }
       
-      // Navigate to home
-      if (location.pathname !== '/') {
-        navigate('/', { replace: true });
-      }
-    } finally {
-      // Always reset loggingOut state
-      setLoggingOut(false);
+      // Force reload as fallback
+      window.location.href = '/';
     }
   };
   
