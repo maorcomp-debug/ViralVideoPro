@@ -274,6 +274,12 @@ const StatsGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
   margin-bottom: 30px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
 `;
 
 const StatCard = styled.div`
@@ -282,6 +288,10 @@ const StatCard = styled.div`
   border-radius: 8px;
   padding: 24px;
   text-align: center;
+
+  @media (max-width: 768px) {
+    padding: 12px 8px;
+  }
 `;
 
 const StatValue = styled.div`
@@ -289,12 +299,21 @@ const StatValue = styled.div`
   font-weight: 700;
   color: #D4A043;
   margin-bottom: 10px;
+
+  @media (max-width: 768px) {
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+  }
 `;
 
 const StatLabel = styled.div`
   font-size: 1rem;
   color: #ccc;
   margin-bottom: 5px;
+
+  @media (max-width: 768px) {
+    font-size: 0.75rem;
+  }
 `;
 
 const StatSubLabel = styled.div`
@@ -307,6 +326,12 @@ const SectionHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
 `;
 
 const SectionTitle = styled.h2`
@@ -314,6 +339,10 @@ const SectionTitle = styled.h2`
   font-size: 1.5rem;
   margin: 0;
   font-family: 'Frank Ruhl Libre', serif;
+
+  @media (max-width: 768px) {
+    font-size: 1.2rem;
+  }
 `;
 
 const RefreshButton = styled.button`
@@ -329,6 +358,13 @@ const RefreshButton = styled.button`
   font-size: 0.9rem;
   font-weight: 600;
   transition: all 0.3s;
+
+  @media (max-width: 768px) {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    width: 100%;
+    justify-content: center;
+  }
 
   &:hover {
     background: #F5C842;
@@ -412,8 +448,10 @@ const Table = styled.table`
   min-width: 700px;
 
   @media (max-width: 768px) {
-    min-width: 600px;
-    font-size: 0.85rem;
+    min-width: 100%;
+    font-size: 0.75rem;
+    display: block;
+    overflow-x: auto;
   }
 `;
 
@@ -427,6 +465,11 @@ const TableHeaderCell = styled.th`
   text-align: right;
   font-weight: 700;
   font-size: 0.95rem;
+
+  @media (max-width: 768px) {
+    padding: 8px 6px;
+    font-size: 0.75rem;
+  }
 `;
 
 const TableRow = styled.tr`
@@ -441,6 +484,12 @@ const TableCell = styled.td`
   padding: 15px;
   color: #ccc;
   font-size: 0.9rem;
+
+  @media (max-width: 768px) {
+    padding: 8px 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
 `;
 
 const ActionButton = styled.button<{ $variant?: 'delete' | 'primary' }>`
@@ -494,6 +543,12 @@ const FormInput = styled.input`
   width: 100%;
   max-width: 500px;
 
+  @media (max-width: 768px) {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    max-width: 100%;
+  }
+
   &::placeholder {
     color: #666;
   }
@@ -517,6 +572,13 @@ const FormTextarea = styled.textarea`
   resize: vertical;
   font-family: inherit;
 
+  @media (max-width: 768px) {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    max-width: 100%;
+    min-height: 100px;
+  }
+
   &::placeholder {
     color: #666;
   }
@@ -537,6 +599,12 @@ const FormSelect = styled.select`
   width: 100%;
   max-width: 500px;
   cursor: pointer;
+
+  @media (max-width: 768px) {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    max-width: 100%;
+  }
 
   &:focus {
     outline: none;
@@ -575,6 +643,12 @@ const SubmitButton = styled.button`
   font-weight: 700;
   margin-top: 20px;
   transition: all 0.3s;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
 
   &:hover {
     background: #F5C842;
@@ -663,6 +737,8 @@ export const AdminPage: React.FC = () => {
       if (cached.coupons) setCoupons(cached.coupons);
       if (cached.trials) setTrials(cached.trials);
     }
+    // Load fresh data immediately on mount (don't wait for tab change)
+    loadData();
   }, []);
 
   useEffect(() => {
