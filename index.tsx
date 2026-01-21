@@ -2289,10 +2289,20 @@ const App = () => {
       return;
     }
     
-    // Check subscription limits with fallback
+    // Check subscription limits with timeout and fallback
     console.log('🔍 Checking subscription limits...');
     try {
-      const limitCheck = await checkSubscriptionLimits();
+      // Add 5-second timeout to prevent hanging
+      const timeoutPromise = new Promise<{ allowed: boolean }>((resolve) => {
+        setTimeout(() => {
+          console.warn('⏱️ Subscription check timeout - allowing analysis');
+          resolve({ allowed: true });
+        }, 5000);
+      });
+      
+      const limitCheckPromise = checkSubscriptionLimits();
+      const limitCheck = await Promise.race([limitCheckPromise, timeoutPromise]);
+      
       console.log('✅ Subscription limits check result:', limitCheck);
       if (!limitCheck.allowed) {
         console.warn('⚠️ Subscription limit reached');
