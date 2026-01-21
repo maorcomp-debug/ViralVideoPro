@@ -33,6 +33,10 @@ const AdminContainer = styled.div`
   color: #fff;
   padding: 20px;
   animation: ${fadeIn} 0.3s ease;
+
+  @media (max-width: 768px) {
+    padding: 10px;
+  }
 `;
 
 const Header = styled.div`
@@ -42,6 +46,12 @@ const Header = styled.div`
   margin-bottom: 20px;
   padding-bottom: 20px;
   border-bottom: 1px solid #D4A043;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
 `;
 
 const BackButton = styled.button`
@@ -63,13 +73,17 @@ const BackButton = styled.button`
 `;
 
 const Title = styled.h1`
-    color: #D4A043;
+  color: #D4A043;
   font-size: 2rem;
   margin: 0;
   display: flex;
   align-items: center;
   gap: 10px;
   font-family: 'Frank Ruhl Libre', serif;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
 `;
 
 const MainNav = styled.div`
@@ -78,6 +92,23 @@ const MainNav = styled.div`
   border-bottom: 1px solid #D4A043;
   margin-bottom: 20px;
   padding-bottom: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: #D4A043 transparent;
+
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #D4A043;
+      border-radius: 2px;
+    }
+  }
 `;
 
 const NavItem = styled.button<{ $active?: boolean }>`
@@ -92,6 +123,8 @@ const NavItem = styled.button<{ $active?: boolean }>`
   font-size: 0.95rem;
   position: relative;
   border-left: ${props => props.$active ? 'none' : '1px solid #D4A043'};
+  white-space: nowrap;
+  flex-shrink: 0;
 
   &:first-child {
     border-left: none;
@@ -99,6 +132,11 @@ const NavItem = styled.button<{ $active?: boolean }>`
 
   &:hover {
     background: ${props => props.$active ? '#D4A043' : 'rgba(212, 160, 67, 0.2)'};
+  }
+
+  @media (max-width: 768px) {
+    padding: 10px 15px;
+    font-size: 0.85rem;
   }
 `;
 
@@ -108,6 +146,23 @@ const SubNav = styled.div`
   border-bottom: 1px solid #D4A043;
   margin-bottom: 20px;
   padding-bottom: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: #D4A043 transparent;
+
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #D4A043;
+      border-radius: 2px;
+    }
+  }
 `;
 
 const SubNavItem = styled.button<{ $active?: boolean }>`
@@ -121,6 +176,8 @@ const SubNavItem = styled.button<{ $active?: boolean }>`
   gap: 8px;
   font-size: 0.9rem;
   border-left: ${props => props.$active ? 'none' : '1px solid #D4A043'};
+  white-space: nowrap;
+  flex-shrink: 0;
 
   &:first-child {
     border-left: none;
@@ -128,6 +185,11 @@ const SubNavItem = styled.button<{ $active?: boolean }>`
 
   &:hover {
     background: ${props => props.$active ? '#D4A043' : 'rgba(212, 160, 67, 0.2)'};
+  }
+
+  @media (max-width: 768px) {
+    padding: 8px 12px;
+    font-size: 0.8rem;
   }
 `;
 
@@ -258,11 +320,26 @@ const FilterSelect = styled.select`
   }
 `;
 
+const TableWrapper = styled.div`
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 20px;
+
+  @media (max-width: 768px) {
+    margin: 20px -16px 0 -16px;
+    padding: 0 16px;
+  }
+`;
+
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  margin-top: 20px;
   min-width: 700px;
+
+  @media (max-width: 768px) {
+    min-width: 600px;
+    font-size: 0.85rem;
+  }
 `;
 
 const TableHeader = styled.thead`
@@ -786,45 +863,47 @@ export const AdminPage: React.FC = () => {
                 <option value="admin">מנהל</option>
               </FilterSelect>
             </FiltersRow>
-            <Table>
-                <TableHeader>
-                <tr>
-                  <TableHeaderCell>אימייל</TableHeaderCell>
-                  <TableHeaderCell>תפקיד</TableHeaderCell>
-                  <TableHeaderCell>חבילה</TableHeaderCell>
-                  <TableHeaderCell>תאריך הרשמה</TableHeaderCell>
-                  <TableHeaderCell>פעולות</TableHeaderCell>
-                </tr>
-                </TableHeader>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role || 'user'}</TableCell>
-                    <TableCell>{SUBSCRIPTION_PLANS[user.subscription_tier]?.name || user.subscription_tier}</TableCell>
-                    <TableCell>{new Date(user.created_at).toLocaleDateString('he-IL')}</TableCell>
-                    <ActionsCell>
-                      <ActionButton $variant="delete" onClick={() => handleDeleteUser(user.user_id)}>
-                        מחק
-                      </ActionButton>
-                      {user.role !== 'admin' && (
-                        <ActionButton onClick={() => handleMakeAdmin(user.user_id)}>
-                          הפוך לאדמין
+            <TableWrapper>
+              <Table>
+                  <TableHeader>
+                  <tr>
+                    <TableHeaderCell>אימייל</TableHeaderCell>
+                    <TableHeaderCell>תפקיד</TableHeaderCell>
+                    <TableHeaderCell>חבילה</TableHeaderCell>
+                    <TableHeaderCell>תאריך הרשמה</TableHeaderCell>
+                    <TableHeaderCell>פעולות</TableHeaderCell>
+                  </tr>
+                  </TableHeader>
+                <tbody>
+                  {filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.role || 'user'}</TableCell>
+                      <TableCell>{SUBSCRIPTION_PLANS[user.subscription_tier]?.name || user.subscription_tier}</TableCell>
+                      <TableCell>{new Date(user.created_at).toLocaleDateString('he-IL')}</TableCell>
+                      <ActionsCell>
+                        <ActionButton $variant="delete" onClick={() => handleDeleteUser(user.user_id)}>
+                          מחק
                         </ActionButton>
-                      )}
-                      <ActionButton $variant="primary" onClick={() => {
-                        const newTier = prompt('הזן חבילה חדשה (free, creator, pro, coach, coach-pro):');
-                        if (newTier && ['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(newTier)) {
-                          handleEditPackage(user.user_id, newTier as SubscriptionTier);
-                        }
-                      }}>
-                        ערוך חבילה
-                      </ActionButton>
-                    </ActionsCell>
-                  </TableRow>
-                ))}
-              </tbody>
-            </Table>
+                        {user.role !== 'admin' && (
+                          <ActionButton onClick={() => handleMakeAdmin(user.user_id)}>
+                            הפוך לאדמין
+                          </ActionButton>
+                        )}
+                        <ActionButton $variant="primary" onClick={() => {
+                          const newTier = prompt('הזן חבילה חדשה (free, creator, pro, coach, coach-pro):');
+                          if (newTier && ['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(newTier)) {
+                            handleEditPackage(user.user_id, newTier as SubscriptionTier);
+                          }
+                        }}>
+                          ערוך חבילה
+                        </ActionButton>
+                      </ActionsCell>
+                    </TableRow>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrapper>
           </>
         )}
 
@@ -836,34 +915,36 @@ export const AdminPage: React.FC = () => {
                 🔄 רענן
               </RefreshButton>
             </SectionHeader>
-            <Table>
-                <TableHeader>
-                <tr>
-                  <TableHeaderCell>משתמש</TableHeaderCell>
-                  <TableHeaderCell>טרק</TableHeaderCell>
-                  <TableHeaderCell>ציון ממוצע</TableHeaderCell>
-                  <TableHeaderCell>תאריך</TableHeaderCell>
-                </tr>
-                </TableHeader>
-              <tbody>
-                {analyses.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} style={{ textAlign: 'center', padding: '40px' }}>
-                      אין ניתוחים להצגה
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  analyses.map((analysis) => (
-                    <TableRow key={analysis.id}>
-                      <TableCell>{analysis.user_id}</TableCell>
-                      <TableCell>{analysis.track}</TableCell>
-                      <TableCell>{analysis.average_score || '-'}</TableCell>
-                      <TableCell>{new Date(analysis.created_at).toLocaleDateString('he-IL')}</TableCell>
+            <TableWrapper>
+              <Table>
+                  <TableHeader>
+                  <tr>
+                    <TableHeaderCell>משתמש</TableHeaderCell>
+                    <TableHeaderCell>טרק</TableHeaderCell>
+                    <TableHeaderCell>ציון ממוצע</TableHeaderCell>
+                    <TableHeaderCell>תאריך</TableHeaderCell>
+                  </tr>
+                  </TableHeader>
+                <tbody>
+                  {analyses.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} style={{ textAlign: 'center', padding: '40px' }}>
+                        אין ניתוחים להצגה
+                      </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </tbody>
-            </Table>
+                  ) : (
+                    analyses.map((analysis) => (
+                      <TableRow key={analysis.id}>
+                        <TableCell>{analysis.user_id}</TableCell>
+                        <TableCell>{analysis.track}</TableCell>
+                        <TableCell>{analysis.average_score || '-'}</TableCell>
+                        <TableCell>{new Date(analysis.created_at).toLocaleDateString('he-IL')}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </TableWrapper>
           </>
         )}
 
@@ -875,34 +956,36 @@ export const AdminPage: React.FC = () => {
                 🔄 רענן
               </RefreshButton>
             </SectionHeader>
-            <Table>
-                <TableHeader>
-                <tr>
-                  <TableHeaderCell>תאריך</TableHeaderCell>
-                  <TableHeaderCell>משך</TableHeaderCell>
-                  <TableHeaderCell>גודל</TableHeaderCell>
-                  <TableHeaderCell>שם קובץ</TableHeaderCell>
-                </tr>
-                </TableHeader>
-              <tbody>
-                {videos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} style={{ textAlign: 'center', padding: '40px' }}>
-                      אין וידאו להצגה
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  videos.map((video) => (
-                    <TableRow key={video.id}>
-                      <TableCell>{new Date(video.created_at).toLocaleDateString('he-IL')}</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>{video.file_name || '-'}</TableCell>
+            <TableWrapper>
+              <Table>
+                  <TableHeader>
+                  <tr>
+                    <TableHeaderCell>תאריך</TableHeaderCell>
+                    <TableHeaderCell>משך</TableHeaderCell>
+                    <TableHeaderCell>גודל</TableHeaderCell>
+                    <TableHeaderCell>שם קובץ</TableHeaderCell>
+                  </tr>
+                  </TableHeader>
+                <tbody>
+                  {videos.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} style={{ textAlign: 'center', padding: '40px' }}>
+                        אין וידאו להצגה
+                      </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </tbody>
-            </Table>
+                  ) : (
+                    videos.map((video) => (
+                      <TableRow key={video.id}>
+                        <TableCell>{new Date(video.created_at).toLocaleDateString('he-IL')}</TableCell>
+                        <TableCell>-</TableCell>
+                        <TableCell>-</TableCell>
+                        <TableCell>{video.file_name || '-'}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </TableWrapper>
           </>
         )}
 

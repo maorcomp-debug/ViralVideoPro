@@ -102,6 +102,10 @@ const PricingPlanCard = styled.div<{ $popular?: boolean; $isFree?: boolean }>`
       font-weight: 700;
     }
   `}
+
+  @media (max-width: 768px) {
+    padding: 20px 15px;
+  }
 `;
 
 const PlanHeader = styled.div`
@@ -188,6 +192,10 @@ const PlanFeatures = styled.ul`
   list-style: none;
   padding: 0;
   margin: 0 0 25px 0;
+
+  @media (max-width: 768px) {
+    margin: 0 0 15px 0;
+  }
 `;
 
 const PlanFeature = styled.li<{ $disabled?: boolean }>`
@@ -197,12 +205,19 @@ const PlanFeature = styled.li<{ $disabled?: boolean }>`
   display: flex;
   align-items: center;
   gap: 10px;
+  word-wrap: break-word;
   
   &::before {
     content: '${props => props.$disabled ? '✗' : '✓'}';
     color: ${props => props.$disabled ? '#666' : '#D4A043'};
     font-weight: 700;
     font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.85rem;
+    padding: 6px 0;
   }
 `;
 
