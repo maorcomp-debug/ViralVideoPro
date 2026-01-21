@@ -26,20 +26,5 @@ BEGIN
   END IF;
 END $$;
 
--- Ensure is_admin() function exists and works correctly
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE user_id = auth.uid()
-    AND role = 'admin'
-  );
-END;
-$$;
-
--- Grant execute permission on is_admin function
-GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+-- Note: is_admin() function is now defined in migration 022_admin_system_refactored.sql
+-- This migration only ensures the admin user is set correctly
