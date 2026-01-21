@@ -286,6 +286,11 @@ const SearchBar = styled.input`
     color: #666;
   }
 
+  @media (max-width: 768px) {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+  }
+
   &:focus {
     outline: none;
     border-color: #F5C842;
@@ -308,6 +313,12 @@ const FilterSelect = styled.select`
   font-size: 0.95rem;
   cursor: pointer;
   min-width: 150px;
+
+  @media (max-width: 768px) {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    min-width: 120px;
+  }
 
   &:focus {
     outline: none;
@@ -383,6 +394,12 @@ const ActionButton = styled.button<{ $variant?: 'delete' | 'primary' }>`
   font-size: 0.85rem;
   margin-left: 8px;
   transition: all 0.3s;
+
+  @media (max-width: 768px) {
+    font-size: 0.75rem;
+    padding: 5px 8px;
+    margin-left: 4px;
+  }
 
   &:hover {
     background: ${props => 

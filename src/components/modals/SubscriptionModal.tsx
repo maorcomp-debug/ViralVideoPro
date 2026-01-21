@@ -479,10 +479,10 @@ const TableHeader = styled.div`
   }
 
   @media (max-width: 768px) {
-    grid-template-columns: 90px repeat(3, minmax(80px, 1fr));
-    padding: 10px 8px;
-    gap: 4px;
-    font-size: 0.75rem;
+    grid-template-columns: 75px repeat(3, minmax(75px, 1fr));
+    padding: 8px 6px;
+    gap: 2px;
+    font-size: 0.7rem;
   }
 `;
 
@@ -520,10 +520,10 @@ const TableRow = styled.div`
   }
 
   @media (max-width: 768px) {
-    grid-template-columns: 90px repeat(3, minmax(80px, 1fr));
-    padding: 6px 8px;
-    gap: 4px;
-    font-size: 0.75rem;
+    grid-template-columns: 75px repeat(3, minmax(75px, 1fr));
+    padding: 5px 6px;
+    gap: 2px;
+    font-size: 0.7rem;
   }
 `;
 
