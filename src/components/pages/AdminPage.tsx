@@ -742,60 +742,52 @@ export const AdminPage: React.FC = () => {
     console.log('📊 Loading admin data for tab:', activeTab, activeSubTab || '');
     
     try {
-      // Add timeout to prevent infinite hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Data load timeout')), 10000)
-      );
-      
-      const dataPromise = (async () => {
-        if (activeTab === 'overview') {
-          console.log('🔄 Fetching stats...');
-          const statsData = await getAdminStats();
-          setStats(statsData);
-          saveAdminCache({ stats: statsData });
-          console.log('✅ Stats loaded:', statsData?.totalUsers || 0, 'users');
-        } else if (activeTab === 'users') {
-          console.log('🔄 Fetching users...');
-          const usersData = await getAllUsers();
-          setUsers(usersData || []);
-          saveAdminCache({ users: usersData || [] });
-          console.log('✅ Users loaded:', usersData?.length || 0);
-        } else if (activeTab === 'analyses') {
-          console.log('🔄 Fetching analyses...');
-          const analysesData = await getAllAnalyses();
-          setAnalyses(analysesData || []);
-          saveAdminCache({ analyses: analysesData || [] });
-          console.log('✅ Analyses loaded:', analysesData?.length || 0);
-        } else if (activeTab === 'video') {
-          console.log('🔄 Fetching videos...');
-          const videosData = await getAllVideos();
-          setVideos(videosData || []);
-          saveAdminCache({ videos: videosData || [] });
-          console.log('✅ Videos loaded:', videosData?.length || 0);
-        } else if (activeTab === 'alerts') {
-          if (activeSubTab === 'send-update') {
-            console.log('🔄 Fetching announcements...');
-            const announcementsData = await getAllAnnouncements();
-            setAnnouncements(announcementsData || []);
-            saveAdminCache({ announcements: announcementsData || [] });
-            console.log('✅ Announcements loaded:', announcementsData?.length || 0);
-          } else if (activeSubTab === 'coupons') {
-            console.log('🔄 Fetching coupons...');
-            const couponsData = await getAllCoupons();
-            setCoupons(couponsData || []);
-            saveAdminCache({ coupons: couponsData || [] });
-            console.log('✅ Coupons loaded:', couponsData?.length || 0);
-          } else if (activeSubTab === 'trials') {
-            console.log('🔄 Fetching trials...');
-            const trialsData = await getAllTrials();
-            setTrials(trialsData || []);
-            saveAdminCache({ trials: trialsData || [] });
-            console.log('✅ Trials loaded:', trialsData?.length || 0);
-          }
+      // Load data directly - no timeout, show real errors
+      if (activeTab === 'overview') {
+        console.log('🔄 Fetching stats...');
+        const statsData = await getAdminStats();
+        setStats(statsData);
+        saveAdminCache({ stats: statsData });
+        console.log('✅ Stats loaded:', statsData?.totalUsers || 0, 'users');
+      } else if (activeTab === 'users') {
+        console.log('🔄 Fetching users...');
+        const usersData = await getAllUsers();
+        setUsers(usersData || []);
+        saveAdminCache({ users: usersData || [] });
+        console.log('✅ Users loaded:', usersData?.length || 0);
+      } else if (activeTab === 'analyses') {
+        console.log('🔄 Fetching analyses...');
+        const analysesData = await getAllAnalyses();
+        setAnalyses(analysesData || []);
+        saveAdminCache({ analyses: analysesData || [] });
+        console.log('✅ Analyses loaded:', analysesData?.length || 0);
+      } else if (activeTab === 'video') {
+        console.log('🔄 Fetching videos...');
+        const videosData = await getAllVideos();
+        setVideos(videosData || []);
+        saveAdminCache({ videos: videosData || [] });
+        console.log('✅ Videos loaded:', videosData?.length || 0);
+      } else if (activeTab === 'alerts') {
+        if (activeSubTab === 'send-update') {
+          console.log('🔄 Fetching announcements...');
+          const announcementsData = await getAllAnnouncements();
+          setAnnouncements(announcementsData || []);
+          saveAdminCache({ announcements: announcementsData || [] });
+          console.log('✅ Announcements loaded:', announcementsData?.length || 0);
+        } else if (activeSubTab === 'coupons') {
+          console.log('🔄 Fetching coupons...');
+          const couponsData = await getAllCoupons();
+          setCoupons(couponsData || []);
+          saveAdminCache({ coupons: couponsData || [] });
+          console.log('✅ Coupons loaded:', couponsData?.length || 0);
+        } else if (activeSubTab === 'trials') {
+          console.log('🔄 Fetching trials...');
+          const trialsData = await getAllTrials();
+          setTrials(trialsData || []);
+          saveAdminCache({ trials: trialsData || [] });
+          console.log('✅ Trials loaded:', trialsData?.length || 0);
         }
-      })();
-      
-      await Promise.race([dataPromise, timeoutPromise]);
+      }
       
     } catch (error: any) {
       console.error('❌ Error loading admin data:', error);
