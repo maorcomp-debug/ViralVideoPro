@@ -729,28 +729,16 @@ export const AdminPage: React.FC = () => {
     registrationAnalysesCount: '', // מספר ניתוחים במתנה בהרשמה
   });
 
-  // Load cached data immediately on mount for instant display
-  useEffect(() => {
-    const cached = loadAdminCache();
-    if (cached) {
-      console.log('⚡ Loading admin data from cache for instant display');
-      if (cached.stats) setStats(cached.stats);
-      if (cached.users) setUsers(cached.users);
-      if (cached.analyses) setAnalyses(cached.analyses);
-      if (cached.videos) setVideos(cached.videos);
-      if (cached.announcements) setAnnouncements(cached.announcements);
-      if (cached.coupons) setCoupons(cached.coupons);
-      if (cached.trials) setTrials(cached.trials);
-    }
-    // Load fresh data immediately on mount (don't wait for tab change)
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [activeTab, activeSubTab]);
+  // Loading state
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
   const loadData = async () => {
+    if (isLoadingData) {
+      console.log('⏸️ AdminPage: Already loading, skipping duplicate call');
+      return;
+    }
+    
+    setIsLoadingData(true);
     try {
       console.log('🔄 AdminPage: loadData called', { activeTab, activeSubTab });
       
@@ -807,8 +795,32 @@ export const AdminPage: React.FC = () => {
         activeTab,
         activeSubTab
       });
+    } finally {
+      setIsLoadingData(false);
     }
   };
+
+  // Load cached data immediately on mount for instant display
+  useEffect(() => {
+    console.log('🚀 AdminPage: Component mounted');
+    const cached = loadAdminCache();
+    if (cached) {
+      console.log('⚡ Loading admin data from cache for instant display');
+      if (cached.stats) setStats(cached.stats);
+      if (cached.users) setUsers(cached.users);
+      if (cached.analyses) setAnalyses(cached.analyses);
+      if (cached.videos) setVideos(cached.videos);
+      if (cached.announcements) setAnnouncements(cached.announcements);
+      if (cached.coupons) setCoupons(cached.coupons);
+      if (cached.trials) setTrials(cached.trials);
+    }
+  }, []);
+
+  // Load data whenever tab changes (including initial mount)
+  useEffect(() => {
+    console.log('🔄 AdminPage: Tab changed, loading data...', { activeTab, activeSubTab });
+    loadData();
+  }, [activeTab, activeSubTab]);
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('האם אתה בטוח שברצונך למחוק את המשתמש?')) return;
