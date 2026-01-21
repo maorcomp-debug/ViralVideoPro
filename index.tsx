@@ -2289,32 +2289,27 @@ const App = () => {
       return;
     }
     
-    // Check subscription limits with timeout and fallback
-    console.log('🔍 Checking subscription limits...');
-    try {
-      // Add 5-second timeout to prevent hanging
-      const timeoutPromise = new Promise<{ allowed: boolean }>((resolve) => {
-        setTimeout(() => {
-          console.warn('⏱️ Subscription check timeout - allowing analysis');
-          resolve({ allowed: true });
-        }, 5000);
-      });
-      
-      const limitCheckPromise = checkSubscriptionLimits();
-      const limitCheck = await Promise.race([limitCheckPromise, timeoutPromise]);
-      
-      console.log('✅ Subscription limits check result:', limitCheck);
-      if (!limitCheck.allowed) {
-        console.warn('⚠️ Subscription limit reached');
-        alert(limitCheck.message || 'אין אפשרות לבצע ניתוח. יש לשדרג את החבילה.');
-        setShowSubscriptionModal(true);
-        return;
+    // Check subscription limits - ONLY for free tier
+    // Pro/Coach/Creator tiers have high limits, no need to check and risk hanging
+    if (subscription && subscription.tier === 'free') {
+      console.log('🔍 Checking subscription limits for free tier...');
+      try {
+        const limitCheck = await checkSubscriptionLimits();
+        console.log('✅ Subscription limits check result:', limitCheck);
+        if (!limitCheck.allowed) {
+          console.warn('⚠️ Free tier limit reached');
+          alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
+          setShowSubscriptionModal(true);
+          return;
+        }
+      } catch (error: any) {
+        console.error('❌ Error checking limits:', error);
+        // For free tier, if check fails, allow anyway (better UX)
+        console.warn('⚠️ Skipping limit check, allowing analysis');
       }
-    } catch (error: any) {
-      console.error('❌ Error checking subscription limits:', error);
-      // FALLBACK: If check fails, allow analysis to proceed (better UX than blocking)
-      // The analysis will still be saved and counted in the database
-      console.warn('⚠️ Skipping subscription check due to error, allowing analysis');
+    } else {
+      // Pro/Coach/Creator - skip check entirely, they have high/unlimited analyses
+      console.log('✅ Paid tier - skipping subscription check');
     }
     
     // Start playing video when analysis begins (muted and loop)
