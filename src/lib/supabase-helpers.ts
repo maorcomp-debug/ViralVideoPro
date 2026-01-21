@@ -380,11 +380,32 @@ export async function getAllUsers() {
     console.log('🔍 getAllUsers: Starting fetch...');
     
     // Try RPC first (bypasses RLS completely, no session needed)
-    console.log('🔍 getAllUsers: Attempting admin_get_all_users RPC (bypasses RLS, no session needed)...');
+    // Try direct select first (faster and more reliable)
+    console.log('🔍 getAllUsers: Attempting direct select from profiles...');
+    
+    const { data: directData, error: directError } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!directError && directData) {
+      console.log('✅ getAllUsers: loaded via direct select, count =', directData.length);
+      if (directData.length > 0) {
+        console.log('📋 getAllUsers: First user sample:', { email: directData[0].email, role: directData[0].role });
+      }
+      return directData;
+    }
+
+    if (directError) {
+      console.warn('⚠️ getAllUsers: Direct select error, trying RPC fallback:', directError.message);
+    }
+
+    // Fallback to RPC if direct select fails
+    console.log('🔍 getAllUsers: Attempting admin_get_all_users RPC...');
     
     const rpcPromise = supabase.rpc('admin_get_all_users');
     const rpcTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('RPC timeout after 8 seconds')), 8000)
+      setTimeout(() => reject(new Error('RPC timeout after 15 seconds')), 15000)
     );
     
     try {
@@ -392,28 +413,20 @@ export async function getAllUsers() {
       const { data, error } = rpcResult;
 
       if (!error && data) {
-        console.log('✅ getAllUsers: loaded via admin_get_all_users RPC, count =', data.length);
-        if (data.length > 0) {
-          console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
-        }
+        console.log('✅ getAllUsers: loaded via RPC, count =', data.length);
         return data;
       }
 
       if (error) {
-        console.warn('⚠️ getAllUsers: RPC error (will try direct select):', error.message);
-        console.warn('⚠️ getAllUsers: RPC error details:', { code: error.code, details: error.details, hint: error.hint });
+        console.error('❌ getAllUsers: RPC error:', error.message);
       }
     } catch (rpcError: any) {
-      console.warn('⚠️ getAllUsers: RPC timeout/exception (will try direct select):', rpcError.message);
+      console.error('❌ getAllUsers: RPC timeout/exception:', rpcError.message);
     }
 
-    // Fallback: Direct select (simpler, might work if RPC fails)
-    console.log('🔍 getAllUsers: Attempting direct select from profiles...');
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // If both fail, return empty array
+    console.error('❌ getAllUsers: All methods failed');
+    const { data, error } = { data: directData, error: directError };
 
     if (error) {
       console.error('❌ getAllUsers: Direct select error:', error);

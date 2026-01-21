@@ -449,9 +449,8 @@ const Table = styled.table`
 
   @media (max-width: 768px) {
     min-width: 100%;
-    font-size: 0.75rem;
-    display: block;
-    overflow-x: auto;
+    font-size: 0.7rem;
+    table-layout: fixed;
   }
 `;
 
@@ -467,8 +466,10 @@ const TableHeaderCell = styled.th`
   font-size: 0.95rem;
 
   @media (max-width: 768px) {
-    padding: 8px 6px;
-    font-size: 0.75rem;
+    padding: 6px 4px;
+    font-size: 0.65rem;
+    word-wrap: break-word;
+    max-width: none;
   }
 `;
 
@@ -486,9 +487,11 @@ const TableCell = styled.td`
   font-size: 0.9rem;
 
   @media (max-width: 768px) {
-    padding: 8px 6px;
-    font-size: 0.75rem;
-    white-space: nowrap;
+    padding: 6px 4px;
+    font-size: 0.65rem;
+    word-wrap: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 `;
 
@@ -509,9 +512,11 @@ const ActionButton = styled.button<{ $variant?: 'delete' | 'primary' }>`
   transition: all 0.3s;
 
   @media (max-width: 768px) {
-    font-size: 0.75rem;
-    padding: 5px 8px;
-    margin-left: 4px;
+    font-size: 0.6rem;
+    padding: 3px 5px;
+    margin-left: 2px;
+    border-radius: 4px;
+    white-space: nowrap;
   }
 
   &:hover {
