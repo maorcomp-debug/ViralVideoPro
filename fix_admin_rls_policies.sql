@@ -5,10 +5,12 @@
 -- PROFILES TABLE
 -- ============================================
 
--- Drop existing policies if any
+-- Drop ALL existing policies on profiles
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 
 -- Create SELECT policy - admins can see all, users can see own
 CREATE POLICY "Admins can view all profiles"
@@ -44,9 +46,12 @@ CREATE POLICY "Users can insert own profile"
 -- ANALYSES TABLE
 -- ============================================
 
--- Drop existing policies if any
+-- Drop ALL existing policies on analyses
 DROP POLICY IF EXISTS "Admins can view all analyses" ON public.analyses;
 DROP POLICY IF EXISTS "Users can view own analyses" ON public.analyses;
+DROP POLICY IF EXISTS "Users can insert own analyses" ON public.analyses;
+DROP POLICY IF EXISTS "Admins can update all analyses" ON public.analyses;
+DROP POLICY IF EXISTS "Admins can delete all analyses" ON public.analyses;
 
 -- Create SELECT policy - admins can see all, users can see own
 CREATE POLICY "Admins can view all analyses"
@@ -102,9 +107,12 @@ CREATE POLICY "Admins can delete all analyses"
 -- VIDEOS TABLE
 -- ============================================
 
--- Drop existing policies if any
+-- Drop ALL existing policies on videos
 DROP POLICY IF EXISTS "Admins can view all videos" ON public.videos;
 DROP POLICY IF EXISTS "Users can view own videos" ON public.videos;
+DROP POLICY IF EXISTS "Users can insert own videos" ON public.videos;
+DROP POLICY IF EXISTS "Admins can update all videos" ON public.videos;
+DROP POLICY IF EXISTS "Admins can delete all videos" ON public.videos;
 
 -- Create SELECT policy - admins can see all, users can see own
 CREATE POLICY "Admins can view all videos"
