@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { isAdmin } from '../lib/supabase-helpers';
 
 interface UseAuthReturn {
   user: User | null;
@@ -9,7 +8,6 @@ interface UseAuthReturn {
   loadingAuth: boolean;
   loggingOut: boolean;
   showAuthModal: boolean;
-  userIsAdmin: boolean;
   setUser: (user: User | null) => void;
   setProfile: (profile: any) => void;
   setShowAuthModal: (show: boolean) => void;
@@ -30,11 +28,9 @@ export const useAuth = (): UseAuthReturn => {
   const [loadingAuth, setLoadingAuth] = useState(!justLoggedOut);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [userIsAdmin, setUserIsAdmin] = useState(false);
 
   const resetUserState = useCallback(() => {
     setProfile(null);
-    setUserIsAdmin(false);
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -47,17 +43,17 @@ export const useAuth = (): UseAuthReturn => {
       setUser(null);
       resetUserState();
       
-      // Sign out from Supabase
+      // Sign out from Supabase with timeout
       const signOutPromise = supabase.auth.signOut();
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign out timeout')), 5000)
+        setTimeout(() => reject(new Error('Sign out timeout')), 3000)
       );
       
       const { error } = await Promise.race([signOutPromise, timeoutPromise]) as { error: any };
       
       if (error) {
         console.error('Error during signOut:', error);
-        // Even if signOut fails, clear localStorage and sessionStorage
+        // Even if signOut fails, clear storage
         try {
           localStorage.clear();
           sessionStorage.clear();
@@ -69,13 +65,8 @@ export const useAuth = (): UseAuthReturn => {
       // Set flag in localStorage to indicate we just logged out
       localStorage.setItem('just_logged_out', 'true');
       
-      // CRITICAL: Reset loggingOut state BEFORE reload to prevent button being disabled after reload
-      setLoggingOut(false);
-      
-      // Force a page refresh to ensure clean state (after a small delay to allow state reset)
-      setTimeout(() => {
-        window.location.reload();
-      }, 200);
+      // Force immediate reload (no delay)
+      window.location.reload();
       
     } catch (error) {
       console.error('Error during logout:', error);
@@ -83,15 +74,12 @@ export const useAuth = (): UseAuthReturn => {
       setUser(null);
       resetUserState();
       
-      // Set flag in localStorage to indicate we just logged out (even on error)
+      // Set flag in localStorage
       try {
         localStorage.setItem('just_logged_out', 'true');
       } catch (e) {
         console.error('Error setting logout flag:', e);
       }
-      
-      // CRITICAL: Reset loggingOut state even on error
-      setLoggingOut(false);
       
       // Clear storage as fallback
       try {
@@ -102,9 +90,7 @@ export const useAuth = (): UseAuthReturn => {
       }
       
       // Force page reload as last resort
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 200);
+      window.location.href = '/';
     }
   }, [loggingOut, resetUserState]);
 
@@ -113,12 +99,12 @@ export const useAuth = (): UseAuthReturn => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
     
-    // Try to get session quickly, but don't block UI if it takes too long
+    // Faster timeout for better UX
     timeoutId = setTimeout(() => {
       if (mounted) {
         setLoadingAuth(false);
       }
-    }, 8000); // 8 second timeout
+    }, 5000); // 5 second timeout (reduced from 8)
     
     // Check initial session
     supabase.auth.getSession()
@@ -151,19 +137,11 @@ export const useAuth = (): UseAuthReturn => {
       // Update user state
       setUser(session?.user ?? null);
       
-      // If user logged out, reset state and ensure loadingAuth is false
+      // If user logged out, reset state
       if (!session?.user) {
         resetUserState();
         setLoadingAuth(false);
         setLoggingOut(false);
-      } else {
-        // Check if user is admin
-        try {
-          const adminStatus = await isAdmin();
-          setUserIsAdmin(adminStatus);
-        } catch (err) {
-          console.error('Error checking admin status:', err);
-        }
       }
     });
 
@@ -180,7 +158,6 @@ export const useAuth = (): UseAuthReturn => {
     loadingAuth,
     loggingOut,
     showAuthModal,
-    userIsAdmin,
     setUser,
     setProfile,
     setShowAuthModal,

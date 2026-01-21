@@ -176,9 +176,9 @@ export const useUserData = ({
         });
       }
 
-      // Check if user is admin
+      // Check if user is admin (once per session)
       const adminStatus = await isAdmin();
-      console.log('🔍 App: Admin status check result:', adminStatus, 'for user:', currentUser.email);
+      console.log('🔑 Admin status for', currentUser.email, ':', adminStatus ? 'Admin' : 'User');
       setUserIsAdmin(adminStatus);
 
       // Determine subscription tier

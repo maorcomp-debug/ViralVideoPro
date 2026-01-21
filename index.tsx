@@ -328,15 +328,7 @@ const App = () => {
     }
   }, [subscription]);
 
-  // Fast-path: אם זה המייל של האדמין הראשי, נגדיר userIsAdmin מיד גם בלי קריאת isAdmin()
-  useEffect(() => {
-    if (user?.email && user.email.toLowerCase() === 'viralypro@gmail.com') {
-      if (!userIsAdmin) {
-        console.log('✅ Admin fast-path: setting userIsAdmin=true based on email viralypro@gmail.com');
-        setUserIsAdmin(true);
-      }
-    }
-  }, [user?.email, userIsAdmin]);
+  // Admin state is managed by loadUserData - no fast-path needed here
 
   // Initialize Supabase Auth
   useEffect(() => {
@@ -381,13 +373,12 @@ const App = () => {
     
     // Try to get session quickly, but don't block UI if it takes too long
     // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
-    // This prevents UI freeze on slow networks while still allowing session to load in background
     timeoutId = setTimeout(() => {
       if (mounted) {
         // Silently allow UI to render - onAuthStateChange will handle session when ready
         setLoadingAuth(false);
       }
-    }, 8000); // 8 second timeout - balance between waiting and UX
+    }, 5000); // 5 second timeout (reduced for better UX)
     
     // Check initial session (only once on mount)
     // This is non-blocking - if it takes too long, timeout will unblock the UI
@@ -456,19 +447,9 @@ const App = () => {
         
         isLoadingUserData = true;
         try {
-          // CRITICAL: Wait for trigger/updates to complete before loading data
-          // This is especially important after SIGNED_IN when profile was just updated
-          // For sign-in (existing user), short delay is enough (1500ms)
-          // For sign-up (new user), AuthModal takes ~5-6 seconds, but we handle that in AuthModal itself
-          // So we use shorter delay here and let AuthModal handle the longer wait for signup
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            // Skip delay if already on admin page - admin access should be immediate
-            const isOnAdminPage = typeof window !== 'undefined' && window.location.pathname === '/admin';
-            if (!isOnAdminPage) {
-              // Only delay for non-admin pages to allow trigger to complete
-              const delay = 300;
-              await new Promise(resolve => setTimeout(resolve, delay));
-            }
+          // Small delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
+          if (event === 'SIGNED_IN' && window.location.pathname !== '/admin') {
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
           
           // Force refresh after signup/signin to ensure latest profile data is loaded
@@ -631,9 +612,15 @@ const App = () => {
       // All package and track selection is now handled during registration in AuthModal
       // No need to show modals after login - user enters directly with selected settings
 
-      // Check if user is admin
+      // Check if user is admin (critical for admin panel access)
       const adminStatus = await isAdmin();
+      console.log('🔑 Admin check for', currentUser.email, ':', adminStatus ? 'Admin' : 'User');
       setUserIsAdmin(adminStatus);
+      
+      // If admin, ensure admin page data is fresh
+      if (adminStatus && window.location.pathname === '/admin') {
+        console.log('✅ Admin access confirmed - ready for admin panel');
+      }
 
       // Determine subscription tier: prioritize subscription record, but use profile if subscription record doesn't exist yet
       // This ensures immediate update after payment when profile is updated but subscription record may not be created yet
@@ -2610,13 +2597,11 @@ const App = () => {
     // Prevent double-click
     if (loggingOut) return;
     
+    console.log('🚪 Logout initiated');
     setLoggingOut(true);
+    
     try {
-      // Reset state first to prevent race conditions
-      setUser(null);
-      resetUserState();
-      
-      // Close all modals and reset state
+      // Close all modals first
       setShowAuthModal(false);
       setShowSubscriptionModal(false);
       setShowUpgradeBenefitsModal(false);
@@ -2630,70 +2615,51 @@ const App = () => {
       setTakbullPaymentUrl('');
       setTakbullOrderReference('');
       
-      // Sign out from Supabase (this will trigger onAuthStateChange which will reset state via resetUserState)
-      // Use a timeout to ensure signOut completes
-      const signOutPromise = supabase.auth.signOut();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign out timeout')), 5000)
-      );
-      
-      const { error } = await Promise.race([signOutPromise, timeoutPromise]) as { error: any };
+      // Sign out from Supabase WITHOUT timeout (let it complete naturally)
+      console.log('🔄 Signing out from Supabase...');
+      const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('Error during signOut:', error);
-        // Even if signOut fails, clear localStorage and sessionStorage
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-        } catch (e) {
-          console.error('Error clearing storage:', e);
-        }
+        console.warn('⚠️ SignOut returned error (continuing anyway):', error.message);
+      } else {
+        console.log('✅ Signed out successfully');
       }
       
-      // Set flag in localStorage to indicate we just logged out
-      localStorage.setItem('just_logged_out', 'true');
-      
-      // CRITICAL: Reset loggingOut state BEFORE reload to prevent button being disabled after reload
-      setLoggingOut(false);
-      
-      // Navigate to home page if on other pages
-      if (location.pathname !== '/') {
-        navigate('/', { replace: true });
-      }
-      
-      // Force a page refresh to ensure clean state (after a small delay to allow navigation and state reset)
-      setTimeout(() => {
-        window.location.reload();
-      }, 200);
-      
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Still reset state even if signOut fails
+      // Reset all state
       setUser(null);
       resetUserState();
       
-      // Set flag in localStorage to indicate we just logged out (even on error)
+      // Set logout flag
+      localStorage.setItem('just_logged_out', 'true');
+      
+      // Navigate to home page if needed
+      if (location.pathname !== '/') {
+        console.log('📍 Navigating to home...');
+        navigate('/', { replace: true });
+      }
+      
+      console.log('✅ Logout complete');
+      
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+      
+      // Force clear state anyway
+      setUser(null);
+      resetUserState();
+      
       try {
         localStorage.setItem('just_logged_out', 'true');
       } catch (e) {
         console.error('Error setting logout flag:', e);
       }
       
-      // CRITICAL: Reset loggingOut state even on error
-      setLoggingOut(false);
-      
-      // Clear storage as fallback
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch (e) {
-        console.error('Error clearing storage:', e);
+      // Navigate to home
+      if (location.pathname !== '/') {
+        navigate('/', { replace: true });
       }
-      
-      // Force page reload as last resort
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 200);
+    } finally {
+      // Always reset loggingOut state
+      setLoggingOut(false);
     }
   };
   

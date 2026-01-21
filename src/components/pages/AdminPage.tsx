@@ -734,67 +734,54 @@ export const AdminPage: React.FC = () => {
 
   const loadData = async () => {
     if (isLoadingData) {
-      console.log('⏸️ AdminPage: Already loading, skipping duplicate call');
+      console.log('⏸️ Already loading data, skipping duplicate call');
       return;
     }
     
     setIsLoadingData(true);
     try {
-      console.log('🔄 AdminPage: loadData called', { activeTab, activeSubTab });
+      console.log('📊 Loading admin data for tab:', activeTab, activeSubTab || '');
       
       if (activeTab === 'overview') {
-        console.log('📊 Loading overview stats...');
         const statsData = await getAdminStats();
-        console.log('✅ Overview stats loaded:', statsData);
         setStats(statsData);
         saveAdminCache({ stats: statsData });
+        console.log('✅ Stats loaded:', statsData?.totalUsers || 0, 'users');
       } else if (activeTab === 'users') {
-        console.log('👥 Loading users...');
         const usersData = await getAllUsers();
-        console.log('✅ Users loaded:', { count: usersData?.length || 0, firstUser: usersData?.[0] });
         setUsers(usersData || []);
         saveAdminCache({ users: usersData || [] });
+        console.log('✅ Users loaded:', usersData?.length || 0);
       } else if (activeTab === 'analyses') {
-        console.log('📄 Loading analyses...');
         const analysesData = await getAllAnalyses();
-        console.log('✅ Analyses loaded:', { count: analysesData?.length || 0 });
         setAnalyses(analysesData || []);
         saveAdminCache({ analyses: analysesData || [] });
+        console.log('✅ Analyses loaded:', analysesData?.length || 0);
       } else if (activeTab === 'video') {
-        console.log('🎬 Loading videos...');
         const videosData = await getAllVideos();
-        console.log('✅ Videos loaded:', { count: videosData?.length || 0 });
         setVideos(videosData || []);
         saveAdminCache({ videos: videosData || [] });
+        console.log('✅ Videos loaded:', videosData?.length || 0);
       } else if (activeTab === 'alerts') {
         if (activeSubTab === 'send-update') {
-          console.log('📢 Loading announcements...');
           const announcementsData = await getAllAnnouncements();
-          console.log('✅ Announcements loaded:', { count: announcementsData?.length || 0 });
           setAnnouncements(announcementsData || []);
           saveAdminCache({ announcements: announcementsData || [] });
+          console.log('✅ Announcements loaded:', announcementsData?.length || 0);
         } else if (activeSubTab === 'coupons') {
-          console.log('🏷️ Loading coupons...');
           const couponsData = await getAllCoupons();
-          console.log('✅ Coupons loaded:', { count: couponsData?.length || 0 });
           setCoupons(couponsData || []);
           saveAdminCache({ coupons: couponsData || [] });
+          console.log('✅ Coupons loaded:', couponsData?.length || 0);
         } else if (activeSubTab === 'trials') {
-          console.log('⭐ Loading trials...');
           const trialsData = await getAllTrials();
-          console.log('✅ Trials loaded:', { count: trialsData?.length || 0 });
           setTrials(trialsData || []);
           saveAdminCache({ trials: trialsData || [] });
+          console.log('✅ Trials loaded:', trialsData?.length || 0);
         }
       }
     } catch (error: any) {
-      console.error('❌ AdminPage: Error loading data:', error);
-      console.error('❌ AdminPage: Error details:', { 
-        message: error.message, 
-        stack: error.stack,
-        activeTab,
-        activeSubTab
-      });
+      console.error('❌ Error loading admin data:', error.message);
     } finally {
       setIsLoadingData(false);
     }
@@ -802,10 +789,10 @@ export const AdminPage: React.FC = () => {
 
   // Load cached data immediately on mount for instant display
   useEffect(() => {
-    console.log('🚀 AdminPage: Component mounted');
+    console.log('🚀 Admin panel opened');
     const cached = loadAdminCache();
     if (cached) {
-      console.log('⚡ Loading admin data from cache for instant display');
+      console.log('⚡ Loading cached data for instant display');
       if (cached.stats) setStats(cached.stats);
       if (cached.users) setUsers(cached.users);
       if (cached.analyses) setAnalyses(cached.analyses);
@@ -816,9 +803,8 @@ export const AdminPage: React.FC = () => {
     }
   }, []);
 
-  // Load data whenever tab changes (including initial mount)
+  // Load fresh data whenever tab changes (including initial mount)
   useEffect(() => {
-    console.log('🔄 AdminPage: Tab changed, loading data...', { activeTab, activeSubTab });
     loadData();
   }, [activeTab, activeSubTab]);
 
