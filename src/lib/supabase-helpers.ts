@@ -379,14 +379,23 @@ export async function getAllUsers() {
   try {
     console.log('🔍 getAllUsers: Starting fetch...');
     
-    // Try RPC first (bypasses RLS completely, no session needed)
-    // Try direct select first (faster and more reliable)
+    // Helper to add timeout to any promise
+    const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = 5000): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => 
+          setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs}ms`)), timeoutMs)
+        )
+      ]);
+    };
+    
+    // Try direct select first (faster and more reliable) with timeout
     console.log('🔍 getAllUsers: Attempting direct select from profiles...');
     
-    const { data: directData, error: directError } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data: directData, error: directError } = await withTimeout(
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      5000
+    );
 
     if (!directError && directData) {
       console.log('✅ getAllUsers: loaded via direct select, count =', directData.length);
@@ -740,24 +749,48 @@ export async function createUser(email: string, password: string, profileData: {
 // ============================================
 
 export async function getAdminStats() {
+  console.log('📊 getAdminStats: Starting fetch...');
+  
+  // Helper to add timeout to any promise
+  const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = 3000): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs}ms`)), timeoutMs)
+      )
+    ]);
+  };
+
   try {
-    // Get total counts
-    const { count: totalUsers } = await supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true });
+    // Get total counts with individual timeouts
+    console.log('🔍 Fetching user count...');
+    const { count: totalUsers, error: usersError } = await withTimeout(
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
+      3000
+    );
+    if (usersError) console.warn('⚠️ User count error:', usersError.message);
 
-    const { count: totalAnalyses } = await supabase
-      .from('analyses')
-      .select('id', { count: 'exact', head: true });
+    console.log('🔍 Fetching analyses count...');
+    const { count: totalAnalyses, error: analysesError } = await withTimeout(
+      supabase.from('analyses').select('id', { count: 'exact', head: true }),
+      3000
+    );
+    if (analysesError) console.warn('⚠️ Analyses count error:', analysesError.message);
 
-    const { count: totalVideos } = await supabase
-      .from('videos')
-      .select('id', { count: 'exact', head: true });
+    console.log('🔍 Fetching videos count...');
+    const { count: totalVideos, error: videosError } = await withTimeout(
+      supabase.from('videos').select('id', { count: 'exact', head: true }),
+      3000
+    );
+    if (videosError) console.warn('⚠️ Videos count error:', videosError.message);
 
     // Get tier distribution
-    const { data: tierData } = await supabase
-      .from('profiles')
-      .select('subscription_tier');
+    console.log('🔍 Fetching tier distribution...');
+    const { data: tierData, error: tierError } = await withTimeout(
+      supabase.from('profiles').select('subscription_tier'),
+      3000
+    );
+    if (tierError) console.warn('⚠️ Tier data error:', tierError.message);
 
     const tierDistribution = tierData?.reduce((acc: any, profile: any) => {
       acc[profile.subscription_tier] = (acc[profile.subscription_tier] || 0) + 1;
@@ -765,9 +798,12 @@ export async function getAdminStats() {
     }, {}) || {};
 
     // Get role distribution
-    const { data: roleData } = await supabase
-      .from('profiles')
-      .select('role');
+    console.log('🔍 Fetching role distribution...');
+    const { data: roleData, error: roleError } = await withTimeout(
+      supabase.from('profiles').select('role'),
+      3000
+    );
+    if (roleError) console.warn('⚠️ Role data error:', roleError.message);
 
     const roleDistribution = roleData?.reduce((acc: any, profile: any) => {
       acc[profile.role] = (acc[profile.role] || 0) + 1;
@@ -775,15 +811,17 @@ export async function getAdminStats() {
     }, {}) || {};
 
     // Get recent registrations (last 30 days)
+    console.log('🔍 Fetching recent users...');
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    const { count: recentUsers } = await supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', thirtyDaysAgo.toISOString());
+    const { count: recentUsers, error: recentError } = await withTimeout(
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo.toISOString()),
+      3000
+    );
+    if (recentError) console.warn('⚠️ Recent users error:', recentError.message);
 
-    return {
+    const result = {
       totalUsers: totalUsers || 0,
       totalAnalyses: totalAnalyses || 0,
       totalVideos: totalVideos || 0,
@@ -791,8 +829,13 @@ export async function getAdminStats() {
       tierDistribution,
       roleDistribution,
     };
+    
+    console.log('✅ getAdminStats: Success!', result);
+    return result;
+    
   } catch (error: any) {
-    console.error('Error in getAdminStats:', error);
+    console.error('❌ Error in getAdminStats:', error.message || error);
+    // Return zeros so UI doesn't break
     return {
       totalUsers: 0,
       totalAnalyses: 0,

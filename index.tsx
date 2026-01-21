@@ -2713,16 +2713,6 @@ const App = () => {
   }
 
   if (isAdminPage) {
-    // Protect admin page - only allow admin users
-    if (!user || !userIsAdmin) {
-      console.warn('⚠️ Non-admin user attempted to access admin page, redirecting...');
-      // Redirect to home immediately
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
-      }
-      return null;
-    }
-    
     return (
       <>
         <GlobalStyle />
