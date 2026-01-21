@@ -254,8 +254,10 @@ const App = () => {
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Profile cache helpers
+  // Profile & Subscription cache helpers
   const PROFILE_CACHE_KEY = 'viral_profile_cache';
+  const SUBSCRIPTION_CACHE_KEY = 'viral_subscription_cache';
+  
   const saveProfileToCache = (profileData: any) => {
     if (typeof window === 'undefined') return;
     try {
@@ -264,6 +266,7 @@ const App = () => {
       console.warn('Failed to cache profile:', e);
     }
   };
+  
   const loadProfileFromCache = () => {
     if (typeof window === 'undefined') return null;
     try {
@@ -274,12 +277,34 @@ const App = () => {
       return null;
     }
   };
+  
+  const saveSubscriptionToCache = (subscriptionData: any) => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(subscriptionData));
+    } catch (e) {
+      console.warn('Failed to cache subscription:', e);
+    }
+  };
+  
+  const loadSubscriptionFromCache = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = sessionStorage.getItem(SUBSCRIPTION_CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      console.warn('Failed to load cached subscription:', e);
+      return null;
+    }
+  };
+  
   const clearProfileCache = () => {
     if (typeof window === 'undefined') return;
     try {
       sessionStorage.removeItem(PROFILE_CACHE_KEY);
+      sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
     } catch (e) {
-      console.warn('Failed to clear profile cache:', e);
+      console.warn('Failed to clear cache:', e);
     }
   };
 
@@ -295,6 +320,13 @@ const App = () => {
     setUserIsAdmin(false);
     clearProfileCache(); // Clear cached profile on logout
   };
+
+  // Auto-save subscription to cache whenever it changes
+  useEffect(() => {
+    if (subscription) {
+      saveSubscriptionToCache(subscription);
+    }
+  }, [subscription]);
 
   // Fast-path: אם זה המייל של האדמין הראשי, נגדיר userIsAdmin מיד גם בלי קריאת isAdmin()
   useEffect(() => {
@@ -312,11 +344,17 @@ const App = () => {
     let timeoutId: NodeJS.Timeout | null = null;
     let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
     
-    // Load cached profile immediately for instant UI (prevents email flash on refresh)
+    // Load cached profile & subscription immediately for instant UI (prevents email flash on refresh)
     const cachedProfile = loadProfileFromCache();
     if (cachedProfile) {
       console.log('⚡ Loaded profile from cache for instant display');
       setProfile(cachedProfile);
+    }
+    
+    const cachedSubscription = loadSubscriptionFromCache();
+    if (cachedSubscription) {
+      console.log('⚡ Loaded subscription from cache for instant display');
+      setSubscription(cachedSubscription);
     }
     
     // Set up BroadcastChannel to sync subscription updates across multiple tabs/windows
@@ -661,7 +699,7 @@ const App = () => {
         });
       }
       
-      setSubscription({
+      const subscriptionData = {
         tier: finalTier,
         billingPeriod: finalBillingPeriod,
         startDate: finalStartDate,
@@ -671,7 +709,10 @@ const App = () => {
           lastResetDate: finalStartDate,
         },
         isActive: finalIsActive,
-      });
+      };
+      
+      setSubscription(subscriptionData);
+      saveSubscriptionToCache(subscriptionData); // Cache for instant refresh
       
       // Broadcast subscription update to other tabs/windows if tier changed
       if (typeof BroadcastChannel !== 'undefined' && currentUser) {
