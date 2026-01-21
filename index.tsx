@@ -2244,7 +2244,11 @@ const App = () => {
       hasFile: !!file, 
       selectedExpertsCount: selectedExperts.length,
       selectedExperts: selectedExperts,
-      isReady: (!!prompt.trim() || !!file) && selectedExperts.length >= 3
+      isReady: (!!prompt.trim() || !!file) && selectedExperts.length >= 3,
+      userIsAdmin: userIsAdmin,
+      user: user?.email,
+      subscription: subscription?.tier,
+      activeTrack: activeTrack
     });
     
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) {
@@ -2264,7 +2268,15 @@ const App = () => {
     }
     
     // Check if current track is available for user's subscription
-    if (!isTrackAvailable(activeTrack)) {
+    const trackAvailable = isTrackAvailable(activeTrack);
+    console.log('🔍 Track availability check:', { 
+      activeTrack, 
+      trackAvailable, 
+      userIsAdmin,
+      subscription: subscription?.tier 
+    });
+    if (!trackAvailable) {
+      console.warn('⚠️ Track not available for user');
       alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
       setShowSubscriptionModal(true);
       return;
