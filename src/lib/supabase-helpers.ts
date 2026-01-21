@@ -378,9 +378,28 @@ export async function isAdmin(): Promise<boolean> {
 export async function getAllUsers() {
   try {
     console.log('🔍 getAllUsers: Starting fetch...');
+    console.log('🔍 getAllUsers: Step 1 - About to get session...');
     
-    // Get current session for auth header
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Get current session for auth header (with timeout)
+    const sessionPromise = supabase.auth.getSession();
+    const sessionTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getSession timeout after 5 seconds')), 5000)
+    );
+    
+    let session = null;
+    let sessionError = null;
+    
+    try {
+      console.log('🔍 getAllUsers: Step 2 - Waiting for session...');
+      const sessionResult = await Promise.race([sessionPromise, sessionTimeoutPromise]) as { data: { session: any }, error: any };
+      session = sessionResult.data?.session;
+      sessionError = sessionResult.error;
+      console.log('🔍 getAllUsers: Step 3 - Session received:', { hasSession: !!session, hasError: !!sessionError });
+    } catch (sessionTimeoutError: any) {
+      console.error('❌ getAllUsers: Session timeout:', sessionTimeoutError.message);
+      sessionError = sessionTimeoutError;
+    }
+    
     if (sessionError) {
       console.error('❌ getAllUsers: Error getting session:', sessionError);
     }
