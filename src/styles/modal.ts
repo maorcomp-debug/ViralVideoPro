@@ -50,6 +50,13 @@ export const ModalTitle = styled.h2`
   color: #D4A043;
   font-size: 1.5rem;
   margin-bottom: 10px;
+  padding-right: 50px; /* Space for close button */
+
+  @media (max-width: 768px) {
+    font-size: 1.1rem;
+    padding-right: 40px;
+    line-height: 1.3;
+  }
 `;
 
 export const ModalSubtitle = styled.p`
@@ -59,6 +66,13 @@ export const ModalSubtitle = styled.p`
   margin: 0;
   max-width: 600px;
   margin: 0 auto;
+  padding-right: 50px; /* Space for close button */
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    padding-right: 40px;
+    line-height: 1.4;
+  }
 `;
 
 export const ModalCloseBtn = styled.button`
@@ -73,6 +87,21 @@ export const ModalCloseBtn = styled.button`
   width: 40px;
   height: 40px;
   display: flex;
+  z-index: 10; /* Ensure it's above title */
+
+  @media (max-width: 768px) {
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    width: 35px;
+    height: 35px;
+  }
+
+  /* Hover effect for better visibility */
+  &:hover {
+    color: #F5C842;
+    transform: scale(1.1);
+  }
   align-items: center;
   justify-content: center;
   border-radius: 50%;
