@@ -248,6 +248,7 @@ const App = () => {
   const [upgradeToTier, setUpgradeToTier] = useState<SubscriptionTier>('free');
   const [hasShownTrackModal, setHasShownTrackModal] = useState(false);
   const [showUpgradeCompletionMessage, setShowUpgradeCompletionMessage] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -421,11 +422,13 @@ const App = () => {
   const loadUserData = async (currentUser: User, forceRefresh = false) => {
     try {
       console.log('🔄 loadUserData called', { userId: currentUser.id, forceRefresh });
+      setIsLoadingProfile(true);
       
       // Verify user is still authenticated before loading data
       const { data: { user: verifiedUser } } = await supabase.auth.getUser();
       if (!verifiedUser || verifiedUser.id !== currentUser.id) {
         console.warn('User changed or logged out during loadUserData');
+        setIsLoadingProfile(false);
         return;
       }
       
@@ -704,6 +707,8 @@ const App = () => {
       setSavedAnalyses(uniqueAnalyses);
     } catch (error) {
       console.error('Error loading user data:', error);
+    } finally {
+      setIsLoadingProfile(false);
     }
   };
 
@@ -2495,10 +2500,12 @@ const App = () => {
   useEffect(() => {
     if (!user) return;
     if (profile) return; // Already loaded
+    if (isLoadingProfile) return; // Already loading, don't duplicate
     
-    // If user exists but profile is null, load it
+    // If user exists but profile is null and not currently loading, load it
     const loadProfileIfMissing = async () => {
       console.log('🔄 Profile missing after refresh, loading...', { userId: user.id });
+      setIsLoadingProfile(true);
       try {
         const userProfile = await getCurrentUserProfile(true);
         if (userProfile) {
@@ -2509,13 +2516,15 @@ const App = () => {
         }
       } catch (error) {
         console.error('❌ Error loading profile after refresh:', error);
+      } finally {
+        setIsLoadingProfile(false);
       }
     };
     
     // Small delay to avoid race with loadUserData
     const timeoutId = setTimeout(loadProfileIfMissing, 500);
     return () => clearTimeout(timeoutId);
-  }, [user, profile]);
+  }, [user, profile, isLoadingProfile]);
   
   const handleLogout = async () => {
     // Prevent double-click
@@ -2733,7 +2742,9 @@ const App = () => {
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
               {/* מחובר כ: במרכז מעל הלחצנים */}
               <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
-                מחובר כ: <span style={{ color: '#fff' }}>{profile?.full_name || user.email}</span>
+                מחובר כ: <span style={{ color: '#fff' }}>
+                  {isLoadingProfile ? 'טוען...' : (profile?.full_name || user.email)}
+                </span>
               </span>
               
               {/* הלחצנים במרכז */}
