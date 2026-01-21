@@ -480,8 +480,8 @@ const TableHeader = styled.div`
 
   @media (max-width: 768px) {
     grid-template-columns: 90px repeat(3, minmax(80px, 1fr));
-    padding: 10px;
-    gap: 8px;
+    padding: 10px 8px;
+    gap: 4px;
     font-size: 0.75rem;
   }
 `;
@@ -521,8 +521,8 @@ const TableRow = styled.div`
 
   @media (max-width: 768px) {
     grid-template-columns: 90px repeat(3, minmax(80px, 1fr));
-    padding: 8px 10px;
-    gap: 8px;
+    padding: 6px 8px;
+    gap: 4px;
     font-size: 0.75rem;
   }
 `;
