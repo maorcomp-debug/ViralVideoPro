@@ -112,6 +112,10 @@ const ModalHeader = styled.div`
     font-size: 2.5rem;
     margin: 0 0 15px 0;
     font-family: 'Frank Ruhl Libre', serif;
+
+    @media (max-width: 768px) {
+      font-size: 1.8rem;
+    }
   }
   
   p {
@@ -119,6 +123,10 @@ const ModalHeader = styled.div`
     font-size: 1.1rem;
     margin: 0;
     line-height: 1.6;
+
+    @media (max-width: 768px) {
+      font-size: 0.95rem;
+    }
   }
 `;
 
@@ -128,6 +136,11 @@ const BenefitsList = styled.div`
   border-radius: 15px;
   padding: 25px;
   margin-bottom: 30px;
+
+  @media (max-width: 768px) {
+    padding: 15px;
+    margin-bottom: 20px;
+  }
 `;
 
 const AdditionalTracksMessage = styled.div`
@@ -160,6 +173,11 @@ const TracksPreviewGrid = styled.div`
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px solid rgba(212, 160, 67, 0.2);
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
 `;
 
 const TrackPreviewCard = styled.div`
@@ -174,6 +192,10 @@ const TrackPreviewCard = styled.div`
   &:hover {
     opacity: 1;
     border-color: rgba(212, 160, 67, 0.4);
+  }
+
+  @media (max-width: 768px) {
+    padding: 8px;
   }
 `;
 
@@ -232,6 +254,16 @@ const BenefitItem = styled.div`
     flex: 1;
     line-height: 1.6;
   }
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    gap: 10px;
+    margin-bottom: 12px;
+
+    .icon {
+      font-size: 1.2rem;
+    }
+  }
 `;
 
 const TracksSection = styled.div`
@@ -243,6 +275,11 @@ const TracksGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 15px;
   margin-top: 20px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 `;
 
 const TrackCard = styled.div<{ $selected: boolean; $included?: boolean; $disabled?: boolean }>`
@@ -260,6 +297,10 @@ const TrackCard = styled.div<{ $selected: boolean; $included?: boolean; $disable
   padding: 20px;
   cursor: ${props => props.$disabled || props.$included ? 'default' : 'pointer'};
   transition: all 0.3s;
+
+  @media (max-width: 768px) {
+    padding: 15px;
+  }
   text-align: center;
   opacity: ${props => props.$disabled ? 0.5 : 1};
   position: relative;

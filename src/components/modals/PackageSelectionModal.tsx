@@ -75,6 +75,10 @@ const ModalHeader = styled.div`
     font-size: 2rem;
     margin: 0 0 10px 0;
     font-family: 'Frank Ruhl Libre', serif;
+
+    @media (max-width: 768px) {
+      font-size: 1.5rem;
+    }
   }
   
   p {
@@ -82,6 +86,10 @@ const ModalHeader = styled.div`
     font-size: 1rem;
     margin: 0;
     line-height: 1.6;
+
+    @media (max-width: 768px) {
+      font-size: 0.9rem;
+    }
   }
 `;
 
@@ -112,6 +120,10 @@ const PackageCard = styled.div<{ $isRecommended?: boolean }>`
     box-shadow: 0 10px 30px rgba(212, 160, 67, 0.3);
     border-color: #D4A043;
   }
+
+  @media (max-width: 768px) {
+    padding: 20px 15px;
+  }
 `;
 
 const RecommendedBadge = styled.div`
@@ -132,6 +144,10 @@ const PackageTitle = styled.h3`
   font-size: 1.5rem;
   margin: 0 0 10px 0;
   font-family: 'Frank Ruhl Libre', serif;
+
+  @media (max-width: 768px) {
+    font-size: 1.3rem;
+  }
 `;
 
 const PackageSubtitle = styled.div`
@@ -153,6 +169,7 @@ const PackageFeatures = styled.ul`
     margin-bottom: 8px;
     padding-right: 20px;
     position: relative;
+    word-wrap: break-word;
 
     &::before {
       content: '✓';
@@ -169,6 +186,11 @@ const PackageFeatures = styled.ul`
         content: '✗';
         color: #666;
       }
+    }
+
+    @media (max-width: 768px) {
+      font-size: 0.85rem;
+      margin-bottom: 6px;
     }
   }
 `;

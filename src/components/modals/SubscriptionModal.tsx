@@ -66,8 +66,10 @@ const PricingPlansGrid = styled.div`
   margin-bottom: 30px;
 
   @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 100%;
   }
 `;
 
@@ -118,6 +120,10 @@ const PlanName = styled.h3`
   font-size: 1.8rem;
   margin: 0 0 8px 0;
   font-family: 'Frank Ruhl Libre', serif;
+
+  @media (max-width: 768px) {
+    font-size: 1.4rem;
+  }
 `;
 
 const PlanBadge = styled.span<{ $color?: string }>`
@@ -152,6 +158,14 @@ const PriceAmount = styled.div`
   .currency {
     font-size: 1.2rem;
     margin-left: 5px;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 2rem;
+    
+    .currency {
+      font-size: 1rem;
+    }
   }
 `;
 
