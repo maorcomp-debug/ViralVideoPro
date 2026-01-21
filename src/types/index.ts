@@ -88,6 +88,7 @@ export interface SubscriptionLimits {
     pdfExport: boolean;
     coachDashboard: boolean;
     customExperts: boolean;
+    videoComparison: boolean;
   };
 }
 
