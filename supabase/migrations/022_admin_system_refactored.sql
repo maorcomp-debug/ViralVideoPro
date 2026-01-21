@@ -16,17 +16,57 @@
 -- 1. DROP OLD POLICIES FIRST (they depend on is_admin)
 -- ============================================
 
--- מחק policies קודמות אם קיימות (כדי למנוע כפילויות)
+-- מחק את כל ה-policies הקיימות שתלויות ב-is_admin()
+-- כדי למנוע שגיאות dependency
+
+-- Profiles
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can delete all profiles" ON public.profiles;
+
+-- Subscriptions
 DROP POLICY IF EXISTS "Admins can view all subscriptions" ON public.subscriptions;
 DROP POLICY IF EXISTS "Admins can insert subscriptions" ON public.subscriptions;
-DROP POLICY IF EXISTS "Admins can update subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Admins can update all subscriptions" ON public.subscriptions;
+
+-- Videos
 DROP POLICY IF EXISTS "Admins can view all videos" ON public.videos;
+
+-- Analyses
 DROP POLICY IF EXISTS "Admins can view all analyses" ON public.analyses;
+
+-- Trainees
 DROP POLICY IF EXISTS "Admins can view all trainees" ON public.trainees;
+
+-- Usage
 DROP POLICY IF EXISTS "Admins can view all usage" ON public.usage;
+
+-- Announcements
+DROP POLICY IF EXISTS "Admins can create announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can delete announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can update announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can view all announcements" ON public.announcements;
+
+-- Contact Messages
+DROP POLICY IF EXISTS "Admins can update contact messages" ON public.contact_messages;
+DROP POLICY IF EXISTS "Admins can view contact messages" ON public.contact_messages;
+
+-- Coupon Redemptions
+DROP POLICY IF EXISTS "Admins can view all redemptions" ON public.coupon_redemptions;
+
+-- Coupons
+DROP POLICY IF EXISTS "Admins can create coupons" ON public.coupons;
+DROP POLICY IF EXISTS "Admins can delete coupons" ON public.coupons;
+DROP POLICY IF EXISTS "Admins can update coupons" ON public.coupons;
+DROP POLICY IF EXISTS "Admins can view all coupons" ON public.coupons;
+
+-- Takbull Orders
+DROP POLICY IF EXISTS "Admins can view all orders" ON public.takbull_orders;
+
+-- User Trials
+DROP POLICY IF EXISTS "Admins can delete trials" ON public.user_trials;
+DROP POLICY IF EXISTS "Admins can update trials" ON public.user_trials;
+DROP POLICY IF EXISTS "Admins can view all trials" ON public.user_trials;
 
 -- ============================================
 -- 2. DROP OLD FUNCTIONS
@@ -187,6 +227,120 @@ CREATE POLICY "Admins can view all trainees"
 CREATE POLICY "Admins can view all usage"
   ON public.usage
   FOR SELECT
+  USING (public.is_admin());
+
+-- ============================================
+-- ANNOUNCEMENTS TABLE
+-- ============================================
+
+-- Admins can create announcements
+CREATE POLICY "Admins can create announcements"
+  ON public.announcements
+  FOR INSERT
+  WITH CHECK (public.is_admin());
+
+-- Admins can view all announcements
+CREATE POLICY "Admins can view all announcements"
+  ON public.announcements
+  FOR SELECT
+  USING (public.is_admin());
+
+-- Admins can update announcements
+CREATE POLICY "Admins can update announcements"
+  ON public.announcements
+  FOR UPDATE
+  USING (public.is_admin());
+
+-- Admins can delete announcements
+CREATE POLICY "Admins can delete announcements"
+  ON public.announcements
+  FOR DELETE
+  USING (public.is_admin());
+
+-- ============================================
+-- CONTACT_MESSAGES TABLE
+-- ============================================
+
+-- Admins can view contact messages
+CREATE POLICY "Admins can view contact messages"
+  ON public.contact_messages
+  FOR SELECT
+  USING (public.is_admin());
+
+-- Admins can update contact messages
+CREATE POLICY "Admins can update contact messages"
+  ON public.contact_messages
+  FOR UPDATE
+  USING (public.is_admin());
+
+-- ============================================
+-- COUPONS TABLE
+-- ============================================
+
+-- Admins can view all coupons
+CREATE POLICY "Admins can view all coupons"
+  ON public.coupons
+  FOR SELECT
+  USING (public.is_admin());
+
+-- Admins can create coupons
+CREATE POLICY "Admins can create coupons"
+  ON public.coupons
+  FOR INSERT
+  WITH CHECK (public.is_admin());
+
+-- Admins can update coupons
+CREATE POLICY "Admins can update coupons"
+  ON public.coupons
+  FOR UPDATE
+  USING (public.is_admin());
+
+-- Admins can delete coupons
+CREATE POLICY "Admins can delete coupons"
+  ON public.coupons
+  FOR DELETE
+  USING (public.is_admin());
+
+-- ============================================
+-- COUPON_REDEMPTIONS TABLE
+-- ============================================
+
+-- Admins can view all redemptions
+CREATE POLICY "Admins can view all redemptions"
+  ON public.coupon_redemptions
+  FOR SELECT
+  USING (public.is_admin());
+
+-- ============================================
+-- TAKBULL_ORDERS TABLE
+-- ============================================
+
+-- Admins can view all orders
+CREATE POLICY "Admins can view all orders"
+  ON public.takbull_orders
+  FOR SELECT
+  USING (public.is_admin());
+
+-- ============================================
+-- USER_TRIALS TABLE
+-- ============================================
+
+-- Admins can view all trials
+CREATE POLICY "Admins can view all trials"
+  ON public.user_trials
+  FOR SELECT
+  USING (public.is_admin());
+
+-- Admins can update trials
+CREATE POLICY "Admins can update trials"
+  ON public.user_trials
+  FOR UPDATE
+  USING (public.is_admin());
+
+-- Admins can delete trials
+CREATE POLICY "Admins can delete trials"
+  ON public.user_trials
+  FOR DELETE
   USING (public.is_admin());
 
 -- ============================================
