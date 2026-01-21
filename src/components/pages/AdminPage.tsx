@@ -799,8 +799,8 @@ export const AdminPage: React.FC = () => {
       
     } catch (error: any) {
       console.error('❌ Error loading admin data:', error);
-      // Show error to user
-      alert('שגיאה בטעינת נתונים: ' + (error.message || 'Unknown error'));
+      // Don't show alert - it's annoying. Just log the error.
+      // The empty tables will show the user that data didn't load.
     } finally {
       console.log('🔓 Resetting isLoadingData to false');
       setIsLoadingData(false);
