@@ -1164,7 +1164,7 @@ const App = () => {
         const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return { 
           allowed: false, 
-          message: `סיימת את 2 הניתוחים החינמיים לחודש זה. הניתוחים יתאפסו בעוד ${daysLeft} ימים (תחילת חודש) או שדרג לחבילה כדי להמשיך` 
+          message: `סיימת את ניתוח הטעימה החינמי. ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
         };
       }
     } else if (limit === -1) {
