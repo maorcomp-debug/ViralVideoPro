@@ -1982,7 +1982,7 @@ const App = () => {
           html += `
             <div class="card" style="margin-bottom: 20px; page-break-inside: avoid; border-right: 4px solid ${recommendationColor}; background: ${isReady ? '#f1f8f4' : '#fff8f0'};">
               <h4 style="color: ${recommendationColor}; margin: 0 0 12px 0; font-size: 1.15rem; font-weight: 700;">
-                ${isReady ? '✅ המלצה מקצועית:' : '⚠️ המלצה מקצועית:'}
+                ${isReady ? '✅ מוכן להגשה!' : '💡 הצעות לשיפור:'}
               </h4>
               <p style="margin: 0; line-height: 1.7; font-size: 1.05rem; color: #2b2b2b; font-weight: 500;">
                 ${result.takeRecommendation}
@@ -2447,7 +2447,7 @@ const App = () => {
             "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (Hebrew only)",
             "finalTips": ["Professional tip 1 (Hebrew)", "Professional tip 2 (Hebrew)", "Professional tip 3 (Hebrew)"]
           },
-          "takeRecommendation": "Honest professional recommendation: 'ready_to_submit' if current take is ready, or 'retake_needed' if improvements are required. Include specific reasoning. (Hebrew only)"
+          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - give friendly suggestions for what to improve in next take. NO ENGLISH - Hebrew only!"
         }
 
         Important:
@@ -3546,7 +3546,11 @@ const App = () => {
                          result.takeRecommendation.includes('מוכן') || 
                          result.takeRecommendation.includes('להגיש') ||
                          result.takeRecommendation.includes('ניתן')
-                          ? '✅' : '⚠️'} המלצה מקצועית:
+                          ? '✅' : '💡'} {result.takeRecommendation.toLowerCase().includes('ready') || 
+                         result.takeRecommendation.includes('מוכן') || 
+                         result.takeRecommendation.includes('להגיש') ||
+                         result.takeRecommendation.includes('ניתן')
+                          ? 'מוכן להגשה!' : 'הצעות לשיפור:'}
                       </h4>
                       <p style={{
                         margin: 0,
