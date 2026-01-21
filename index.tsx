@@ -254,6 +254,35 @@ const App = () => {
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Profile cache helpers
+  const PROFILE_CACHE_KEY = 'viral_profile_cache';
+  const saveProfileToCache = (profileData: any) => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profileData));
+    } catch (e) {
+      console.warn('Failed to cache profile:', e);
+    }
+  };
+  const loadProfileFromCache = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      console.warn('Failed to load cached profile:', e);
+      return null;
+    }
+  };
+  const clearProfileCache = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.removeItem(PROFILE_CACHE_KEY);
+    } catch (e) {
+      console.warn('Failed to clear profile cache:', e);
+    }
+  };
+
   // Helper function to reset all user-related state
   const resetUserState = () => {
     setProfile(null);
@@ -264,6 +293,7 @@ const App = () => {
     setHasShownPackageModal(false);
     setHasShownTrackModal(false);
     setUserIsAdmin(false);
+    clearProfileCache(); // Clear cached profile on logout
   };
 
   // Fast-path: אם זה המייל של האדמין הראשי, נגדיר userIsAdmin מיד גם בלי קריאת isAdmin()
@@ -281,6 +311,13 @@ const App = () => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
     let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
+    
+    // Load cached profile immediately for instant UI (prevents email flash on refresh)
+    const cachedProfile = loadProfileFromCache();
+    if (cachedProfile) {
+      console.log('⚡ Loaded profile from cache for instant display');
+      setProfile(cachedProfile);
+    }
     
     // Set up BroadcastChannel to sync subscription updates across multiple tabs/windows
     const broadcastChannel = typeof BroadcastChannel !== 'undefined' 
@@ -500,6 +537,8 @@ const App = () => {
         // VERSION: 2.3 - Profile created by trigger with metadata - complete immediately
         
         setProfile(userProfile);
+        // Cache profile for instant load on refresh
+        saveProfileToCache(userProfile);
         // Always log profile load to help debug
         console.log('✅ Profile loaded successfully:', {
           tier: userProfile.subscription_tier,
@@ -2502,7 +2541,7 @@ const App = () => {
     if (profile) return; // Already loaded
     if (isLoadingProfile) return; // Already loading, don't duplicate
     
-    // If user exists but profile is null and not currently loading, load it
+    // If user exists but profile is null and not currently loading, load it immediately
     const loadProfileIfMissing = async () => {
       console.log('🔄 Profile missing after refresh, loading...', { userId: user.id });
       setIsLoadingProfile(true);
@@ -2511,6 +2550,7 @@ const App = () => {
         if (userProfile) {
           console.log('✅ Profile loaded after refresh:', { fullName: userProfile.full_name, email: userProfile.email });
           setProfile(userProfile);
+          saveProfileToCache(userProfile); // Cache for next refresh
         } else {
           console.warn('⚠️ Profile still not found after refresh load attempt');
         }
@@ -2521,9 +2561,8 @@ const App = () => {
       }
     };
     
-    // Small delay to avoid race with loadUserData
-    const timeoutId = setTimeout(loadProfileIfMissing, 500);
-    return () => clearTimeout(timeoutId);
+    // Load immediately (no delay needed since we have cache)
+    loadProfileIfMissing();
   }, [user, profile, isLoadingProfile]);
   
   const handleLogout = async () => {
@@ -2742,9 +2781,7 @@ const App = () => {
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
               {/* מחובר כ: במרכז מעל הלחצנים */}
               <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
-                מחובר כ: <span style={{ color: '#fff' }}>
-                  {isLoadingProfile ? 'טוען...' : (profile?.full_name || user.email)}
-                </span>
+                מחובר כ: <span style={{ color: '#fff' }}>{profile?.full_name || user.email}</span>
               </span>
               
               {/* הלחצנים במרכז */}
