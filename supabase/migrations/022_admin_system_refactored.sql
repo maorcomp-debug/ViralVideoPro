@@ -13,11 +13,32 @@
 -- כך היא עוקפת את RLS ולא נוצרת לולאה אינסופית
 
 -- ============================================
--- 1. CORE ADMIN FUNCTION: is_admin()
+-- 1. DROP OLD POLICIES FIRST (they depend on is_admin)
 -- ============================================
 
--- מחק גרסאות קודמות
+-- מחק policies קודמות אם קיימות (כדי למנוע כפילויות)
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can delete all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can view all subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Admins can insert subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Admins can update subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Admins can view all videos" ON public.videos;
+DROP POLICY IF EXISTS "Admins can view all analyses" ON public.analyses;
+DROP POLICY IF EXISTS "Admins can view all trainees" ON public.trainees;
+DROP POLICY IF EXISTS "Admins can view all usage" ON public.usage;
+
+-- ============================================
+-- 2. DROP OLD FUNCTIONS
+-- ============================================
+
+-- עכשיו אפשר למחוק את הפונקציות הישנות
+DROP FUNCTION IF EXISTS public.admin_get_all_users();
 DROP FUNCTION IF EXISTS public.is_admin();
+
+-- ============================================
+-- 3. CREATE NEW is_admin() FUNCTION
+-- ============================================
 
 -- צור פונקציה חדשה נקייה
 CREATE OR REPLACE FUNCTION public.is_admin()
@@ -81,20 +102,8 @@ COMMENT ON FUNCTION public.is_admin() IS
 'Checks if current user is an admin. Uses SECURITY DEFINER to bypass RLS and prevent circular dependencies.';
 
 -- ============================================
--- 2. RLS POLICIES FOR ADMIN ACCESS
+-- 4. CREATE NEW RLS POLICIES FOR ADMIN ACCESS
 -- ============================================
-
--- מחק policies קודמות אם קיימות (כדי למנוע כפילויות)
-DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can delete all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can view all subscriptions" ON public.subscriptions;
-DROP POLICY IF EXISTS "Admins can insert subscriptions" ON public.subscriptions;
-DROP POLICY IF EXISTS "Admins can update subscriptions" ON public.subscriptions;
-DROP POLICY IF EXISTS "Admins can view all videos" ON public.videos;
-DROP POLICY IF EXISTS "Admins can view all analyses" ON public.analyses;
-DROP POLICY IF EXISTS "Admins can view all trainees" ON public.trainees;
-DROP POLICY IF EXISTS "Admins can view all usage" ON public.usage;
 
 -- ============================================
 -- PROFILES TABLE
@@ -181,11 +190,8 @@ CREATE POLICY "Admins can view all usage"
   USING (public.is_admin());
 
 -- ============================================
--- 3. ADMIN HELPER FUNCTIONS
+-- 5. ADMIN HELPER FUNCTIONS
 -- ============================================
-
--- מחק גרסאות קודמות
-DROP FUNCTION IF EXISTS public.admin_get_all_users();
 
 -- פונקציה שמחזירה את כל המשתמשים (לפאנל ניהול)
 CREATE OR REPLACE FUNCTION public.admin_get_all_users()
@@ -216,7 +222,7 @@ COMMENT ON FUNCTION public.admin_get_all_users() IS
 'Returns all user profiles. Only accessible by admins. Uses SECURITY DEFINER to bypass RLS.';
 
 -- ============================================
--- VERIFICATION
+-- 6. VERIFICATION
 -- ============================================
 
 -- וודא שהכל עובד
