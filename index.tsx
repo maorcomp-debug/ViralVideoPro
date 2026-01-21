@@ -2229,7 +2229,22 @@ const App = () => {
   };
 
   const handleGenerate = async () => {
-    if ((!prompt.trim() && !file) || selectedExperts.length < 3) return;
+    console.log('🎬 handleGenerate called', { 
+      hasPrompt: !!prompt.trim(), 
+      hasFile: !!file, 
+      selectedExpertsCount: selectedExperts.length,
+      selectedExperts: selectedExperts,
+      isReady: (!!prompt.trim() || !!file) && selectedExperts.length >= 3
+    });
+    
+    if ((!prompt.trim() && !file) || selectedExperts.length < 3) {
+      console.warn('⚠️ Cannot start analysis:', {
+        reason: !prompt.trim() && !file ? 'No prompt or file' : 'Less than 3 experts selected',
+        selectedExperts: selectedExperts.length,
+        hasFile: !!file
+      });
+      return;
+    }
     
     // Check if user is logged in
     if (!user) {
@@ -2525,6 +2540,16 @@ const App = () => {
   };
 
   const isReady = (!!prompt || !!file) && selectedExperts.length >= 3;
+  
+  // Debug logging for isReady state
+  React.useEffect(() => {
+    console.log('🔍 isReady state:', { 
+      isReady, 
+      hasPrompt: !!prompt, 
+      hasFile: !!file, 
+      selectedExperts: selectedExperts.length 
+    });
+  }, [isReady, prompt, file, selectedExperts]);
 
   const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
   const currentExpertsList = EXPERTS_BY_TRACK[trackToUse];
