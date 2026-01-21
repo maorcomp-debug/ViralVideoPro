@@ -223,8 +223,17 @@ const ComparisonTable = styled.div`
   background: rgba(20, 20, 20, 0.6);
   border: 1px solid #333;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin-top: 30px;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    margin: 20px -20px 0 -20px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
 `;
 
 const TableHeader = styled.div`
@@ -239,6 +248,13 @@ const TableHeader = styled.div`
     grid-template-columns: 150px repeat(3, 1fr);
     font-size: 0.85rem;
   }
+
+  @media (max-width: 768px) {
+    grid-template-columns: 90px repeat(3, minmax(80px, 1fr));
+    padding: 10px;
+    gap: 8px;
+    font-size: 0.75rem;
+  }
 `;
 
 const TableHeaderCell = styled.div`
@@ -246,6 +262,11 @@ const TableHeaderCell = styled.div`
   font-weight: 700;
   font-size: 0.95rem;
   text-align: center;
+
+  @media (max-width: 768px) {
+    font-size: 0.7rem;
+    line-height: 1.2;
+  }
 `;
 
 const TableRow = styled.div`
@@ -268,6 +289,13 @@ const TableRow = styled.div`
     grid-template-columns: 150px repeat(3, 1fr);
     font-size: 0.85rem;
   }
+
+  @media (max-width: 768px) {
+    grid-template-columns: 90px repeat(3, minmax(80px, 1fr));
+    padding: 8px 10px;
+    gap: 8px;
+    font-size: 0.75rem;
+  }
 `;
 
 const TableLabel = styled.div`
@@ -275,12 +303,21 @@ const TableLabel = styled.div`
   font-weight: 600;
   font-size: 0.9rem;
   text-align: right;
+
+  @media (max-width: 768px) {
+    font-size: 0.7rem;
+    line-height: 1.2;
+  }
 `;
 
 const TableCell = styled.div`
   color: #e0e0e0;
   font-size: 0.9rem;
   text-align: center;
+
+  @media (max-width: 768px) {
+    font-size: 0.7rem;
+  }
 `;
 
 interface PackageSelectionModalProps {

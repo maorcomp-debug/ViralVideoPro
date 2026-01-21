@@ -103,7 +103,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
   },
   'coach-pro': {
     id: 'coach-pro',
-    name: 'מאמנים, סוכנויות ובתי ספר למשחק',
+    name: 'מאמנים, סוכנויות ובתי ספר למשחק - גרסת פרו',
     description: 'יותר מתאמנים, יותר דקות ניתוח',
     monthlyPrice: 299,
     yearlyPrice: 2990, // ~2 months free
