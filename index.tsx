@@ -1137,9 +1137,19 @@ const App = () => {
     }
 
     // Get current usage from database (always fresh)
-    const currentUsage = await getUsageForCurrentPeriod();
+    let currentUsage;
+    try {
+      currentUsage = await getUsageForCurrentPeriod();
+    } catch (error: any) {
+      console.error('❌ Error getting usage data:', error);
+      // FALLBACK: If usage check fails, allow with warning
+      console.warn('⚠️ Cannot verify usage, allowing analysis (will be counted)');
+      return { allowed: true }; // Allow to proceed
+    }
+    
     if (!currentUsage) {
-      return { allowed: false, message: 'שגיאה בטעינת נתוני שימוש' };
+      console.warn('⚠️ No usage data returned, allowing analysis');
+      return { allowed: true }; // Allow to proceed if data unavailable
     }
 
     const analysesUsed = currentUsage.analysesUsed;
@@ -2267,12 +2277,22 @@ const App = () => {
       return;
     }
     
-    // Check subscription limits
-    const limitCheck = await checkSubscriptionLimits();
-    if (!limitCheck.allowed) {
-      alert(limitCheck.message || 'אין אפשרות לבצע ניתוח. יש לשדרג את החבילה.');
-      setShowSubscriptionModal(true);
-      return;
+    // Check subscription limits with fallback
+    console.log('🔍 Checking subscription limits...');
+    try {
+      const limitCheck = await checkSubscriptionLimits();
+      console.log('✅ Subscription limits check result:', limitCheck);
+      if (!limitCheck.allowed) {
+        console.warn('⚠️ Subscription limit reached');
+        alert(limitCheck.message || 'אין אפשרות לבצע ניתוח. יש לשדרג את החבילה.');
+        setShowSubscriptionModal(true);
+        return;
+      }
+    } catch (error: any) {
+      console.error('❌ Error checking subscription limits:', error);
+      // FALLBACK: If check fails, allow analysis to proceed (better UX than blocking)
+      // The analysis will still be saved and counted in the database
+      console.warn('⚠️ Skipping subscription check due to error, allowing analysis');
     }
     
     // Start playing video when analysis begins (muted and loop)
