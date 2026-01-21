@@ -24,22 +24,29 @@ DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can delete all profiles" ON public.profiles;
 
--- Subscriptions
+-- Subscriptions (כל הגרסאות האפשריות)
 DROP POLICY IF EXISTS "Admins can view all subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Admins can view subscriptions" ON public.subscriptions;
 DROP POLICY IF EXISTS "Admins can insert subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Admins can insert all subscriptions" ON public.subscriptions;
 DROP POLICY IF EXISTS "Admins can update all subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Admins can update subscriptions" ON public.subscriptions;
 
--- Videos
+-- Videos (כל הגרסאות האפשריות)
 DROP POLICY IF EXISTS "Admins can view all videos" ON public.videos;
+DROP POLICY IF EXISTS "Admins can view videos" ON public.videos;
 
--- Analyses
+-- Analyses (כל הגרסאות האפשריות)
 DROP POLICY IF EXISTS "Admins can view all analyses" ON public.analyses;
+DROP POLICY IF EXISTS "Admins can view analyses" ON public.analyses;
 
--- Trainees
+-- Trainees (כל הגרסאות האפשריות)
 DROP POLICY IF EXISTS "Admins can view all trainees" ON public.trainees;
+DROP POLICY IF EXISTS "Admins can view trainees" ON public.trainees;
 
--- Usage
+-- Usage (כל הגרסאות האפשריות)
 DROP POLICY IF EXISTS "Admins can view all usage" ON public.usage;
+DROP POLICY IF EXISTS "Admins can view usage" ON public.usage;
 
 -- Announcements
 DROP POLICY IF EXISTS "Admins can create announcements" ON public.announcements;
