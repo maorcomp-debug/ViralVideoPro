@@ -1167,12 +1167,10 @@ const App = () => {
     }
     
     if (!currentUsage) {
-      console.error('❌ No usage data returned');
-      // CRITICAL: Don't allow if no usage data - prevents unlimited usage
-      return { 
-        allowed: false, 
-        message: 'לא ניתן לבדוק את מספר הניתוחים. נא לרענן את הדף ולנסות שוב.' 
-      };
+      console.warn('⚠️ No usage data returned - allowing analysis (will be counted)');
+      // Allow analysis if usage check fails - better UX than blocking
+      // Usage will be counted when analysis is saved
+      return { allowed: true };
     }
 
     const analysesUsed = currentUsage.analysesUsed;
@@ -2426,16 +2424,10 @@ const App = () => {
     }
     
     // Check subscription limits for ALL tiers (CRITICAL for plan enforcement)
-    // Add timeout to prevent hanging (10 seconds max)
     if (subscription) {
       console.log('🔍 Checking subscription limits...', { tier: subscription.tier });
       try {
-        const limitCheckPromise = checkSubscriptionLimits();
-        const timeoutPromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => 
-          setTimeout(() => resolve({ allowed: true }), 10000) // 10 second timeout
-        );
-        const limitCheck = await Promise.race([limitCheckPromise, timeoutPromise]);
-        
+        const limitCheck = await checkSubscriptionLimits();
         console.log('✅ Subscription limits check result:', limitCheck);
         if (!limitCheck.allowed) {
           console.warn('⚠️ Limit reached for tier:', subscription.tier);
@@ -2452,12 +2444,7 @@ const App = () => {
       // No subscription - treat as free tier
       console.log('🔍 No subscription found, checking as free tier...');
       try {
-        const limitCheckPromise = checkSubscriptionLimits();
-        const timeoutPromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => 
-          setTimeout(() => resolve({ allowed: true }), 10000) // 10 second timeout
-        );
-        const limitCheck = await Promise.race([limitCheckPromise, timeoutPromise]);
-        
+        const limitCheck = await checkSubscriptionLimits();
         if (!limitCheck.allowed) {
           alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
           setShowSubscriptionModal(true);
