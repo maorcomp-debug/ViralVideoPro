@@ -1620,24 +1620,30 @@ const App = () => {
             const updatedUsage = await getUsageForCurrentPeriod();
             if (updatedUsage) {
               setUsage(updatedUsage);
-              console.log('✅ Usage updated:', updatedUsage.analysesUsed);
-            } else {
-              console.warn('⚠️ Usage update returned null');
             }
           } catch (usageError) {
-            console.error('❌ Error updating usage:', usageError);
             // Retry once after a short delay
             setTimeout(async () => {
               try {
                 const retryUsage = await getUsageForCurrentPeriod();
                 if (retryUsage) {
                   setUsage(retryUsage);
-                  console.log('✅ Usage updated on retry:', retryUsage.analysesUsed);
                 }
               } catch (retryError) {
-                console.error('❌ Error on usage retry:', retryError);
+                // Ignore retry errors
               }
             }, 1000);
+          }
+          
+          // Notify other tabs/components that analysis was saved
+          try {
+            localStorage.setItem('analysis_saved', Date.now().toString());
+            window.dispatchEvent(new StorageEvent('storage', {
+              key: 'analysis_saved',
+              newValue: Date.now().toString()
+            }));
+          } catch (e) {
+            // Ignore localStorage errors
           }
         } catch (reloadError) {
           console.error('Error reloading analyses:', reloadError);
@@ -1663,7 +1669,9 @@ const App = () => {
           // Notify other tabs/components that analysis was saved
           try {
             localStorage.setItem('analysis_saved', Date.now().toString());
-            // Trigger storage event for same-tab listeners
+            // Trigger custom event for same-tab listeners
+            window.dispatchEvent(new CustomEvent('analysis_saved'));
+            // Trigger storage event for cross-tab listeners
             window.dispatchEvent(new StorageEvent('storage', {
               key: 'analysis_saved',
               newValue: Date.now().toString()

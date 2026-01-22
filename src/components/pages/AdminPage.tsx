@@ -864,15 +864,20 @@ export const AdminPage: React.FC = () => {
   
   // Listen for storage events to refresh usage when analysis is saved
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      // If analysis was saved, refresh usage data
-      if (e.key === 'analysis_saved' && activeTab === 'users') {
+    const handleStorageChange = (e: StorageEvent | Event) => {
+      // If analysis was saved, refresh usage data in users tab
+      if ((e as StorageEvent).key === 'analysis_saved' && activeTab === 'users') {
         loadData();
       }
     };
     
+    // Listen to both storage events (cross-tab) and custom events (same-tab)
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('analysis_saved', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('analysis_saved', handleStorageChange);
+    };
   }, [activeTab]);
 
   const handleDeleteUser = async (userId: string) => {

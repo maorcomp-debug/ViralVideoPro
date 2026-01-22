@@ -67,15 +67,24 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   
   // Listen for analysis saved events to refresh usage
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'analysis_saved' && activeTab === 'subscription') {
+    const handleAnalysisSaved = () => {
+      if (activeTab === 'subscription') {
         // Trigger parent to reload usage
         onProfileUpdate();
       }
     };
     
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    // Listen to both storage events (cross-tab) and custom events (same-tab)
+    window.addEventListener('storage', (e: StorageEvent) => {
+      if (e.key === 'analysis_saved') {
+        handleAnalysisSaved();
+      }
+    });
+    window.addEventListener('analysis_saved', handleAnalysisSaved);
+    return () => {
+      window.removeEventListener('storage', handleAnalysisSaved as any);
+      window.removeEventListener('analysis_saved', handleAnalysisSaved);
+    };
   }, [activeTab, onProfileUpdate]);
 
   const loadAnnouncements = async () => {
