@@ -2516,90 +2516,8 @@ const App = () => {
         `;
       }
       
-      // זיהוי סרטון זהה - אם זה אותו סרטון, לתת משוב נוסף מהיבטים שונים אבל לשמור על אותו ציון
-      // בודק לפי file_size בלבד - זה המזהה הכי אמין (אותו קובץ = אותו גודל)
-      let duplicateVideoContext = '';
-      let previousAnalysisData: any = null;
-      
-      if (file && user) {
-        // בדיקה ישירה ב-Supabase לפי file_size בלבד - CRITICAL for duplicate detection
-        try {
-          console.log('🔍 Checking for duplicate video...', { fileName: file.name, fileSize: file.size });
-          const previousAnalysis = await findPreviousAnalysisByVideo(file.name, file.size);
-          console.log('🔍 Duplicate check result:', previousAnalysis ? 'Found duplicate' : 'No duplicate found');
-          
-          if (previousAnalysis && previousAnalysis.result) {
-            previousAnalysisData = previousAnalysis;
-            const prevResult = previousAnalysis.result;
-            const prevScore = previousAnalysis.average_score || 
-              (prevResult.expertAnalysis?.reduce((sum: number, e: any) => sum + (e.score || 0), 0) / (prevResult.expertAnalysis?.length || 1));
-            const prevTakeRecommendation = prevResult.takeRecommendation || '';
-            const hadRetakeRecommendation = prevTakeRecommendation.toLowerCase().includes('טייק נוסף') || 
-                                          prevTakeRecommendation.toLowerCase().includes('טייק חוזר') || 
-                                          prevTakeRecommendation.toLowerCase().includes('retake') ||
-                                          prevTakeRecommendation.toLowerCase().includes('מומלץ לבצע') ||
-                                          prevTakeRecommendation.toLowerCase().includes('מומלץ טייק') ||
-                                          prevTakeRecommendation.toLowerCase().includes('מומלץ טייק נוסף');
-            
-            duplicateVideoContext = `
-          
-          ⚠️⚠️⚠️ CRITICAL: This is the EXACT SAME video file as a previous analysis! ⚠️⚠️⚠️
-          
-          DUPLICATE DETECTION CONFIRMED:
-          - File size: ${file.size} bytes (EXACT MATCH)
-          - Previous analysis date: ${new Date(previousAnalysis.created_at).toLocaleDateString('he-IL')}
-          - Previous score: ${prevScore.toFixed(0)}/100
-          - Previous recommendation: ${hadRetakeRecommendation ? 'Recommended retake (טייק נוסף)' : 'Ready to submit (מוכן להגשה)'}
-          
-          ABSOLUTE REQUIREMENTS - NO EXCEPTIONS (THIS IS CRITICAL FOR PROFESSIONAL INTEGRITY):
-          
-          1. SCORE CONSISTENCY (MANDATORY - NON-NEGOTIABLE):
-             - You MUST give the EXACT SAME score: ${prevScore.toFixed(0)}/100
-             - Maximum deviation: ±1 point ONLY (${Math.max(0, Math.floor(prevScore) - 1)}-${Math.min(100, Math.ceil(prevScore) + 1)})
-             - IDEALLY: Give the IDENTICAL score (${prevScore.toFixed(0)}/100)
-             - Same video = same performance = same score
-             - This is NOT negotiable - professional integrity requires consistency
-             - DO NOT inflate or deflate the score
-          
-          2. RECOMMENDATION CONSISTENCY (MANDATORY - NON-NEGOTIABLE):
-             - Previous analysis said: "${hadRetakeRecommendation ? 'טייק נוסף' : 'מוכן להגשה'}"
-             - You MUST say the EXACT SAME: "${hadRetakeRecommendation ? 'טייק נוסף' : 'מוכן להגשה'}"
-             - Same video = same quality = same recommendation
-             - You CANNOT change from "ready" to "retake" or vice versa for the SAME video
-             - This ensures professional coherence and user trust
-             - DO NOT change the recommendation
-          
-          3. EXPLICIT DUPLICATE MESSAGE (MANDATORY):
-             - You MUST state at the BEGINNING of your analysis in Hebrew:
-               "זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר."
-             - This transparency is essential for user trust
-             - Place this message at the START of your analysis
-          
-          4. ADDITIONAL FEEDBACK (REQUIRED):
-             - Provide NEW insights from DIFFERENT angles
-             - Explore aspects NOT covered in previous analysis
-             - Add depth and different perspectives
-             - But maintain the SAME overall assessment
-             - Same video = same quality = same score = same recommendation
-          
-          5. PROFESSIONAL INTEGRITY (NON-NEGOTIABLE):
-             - DO NOT inflate or deflate scores
-             - DO NOT change recommendations arbitrarily
-             - Maintain consistency = maintain trust
-             - Same video analyzed twice should yield consistent results
-             - This is the SAME video file - treat it as such
-          
-          REMEMBER: The user is analyzing the SAME video file again (file_size: ${file.size}). 
-          Your role is to provide DIFFERENT insights while maintaining the SAME professional assessment. 
-          This is how professional analysis works - consistency builds trust, inconsistency destroys it.
-          
-          CRITICAL: Score MUST be ${prevScore.toFixed(0)}/100 (±1 max). Recommendation MUST be "${hadRetakeRecommendation ? 'טייק נוסף' : 'מוכן להגשה'}".
-          `;
-          }
-        } catch (error) {
-          // Silent error - continue without duplicate detection if error occurs
-        }
-      }
+      // Duplicate check removed - was causing analysis to hang
+      // Will be re-implemented only for improvement mode if needed
       
       let pdfContext = '';
       if (pdfFile) {
@@ -2637,7 +2555,6 @@ const App = () => {
         Current Mode: ${trackToUse}${activeTrack === 'coach' ? ' (Coach Edition - Training Track)' : ''}.
         Panel: ${expertPanel}.
         ${depthInstruction}
-        ${duplicateVideoContext}
         
         Task: Analyze the user's input (Idea/Script or Video File) strictly in HEBREW.
         
@@ -2687,23 +2604,10 @@ const App = () => {
            - Each tip should offer genuine value and be implementable
            - Tips should reflect deep understanding of the track's professional requirements
         
-        6. TAKE RECOMMENDATION: At the end, provide an honest professional recommendation:
+          6. TAKE RECOMMENDATION: At the end, provide an honest professional recommendation:
            - If the performance is ready: Clearly state if the video/take is ready to submit/upload in its current state, and why
            - If a retake is needed: Honestly recommend another take if significant improvements are needed, explaining specifically what should be improved
            - Be authentic - don't always recommend retakes, and don't always say it's ready. Assess professionally and honestly.
-           ${previousAnalysisData ? `
-           - ⚠️⚠️⚠️ CRITICAL DUPLICATE VIDEO DETECTION ⚠️⚠️⚠️
-           - This is the EXACT SAME video file (file_size: ${file?.size}) analyzed before on ${new Date(previousAnalysisData.created_at).toLocaleDateString('he-IL')}
-           - Previous score: ${previousAnalysisData.average_score.toFixed(0)}/100
-           - Previous recommendation: ${previousAnalysisData.result.takeRecommendation}
-           - MANDATORY REQUIREMENTS (NO EXCEPTIONS):
-             * You MUST give the EXACT SAME score: ${previousAnalysisData.average_score.toFixed(0)}/100 (±1 point maximum)
-             * You MUST give the EXACT SAME recommendation: ${previousAnalysisData.result.takeRecommendation}
-             * You MUST start your analysis with: "זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר."
-             * You CAN provide NEW insights from DIFFERENT angles, but MUST maintain the SAME overall assessment
-             * Same video = same performance = same score = same recommendation = professional integrity
-           - This is NOT negotiable - professional consistency is critical for user trust
-           ` : ''}
 
         Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be Hebrew):
         {
@@ -2720,7 +2624,7 @@ const App = () => {
             "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (Hebrew only)",
             "finalTips": ["Professional tip 1 (Hebrew)", "Professional tip 2 (Hebrew)", "Professional tip 3 (Hebrew)"]
           },
-          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. ${previousAnalysisData ? `⚠️⚠️⚠️ CRITICAL DUPLICATE VIDEO DETECTION ⚠️⚠️⚠️ This is the EXACT SAME video file (file_size: ${file?.size}) that was analyzed before on ${new Date(previousAnalysisData.created_at).toLocaleDateString('he-IL')}. Previous score: ${previousAnalysisData.average_score.toFixed(0)}/100. Previous recommendation: ${previousAnalysisData.result.takeRecommendation}. YOU MUST: 1) Give the EXACT SAME score (${previousAnalysisData.average_score.toFixed(0)}/100, ±1 point max - ideally IDENTICAL). 2) Give the EXACT SAME recommendation (${previousAnalysisData.result.takeRecommendation}). 3) Start your analysis with: 'זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר.' 4) Provide NEW insights from DIFFERENT angles but maintain SAME overall assessment. 5) DO NOT change the score or recommendation - this is the SAME video file. This is MANDATORY for professional integrity and user trust. Same video = same performance = same score = same recommendation. NO EXCEPTIONS.` : ''} NO ENGLISH - Hebrew only!"
+          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. NO ENGLISH - Hebrew only!"
         }
 
         Important:
@@ -2795,19 +2699,81 @@ const App = () => {
 
       console.log('🚀 Starting AI analysis...', { expertsCount: selectedExperts.length, partsCount: parts.length });
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: { parts },
-        config: { 
-          systemInstruction,
-          responseMimeType: "application/json"
+      let response: any;
+      try {
+        // Build the correct API structure
+        // contents should be an array of content objects, each with a parts array
+        const requestBody: any = {
+          model: "gemini-2.5-flash",
+          contents: [{ parts }],
+          systemInstruction: systemInstruction,
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        };
+        
+        console.log('📤 Sending API request...', { 
+          model: requestBody.model, 
+          partsCount: parts.length,
+          hasSystemInstruction: !!systemInstruction 
+        });
+        
+        response = await ai.models.generateContent(requestBody);
+        
+        console.log('📥 Received API response', { 
+          hasResponse: !!response,
+          responseType: typeof response,
+          responseKeys: response ? Object.keys(response) : []
+        });
+      } catch (apiError: any) {
+        console.error("❌ API Call Error:", apiError);
+        console.error("❌ Error details:", {
+          message: apiError?.message,
+          code: apiError?.error?.code || apiError?.code,
+          status: apiError?.status,
+          stack: apiError?.stack
+        });
+        throw apiError;
+      }
+
+      // Robust JSON Parsing - handle different response structures
+      let jsonText = '';
+      
+      // Try multiple ways to extract text from response
+      if (response.text) {
+        if (typeof response.text === 'function') {
+          jsonText = await response.text();
+        } else if (typeof response.text === 'string') {
+          jsonText = response.text;
         }
-      });
-
-      // Reduced logging
-
-      // Robust JSON Parsing
-      let jsonText = response.text || '{}';
+      }
+      
+      if (!jsonText && response.response) {
+        if (typeof response.response.text === 'function') {
+          jsonText = await response.response.text();
+        } else if (typeof response.response.text === 'string') {
+          jsonText = response.response.text;
+        }
+      }
+      
+      if (!jsonText && response.candidates?.[0]?.content?.parts?.[0]?.text) {
+        jsonText = response.candidates[0].content.parts[0].text;
+      }
+      
+      if (!jsonText && response.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+        // If response is base64, we need to decode it (unlikely but possible)
+        console.warn("⚠️ Response contains inlineData instead of text");
+      }
+      
+      if (!jsonText) {
+        console.error("❌ Could not extract text from response");
+        console.error("❌ Response structure:", JSON.stringify(response, null, 2).substring(0, 1000));
+        jsonText = '{}';
+      }
+      
+      if (jsonText && jsonText !== '{}') {
+        console.log('✅ Successfully extracted response text', { length: jsonText.length });
+      }
       // Clean potential markdown fencing from the model
       jsonText = jsonText.replace(/```json|```/g, '').trim();
       
