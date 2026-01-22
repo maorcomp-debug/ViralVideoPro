@@ -1506,6 +1506,16 @@ const App = () => {
       }
 
       // Save analysis to Supabase
+      // Include file_size in result metadata for duplicate detection
+      const resultWithMetadata = {
+        ...result,
+        metadata: {
+          ...(result.metadata || {}),
+          fileSize: file?.size,
+          fileName: file?.name,
+        }
+      };
+      
       const analysisData = await saveAnalysis({
         video_id: videoId || undefined,
         trainee_id: activeTrack === 'coach' ? selectedTrainee || undefined : undefined,
@@ -1514,7 +1524,7 @@ const App = () => {
         analysis_depth: activeTrack === 'coach' ? analysisDepth : undefined,
         expert_panel: selectedExperts,
         prompt: prompt || undefined,
-        result: result,
+        result: resultWithMetadata,
         average_score: averageScore,
       });
 
@@ -1570,6 +1580,16 @@ const App = () => {
           );
           
           setSavedAnalyses(uniqueAnalyses);
+          
+          // Update usage after saving analysis
+          try {
+            const updatedUsage = await getUsageForCurrentPeriod();
+            if (updatedUsage) {
+              setUsage(updatedUsage);
+            }
+          } catch (usageError) {
+            console.error('Error updating usage:', usageError);
+          }
         } catch (reloadError) {
           console.error('Error reloading analyses:', reloadError);
           // Fallback: add the saved analysis to state if reload fails
@@ -1580,6 +1600,16 @@ const App = () => {
             }
             return [...prev, savedAnalysis];
           });
+          
+          // Still try to update usage even if reload fails
+          try {
+            const updatedUsage = await getUsageForCurrentPeriod();
+            if (updatedUsage) {
+              setUsage(updatedUsage);
+            }
+          } catch (usageError) {
+            console.error('Error updating usage:', usageError);
+          }
         }
       }
     } catch (error) {

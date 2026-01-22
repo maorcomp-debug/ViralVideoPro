@@ -335,7 +335,7 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
   if (!user) return null;
 
   try {
-    // PRIMARY STRATEGY: Find videos with matching file_size (same file = same size)
+    // STRATEGY 1: Find videos with matching file_size (same file = same size)
     // This works even if file name is different
     const { data: matchingVideos, error: videosError } = await supabase
       .from('videos')
@@ -372,15 +372,16 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
       }
     }
 
-    // FALLBACK: Search all recent analyses and check their videos
+    // STRATEGY 2: Search all recent analyses and check their videos
     // This catches cases where video exists but wasn't found in first query
+    // Also works if video was saved but query didn't catch it
     const { data: recentAnalyses, error: recentError } = await supabase
       .from('analyses')
       .select('*, videos(file_name, file_size)')
       .eq('user_id', user.id)
       .not('video_id', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(100); // Increased limit to catch more analyses
 
     if (recentError) {
       console.error('Error in fallback search:', recentError);
@@ -393,6 +394,36 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
         const video = (analysis as any).videos;
         if (video && video.file_size === fileSize) {
           return analysis;
+        }
+      }
+    }
+
+    // STRATEGY 3: Direct search in analyses by checking video metadata stored in result
+    // Some analyses might have file_size in the result metadata
+    const { data: allRecentAnalyses, error: allRecentError } = await supabase
+      .from('analyses')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (!allRecentError && allRecentAnalyses) {
+      for (const analysis of allRecentAnalyses) {
+        // Check if result has metadata with file_size
+        const metadata = analysis.result?.metadata;
+        if (metadata && metadata.fileSize === fileSize) {
+          // Found match by metadata - now get the video info
+          if (analysis.video_id) {
+            const { data: videoData } = await supabase
+              .from('videos')
+              .select('file_name, file_size')
+              .eq('id', analysis.video_id)
+              .maybeSingle();
+            
+            if (videoData && videoData.file_size === fileSize) {
+              return { ...analysis, videos: videoData };
+            }
+          }
         }
       }
     }
