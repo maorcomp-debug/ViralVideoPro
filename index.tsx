@@ -414,8 +414,10 @@ const App = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       
-      // Log auth state changes (matching clean app behavior)
-      console.log('[App] Auth state changed:', event, session?.user?.id);
+      // Log only important auth state changes (skip TOKEN_REFRESHED to reduce noise)
+      if (event !== 'TOKEN_REFRESHED') {
+        console.log('[App] Auth state changed:', event, session?.user?.id);
+      }
       
       // Update user state
       setUser(session?.user ?? null);
@@ -443,7 +445,7 @@ const App = () => {
       if (session?.user) {
         // Prevent duplicate loadUserData calls
         if (isLoadingUserData) {
-          console.log('⚠️ loadUserData already in progress, skipping duplicate call');
+          // Silent skip - no need to log every duplicate call
           return;
         }
         
@@ -479,7 +481,10 @@ const App = () => {
   // Load user data from Supabase (with protection against duplicate calls)
   const loadUserData = async (currentUser: User, forceRefresh = false) => {
     try {
-      console.log('🔄 loadUserData called', { userId: currentUser.id, forceRefresh });
+      // Only log if forceRefresh is true or if it's a significant call
+      if (forceRefresh) {
+        console.log('🔄 loadUserData called', { userId: currentUser.id, forceRefresh });
+      }
       setIsLoadingProfile(true);
       
       // Verify user is still authenticated before loading data
@@ -2364,13 +2369,13 @@ const App = () => {
       if (file && user) {
         // בדיקה ישירה ב-Supabase לפי file name + size (עם timeout כדי לא לעצור את הניתוח)
         try {
-          console.log('🔍 Checking for duplicate video:', { fileName: file.name, fileSize: file.size });
           const duplicateCheckPromise = findPreviousAnalysisByVideo(file.name, file.size);
           const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 3000)); // 3 second timeout
           const previousAnalysis = await Promise.race([duplicateCheckPromise, timeoutPromise]) as any;
           
           if (previousAnalysis && previousAnalysis.result) {
-            console.log('✅ Found duplicate video analysis:', previousAnalysis.id);
+            // Only log if duplicate found
+            console.log('🔍 Found duplicate video - maintaining consistency');
             previousAnalysisData = previousAnalysis;
             const prevResult = previousAnalysis.result;
             const prevScore = previousAnalysis.average_score || 
@@ -2408,11 +2413,8 @@ const App = () => {
           `;
           }
         } catch (error) {
-          console.error('❌ Error checking for duplicate video:', error);
-          // Continue without duplicate detection if error occurs - don't block analysis
+          // Silent error - continue without duplicate detection if error occurs
         }
-      } else {
-        console.log('⏭️ Skipping duplicate check:', { hasFile: !!file, hasUser: !!user });
       }
       
       let pdfContext = '';
@@ -2593,13 +2595,8 @@ const App = () => {
          }
       }
 
-      console.log('🚀 Starting AI analysis...', { 
-        model: 'gemini-2.5-flash',
-        hasFile: !!file,
-        hasPrompt: !!prompt,
-        expertsCount: selectedExperts.length,
-        hasDuplicateContext: !!duplicateVideoContext
-      });
+      // Reduced logging - only log key steps
+      console.log('🚀 Starting analysis...', { expertsCount: selectedExperts.length });
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -2610,11 +2607,7 @@ const App = () => {
         }
       });
 
-      console.log('✅ AI response received:', { 
-        hasResponse: !!response,
-        hasText: !!response.text,
-        textLength: response.text?.length || 0
-      });
+      // Reduced logging
 
       // Robust JSON Parsing
       let jsonText = response.text || '{}';
@@ -2624,13 +2617,7 @@ const App = () => {
       let parsedResult: AnalysisResult;
       try {
         parsedResult = JSON.parse(jsonText) as AnalysisResult;
-        console.log('✅ JSON parsed successfully:', {
-          hasExpertAnalysis: !!parsedResult.expertAnalysis,
-          expertsCount: parsedResult.expertAnalysis?.length || 0,
-          hasHook: !!parsedResult.hook,
-          hasCommittee: !!parsedResult.committee,
-          hasTakeRecommendation: !!parsedResult.takeRecommendation
-        });
+        // Reduced logging
       } catch (e) {
         console.error("❌ JSON Parse Error", e);
         console.error("Raw Text (first 500 chars):", jsonText.substring(0, 500));
@@ -2653,12 +2640,10 @@ const App = () => {
         const total = parsedResult.expertAnalysis.reduce((acc, curr) => acc + (curr.score || 0), 0);
         const avg = Math.round(total / parsedResult.expertAnalysis.length);
         setAverageScore(avg);
-        console.log('✅ Average score calculated:', avg);
       }
 
-      console.log('✅ Setting result state...');
       setResult(parsedResult);
-      console.log('✅ Result state set successfully');
+      console.log('✅ Analysis completed successfully');
       
       // Don't auto-save analysis here - let user save manually via "שמור ניתוח למתאמן" button
       // This prevents duplicate saves and gives user control over when to save
@@ -2695,22 +2680,11 @@ const App = () => {
         alert(`אירעה שגיאה בניתוח (קוד: ${code || 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
       }
     } finally {
-      console.log('🔄 Setting loading to false');
       setLoading(false);
     }
   };
 
   const isReady = (!!prompt || !!file) && selectedExperts.length >= 3;
-  
-  // Debug logging for isReady state
-  React.useEffect(() => {
-    console.log('🔍 isReady state:', { 
-      isReady, 
-      hasPrompt: !!prompt, 
-      hasFile: !!file, 
-      selectedExperts: selectedExperts.length 
-    });
-  }, [isReady, prompt, file, selectedExperts]);
 
   const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
   const currentExpertsList = EXPERTS_BY_TRACK[trackToUse];
