@@ -142,6 +142,7 @@ export async function getUsageForCurrentPeriod() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
+    // Count analyses
     const { count, error } = await supabase
       .from('analyses')
       .select('id', { count: 'exact', head: true })
@@ -160,8 +161,38 @@ export async function getUsageForCurrentPeriod() {
       return null;
     }
 
+    // Calculate total video minutes used this month
+    // Join with videos table to get duration
+    const { data: analysesWithVideos, error: videosError } = await supabase
+      .from('analyses')
+      .select(`
+        id,
+        video_id,
+        videos (
+          duration_seconds
+        )
+      `)
+      .eq('user_id', user.id)
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString())
+      .not('video_id', 'is', null);
+
+    let totalMinutesUsed = 0;
+    if (!videosError && analysesWithVideos) {
+      analysesWithVideos.forEach((analysis: any) => {
+        const video = analysis.videos;
+        if (video && video.duration_seconds) {
+          // Convert seconds to minutes (round up)
+          totalMinutesUsed += Math.ceil(video.duration_seconds / 60);
+        }
+      });
+    } else if (videosError) {
+      console.error('❌ Error fetching video durations:', videosError);
+    }
+
     return {
       analysesUsed: count || 0,
+      minutesUsed: totalMinutesUsed,
       periodStart: monthStart,
       periodEnd: monthEnd,
     };

@@ -12,7 +12,7 @@ interface SettingsPageProps {
   user: User | null;
   profile: any;
   subscription: UserSubscription | null;
-  usage: { analysesUsed: number; periodStart: Date; periodEnd: Date } | null;
+  usage: { analysesUsed: number; minutesUsed: number; periodStart: Date; periodEnd: Date } | null;
   onProfileUpdate: () => void;
   onOpenSubscriptionModal: () => void;
 }
@@ -491,11 +491,32 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   </p>
                 </>
               )}
-              {usage && (
-                <p style={{ margin: '5px 0', color: '#ccc' }}>
-                  **ניתוחים שבוצעו החודש:** {usage.analysesUsed} מתוך {getMaxAnalyses() === -1 ? 'ללא הגבלה' : getMaxAnalyses().toString()}
-                </p>
-              )}
+              {usage && subscription && (() => {
+                const plan = SUBSCRIPTION_PLANS[subscription.tier];
+                const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+                const maxMinutes = plan?.limits.maxVideoMinutesPerPeriod || 0;
+                const isCoachTier = subscription.tier === 'coach' || subscription.tier === 'coach-pro';
+                
+                return (
+                  <>
+                    {!isCoachTier && maxAnalyses !== -1 && (
+                      <p style={{ margin: '5px 0', color: '#ccc' }}>
+                        **ניתוחים שבוצעו החודש:** {usage.analysesUsed} מתוך {maxAnalyses}
+                      </p>
+                    )}
+                    {maxMinutes !== -1 && maxMinutes > 0 && (
+                      <p style={{ margin: '5px 0', color: '#ccc' }}>
+                        **דקות ניתוח שבוצעו החודש:** {usage.minutesUsed || 0} מתוך {maxMinutes}
+                      </p>
+                    )}
+                    {isCoachTier && maxMinutes !== -1 && (
+                      <p style={{ margin: '5px 0', color: '#ccc', fontSize: '0.9rem' }}>
+                        *כמות ניתוחים: ללא הגבלה (מוגבל בדקות בלבד)
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             <button
               onClick={() => {

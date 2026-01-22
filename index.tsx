@@ -211,7 +211,7 @@ const App = () => {
   
   // Subscription State (from Supabase)
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  const [usage, setUsage] = useState<{ analysesUsed: number; periodStart: Date; periodEnd: Date } | null>(null);
+  const [usage, setUsage] = useState<{ analysesUsed: number; minutesUsed: number; periodStart: Date; periodEnd: Date } | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isUpdatingSubscription, setIsUpdatingSubscription] = useState(false);
   const updatingSubscriptionRef = useRef(false);
@@ -1176,39 +1176,68 @@ const App = () => {
     }
 
     const analysesUsed = currentUsage.analysesUsed;
-    const limit = plan.limits.maxAnalysesPerPeriod;
+    const minutesUsed = currentUsage.minutesUsed || 0;
+    const analysesLimit = plan.limits.maxAnalysesPerPeriod;
+    const minutesLimit = plan.limits.maxVideoMinutesPerPeriod;
 
     console.log('📊 Usage check:', { 
       tier: effectiveTier, 
       analysesUsed, 
-      limit, 
+      analysesLimit,
+      minutesUsed,
+      minutesLimit,
       periodStart: currentUsage.periodStart,
       periodEnd: currentUsage.periodEnd
     });
 
-    // Check analysis limit based on tier
-    if (limit === -1) {
-      // Unlimited (coach/coach-pro tier)
+    // For coach/coach-pro: Check ONLY minutes (analyses are unlimited)
+    if (effectiveTier === 'coach' || effectiveTier === 'coach-pro') {
+      if (minutesLimit === -1) {
+        // Unlimited minutes too
+        return { allowed: true };
+      } else if (minutesUsed >= minutesLimit) {
+        return { 
+          allowed: false, 
+          message: `סיימת את הדקות המוקצות בחודש הנוכחי (${minutesUsed}/${minutesLimit} דקות). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+        };
+      }
+      // Within minutes limit - allow (analyses are unlimited)
       return { allowed: true };
-    } else if (analysesUsed >= limit) {
-      // Limit reached
-      if (effectiveTier === 'free') {
+    }
+
+    // For other tiers: Check BOTH analyses AND minutes - whichever comes first blocks
+    // FREE tier: Only 1 analysis (no minutes limit)
+    if (effectiveTier === 'free') {
+      if (analysesUsed >= analysesLimit) {
         const now = new Date();
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return { 
           allowed: false, 
-          message: `סיימת את ניתוח הטעימה החינמי (${limit} ניתוחים). ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
-        };
-      } else {
-        // Paid tier limit reached
-        return { 
-          allowed: false, 
-          message: `סיימת את הניתוחים בחודש הנוכחי (${analysesUsed}/${limit}). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+          message: `סיימת את ניתוח הטעימה החינמי (${analysesLimit} ניתוח). ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
         };
       }
+      return { allowed: true };
     }
 
+    // For paid tiers (creator, pro): Check BOTH limits
+    // First check: analyses limit
+    if (analysesLimit !== -1 && analysesUsed >= analysesLimit) {
+      return { 
+        allowed: false, 
+        message: `סיימת את הניתוחים בחודש הנוכחי (${analysesUsed}/${analysesLimit}). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+      };
+    }
+
+    // Second check: minutes limit
+    if (minutesLimit !== -1 && minutesUsed >= minutesLimit) {
+      return { 
+        allowed: false, 
+        message: `סיימת את הדקות המוקצות בחודש הנוכחי (${minutesUsed}/${minutesLimit} דקות). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+      };
+    }
+
+    // Both limits OK
     return { allowed: true };
   };
 
