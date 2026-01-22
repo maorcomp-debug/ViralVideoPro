@@ -2497,45 +2497,55 @@ const App = () => {
           
           ⚠️⚠️⚠️ CRITICAL: This is the EXACT SAME video file as a previous analysis! ⚠️⚠️⚠️
           
-          Previous analysis details:
-          - Score: ${prevScore.toFixed(0)}/100
-          - Date: ${new Date(previousAnalysis.created_at).toLocaleDateString('he-IL')}
+          DUPLICATE DETECTION CONFIRMED:
+          - File size: ${file.size} bytes (EXACT MATCH)
+          - Previous analysis date: ${new Date(previousAnalysis.created_at).toLocaleDateString('he-IL')}
+          - Previous score: ${prevScore.toFixed(0)}/100
           - Previous recommendation: ${hadRetakeRecommendation ? 'Recommended retake (טייק נוסף)' : 'Ready to submit (מוכן להגשה)'}
           
           ABSOLUTE REQUIREMENTS - NO EXCEPTIONS (THIS IS CRITICAL FOR PROFESSIONAL INTEGRITY):
           
-          1. SCORE CONSISTENCY (MANDATORY):
+          1. SCORE CONSISTENCY (MANDATORY - NON-NEGOTIABLE):
              - You MUST give the EXACT SAME score: ${prevScore.toFixed(0)}/100
-             - Maximum deviation: ±1 point (${Math.max(0, Math.floor(prevScore) - 1)}-${Math.min(100, Math.ceil(prevScore) + 1)})
+             - Maximum deviation: ±1 point ONLY (${Math.max(0, Math.floor(prevScore) - 1)}-${Math.min(100, Math.ceil(prevScore) + 1)})
+             - IDEALLY: Give the IDENTICAL score (${prevScore.toFixed(0)}/100)
              - Same video = same performance = same score
              - This is NOT negotiable - professional integrity requires consistency
+             - DO NOT inflate or deflate the score
           
-          2. RECOMMENDATION CONSISTENCY (MANDATORY):
-             - If previous analysis said "${hadRetakeRecommendation ? 'טייק נוסף' : 'מוכן להגשה'}", you MUST say the SAME
+          2. RECOMMENDATION CONSISTENCY (MANDATORY - NON-NEGOTIABLE):
+             - Previous analysis said: "${hadRetakeRecommendation ? 'טייק נוסף' : 'מוכן להגשה'}"
+             - You MUST say the EXACT SAME: "${hadRetakeRecommendation ? 'טייק נוסף' : 'מוכן להגשה'}"
              - Same video = same quality = same recommendation
              - You CANNOT change from "ready" to "retake" or vice versa for the SAME video
              - This ensures professional coherence and user trust
+             - DO NOT change the recommendation
           
           3. EXPLICIT DUPLICATE MESSAGE (MANDATORY):
-             - You MUST state at the beginning of your analysis in Hebrew:
+             - You MUST state at the BEGINNING of your analysis in Hebrew:
                "זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר."
              - This transparency is essential for user trust
+             - Place this message at the START of your analysis
           
           4. ADDITIONAL FEEDBACK (REQUIRED):
              - Provide NEW insights from DIFFERENT angles
              - Explore aspects NOT covered in previous analysis
              - Add depth and different perspectives
              - But maintain the SAME overall assessment
+             - Same video = same quality = same score = same recommendation
           
           5. PROFESSIONAL INTEGRITY (NON-NEGOTIABLE):
              - DO NOT inflate or deflate scores
              - DO NOT change recommendations arbitrarily
              - Maintain consistency = maintain trust
              - Same video analyzed twice should yield consistent results
+             - This is the SAME video file - treat it as such
           
-          REMEMBER: The user is analyzing the SAME video file again. Your role is to provide DIFFERENT insights 
-          while maintaining the SAME professional assessment. This is how professional analysis works - 
-          consistency builds trust, inconsistency destroys it.
+          REMEMBER: The user is analyzing the SAME video file again (file_size: ${file.size}). 
+          Your role is to provide DIFFERENT insights while maintaining the SAME professional assessment. 
+          This is how professional analysis works - consistency builds trust, inconsistency destroys it.
+          
+          CRITICAL: Score MUST be ${prevScore.toFixed(0)}/100 (±1 max). Recommendation MUST be "${hadRetakeRecommendation ? 'טייק נוסף' : 'מוכן להגשה'}".
           `;
           }
         } catch (error) {

@@ -385,14 +385,14 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(100); // Increased limit for better coverage
 
     if (!allRecentError && allRecentAnalyses) {
       for (const analysis of allRecentAnalyses) {
         // Check if result has metadata with file_size
         const metadata = analysis.result?.metadata;
         if (metadata && metadata.fileSize === fileSize) {
-          // Found match by metadata - now get the video info
+          // Found match by metadata - verify with video if available
           if (analysis.video_id) {
             const { data: videoData } = await supabase
               .from('videos')
@@ -401,8 +401,13 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
               .maybeSingle();
             
             if (videoData && videoData.file_size === fileSize) {
+              console.log('✅ Found duplicate via metadata + video verification');
               return { ...analysis, videos: videoData };
             }
+          } else {
+            // No video_id but metadata matches - still valid match
+            console.log('✅ Found duplicate via metadata (no video_id)');
+            return analysis;
           }
         }
       }
