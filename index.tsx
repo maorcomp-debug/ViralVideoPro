@@ -227,7 +227,8 @@ const App = () => {
   // Coach Edition State
   const [coachMode, setCoachMode] = useState<'coach' | 'trainee' | null>(null);
   const [coachTrainingTrack, setCoachTrainingTrack] = useState<TrackId>('actors'); // תחום האימון שנבחר במסלול Coach
-  const [analysisDepth, setAnalysisDepth] = useState<'standard' | 'deep'>('standard'); // סוג הניתוח: רגיל או מעמיק
+  const [analysisDepth, setAnalysisDepth] = useState<'standard' | 'deep'>('standard'); // סוג הניתוח: רגיל או מעמיק (עובד גם ל-Pro)
+  const [fileIdentifier, setFileIdentifier] = useState<string | null>(null); // לזיהוי סרטון זהה (name + size)
   // Coach Edition State (from Supabase)
   const [trainees, setTrainees] = useState<Trainee[]>([]);
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
@@ -1346,6 +1347,8 @@ const App = () => {
     const finalizeSelection = () => {
       setFile(selectedFile);
       setPreviewUrl(objectUrl);
+      // שמירת מזהה קובץ לזיהוי סרטון זהה
+      setFileIdentifier(`${selectedFile.name}_${selectedFile.size}`);
       if (!isImprovementMode) {
         setResult(null);
       }
@@ -1381,6 +1384,7 @@ const App = () => {
     e.preventDefault();
     setFile(null);
     setPreviewUrl(null);
+    setFileIdentifier(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -1406,6 +1410,7 @@ const App = () => {
     setFile(null);
     setPdfFile(null);
     setPreviewUrl(null);
+    setFileIdentifier(null);
     setPrompt('');
     setResult(null);
     setPreviousResult(null);
@@ -1974,10 +1979,18 @@ const App = () => {
         
         // Take Recommendation
         if (result.takeRecommendation) {
-          const isReady = result.takeRecommendation.toLowerCase().includes('ready') || 
-                          result.takeRecommendation.includes('מוכן') || 
-                          result.takeRecommendation.includes('להגיש') ||
-                          result.takeRecommendation.includes('ניתן');
+          const recText = result.takeRecommendation.toLowerCase();
+          const hasRetake = recText.includes('טייק נוסף') || 
+                           recText.includes('טייק חוזר') || 
+                           recText.includes('retake') ||
+                           recText.includes('מומלץ לבצע') ||
+                           recText.includes('מומלץ טייק');
+          const isReady = !hasRetake && (
+            recText.includes('ready') || 
+            recText.includes('מוכן') || 
+            recText.includes('להגיש') ||
+            recText.includes('ניתן')
+          );
           const recommendationColor = isReady ? '#4CAF50' : '#FF9800';
           html += `
             <div class="card" style="margin-bottom: 20px; page-break-inside: avoid; border-right: 4px solid ${recommendationColor}; background: ${isReady ? '#f1f8f4' : '#fff8f0'};">
@@ -2343,6 +2356,45 @@ const App = () => {
         `;
       }
       
+      // זיהוי סרטון זהה - אם זה אותו סרטון, לתת משוב נוסף מהיבטים שונים אבל לשמור על אותו ציון
+      let duplicateVideoContext = '';
+      if (file && fileIdentifier && savedAnalyses.length > 0) {
+        // חיפוש ניתוח קודם עם אותו file name
+        const currentFileName = file.name.toLowerCase();
+        const previousAnalysis = savedAnalyses.find(a => {
+          // בדיקה אם יש video_id או file_name תואם
+          if (a.videoName && a.videoName.toLowerCase() === currentFileName) {
+            return true;
+          }
+          // בדיקה גם לפי video_id אם יש
+          if (a.videoUrl && a.videoUrl.includes(file.name)) {
+            return true;
+          }
+          return false;
+        });
+        
+        if (previousAnalysis && previousAnalysis.result) {
+          const prevScore = previousAnalysis.averageScore || 
+            (previousAnalysis.result.expertAnalysis?.reduce((sum: number, e: any) => sum + (e.score || 0), 0) / (previousAnalysis.result.expertAnalysis?.length || 1));
+          duplicateVideoContext = `
+          
+          ⚠️ IMPORTANT: This appears to be the SAME video file as a previous analysis.
+          Previous analysis score: ${prevScore.toFixed(0)}/100
+          
+          CRITICAL INSTRUCTIONS:
+          1. You MUST maintain the SAME overall score range (±2 points) as the previous analysis (${prevScore.toFixed(0)}/100)
+          2. Provide ADDITIONAL feedback from DIFFERENT angles and perspectives
+          3. Focus on NEW aspects that weren't covered in the previous analysis
+          4. Be authentic and professional - don't artificially inflate or deflate the score
+          5. Maintain consistency in your professional assessment
+          6. The score should reflect the SAME performance quality, but your analysis can explore different dimensions
+          7. If the previous score was ${prevScore.toFixed(0)}, your new score should be between ${Math.max(0, prevScore - 2).toFixed(0)} and ${Math.min(100, prevScore + 2).toFixed(0)}
+          
+          This ensures authenticity and prevents score manipulation while still providing valuable additional insights.
+          `;
+        }
+      }
+      
       let pdfContext = '';
       if (pdfFile) {
         pdfContext = `
@@ -2353,7 +2405,8 @@ const App = () => {
       }
 
       const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
-      const depthInstruction = activeTrack === 'coach' && analysisDepth === 'deep' ? `
+      const isDeepAnalysis = (activeTrack === 'coach' || activeTrack === 'pro') && analysisDepth === 'deep';
+      const depthInstruction = isDeepAnalysis ? `
         
         ANALYSIS DEPTH: DEEP & PROFESSIONAL ANALYSIS MODE
         - Provide extremely detailed, comprehensive, and thorough analysis
@@ -2364,8 +2417,8 @@ const App = () => {
         - Include micro-analysis of body language, vocal nuances, and delivery subtleties
         - Analyze subtext, emotional depth, and authenticity
         - Reference industry benchmarks and professional expectations
-        - This is for professional coaching purposes - be comprehensive and detailed.
-      ` : activeTrack === 'coach' ? `
+        - This is for professional analysis purposes - be comprehensive and detailed.
+      ` : (activeTrack === 'coach' || activeTrack === 'pro') ? `
         
         ANALYSIS DEPTH: STANDARD ANALYSIS MODE
         - Provide clear, focused analysis
@@ -2378,6 +2431,7 @@ const App = () => {
         Current Mode: ${trackToUse}${activeTrack === 'coach' ? ' (Coach Edition - Training Track)' : ''}.
         Panel: ${expertPanel}.
         ${depthInstruction}
+        ${duplicateVideoContext}
         
         Task: Analyze the user's input (Idea/Script or Video File) strictly in HEBREW.
         
@@ -2459,7 +2513,7 @@ const App = () => {
         - Use purely Hebrew professional terms.
         - Do not use Markdown formatting inside the JSON strings.
         - Balance praise and criticism authentically - be professional, not overly positive or negative.
-        ${activeTrack === 'coach' && analysisDepth === 'deep' ? `
+        ${((activeTrack === 'coach' || activeTrack === 'pro') && analysisDepth === 'deep') ? `
         - For DEEP analysis: Be extremely detailed, include specific examples, timestamps when possible, multiple layers of feedback, and comprehensive recommendations.
         ` : ''}
       `;
@@ -3441,6 +3495,59 @@ const App = () => {
           )}
         </PdfUploadWrapper>
 
+        {/* בחירת סוג ניתוח ל-Pro track */}
+        {activeTrack === 'pro' && canUseFeature('advancedAnalysis') && (
+          <div style={{ 
+            display: 'flex', 
+            gap: '15px', 
+            alignItems: 'center', 
+            background: 'rgba(212, 160, 67, 0.1)', 
+            padding: '12px 20px', 
+            borderRadius: '8px', 
+            border: '1px solid rgba(212, 160, 67, 0.3)',
+            marginBottom: '20px',
+            justifyContent: 'center'
+          }}>
+            <span style={{ color: '#D4A043', fontWeight: 600 }}>סוג ניתוח:</span>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setAnalysisDepth('standard')}
+                style={{
+                  background: analysisDepth === 'standard' ? '#D4A043' : 'transparent',
+                  border: '1px solid #D4A043',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  color: analysisDepth === 'standard' ? '#000' : '#D4A043',
+                  fontFamily: 'Assistant, sans-serif',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s'
+                }}
+              >
+                ניתוח רגיל
+              </button>
+              <button
+                onClick={() => setAnalysisDepth('deep')}
+                style={{
+                  background: analysisDepth === 'deep' ? '#D4A043' : 'transparent',
+                  border: '1px solid #D4A043',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  color: analysisDepth === 'deep' ? '#000' : '#D4A043',
+                  fontFamily: 'Assistant, sans-serif',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s'
+                }}
+              >
+                ניתוח מעמיק
+              </button>
+            </div>
+          </div>
+        )}
+
         <InputWrapper>
           <MainInput 
             placeholder={isImprovementMode ? "מה שינית בטייק הזה? (אופציונלי)" : "כתוב כאן תיאור קצר: מה מטרת הסרטון? מה המסר? (אופציונלי)"}
@@ -3510,59 +3617,54 @@ const App = () => {
                     </CommitteeTips>
                   )}
                   
-                  {result.takeRecommendation && (
-                    <div style={{
-                      background: result.takeRecommendation.toLowerCase().includes('ready') || 
-                                  result.takeRecommendation.includes('מוכן') || 
-                                  result.takeRecommendation.includes('להגיש') ||
-                                  result.takeRecommendation.includes('ניתן')
-                        ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0.05) 100%)'
-                        : 'linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0.05) 100%)',
-                      border: `2px solid ${result.takeRecommendation.toLowerCase().includes('ready') || 
-                                        result.takeRecommendation.includes('מוכן') || 
-                                        result.takeRecommendation.includes('להגיש') ||
-                                        result.takeRecommendation.includes('ניתן')
-                          ? '#4CAF50' : '#FF9800'}`,
-                      borderRadius: '12px',
-                      padding: '20px',
-                      marginTop: '20px',
-                      textAlign: 'right',
-                      direction: 'rtl'
-                    }}>
-                      <h4 style={{
-                        color: result.takeRecommendation.toLowerCase().includes('ready') || 
-                               result.takeRecommendation.includes('מוכן') || 
-                               result.takeRecommendation.includes('להגיש') ||
-                               result.takeRecommendation.includes('ניתן')
-                          ? '#4CAF50' : '#FF9800',
-                        margin: '0 0 12px 0',
-                        fontSize: '1.15rem',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px'
+                  {result.takeRecommendation && (() => {
+                    const recText = result.takeRecommendation.toLowerCase();
+                    const hasRetake = recText.includes('טייק נוסף') || 
+                                     recText.includes('טייק חוזר') || 
+                                     recText.includes('retake') ||
+                                     recText.includes('מומלץ לבצע') ||
+                                     recText.includes('מומלץ טייק');
+                    const isReady = !hasRetake && (
+                      recText.includes('ready') || 
+                      recText.includes('מוכן') || 
+                      recText.includes('להגיש') ||
+                      recText.includes('ניתן')
+                    );
+                    return (
+                      <div style={{
+                        background: isReady
+                          ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                          : 'linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0.05) 100%)',
+                        border: `2px solid ${isReady ? '#4CAF50' : '#FF9800'}`,
+                        borderRadius: '12px',
+                        padding: '20px',
+                        marginTop: '20px',
+                        textAlign: 'right',
+                        direction: 'rtl'
                       }}>
-                        {result.takeRecommendation.toLowerCase().includes('ready') || 
-                         result.takeRecommendation.includes('מוכן') || 
-                         result.takeRecommendation.includes('להגיש') ||
-                         result.takeRecommendation.includes('ניתן')
-                          ? '✅' : '💡'} {result.takeRecommendation.toLowerCase().includes('ready') || 
-                         result.takeRecommendation.includes('מוכן') || 
-                         result.takeRecommendation.includes('להגיש') ||
-                         result.takeRecommendation.includes('ניתן')
-                          ? 'מוכן להגשה!' : 'הצעות לשיפור:'}
-                      </h4>
-                      <p style={{
-                        margin: 0,
-                        lineHeight: 1.7,
-                        fontSize: '1.05rem',
-                        color: '#e0e0e0',
-                        fontWeight: 500
-                      }}>
-                        {result.takeRecommendation}
-                      </p>
-                    </div>
-                  )}
+                        <h4 style={{
+                          color: isReady ? '#4CAF50' : '#FF9800',
+                          margin: '0 0 12px 0',
+                          fontSize: '1.15rem',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px'
+                        }}>
+                          {isReady ? '✅' : '💡'} {isReady ? 'מוכן להגשה!' : 'הצעות לשיפור:'}
+                        </h4>
+                        <p style={{
+                          margin: 0,
+                          lineHeight: 1.7,
+                          fontSize: '1.05rem',
+                          color: '#e0e0e0',
+                          fontWeight: 500
+                        }}>
+                          {result.takeRecommendation}
+                        </p>
+                      </div>
+                    );
+                  })()}
                   
                   <FinalScore data-pdf="final-score">
                     <span className="number">{averageScore}</span>
