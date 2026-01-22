@@ -2432,10 +2432,15 @@ const App = () => {
     }
     
     // Check subscription limits for ALL tiers (CRITICAL for plan enforcement)
-    // If check fails or returns null, allow analysis (better UX than blocking)
+    // Use Promise.race to prevent hanging - if check takes too long, allow analysis
     if (subscription) {
       try {
-        const limitCheck = await checkSubscriptionLimits();
+        const limitCheckPromise = checkSubscriptionLimits();
+        const quickResolvePromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => {
+          setTimeout(() => resolve({ allowed: true }), 2000); // 2 seconds max
+        });
+        const limitCheck = await Promise.race([limitCheckPromise, quickResolvePromise]);
+        
         // Only block if we got a valid result AND it says not allowed
         if (limitCheck && !limitCheck.allowed && limitCheck.message) {
           alert(limitCheck.message);
@@ -2449,7 +2454,12 @@ const App = () => {
     } else {
       // No subscription - treat as free tier
       try {
-        const limitCheck = await checkSubscriptionLimits();
+        const limitCheckPromise = checkSubscriptionLimits();
+        const quickResolvePromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => {
+          setTimeout(() => resolve({ allowed: true }), 2000); // 2 seconds max
+        });
+        const limitCheck = await Promise.race([limitCheckPromise, quickResolvePromise]);
+        
         // Only block if we got a valid result AND it says not allowed
         if (limitCheck && !limitCheck.allowed && limitCheck.message) {
           alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
