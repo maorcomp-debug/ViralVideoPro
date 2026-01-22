@@ -53,22 +53,39 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   useEffect(() => {
     if (activeTab === 'updates' && user) {
       loadAnnouncements();
+    } else {
+      // Reset announcements when leaving the tab
+      setAnnouncements([]);
+      setLoadingAnnouncements(false);
     }
   }, [activeTab, user]);
 
   const loadAnnouncements = async () => {
+    if (!user) {
+      setLoadingAnnouncements(false);
+      return;
+    }
+    
     setLoadingAnnouncements(true);
     try {
       const userAnnouncements = await getUserAnnouncements();
-      setAnnouncements(userAnnouncements);
+      // Only show announcements that were actually sent (have sent_at date)
+      const sentAnnouncements = userAnnouncements.filter((item: any) => {
+        const ann = item.announcement;
+        return ann && ann.sent_at !== null;
+      });
+      setAnnouncements(sentAnnouncements);
     } catch (error) {
       console.error('Error loading announcements:', error);
+      setAnnouncements([]);
     } finally {
       setLoadingAnnouncements(false);
     }
   };
 
   const handleToggleUpdates = async () => {
+    if (loading) return; // Prevent double-click
+    
     const newValue = !receiveUpdates;
     setReceiveUpdates(newValue);
     setLoading(true);
@@ -80,6 +97,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     } catch (error: any) {
       setReceiveUpdates(!newValue); // Revert on error
       setMessage({ type: 'error', text: error.message || 'שגיאה בעדכון ההגדרות' });
+      setTimeout(() => setMessage(null), 5000);
     } finally {
       setLoading(false);
     }

@@ -1581,14 +1581,29 @@ const App = () => {
           
           setSavedAnalyses(uniqueAnalyses);
           
-          // Update usage after saving analysis
+          // Update usage after saving analysis - CRITICAL for accurate counter
           try {
             const updatedUsage = await getUsageForCurrentPeriod();
             if (updatedUsage) {
               setUsage(updatedUsage);
+              console.log('✅ Usage updated:', updatedUsage.analysesUsed);
+            } else {
+              console.warn('⚠️ Usage update returned null');
             }
           } catch (usageError) {
-            console.error('Error updating usage:', usageError);
+            console.error('❌ Error updating usage:', usageError);
+            // Retry once after a short delay
+            setTimeout(async () => {
+              try {
+                const retryUsage = await getUsageForCurrentPeriod();
+                if (retryUsage) {
+                  setUsage(retryUsage);
+                  console.log('✅ Usage updated on retry:', retryUsage.analysesUsed);
+                }
+              } catch (retryError) {
+                console.error('❌ Error on usage retry:', retryError);
+              }
+            }, 1000);
           }
         } catch (reloadError) {
           console.error('Error reloading analyses:', reloadError);
@@ -2579,12 +2594,17 @@ const App = () => {
            - If a retake is needed: Honestly recommend another take if significant improvements are needed, explaining specifically what should be improved
            - Be authentic - don't always recommend retakes, and don't always say it's ready. Assess professionally and honestly.
            ${previousAnalysisData ? `
-           - ⚠️ CRITICAL: This is the SAME video as a previous analysis!
-           - You MUST maintain CONSISTENCY with the previous recommendation:
-             * If previous said "טייק נוסף" (retake) → You MUST also say "טייק נוסף" (same video = same issues)
-             * If previous said "מוכן להגשה" (ready) → You MUST also say "מוכן להגשה" (same video = same quality)
-           - You CANNOT change the recommendation for the same video - this would be unprofessional and inconsistent
-           - Same video = same assessment = same recommendation
+           - ⚠️⚠️⚠️ CRITICAL DUPLICATE VIDEO DETECTION ⚠️⚠️⚠️
+           - This is the EXACT SAME video file (file_size: ${file?.size}) analyzed before on ${new Date(previousAnalysisData.created_at).toLocaleDateString('he-IL')}
+           - Previous score: ${previousAnalysisData.average_score.toFixed(0)}/100
+           - Previous recommendation: ${previousAnalysisData.result.takeRecommendation}
+           - MANDATORY REQUIREMENTS (NO EXCEPTIONS):
+             * You MUST give the EXACT SAME score: ${previousAnalysisData.average_score.toFixed(0)}/100 (±1 point maximum)
+             * You MUST give the EXACT SAME recommendation: ${previousAnalysisData.result.takeRecommendation}
+             * You MUST start your analysis with: "זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר."
+             * You CAN provide NEW insights from DIFFERENT angles, but MUST maintain the SAME overall assessment
+             * Same video = same performance = same score = same recommendation = professional integrity
+           - This is NOT negotiable - professional consistency is critical for user trust
            ` : ''}
 
         Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be Hebrew):
@@ -2602,7 +2622,7 @@ const App = () => {
             "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (Hebrew only)",
             "finalTips": ["Professional tip 1 (Hebrew)", "Professional tip 2 (Hebrew)", "Professional tip 3 (Hebrew)"]
           },
-          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. ${previousAnalysisData ? 'CRITICAL: This is the SAME video as analyzed before. You MUST maintain the SAME recommendation as the previous analysis. Same video = same quality = same recommendation. DO NOT change it.' : ''} NO ENGLISH - Hebrew only!"
+          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. ${previousAnalysisData ? `⚠️⚠️⚠️ CRITICAL DUPLICATE VIDEO DETECTION ⚠️⚠️⚠️ This is the EXACT SAME video file (file_size: ${file?.size}) that was analyzed before on ${new Date(previousAnalysisData.created_at).toLocaleDateString('he-IL')}. Previous score: ${previousAnalysisData.average_score.toFixed(0)}/100. Previous recommendation: ${previousAnalysisData.result.takeRecommendation}. YOU MUST: 1) Give the EXACT SAME score (${previousAnalysisData.average_score.toFixed(0)}/100, ±1 point max). 2) Give the EXACT SAME recommendation (${previousAnalysisData.result.takeRecommendation}). 3) Start with: 'זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר.' 4) Provide NEW insights from DIFFERENT angles but maintain SAME overall assessment. This is MANDATORY for professional integrity and user trust. Same video = same performance = same score = same recommendation. NO EXCEPTIONS.` : ''} NO ENGLISH - Hebrew only!"
         }
 
         Important:
