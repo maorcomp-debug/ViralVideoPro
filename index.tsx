@@ -1446,16 +1446,16 @@ const App = () => {
 
     setIsSavingAnalysis(true);
     try {
-      // Video should already be saved before analysis (in handleGenerate)
-      // Try to find it by file_size to avoid duplicates
+      // Save video if exists (only when saving analysis, not before)
+      // If same file was uploaded before, reuse existing video record
       let videoId: string | null = null;
-      
+
       if (file) {
-        // Try to find existing video by file_size (same file uploaded twice)
         try {
+          // First, check if video with same file_size already exists (same file uploaded twice)
           const { data: { user: currentUser } } = await supabase.auth.getUser();
           if (currentUser) {
-            const { data: existingVideos } = await supabase
+            const { data: existingVideo } = await supabase
               .from('videos')
               .select('id')
               .eq('user_id', currentUser.id)
@@ -1464,13 +1464,44 @@ const App = () => {
               .limit(1)
               .maybeSingle();
             
-            if (existingVideos) {
-              videoId = existingVideos.id;
-              console.log('✅ Found existing video for analysis save:', videoId);
+            if (existingVideo) {
+              // Reuse existing video record (same file, no need to save twice)
+              videoId = existingVideo.id;
+              console.log('✅ Reusing existing video record (same file_size):', videoId);
+            } else {
+              // New file - upload and save
+              const uploadResult = await uploadVideo(file, currentUser.id);
+              
+              // Get video duration
+              let duration: number | null = null;
+              if (file.type.startsWith('video')) {
+                const video = document.createElement('video');
+                video.preload = 'metadata';
+                video.src = previewUrl || '';
+                await new Promise((resolve) => {
+                  video.onloadedmetadata = () => {
+                    duration = Math.round(video.duration);
+                    resolve(null);
+                  };
+                });
+              }
+
+              // Save video to database
+              const videoData = await saveVideoToDatabase({
+                file_name: file.name,
+                file_path: uploadResult.path,
+                file_size: file.size,
+                duration_seconds: duration,
+                mime_type: file.type,
+              });
+              
+              videoId = videoData.id;
+              console.log('✅ Saved new video to database:', videoId);
             }
           }
         } catch (error) {
-          console.error('Error finding existing video:', error);
+          console.error('Error saving video:', error);
+          // Continue without video ID
         }
       }
 
@@ -2330,36 +2361,6 @@ const App = () => {
 
     setLoading(true);
     
-    // Save video to database BEFORE analysis to enable duplicate detection
-    let videoId: string | null = null;
-    if (file && user) {
-      try {
-        // Upload video to storage
-        const uploadResult = await uploadVideo(file, user.id);
-        
-        // Get video duration
-        let duration: number | null = null;
-        if (file.type.startsWith('video') && videoRef.current) {
-          duration = Math.round(videoRef.current.duration || 0);
-        }
-        
-        // Save video to database BEFORE analysis
-        const videoData = await saveVideoToDatabase({
-          file_name: file.name,
-          file_path: uploadResult.path,
-          file_size: file.size,
-          duration_seconds: duration,
-          mime_type: file.type,
-        });
-        
-        videoId = videoData.id;
-        console.log('✅ Video saved to database before analysis:', { videoId, fileSize: file.size });
-      } catch (error) {
-        console.error('Error saving video before analysis:', error);
-        // Continue without video ID - analysis can still proceed
-      }
-    }
-    
     try {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
@@ -2383,15 +2384,15 @@ const App = () => {
       }
       
       // זיהוי סרטון זהה - אם זה אותו סרטון, לתת משוב נוסף מהיבטים שונים אבל לשמור על אותו ציון
-      // חשוב: הקובץ כבר נשמר לפני הניתוח, אז החיפוש יעבוד
+      // בודק לפי file_size בלבד (לא צריך לשמור את הקובץ - רק לזכור את הפרטים להשוואה)
       let duplicateVideoContext = '';
       let previousAnalysisData: any = null;
       
-      if (file && user && videoId) {
-        // בדיקה ישירה ב-Supabase לפי file name + size (עם timeout כדי לא לעצור את הניתוח)
+      if (file && user) {
+        // בדיקה ישירה ב-Supabase לפי file_size בלבד (עם timeout כדי לא לעצור את הניתוח)
         try {
           const duplicateCheckPromise = findPreviousAnalysisByVideo(file.name, file.size);
-          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 5000)); // 5 second timeout (increased)
+          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 5000)); // 5 second timeout
           const previousAnalysis = await Promise.race([duplicateCheckPromise, timeoutPromise]) as any;
           
           if (previousAnalysis && previousAnalysis.result) {
