@@ -132,15 +132,26 @@ export async function getCurrentSubscription() {
 
 export async function getUsageForCurrentPeriod() {
   try {
+    console.log('📊 getUsageForCurrentPeriod: Starting...');
     const subscription = await getCurrentSubscription();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    if (!user) {
+      console.warn('⚠️ getUsageForCurrentPeriod: No user');
+      return null;
+    }
+
+    console.log('📊 getUsageForCurrentPeriod: User found:', user.id);
 
     // ALWAYS count analyses in current calendar month (not subscription period)
     // This ensures accurate monthly usage tracking regardless of subscription start date
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    console.log('📊 getUsageForCurrentPeriod: Counting analyses...', {
+      monthStart: monthStart.toISOString(),
+      monthEnd: monthEnd.toISOString()
+    });
 
     // Count analyses
     const { count, error } = await supabase
@@ -161,10 +172,13 @@ export async function getUsageForCurrentPeriod() {
       return null;
     }
 
+    console.log('📊 getUsageForCurrentPeriod: Analyses count:', count);
+
     // Calculate total video minutes used this month
     // Join with videos table to get duration
     let totalMinutesUsed = 0;
     try {
+      console.log('📊 getUsageForCurrentPeriod: Calculating minutes...');
       const { data: analysesWithVideos, error: videosError } = await supabase
         .from('analyses')
         .select(`
@@ -187,6 +201,7 @@ export async function getUsageForCurrentPeriod() {
             totalMinutesUsed += Math.ceil(video.duration_seconds / 60);
           }
         });
+        console.log('📊 getUsageForCurrentPeriod: Minutes calculated:', totalMinutesUsed);
       } else if (videosError) {
         // Non-critical error - log but don't fail
         console.warn('⚠️ Error fetching video durations (non-critical, continuing):', videosError);
@@ -196,12 +211,15 @@ export async function getUsageForCurrentPeriod() {
       console.warn('⚠️ Exception calculating minutes (non-critical, continuing):', error);
     }
 
-    return {
+    const result = {
       analysesUsed: count || 0,
       minutesUsed: totalMinutesUsed,
       periodStart: monthStart,
       periodEnd: monthEnd,
     };
+
+    console.log('📊 getUsageForCurrentPeriod: Returning result:', result);
+    return result;
   } catch (error) {
     console.error('Error in getUsageForCurrentPeriod:', error);
     return null;

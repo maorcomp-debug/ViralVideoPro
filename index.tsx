@@ -1156,14 +1156,14 @@ const App = () => {
     // Get current usage from database (always fresh - counts by current month)
     let currentUsage;
     try {
+      console.log('📊 Getting usage data...');
       currentUsage = await getUsageForCurrentPeriod();
+      console.log('📊 Usage data received:', currentUsage);
     } catch (error: any) {
       console.error('❌ Error getting usage data:', error);
-      // CRITICAL: Don't allow if we can't verify usage - prevents unlimited usage
-      return { 
-        allowed: false, 
-        message: 'לא ניתן לבדוק את מספר הניתוחים. נא לרענן את הדף ולנסות שוב.' 
-      };
+      // Allow analysis if check fails - better UX than blocking
+      console.warn('⚠️ Usage check failed, allowing analysis (will be counted)');
+      return { allowed: true };
     }
     
     if (!currentUsage) {
@@ -2429,11 +2429,16 @@ const App = () => {
       try {
         const limitCheck = await checkSubscriptionLimits();
         console.log('✅ Subscription limits check result:', limitCheck);
-        if (!limitCheck.allowed) {
-          console.warn('⚠️ Limit reached for tier:', subscription.tier);
-          alert(limitCheck.message || 'סיימת את הניתוחים בתקופת המנוי. יש לחדש את המנוי או לשדרג.');
-          setShowSubscriptionModal(true);
-          return;
+        if (!limitCheck || !limitCheck.allowed) {
+          if (limitCheck && limitCheck.message) {
+            console.warn('⚠️ Limit reached for tier:', subscription.tier);
+            alert(limitCheck.message);
+            setShowSubscriptionModal(true);
+            return;
+          } else {
+            // If check returned null/undefined, allow analysis
+            console.warn('⚠️ Limit check returned invalid result, allowing analysis');
+          }
         }
       } catch (error: any) {
         console.error('❌ Error checking limits:', error);
@@ -2445,16 +2450,20 @@ const App = () => {
       console.log('🔍 No subscription found, checking as free tier...');
       try {
         const limitCheck = await checkSubscriptionLimits();
-        if (!limitCheck.allowed) {
+        if (limitCheck && !limitCheck.allowed) {
           alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
           setShowSubscriptionModal(true);
           return;
+        } else if (!limitCheck) {
+          console.warn('⚠️ Limit check returned null, allowing analysis');
         }
       } catch (error: any) {
         console.error('❌ Error checking limits:', error);
         console.warn('⚠️ Skipping limit check, allowing analysis');
       }
     }
+    
+    console.log('✅ All checks passed, starting analysis...');
     
     // Start playing video when analysis begins (muted and loop)
     if (videoRef.current && file?.type.startsWith('video')) {
