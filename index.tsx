@@ -2534,14 +2534,6 @@ const App = () => {
                                           prevTakeRecommendation.toLowerCase().includes('מומלץ טייק') ||
                                           prevTakeRecommendation.toLowerCase().includes('מומלץ טייק נוסף');
             
-            console.log('🔍 DUPLICATE VIDEO DETECTED!', {
-              fileSize: file.size,
-              fileName: file.name,
-              previousScore: prevScore.toFixed(0),
-              previousRecommendation: prevTakeRecommendation,
-              previousDate: previousAnalysis.created_at
-            });
-            
             duplicateVideoContext = `
           
           ⚠️⚠️⚠️ CRITICAL: This is the EXACT SAME video file as a previous analysis! ⚠️⚠️⚠️

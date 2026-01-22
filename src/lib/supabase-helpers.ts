@@ -429,12 +429,10 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
               .maybeSingle();
             
             if (videoData && videoData.file_size === fileSize) {
-              console.log('✅ Found duplicate via metadata + video verification');
               return { ...analysis, videos: videoData };
             }
           } else {
             // No video_id but metadata matches - still valid match
-            console.log('✅ Found duplicate via metadata (no video_id)');
             return analysis;
           }
         }
