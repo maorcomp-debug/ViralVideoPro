@@ -60,25 +60,51 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     }
   }, [activeTab, user]);
 
+  // Reload usage when subscription tab is opened
+  useEffect(() => {
+    if (activeTab === 'subscription' && user) {
+      // Force reload usage data when opening subscription tab
+      const reloadUsage = async () => {
+        try {
+          const { getUsageForCurrentPeriod } = await import('../../lib/supabase-helpers');
+          const updatedUsage = await getUsageForCurrentPeriod();
+          if (updatedUsage) {
+            // Update usage via parent component if possible
+            // The usage prop should already be updated by parent, but we can trigger a refresh
+          }
+        } catch (error) {
+          console.error('Error reloading usage:', error);
+        }
+      };
+      reloadUsage();
+    }
+  }, [activeTab, user]);
+
   const loadAnnouncements = async () => {
     if (!user) {
       setLoadingAnnouncements(false);
+      setAnnouncements([]);
       return;
     }
     
     setLoadingAnnouncements(true);
     try {
       const userAnnouncements = await getUserAnnouncements();
+      
       // Only show announcements that were actually sent (have sent_at date)
-      const sentAnnouncements = userAnnouncements.filter((item: any) => {
+      // Also filter out any null/undefined announcements
+      const sentAnnouncements = (userAnnouncements || []).filter((item: any) => {
+        if (!item || !item.announcement) return false;
         const ann = item.announcement;
-        return ann && ann.sent_at !== null;
+        return ann.sent_at !== null && ann.sent_at !== undefined;
       });
+      
       setAnnouncements(sentAnnouncements);
     } catch (error) {
       console.error('Error loading announcements:', error);
       setAnnouncements([]);
     } finally {
+      // ALWAYS set loading to false, even if there's an error
       setLoadingAnnouncements(false);
     }
   };

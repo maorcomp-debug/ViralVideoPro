@@ -136,54 +136,34 @@ export async function getUsageForCurrentPeriod() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
-    if (!subscription || !subscription.plans) {
-      // Free tier - count analyses in current calendar month
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // ALWAYS count analyses in current calendar month (not subscription period)
+    // This ensures accurate monthly usage tracking regardless of subscription start date
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-      const { count, error } = await supabase
-        .from('analyses')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .gte('created_at', monthStart.toISOString())
-        .lte('created_at', monthEnd.toISOString());
-
-      if (error) {
-        console.error('❌ Error counting analyses:', error);
-        console.error('❌ Error details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        return null;
-      }
-
-      return {
-        analysesUsed: count || 0,
-        periodStart: monthStart,
-        periodEnd: monthEnd,
-      };
-    }
-
-    // Paid tier - count analyses in subscription period
     const { count, error } = await supabase
       .from('analyses')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .gte('created_at', subscription.start_date)
-      .lte('created_at', subscription.end_date);
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
 
     if (error) {
-      console.error('Error counting analyses:', error);
+      console.error('❌ Error counting analyses:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
       return null;
     }
 
     return {
       analysesUsed: count || 0,
-      periodStart: new Date(subscription.start_date),
-      periodEnd: new Date(subscription.end_date),
+      periodStart: monthStart,
+      periodEnd: monthEnd,
     };
   } catch (error) {
     console.error('Error in getUsageForCurrentPeriod:', error);
