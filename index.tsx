@@ -1540,13 +1540,15 @@ const App = () => {
       }
 
       // Save analysis to Supabase
-      // Include file_size in result metadata for duplicate detection
+      // Include file_size in result metadata for duplicate detection - CRITICAL
       const resultWithMetadata = {
         ...result,
         metadata: {
           ...(result.metadata || {}),
-          fileSize: file?.size,
-          fileName: file?.name,
+          fileSize: file?.size || null,
+          file_size: file?.size || null, // Also store as file_size for compatibility
+          fileName: file?.name || null,
+          file_name: file?.name || null, // Also store as file_name for compatibility
         }
       };
       
@@ -1615,24 +1617,44 @@ const App = () => {
           
           setSavedAnalyses(uniqueAnalyses);
           
-          // Update usage after saving analysis - CRITICAL for accurate counter
+          // Update usage IMMEDIATELY after saving analysis - CRITICAL for accurate counter
+          // Force refresh from database to get accurate count
           try {
+            // Wait a moment for database to commit
+            await new Promise(resolve => setTimeout(resolve, 500));
             const updatedUsage = await getUsageForCurrentPeriod();
             if (updatedUsage) {
               setUsage(updatedUsage);
+              // Also update subscription state with usage
+              setSubscription(prev => prev ? {
+                ...prev,
+                usage: {
+                  analysesUsed: updatedUsage.analysesUsed,
+                  lastResetDate: updatedUsage.periodStart,
+                },
+              } : null);
             }
           } catch (usageError) {
-            // Retry once after a short delay
-            setTimeout(async () => {
-              try {
-                const retryUsage = await getUsageForCurrentPeriod();
-                if (retryUsage) {
-                  setUsage(retryUsage);
+            // Retry multiple times to ensure update
+            for (let i = 0; i < 3; i++) {
+              setTimeout(async () => {
+                try {
+                  const retryUsage = await getUsageForCurrentPeriod();
+                  if (retryUsage) {
+                    setUsage(retryUsage);
+                    setSubscription(prev => prev ? {
+                      ...prev,
+                      usage: {
+                        analysesUsed: retryUsage.analysesUsed,
+                        lastResetDate: retryUsage.periodStart,
+                      },
+                    } : null);
+                  }
+                } catch (retryError) {
+                  // Ignore retry errors
                 }
-              } catch (retryError) {
-                // Ignore retry errors
-              }
-            }, 1000);
+              }, (i + 1) * 1000);
+            }
           }
           
           // Notify other tabs/components that analysis was saved
@@ -1659,14 +1681,41 @@ const App = () => {
             return [...prev, savedAnalysis];
           });
           
-          // Still try to update usage even if reload fails
+          // Still try to update usage even if reload fails - CRITICAL
           try {
+            await new Promise(resolve => setTimeout(resolve, 500));
             const updatedUsage = await getUsageForCurrentPeriod();
             if (updatedUsage) {
               setUsage(updatedUsage);
+              setSubscription(prev => prev ? {
+                ...prev,
+                usage: {
+                  analysesUsed: updatedUsage.analysesUsed,
+                  lastResetDate: updatedUsage.periodStart,
+                },
+              } : null);
             }
           } catch (usageError) {
-            console.error('Error updating usage:', usageError);
+            // Retry multiple times
+            for (let i = 0; i < 3; i++) {
+              setTimeout(async () => {
+                try {
+                  const retryUsage = await getUsageForCurrentPeriod();
+                  if (retryUsage) {
+                    setUsage(retryUsage);
+                    setSubscription(prev => prev ? {
+                      ...prev,
+                      usage: {
+                        analysesUsed: retryUsage.analysesUsed,
+                        lastResetDate: retryUsage.periodStart,
+                      },
+                    } : null);
+                  }
+                } catch (retryError) {
+                  // Ignore retry errors
+                }
+              }, (i + 1) * 1000);
+            }
           }
           
           // Notify other tabs/components that analysis was saved
@@ -2431,48 +2480,7 @@ const App = () => {
       return;
     }
     
-    // Check subscription limits for ALL tiers (CRITICAL for plan enforcement)
-    // Use Promise.race to prevent hanging - if check takes too long, allow analysis
-    if (subscription) {
-      try {
-        const limitCheckPromise = checkSubscriptionLimits();
-        const quickResolvePromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => {
-          setTimeout(() => resolve({ allowed: true }), 2000); // 2 seconds max
-        });
-        const limitCheck = await Promise.race([limitCheckPromise, quickResolvePromise]);
-        
-        // Only block if we got a valid result AND it says not allowed
-        if (limitCheck && !limitCheck.allowed && limitCheck.message) {
-          alert(limitCheck.message);
-          setShowSubscriptionModal(true);
-          return;
-        }
-        // If limitCheck is null/undefined or allowed=true, continue
-      } catch (error: any) {
-        // If check fails, allow analysis (better UX than blocking)
-      }
-    } else {
-      // No subscription - treat as free tier
-      try {
-        const limitCheckPromise = checkSubscriptionLimits();
-        const quickResolvePromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => {
-          setTimeout(() => resolve({ allowed: true }), 2000); // 2 seconds max
-        });
-        const limitCheck = await Promise.race([limitCheckPromise, quickResolvePromise]);
-        
-        // Only block if we got a valid result AND it says not allowed
-        if (limitCheck && !limitCheck.allowed && limitCheck.message) {
-          alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
-          setShowSubscriptionModal(true);
-          return;
-        }
-        // If limitCheck is null/undefined or allowed=true, continue
-      } catch (error: any) {
-        // If check fails, allow analysis
-      }
-    }
-    
-    // Start playing video when analysis begins (muted and loop)
+    // Start playing video immediately when analysis begins (muted and loop)
     if (videoRef.current && file?.type.startsWith('video')) {
         videoRef.current.muted = true;
         videoRef.current.loop = true;
@@ -2509,11 +2517,9 @@ const App = () => {
       let previousAnalysisData: any = null;
       
       if (file && user) {
-        // בדיקה ישירה ב-Supabase לפי file_size בלבד (עם timeout כדי לא לעצור את הניתוח)
+        // בדיקה ישירה ב-Supabase לפי file_size בלבד - CRITICAL for duplicate detection
         try {
-          const duplicateCheckPromise = findPreviousAnalysisByVideo(file.name, file.size);
-          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 3000)); // 3 second timeout
-          const previousAnalysis = await Promise.race([duplicateCheckPromise, timeoutPromise]) as any;
+          const previousAnalysis = await findPreviousAnalysisByVideo(file.name, file.size);
           
           if (previousAnalysis && previousAnalysis.result) {
             previousAnalysisData = previousAnalysis;
@@ -2830,13 +2836,11 @@ const App = () => {
       }
 
       setResult(parsedResult);
-      console.log('✅ Analysis completed successfully');
       
       // Don't auto-save analysis here - let user save manually via "שמור ניתוח למתאמן" button
       // This prevents duplicate saves and gives user control over when to save
       
-      // Increment usage counter after successful analysis
-      incrementUsage();
+      // Usage will be updated when analysis is saved (in handleSaveAnalysis)
       
       // Jump to results area immediately
       setTimeout(() => {
