@@ -71,10 +71,27 @@ export const ComparisonModal = ({
     new Map(savedAnalyses.map(a => [a.id, a])).values()
   );
   
+  // Helper function to check if two analyses are for the same video (by file_size)
+  const isSameVideo = (analysis1: SavedAnalysis, analysis2: SavedAnalysis): boolean => {
+    const fileSize1 = analysis1.metadata?.fileSize || analysis1.result?.metadata?.fileSize;
+    const fileSize2 = analysis2.metadata?.fileSize || analysis2.result?.metadata?.fileSize;
+    if (fileSize1 && fileSize2) {
+      return fileSize1 === fileSize2;
+    }
+    // Fallback: check video name if file_size not available
+    return analysis1.videoName === analysis2.videoName;
+  };
+  
   // Filter selected analyses and sort by date (oldest first) for proper trend calculation
   const selectedAnalysesData = uniqueSavedAnalyses
     .filter(a => selectedAnalyses.includes(a.id))
     .sort((a, b) => new Date(a.analysisDate).getTime() - new Date(b.analysisDate).getTime());
+  
+  // Check if any selected analyses are for the same video
+  const hasDuplicateVideos = selectedAnalysesData.length >= 2 && 
+    selectedAnalysesData.some((analysis, idx) => 
+      selectedAnalysesData.slice(idx + 1).some(other => isSameVideo(analysis, other))
+    );
 
   const generateComparison = () => {
     if (selectedAnalysesData.length < 2) {
@@ -150,7 +167,21 @@ export const ComparisonModal = ({
                         onClick={() => toggleAnalysisSelection(analysis.id)}
                       >
                         <SelectorHeader>
-                          <SelectorName>{analysis.videoName}</SelectorName>
+                          <SelectorName>
+                            {analysis.videoName}
+                            {uniqueSavedAnalyses.some(other => 
+                              other.id !== analysis.id && isSameVideo(analysis, other)
+                            ) && (
+                              <span style={{ 
+                                fontSize: '0.75rem', 
+                                color: '#FFC107', 
+                                marginRight: '5px',
+                                fontWeight: 600
+                              }}>
+                                (סרטון זהה)
+                              </span>
+                            )}
+                          </SelectorName>
                           <SelectorScore>{analysis.averageScore}</SelectorScore>
                         </SelectorHeader>
                         <SelectorMeta>
@@ -208,6 +239,21 @@ export const ComparisonModal = ({
                       <SummaryText>
                         {selectedAnalysesData.length > 0 && (
                           <>
+                            {hasDuplicateVideos && (
+                              <>
+                                <div style={{ 
+                                  background: 'rgba(255, 193, 7, 0.2)', 
+                                  border: '1px solid #FFC107', 
+                                  borderRadius: '8px', 
+                                  padding: '10px', 
+                                  marginBottom: '15px',
+                                  color: '#FFC107',
+                                  fontWeight: 600
+                                }}>
+                                  ⚠️ שים לב: חלק מהניתוחים הם של אותו סרטון. הציונים וההמלצות אמורים להיות עקביים.
+                                </div>
+                              </>
+                            )}
                             <strong>מתאמנים משוואים:</strong>{' '}
                             {Array.from(new Set(selectedAnalysesData.map(a => getTraineeName(a.traineeId)))).join(', ')}
                             <br />
@@ -222,6 +268,12 @@ export const ComparisonModal = ({
                                 {overallAverages[overallAverages.length - 1] > overallAverages[0] ? '↑ עלייה' : 
                                  overallAverages[overallAverages.length - 1] < overallAverages[0] ? '↓ ירידה' : '→ ללא שינוי'}
                                 {' '}({overallAverages[0]} → {overallAverages[overallAverages.length - 1]})
+                                {hasDuplicateVideos && overallAverages.length > 1 && 
+                                 Math.abs(overallAverages[overallAverages.length - 1] - overallAverages[0]) > 2 && (
+                                  <span style={{ color: '#F44336', marginRight: '5px' }}>
+                                    {' '}⚠️ שינוי גדול מדי עבור אותו סרטון
+                                  </span>
+                                )}
                               </>
                             )}
                           </>
