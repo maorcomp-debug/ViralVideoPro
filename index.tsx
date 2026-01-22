@@ -1638,6 +1638,9 @@ const App = () => {
           // Notify other tabs/components that analysis was saved
           try {
             localStorage.setItem('analysis_saved', Date.now().toString());
+            // Trigger custom event for same-tab listeners
+            window.dispatchEvent(new CustomEvent('analysis_saved'));
+            // Trigger storage event for cross-tab listeners
             window.dispatchEvent(new StorageEvent('storage', {
               key: 'analysis_saved',
               newValue: Date.now().toString()
