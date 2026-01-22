@@ -8,6 +8,8 @@ import {
   getAllAnalyses,
   getAllVideos,
   getAdminStats,
+  getUserUsageStats,
+  getUsageForCurrentPeriod,
   createAnnouncement,
   getAllAnnouncements,
   createCoupon,
@@ -700,6 +702,7 @@ export const AdminPage: React.FC = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [coupons, setCoupons] = useState<any[]>([]);
   const [trials, setTrials] = useState<any[]>([]);
+  const [userUsageMap, setUserUsageMap] = useState<Record<string, { analysesUsed: number; maxAnalyses: number }>>({});
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -755,6 +758,45 @@ export const AdminPage: React.FC = () => {
         setUsers(usersData || []);
         saveAdminCache({ users: usersData || [] });
         console.log('✅ Users loaded:', usersData?.length || 0);
+        
+        // Load usage stats for all users (using service role for admin access)
+        if (usersData && usersData.length > 0) {
+          console.log('🔄 Fetching usage stats for users...');
+          const now = new Date();
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          
+          // Get all analyses for current month in one query
+          const { data: allAnalyses, error: analysesError } = await supabase
+            .from('analyses')
+            .select('user_id')
+            .gte('created_at', monthStart.toISOString())
+            .lte('created_at', monthEnd.toISOString());
+          
+          if (analysesError) {
+            console.error('Error fetching analyses for usage:', analysesError);
+          } else {
+            // Count analyses per user
+            const usageCounts: Record<string, number> = {};
+            allAnalyses?.forEach((analysis: any) => {
+              usageCounts[analysis.user_id] = (usageCounts[analysis.user_id] || 0) + 1;
+            });
+            
+            // Build usage map
+            const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
+            usersData.forEach((user: any) => {
+              const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
+              const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+              usageMap[user.user_id] = {
+                analysesUsed: usageCounts[user.user_id] || 0,
+                maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
+              };
+            });
+            
+            setUserUsageMap(usageMap);
+            console.log('✅ Usage stats loaded for', Object.keys(usageMap).length, 'users');
+          }
+        }
       } else if (activeTab === 'analyses') {
         console.log('🔄 Fetching analyses...');
         const analysesData = await getAllAnalyses();
@@ -1069,32 +1111,53 @@ export const AdminPage: React.FC = () => {
                   </tr>
                   </TableHeader>
                 <tbody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.role || 'user'}</TableCell>
-                      <TableCell>{SUBSCRIPTION_PLANS[user.subscription_tier]?.name || user.subscription_tier}</TableCell>
-                      <TableCell>{new Date(user.created_at).toLocaleDateString('he-IL')}</TableCell>
-                      <ActionsCell>
-                        <ActionButton $variant="delete" onClick={() => handleDeleteUser(user.user_id)}>
-                          מחק
-                        </ActionButton>
-                        {user.role !== 'admin' && (
-                          <ActionButton onClick={() => handleMakeAdmin(user.user_id)}>
-                            הפוך לאדמין
+                  {filteredUsers.map((user) => {
+                    const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
+                    const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+                    const usage = userUsageMap[user.user_id] || { analysesUsed: 0, maxAnalyses: 0 };
+                    const isOverLimit = maxAnalyses !== -1 && usage.analysesUsed >= usage.maxAnalyses;
+                    
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.role || 'user'}</TableCell>
+                        <TableCell>
+                          {SUBSCRIPTION_PLANS[user.subscription_tier]?.name || user.subscription_tier}
+                          {maxAnalyses !== -1 && (
+                            <span style={{ 
+                              fontSize: '0.75rem', 
+                              color: isOverLimit ? '#F44336' : '#999', 
+                              display: 'block', 
+                              marginTop: '4px',
+                              fontWeight: isOverLimit ? 700 : 400
+                            }}>
+                              ({usage.analysesUsed}/{usage.maxAnalyses} ניתוחים בחודש)
+                              {isOverLimit && ' ⚠️ הגבלה הגיעה'}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleDateString('he-IL')}</TableCell>
+                        <ActionsCell>
+                          <ActionButton $variant="delete" onClick={() => handleDeleteUser(user.user_id)}>
+                            מחק
                           </ActionButton>
-                        )}
-                        <ActionButton $variant="primary" onClick={() => {
-                          const newTier = prompt('הזן חבילה חדשה (free, creator, pro, coach, coach-pro):');
-                          if (newTier && ['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(newTier)) {
-                            handleEditPackage(user.user_id, newTier as SubscriptionTier);
-                          }
-                        }}>
-                          ערוך חבילה
-                        </ActionButton>
-                      </ActionsCell>
-                    </TableRow>
-                  ))}
+                          {user.role !== 'admin' && (
+                            <ActionButton onClick={() => handleMakeAdmin(user.user_id)}>
+                              הפוך לאדמין
+                            </ActionButton>
+                          )}
+                          <ActionButton $variant="primary" onClick={() => {
+                            const newTier = prompt('הזן חבילה חדשה (free, creator, pro, coach, coach-pro):');
+                            if (newTier && ['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(newTier)) {
+                              handleEditPackage(user.user_id, newTier as SubscriptionTier);
+                            }
+                          }}>
+                            ערוך חבילה
+                          </ActionButton>
+                        </ActionsCell>
+                      </TableRow>
+                    );
+                  })}
                 </tbody>
               </Table>
             </TableWrapper>

@@ -1129,60 +1129,82 @@ const App = () => {
   };
 
   const checkSubscriptionLimits = async (): Promise<{ allowed: boolean; message?: string }> => {
-    if (!subscription) {
-      return { allowed: false, message: 'יש לבחור חבילה תחילה' };
-    }
+    // If no subscription, treat as free tier
+    const effectiveTier = subscription?.tier || 'free';
+    const effectiveSubscription = subscription || {
+      tier: 'free' as SubscriptionTier,
+      billingPeriod: 'monthly' as BillingPeriod,
+      startDate: new Date(),
+      endDate: new Date(),
+      usage: { analysesUsed: 0, lastResetDate: new Date() },
+      isActive: true,
+    };
 
-    const plan = SUBSCRIPTION_PLANS[subscription.tier];
+    const plan = SUBSCRIPTION_PLANS[effectiveTier];
+    if (!plan) {
+      console.error('❌ Invalid tier:', effectiveTier);
+      return { allowed: false, message: 'חבילה לא תקינה. נא ליצור קשר עם התמיכה.' };
+    }
     
-    // For free tier, always allow (we only check usage limits)
-    // For paid tiers, check if subscription is active
-    if (subscription.tier !== 'free') {
-      if (!subscription.isActive || new Date() > subscription.endDate) {
+    // Check if subscription is active (for paid tiers)
+    if (effectiveTier !== 'free') {
+      if (!effectiveSubscription.isActive || new Date() > effectiveSubscription.endDate) {
         return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
       }
     }
 
-    // Get current usage from database (always fresh)
+    // Get current usage from database (always fresh - counts by current month)
     let currentUsage;
     try {
       currentUsage = await getUsageForCurrentPeriod();
     } catch (error: any) {
       console.error('❌ Error getting usage data:', error);
-      // FALLBACK: If usage check fails, allow with warning
-      console.warn('⚠️ Cannot verify usage, allowing analysis (will be counted)');
-      return { allowed: true }; // Allow to proceed
+      // CRITICAL: Don't allow if we can't verify usage - prevents unlimited usage
+      return { 
+        allowed: false, 
+        message: 'לא ניתן לבדוק את מספר הניתוחים. נא לרענן את הדף ולנסות שוב.' 
+      };
     }
     
     if (!currentUsage) {
-      console.warn('⚠️ No usage data returned, allowing analysis');
-      return { allowed: true }; // Allow to proceed if data unavailable
+      console.error('❌ No usage data returned');
+      // CRITICAL: Don't allow if no usage data - prevents unlimited usage
+      return { 
+        allowed: false, 
+        message: 'לא ניתן לבדוק את מספר הניתוחים. נא לרענן את הדף ולנסות שוב.' 
+      };
     }
 
     const analysesUsed = currentUsage.analysesUsed;
     const limit = plan.limits.maxAnalysesPerPeriod;
 
+    console.log('📊 Usage check:', { 
+      tier: effectiveTier, 
+      analysesUsed, 
+      limit, 
+      periodStart: currentUsage.periodStart,
+      periodEnd: currentUsage.periodEnd
+    });
+
     // Check analysis limit based on tier
-    if (subscription.tier === 'free') {
-      // Free tier: 2 analyses per month (resets monthly)
-      if (analysesUsed >= limit) {
+    if (limit === -1) {
+      // Unlimited (coach/coach-pro tier)
+      return { allowed: true };
+    } else if (analysesUsed >= limit) {
+      // Limit reached
+      if (effectiveTier === 'free') {
         const now = new Date();
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return { 
           allowed: false, 
-          message: `סיימת את ניתוח הטעימה החינמי. ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
+          message: `סיימת את ניתוח הטעימה החינמי (${limit} ניתוחים). ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
         };
-      }
-    } else if (limit === -1) {
-      // Unlimited (coach tier)
-      return { allowed: true };
-    } else {
-      // Paid tiers: check within subscription period
-      if (analysesUsed >= limit) {
+      } else {
+        // Paid tier limit reached
         return { 
           allowed: false, 
-          message: `סיימת את הניתוחים בתקופת המנוי. יתאפס בתקופת החיוב הבאה או שדרג לחבילה גבוהה יותר` 
+          message: `סיימת את הניתוחים בחודש הנוכחי (${analysesUsed}/${limit}). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
         };
       }
     }
@@ -2374,27 +2396,37 @@ const App = () => {
       return;
     }
     
-    // Check subscription limits - ONLY for free tier
-    // Pro/Coach/Creator tiers have high limits, no need to check and risk hanging
-    if (subscription && subscription.tier === 'free') {
-      console.log('🔍 Checking subscription limits for free tier...');
+    // Check subscription limits for ALL tiers (CRITICAL for plan enforcement)
+    if (subscription) {
+      console.log('🔍 Checking subscription limits...', { tier: subscription.tier });
       try {
         const limitCheck = await checkSubscriptionLimits();
         console.log('✅ Subscription limits check result:', limitCheck);
         if (!limitCheck.allowed) {
-          console.warn('⚠️ Free tier limit reached');
+          console.warn('⚠️ Limit reached for tier:', subscription.tier);
+          alert(limitCheck.message || 'סיימת את הניתוחים בתקופת המנוי. יש לחדש את המנוי או לשדרג.');
+          setShowSubscriptionModal(true);
+          return;
+        }
+      } catch (error: any) {
+        console.error('❌ Error checking limits:', error);
+        // If check fails, still allow but log warning
+        console.warn('⚠️ Limit check failed, allowing analysis (will be counted)');
+      }
+    } else {
+      // No subscription - treat as free tier
+      console.log('🔍 No subscription found, checking as free tier...');
+      try {
+        const limitCheck = await checkSubscriptionLimits();
+        if (!limitCheck.allowed) {
           alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
           setShowSubscriptionModal(true);
           return;
         }
       } catch (error: any) {
         console.error('❌ Error checking limits:', error);
-        // For free tier, if check fails, allow anyway (better UX)
         console.warn('⚠️ Skipping limit check, allowing analysis');
       }
-    } else {
-      // Pro/Coach/Creator - skip check entirely, they have high/unlimited analyses
-      console.log('✅ Paid tier - skipping subscription check');
     }
     
     // Start playing video when analysis begins (muted and loop)
@@ -2452,6 +2484,14 @@ const App = () => {
                                           prevTakeRecommendation.toLowerCase().includes('מומלץ לבצע') ||
                                           prevTakeRecommendation.toLowerCase().includes('מומלץ טייק') ||
                                           prevTakeRecommendation.toLowerCase().includes('מומלץ טייק נוסף');
+            
+            console.log('🔍 DUPLICATE VIDEO DETECTED!', {
+              fileSize: file.size,
+              fileName: file.name,
+              previousScore: prevScore.toFixed(0),
+              previousRecommendation: prevTakeRecommendation,
+              previousDate: previousAnalysis.created_at
+            });
             
             duplicateVideoContext = `
           
@@ -2622,7 +2662,7 @@ const App = () => {
             "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (Hebrew only)",
             "finalTips": ["Professional tip 1 (Hebrew)", "Professional tip 2 (Hebrew)", "Professional tip 3 (Hebrew)"]
           },
-          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. ${previousAnalysisData ? `⚠️⚠️⚠️ CRITICAL DUPLICATE VIDEO DETECTION ⚠️⚠️⚠️ This is the EXACT SAME video file (file_size: ${file?.size}) that was analyzed before on ${new Date(previousAnalysisData.created_at).toLocaleDateString('he-IL')}. Previous score: ${previousAnalysisData.average_score.toFixed(0)}/100. Previous recommendation: ${previousAnalysisData.result.takeRecommendation}. YOU MUST: 1) Give the EXACT SAME score (${previousAnalysisData.average_score.toFixed(0)}/100, ±1 point max). 2) Give the EXACT SAME recommendation (${previousAnalysisData.result.takeRecommendation}). 3) Start with: 'זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר.' 4) Provide NEW insights from DIFFERENT angles but maintain SAME overall assessment. This is MANDATORY for professional integrity and user trust. Same video = same performance = same score = same recommendation. NO EXCEPTIONS.` : ''} NO ENGLISH - Hebrew only!"
+          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. ${previousAnalysisData ? `⚠️⚠️⚠️ CRITICAL DUPLICATE VIDEO DETECTION ⚠️⚠️⚠️ This is the EXACT SAME video file (file_size: ${file?.size}) that was analyzed before on ${new Date(previousAnalysisData.created_at).toLocaleDateString('he-IL')}. Previous score: ${previousAnalysisData.average_score.toFixed(0)}/100. Previous recommendation: ${previousAnalysisData.result.takeRecommendation}. YOU MUST: 1) Give the EXACT SAME score (${previousAnalysisData.average_score.toFixed(0)}/100, ±1 point max - ideally IDENTICAL). 2) Give the EXACT SAME recommendation (${previousAnalysisData.result.takeRecommendation}). 3) Start your analysis with: 'זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר.' 4) Provide NEW insights from DIFFERENT angles but maintain SAME overall assessment. 5) DO NOT change the score or recommendation - this is the SAME video file. This is MANDATORY for professional integrity and user trust. Same video = same performance = same score = same recommendation. NO EXCEPTIONS.` : ''} NO ENGLISH - Hebrew only!"
         }
 
         Important:
