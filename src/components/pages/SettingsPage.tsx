@@ -191,7 +191,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
   const getMaxAnalyses = () => {
     const tier = subscription?.tier || profile?.subscription_tier || 'free';
-    return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.limits.maxAnalysesPerPeriod || 2;
+    return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.limits.maxAnalysesPerPeriod || 1; // FREE tier = 1 analysis only
   };
 
   if (!user) {
