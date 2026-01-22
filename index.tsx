@@ -1156,25 +1156,13 @@ const App = () => {
     // Get current usage from database (always fresh - counts by current month)
     let currentUsage;
     try {
-      console.log('📊 Getting usage data...');
-      // Add timeout protection - if it takes more than 3 seconds, allow analysis
-      const usagePromise = getUsageForCurrentPeriod();
-      const timeoutPromise = new Promise((resolve) => setTimeout(() => {
-        console.warn('⚠️ Usage check timeout - allowing analysis');
-        resolve(null);
-      }, 3000));
-      
-      currentUsage = await Promise.race([usagePromise, timeoutPromise]) as any;
-      console.log('📊 Usage data received:', currentUsage);
+      currentUsage = await getUsageForCurrentPeriod();
     } catch (error: any) {
-      console.error('❌ Error getting usage data:', error);
       // Allow analysis if check fails - better UX than blocking
-      console.warn('⚠️ Usage check failed, allowing analysis (will be counted)');
       return { allowed: true };
     }
     
     if (!currentUsage) {
-      console.warn('⚠️ No usage data returned - allowing analysis (will be counted)');
       // Allow analysis if usage check fails - better UX than blocking
       // Usage will be counted when analysis is saved
       return { allowed: true };
@@ -1184,16 +1172,6 @@ const App = () => {
     const minutesUsed = currentUsage.minutesUsed || 0;
     const analysesLimit = plan.limits.maxAnalysesPerPeriod;
     const minutesLimit = plan.limits.maxVideoMinutesPerPeriod;
-
-    console.log('📊 Usage check:', { 
-      tier: effectiveTier, 
-      analysesUsed, 
-      analysesLimit,
-      minutesUsed,
-      minutesLimit,
-      periodStart: currentUsage.periodStart,
-      periodEnd: currentUsage.periodEnd
-    });
 
     // For coach/coach-pro: Check ONLY minutes (analyses are unlimited)
     if (effectiveTier === 'coach' || effectiveTier === 'coach-pro') {
@@ -1680,6 +1658,18 @@ const App = () => {
             }
           } catch (usageError) {
             console.error('Error updating usage:', usageError);
+          }
+          
+          // Notify other tabs/components that analysis was saved
+          try {
+            localStorage.setItem('analysis_saved', Date.now().toString());
+            // Trigger storage event for same-tab listeners
+            window.dispatchEvent(new StorageEvent('storage', {
+              key: 'analysis_saved',
+              newValue: Date.now().toString()
+            }));
+          } catch (e) {
+            // Ignore localStorage errors
           }
         }
       }
@@ -2432,45 +2422,31 @@ const App = () => {
     
     // Check subscription limits for ALL tiers (CRITICAL for plan enforcement)
     if (subscription) {
-      console.log('🔍 Checking subscription limits...', { tier: subscription.tier });
       try {
         const limitCheck = await checkSubscriptionLimits();
-        console.log('✅ Subscription limits check result:', limitCheck);
         if (!limitCheck || !limitCheck.allowed) {
           if (limitCheck && limitCheck.message) {
-            console.warn('⚠️ Limit reached for tier:', subscription.tier);
             alert(limitCheck.message);
             setShowSubscriptionModal(true);
             return;
-          } else {
-            // If check returned null/undefined, allow analysis
-            console.warn('⚠️ Limit check returned invalid result, allowing analysis');
           }
         }
       } catch (error: any) {
-        console.error('❌ Error checking limits:', error);
-        // If check fails, allow but log warning (better UX than blocking)
-        console.warn('⚠️ Limit check failed, allowing analysis (will be counted)');
+        // If check fails, allow analysis (better UX than blocking)
       }
     } else {
       // No subscription - treat as free tier
-      console.log('🔍 No subscription found, checking as free tier...');
       try {
         const limitCheck = await checkSubscriptionLimits();
         if (limitCheck && !limitCheck.allowed) {
           alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
           setShowSubscriptionModal(true);
           return;
-        } else if (!limitCheck) {
-          console.warn('⚠️ Limit check returned null, allowing analysis');
         }
       } catch (error: any) {
-        console.error('❌ Error checking limits:', error);
-        console.warn('⚠️ Skipping limit check, allowing analysis');
+        // If check fails, allow analysis
       }
     }
-    
-    console.log('✅ All checks passed, starting analysis...');
     
     // Start playing video when analysis begins (muted and loop)
     if (videoRef.current && file?.type.startsWith('video')) {

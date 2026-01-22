@@ -861,6 +861,19 @@ export const AdminPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [activeTab, activeSubTab]);
+  
+  // Listen for storage events to refresh usage when analysis is saved
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      // If analysis was saved, refresh usage data
+      if (e.key === 'analysis_saved' && activeTab === 'users') {
+        loadData();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [activeTab]);
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('האם אתה בטוח שברצונך למחוק את המשתמש?')) return;

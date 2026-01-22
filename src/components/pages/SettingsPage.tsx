@@ -38,7 +38,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   });
   const [receiveUpdates, setReceiveUpdates] = useState(profile?.receive_updates ?? true);
   const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
   const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
 
   useEffect(() => {
@@ -56,18 +55,35 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     } else {
       // Reset announcements when leaving the tab
       setAnnouncements([]);
-      setLoadingAnnouncements(false);
     }
   }, [activeTab, user]);
+  
+  // Load receive_updates from profile when it changes
+  useEffect(() => {
+    if (profile) {
+      setReceiveUpdates(profile.receive_updates ?? true);
+    }
+  }, [profile?.receive_updates]);
+  
+  // Listen for analysis saved events to refresh usage
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'analysis_saved' && activeTab === 'subscription') {
+        // Trigger parent to reload usage
+        onProfileUpdate();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [activeTab, onProfileUpdate]);
 
   const loadAnnouncements = async () => {
     if (!user) {
-      setLoadingAnnouncements(false);
       setAnnouncements([]);
       return;
     }
     
-    setLoadingAnnouncements(true);
     try {
       const userAnnouncements = await getUserAnnouncements();
       
@@ -83,9 +99,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     } catch (error) {
       console.error('Error loading announcements:', error);
       setAnnouncements([]);
-    } finally {
-      // ALWAYS set loading to false, even if there's an error
-      setLoadingAnnouncements(false);
     }
   };
 
@@ -617,9 +630,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
             <div>
               <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', textAlign: 'right' }}>עדכונים שנשלחו</h3>
-              {loadingAnnouncements ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#ccc' }}>טוען עדכונים...</div>
-              ) : announcements.length === 0 ? (
+              {announcements.length === 0 ? (
                 <div style={{
                   padding: '40px',
                   textAlign: 'center',
