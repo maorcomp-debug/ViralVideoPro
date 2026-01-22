@@ -2699,81 +2699,19 @@ const App = () => {
 
       console.log('🚀 Starting AI analysis...', { expertsCount: selectedExperts.length, partsCount: parts.length });
 
-      let response: any;
-      try {
-        // Build the correct API structure
-        // contents should be an array of content objects, each with a parts array
-        const requestBody: any = {
-          model: "gemini-2.5-flash",
-          contents: [{ parts }],
-          systemInstruction: systemInstruction,
-          generationConfig: {
-            responseMimeType: "application/json"
-          }
-        };
-        
-        console.log('📤 Sending API request...', { 
-          model: requestBody.model, 
-          partsCount: parts.length,
-          hasSystemInstruction: !!systemInstruction 
-        });
-        
-        response = await ai.models.generateContent(requestBody);
-        
-        console.log('📥 Received API response', { 
-          hasResponse: !!response,
-          responseType: typeof response,
-          responseKeys: response ? Object.keys(response) : []
-        });
-      } catch (apiError: any) {
-        console.error("❌ API Call Error:", apiError);
-        console.error("❌ Error details:", {
-          message: apiError?.message,
-          code: apiError?.error?.code || apiError?.code,
-          status: apiError?.status,
-          stack: apiError?.stack
-        });
-        throw apiError;
-      }
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: { parts },
+        config: { 
+          systemInstruction,
+          responseMimeType: "application/json"
+        }
+      });
 
-      // Robust JSON Parsing - handle different response structures
-      let jsonText = '';
-      
-      // Try multiple ways to extract text from response
-      if (response.text) {
-        if (typeof response.text === 'function') {
-          jsonText = await response.text();
-        } else if (typeof response.text === 'string') {
-          jsonText = response.text;
-        }
-      }
-      
-      if (!jsonText && response.response) {
-        if (typeof response.response.text === 'function') {
-          jsonText = await response.response.text();
-        } else if (typeof response.response.text === 'string') {
-          jsonText = response.response.text;
-        }
-      }
-      
-      if (!jsonText && response.candidates?.[0]?.content?.parts?.[0]?.text) {
-        jsonText = response.candidates[0].content.parts[0].text;
-      }
-      
-      if (!jsonText && response.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
-        // If response is base64, we need to decode it (unlikely but possible)
-        console.warn("⚠️ Response contains inlineData instead of text");
-      }
-      
-      if (!jsonText) {
-        console.error("❌ Could not extract text from response");
-        console.error("❌ Response structure:", JSON.stringify(response, null, 2).substring(0, 1000));
-        jsonText = '{}';
-      }
-      
-      if (jsonText && jsonText !== '{}') {
-        console.log('✅ Successfully extracted response text', { length: jsonText.length });
-      }
+      // Reduced logging
+
+      // Robust JSON Parsing
+      let jsonText = response.text || '{}';
       // Clean potential markdown fencing from the model
       jsonText = jsonText.replace(/```json|```/g, '').trim();
       
