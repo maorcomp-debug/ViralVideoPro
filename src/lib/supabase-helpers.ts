@@ -351,13 +351,14 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
     }
 
     // Strategy 2: Find videos with same size (even if name is different - same file uploaded twice)
+    // This is the KEY strategy - same file = same size, even if name differs
     const { data: sizeVideos, error: sizeVideosError } = await supabase
       .from('videos')
       .select('id, file_name, file_size')
       .eq('user_id', user.id)
       .eq('file_size', fileSize)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(50); // Increased limit to catch all potential matches
 
     if (sizeVideosError) {
       console.error('Error fetching videos by size:', sizeVideosError);
@@ -372,9 +373,16 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
       new Map(allVideos.map(v => [v.id, v])).values()
     );
 
+    console.log(`📊 Video search results:`, {
+      exactMatches: exactVideos?.length || 0,
+      sizeMatches: sizeVideos?.length || 0,
+      uniqueVideos: uniqueVideos.length
+    });
+
     if (uniqueVideos.length === 0) {
-      console.log('⏭️ No matching videos found');
-      return null;
+      console.log('⏭️ No matching videos found in videos table');
+      // Try direct analysis search as fallback
+      return await findPreviousAnalysisDirectly(fileSize, user.id);
     }
 
     console.log(`✅ Found ${uniqueVideos.length} potential matching video(s)`);
@@ -392,7 +400,8 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
 
     if (analysesError) {
       console.error('Error fetching analyses:', analysesError);
-      return null;
+      // Fallback to direct search
+      return await findPreviousAnalysisDirectly(fileSize, user.id);
     }
 
     if (analyses) {
@@ -402,11 +411,59 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
         createdAt: analyses.created_at,
         averageScore: analyses.average_score
       });
+      return analyses;
     }
 
-    return analyses;
+    // Fallback: try direct analysis search
+    console.log('⏭️ No analysis found via video_id, trying direct search...');
+    return await findPreviousAnalysisDirectly(fileSize, user.id);
   } catch (error) {
     console.error('Error in findPreviousAnalysisByVideo:', error);
+    return null;
+  }
+}
+
+// Fallback: Search analyses directly by matching video file_size
+async function findPreviousAnalysisDirectly(fileSize: number, userId: string) {
+  try {
+    // Get all recent analyses with video_id
+    const { data: allAnalyses, error: analysesError } = await supabase
+      .from('analyses')
+      .select('*, videos(file_name, file_size)')
+      .eq('user_id', userId)
+      .not('video_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (analysesError) {
+      console.error('Error in direct analysis search:', analysesError);
+      return null;
+    }
+
+    if (!allAnalyses || allAnalyses.length === 0) {
+      console.log('⏭️ No analyses with video_id found');
+      return null;
+    }
+
+    // Find analysis where video has matching file_size
+    const matchingAnalysis = allAnalyses.find(a => {
+      const video = (a as any).videos;
+      return video && video.file_size === fileSize;
+    });
+
+    if (matchingAnalysis) {
+      console.log('✅ Found matching analysis via direct search:', {
+        analysisId: matchingAnalysis.id,
+        videoSize: (matchingAnalysis as any).videos?.file_size,
+        averageScore: matchingAnalysis.average_score
+      });
+      return matchingAnalysis;
+    }
+
+    console.log('⏭️ No matching analysis found via direct search');
+    return null;
+  } catch (error) {
+    console.error('Error in findPreviousAnalysisDirectly:', error);
     return null;
   }
 }
