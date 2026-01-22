@@ -1154,17 +1154,17 @@ const App = () => {
     }
 
     // Get current usage from database (always fresh - counts by current month)
+    // If this fails or returns null, allow analysis (better UX than blocking)
     let currentUsage;
     try {
       currentUsage = await getUsageForCurrentPeriod();
     } catch (error: any) {
-      // Allow analysis if check fails - better UX than blocking
+      // Allow analysis if check fails
       return { allowed: true };
     }
     
     if (!currentUsage) {
-      // Allow analysis if usage check fails - better UX than blocking
-      // Usage will be counted when analysis is saved
+      // Allow analysis if usage check fails - usage will be counted when analysis is saved
       return { allowed: true };
     }
 
@@ -2432,16 +2432,17 @@ const App = () => {
     }
     
     // Check subscription limits for ALL tiers (CRITICAL for plan enforcement)
+    // If check fails or returns null, allow analysis (better UX than blocking)
     if (subscription) {
       try {
         const limitCheck = await checkSubscriptionLimits();
-        if (!limitCheck || !limitCheck.allowed) {
-          if (limitCheck && limitCheck.message) {
-            alert(limitCheck.message);
-            setShowSubscriptionModal(true);
-            return;
-          }
+        // Only block if we got a valid result AND it says not allowed
+        if (limitCheck && !limitCheck.allowed && limitCheck.message) {
+          alert(limitCheck.message);
+          setShowSubscriptionModal(true);
+          return;
         }
+        // If limitCheck is null/undefined or allowed=true, continue
       } catch (error: any) {
         // If check fails, allow analysis (better UX than blocking)
       }
@@ -2449,11 +2450,13 @@ const App = () => {
       // No subscription - treat as free tier
       try {
         const limitCheck = await checkSubscriptionLimits();
-        if (limitCheck && !limitCheck.allowed) {
+        // Only block if we got a valid result AND it says not allowed
+        if (limitCheck && !limitCheck.allowed && limitCheck.message) {
           alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
           setShowSubscriptionModal(true);
           return;
         }
+        // If limitCheck is null/undefined or allowed=true, continue
       } catch (error: any) {
         // If check fails, allow analysis
       }
