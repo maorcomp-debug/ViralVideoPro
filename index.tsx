@@ -2362,10 +2362,15 @@ const App = () => {
       let previousAnalysisData: any = null;
       
       if (file && user) {
-        // בדיקה ישירה ב-Supabase לפי file name + size
+        // בדיקה ישירה ב-Supabase לפי file name + size (עם timeout כדי לא לעצור את הניתוח)
         try {
-          const previousAnalysis = await findPreviousAnalysisByVideo(file.name, file.size);
+          console.log('🔍 Checking for duplicate video:', { fileName: file.name, fileSize: file.size });
+          const duplicateCheckPromise = findPreviousAnalysisByVideo(file.name, file.size);
+          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 3000)); // 3 second timeout
+          const previousAnalysis = await Promise.race([duplicateCheckPromise, timeoutPromise]) as any;
+          
           if (previousAnalysis && previousAnalysis.result) {
+            console.log('✅ Found duplicate video analysis:', previousAnalysis.id);
             previousAnalysisData = previousAnalysis;
             const prevResult = previousAnalysis.result;
             const prevScore = previousAnalysis.average_score || 
@@ -2403,9 +2408,11 @@ const App = () => {
           `;
           }
         } catch (error) {
-          console.error('Error checking for duplicate video:', error);
-          // Continue without duplicate detection if error occurs
+          console.error('❌ Error checking for duplicate video:', error);
+          // Continue without duplicate detection if error occurs - don't block analysis
         }
+      } else {
+        console.log('⏭️ Skipping duplicate check:', { hasFile: !!file, hasUser: !!user });
       }
       
       let pdfContext = '';
@@ -2586,6 +2593,14 @@ const App = () => {
          }
       }
 
+      console.log('🚀 Starting AI analysis...', { 
+        model: 'gemini-2.5-flash',
+        hasFile: !!file,
+        hasPrompt: !!prompt,
+        expertsCount: selectedExperts.length,
+        hasDuplicateContext: !!duplicateVideoContext
+      });
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: { parts },
@@ -2593,6 +2608,12 @@ const App = () => {
           systemInstruction,
           responseMimeType: "application/json"
         }
+      });
+
+      console.log('✅ AI response received:', { 
+        hasResponse: !!response,
+        hasText: !!response.text,
+        textLength: response.text?.length || 0
       });
 
       // Robust JSON Parsing
@@ -2603,21 +2624,41 @@ const App = () => {
       let parsedResult: AnalysisResult;
       try {
         parsedResult = JSON.parse(jsonText) as AnalysisResult;
+        console.log('✅ JSON parsed successfully:', {
+          hasExpertAnalysis: !!parsedResult.expertAnalysis,
+          expertsCount: parsedResult.expertAnalysis?.length || 0,
+          hasHook: !!parsedResult.hook,
+          hasCommittee: !!parsedResult.committee,
+          hasTakeRecommendation: !!parsedResult.takeRecommendation
+        });
       } catch (e) {
-        console.error("JSON Parse Error", e);
-        console.log("Raw Text:", jsonText);
+        console.error("❌ JSON Parse Error", e);
+        console.error("Raw Text (first 500 chars):", jsonText.substring(0, 500));
+        console.error("Raw Text (last 500 chars):", jsonText.substring(Math.max(0, jsonText.length - 500)));
         alert("התקבלה תשובה לא תקינה מהמערכת. אנא נסה שוב.");
+        setLoading(false);
+        return;
+      }
+      
+      // Validate result structure
+      if (!parsedResult.expertAnalysis || parsedResult.expertAnalysis.length === 0) {
+        console.error("❌ Invalid result structure - no expertAnalysis");
+        alert("התקבלה תשובה לא תקינה מהמערכת (חסרים ניתוחי מומחים). אנא נסה שוב.");
         setLoading(false);
         return;
       }
       
       // Calculate average
       if (parsedResult.expertAnalysis && parsedResult.expertAnalysis.length > 0) {
-        const total = parsedResult.expertAnalysis.reduce((acc, curr) => acc + curr.score, 0);
-        setAverageScore(Math.round(total / parsedResult.expertAnalysis.length));
+        const total = parsedResult.expertAnalysis.reduce((acc, curr) => acc + (curr.score || 0), 0);
+        const avg = Math.round(total / parsedResult.expertAnalysis.length);
+        setAverageScore(avg);
+        console.log('✅ Average score calculated:', avg);
       }
 
+      console.log('✅ Setting result state...');
       setResult(parsedResult);
+      console.log('✅ Result state set successfully');
       
       // Don't auto-save analysis here - let user save manually via "שמור ניתוח למתאמן" button
       // This prevents duplicate saves and gives user control over when to save
@@ -2634,16 +2675,27 @@ const App = () => {
       }, 200);
 
     } catch (error: any) {
-      console.error("API Error:", error);
+      console.error("❌ API Error:", error);
+      console.error("❌ Error details:", {
+        message: error?.message,
+        code: error?.error?.code || error?.status,
+        status: error?.status,
+        statusText: error?.statusText,
+        response: error?.response
+      });
+      
       const code = error?.error?.code || error?.status;
       if (code === 429) {
         alert("חרגת ממכסת הקריאות למודל Gemini בחשבון גוגל. יש להמתין לחידוש המכסה או לשדרג חבילה.");
       } else if (code === 503) {
         alert("המודל של Gemini כרגע עמוס (503). נסה שוב בעוד כמה דקות.");
+      } else if (code === 400) {
+        alert("בקשה לא תקינה למודל. ייתכן שהקובץ גדול מדי או שיש בעיה בפורמט.");
       } else {
-        alert("אירעה שגיאה בניתוח. ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.");
+        alert(`אירעה שגיאה בניתוח (קוד: ${code || 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
       }
     } finally {
+      console.log('🔄 Setting loading to false');
       setLoading(false);
     }
   };
