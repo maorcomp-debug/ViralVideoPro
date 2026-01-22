@@ -328,6 +328,54 @@ export async function getAnalyses(traineeId?: string) {
   return data || [];
 }
 
+// Check for previous analysis with same video file (by name + size)
+export async function findPreviousAnalysisByVideo(fileName: string, fileSize: number) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  try {
+    // First, try to find videos with matching name and size
+    const { data: videos, error: videosError } = await supabase
+      .from('videos')
+      .select('id, file_name, file_size')
+      .eq('user_id', user.id)
+      .eq('file_name', fileName)
+      .eq('file_size', fileSize)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (videosError) {
+      console.error('Error fetching videos:', videosError);
+      return null;
+    }
+
+    if (!videos || videos.length === 0) {
+      return null;
+    }
+
+    // Find analyses for these videos
+    const videoIds = videos.map(v => v.id);
+    const { data: analyses, error: analysesError } = await supabase
+      .from('analyses')
+      .select('*, videos(file_name, file_size)')
+      .eq('user_id', user.id)
+      .in('video_id', videoIds)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (analysesError) {
+      console.error('Error fetching analyses:', analysesError);
+      return null;
+    }
+
+    return analyses;
+  } catch (error) {
+    console.error('Error in findPreviousAnalysisByVideo:', error);
+    return null;
+  }
+}
+
 export async function getTrainees() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];

@@ -46,6 +46,7 @@ import {
   getTrainees,
   saveTrainee,
   getAnalyses,
+  findPreviousAnalysisByVideo,
   isAdmin,
   getAllUsers,
   updateUserProfile,
@@ -2358,40 +2359,52 @@ const App = () => {
       
       // זיהוי סרטון זהה - אם זה אותו סרטון, לתת משוב נוסף מהיבטים שונים אבל לשמור על אותו ציון
       let duplicateVideoContext = '';
-      if (file && fileIdentifier && savedAnalyses.length > 0) {
-        // חיפוש ניתוח קודם עם אותו file name
-        const currentFileName = file.name.toLowerCase();
-        const previousAnalysis = savedAnalyses.find(a => {
-          // בדיקה אם יש video_id או file_name תואם
-          if (a.videoName && a.videoName.toLowerCase() === currentFileName) {
-            return true;
-          }
-          // בדיקה גם לפי video_id אם יש
-          if (a.videoUrl && a.videoUrl.includes(file.name)) {
-            return true;
-          }
-          return false;
-        });
-        
-        if (previousAnalysis && previousAnalysis.result) {
-          const prevScore = previousAnalysis.averageScore || 
-            (previousAnalysis.result.expertAnalysis?.reduce((sum: number, e: any) => sum + (e.score || 0), 0) / (previousAnalysis.result.expertAnalysis?.length || 1));
-          duplicateVideoContext = `
+      let previousAnalysisData: any = null;
+      
+      if (file && user) {
+        // בדיקה ישירה ב-Supabase לפי file name + size
+        try {
+          const previousAnalysis = await findPreviousAnalysisByVideo(file.name, file.size);
+          if (previousAnalysis && previousAnalysis.result) {
+            previousAnalysisData = previousAnalysis;
+            const prevResult = previousAnalysis.result;
+            const prevScore = previousAnalysis.average_score || 
+              (prevResult.expertAnalysis?.reduce((sum: number, e: any) => sum + (e.score || 0), 0) / (prevResult.expertAnalysis?.length || 1));
+            const prevTakeRecommendation = prevResult.takeRecommendation || '';
+            const hadRetakeRecommendation = prevTakeRecommendation.toLowerCase().includes('טייק נוסף') || 
+                                          prevTakeRecommendation.toLowerCase().includes('טייק חוזר') || 
+                                          prevTakeRecommendation.toLowerCase().includes('retake') ||
+                                          prevTakeRecommendation.toLowerCase().includes('מומלץ לבצע') ||
+                                          prevTakeRecommendation.toLowerCase().includes('מומלץ טייק');
+            
+            duplicateVideoContext = `
           
-          ⚠️ IMPORTANT: This appears to be the SAME video file as a previous analysis.
-          Previous analysis score: ${prevScore.toFixed(0)}/100
+          ⚠️⚠️⚠️ CRITICAL: This is the EXACT SAME video file as a previous analysis! ⚠️⚠️⚠️
           
-          CRITICAL INSTRUCTIONS:
-          1. You MUST maintain the SAME overall score range (±2 points) as the previous analysis (${prevScore.toFixed(0)}/100)
-          2. Provide ADDITIONAL feedback from DIFFERENT angles and perspectives
-          3. Focus on NEW aspects that weren't covered in the previous analysis
-          4. Be authentic and professional - don't artificially inflate or deflate the score
-          5. Maintain consistency in your professional assessment
-          6. The score should reflect the SAME performance quality, but your analysis can explore different dimensions
-          7. If the previous score was ${prevScore.toFixed(0)}, your new score should be between ${Math.max(0, prevScore - 2).toFixed(0)} and ${Math.min(100, prevScore + 2).toFixed(0)}
+          Previous analysis details:
+          - Score: ${prevScore.toFixed(0)}/100
+          - Date: ${new Date(previousAnalysis.created_at).toLocaleDateString('he-IL')}
+          - Previous recommendation: ${hadRetakeRecommendation ? 'Recommended retake' : 'Ready to submit'}
           
-          This ensures authenticity and prevents score manipulation while still providing valuable additional insights.
+          ABSOLUTE REQUIREMENTS (NO EXCEPTIONS):
+          1. You MUST maintain the EXACT SAME score: ${prevScore.toFixed(0)}/100 (±1 point maximum, ideally identical)
+          2. This is the SAME video - same performance, same quality, same everything
+          3. You MUST explicitly state in Hebrew at the beginning of your analysis: "זהו אותו סרטון שנותח בעבר. הניתוח הנוכחי מספק זוויות נוספות ומעמיקות יותר."
+          4. Provide ADDITIONAL feedback from DIFFERENT angles and perspectives - explore NEW dimensions
+          5. Focus on aspects NOT covered in the previous analysis
+          6. Maintain CONSISTENCY in professional assessment - same quality = same score
+          7. If previous analysis recommended retake, you MUST also recommend retake (same video = same issues)
+          8. If previous analysis said "ready to submit", you can say "ready to submit" but with additional insights
+          9. DO NOT inflate or deflate the score - maintain professional integrity
+          10. Your new score MUST be between ${Math.max(0, Math.floor(prevScore) - 1)} and ${Math.min(100, Math.ceil(prevScore) + 1)}
+          
+          This ensures authenticity, prevents score manipulation, and maintains professional consistency.
+          The user is analyzing the SAME video again - your job is to provide DIFFERENT insights while maintaining the SAME score.
           `;
+          }
+        } catch (error) {
+          console.error('Error checking for duplicate video:', error);
+          // Continue without duplicate detection if error occurs
         }
       }
       
@@ -2485,6 +2498,11 @@ const App = () => {
            - If the performance is ready: Clearly state if the video/take is ready to submit/upload in its current state, and why
            - If a retake is needed: Honestly recommend another take if significant improvements are needed, explaining specifically what should be improved
            - Be authentic - don't always recommend retakes, and don't always say it's ready. Assess professionally and honestly.
+           ${previousAnalysisData ? `
+           - CRITICAL: If this is the same video as a previous analysis that recommended retake, you MUST also recommend retake (same video = same issues)
+           - CRITICAL: If this is the same video as a previous analysis that said "ready", you can say "ready" but with additional insights
+           - Maintain consistency with previous analysis recommendation when analyzing the same video
+           ` : ''}
 
         Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be Hebrew):
         {
@@ -2501,7 +2519,7 @@ const App = () => {
             "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (Hebrew only)",
             "finalTips": ["Professional tip 1 (Hebrew)", "Professional tip 2 (Hebrew)", "Professional tip 3 (Hebrew)"]
           },
-          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - give friendly suggestions for what to improve in next take. NO ENGLISH - Hebrew only!"
+          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - give friendly suggestions for what to improve in next take. ${previousAnalysisData ? 'IMPORTANT: If this is the same video as analyzed before, maintain consistency with previous recommendation. Same video = same quality = same recommendation (unless you provide NEW insights that justify change).' : ''} NO ENGLISH - Hebrew only!"
         }
 
         Important:
