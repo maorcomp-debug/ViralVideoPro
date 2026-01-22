@@ -426,42 +426,63 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
 // Fallback: Search analyses directly by matching video file_size
 async function findPreviousAnalysisDirectly(fileSize: number, userId: string) {
   try {
-    // Get all recent analyses with video_id
+    console.log('🔍 Direct analysis search - checking all recent analyses...');
+    
+    // First, get ALL videos with matching file_size (regardless of name)
+    const { data: matchingVideos, error: videosError } = await supabase
+      .from('videos')
+      .select('id, file_name, file_size, created_at')
+      .eq('user_id', userId)
+      .eq('file_size', fileSize)
+      .order('created_at', { ascending: false })
+      .limit(100); // Check up to 100 videos with same size
+
+    if (videosError) {
+      console.error('Error fetching matching videos:', videosError);
+    }
+
+    if (!matchingVideos || matchingVideos.length === 0) {
+      console.log('⏭️ No videos with matching file_size found');
+      return null;
+    }
+
+    console.log(`✅ Found ${matchingVideos.length} video(s) with matching file_size:`, {
+      fileSize,
+      videoIds: matchingVideos.map(v => v.id),
+      fileNames: matchingVideos.map(v => v.file_name)
+    });
+
+    // Get analyses for ALL matching videos (not just the first one)
+    const videoIds = matchingVideos.map(v => v.id);
     const { data: allAnalyses, error: analysesError } = await supabase
       .from('analyses')
       .select('*, videos(file_name, file_size)')
       .eq('user_id', userId)
-      .not('video_id', 'is', null)
+      .in('video_id', videoIds)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(10); // Get up to 10 most recent analyses
 
     if (analysesError) {
-      console.error('Error in direct analysis search:', analysesError);
+      console.error('Error fetching analyses for matching videos:', analysesError);
       return null;
     }
 
     if (!allAnalyses || allAnalyses.length === 0) {
-      console.log('⏭️ No analyses with video_id found');
+      console.log('⏭️ No analyses found for matching videos');
       return null;
     }
 
-    // Find analysis where video has matching file_size
-    const matchingAnalysis = allAnalyses.find(a => {
-      const video = (a as any).videos;
-      return video && video.file_size === fileSize;
+    // Return the most recent analysis (first one in the list)
+    const mostRecentAnalysis = allAnalyses[0];
+    console.log('✅ Found matching analysis via direct search:', {
+      analysisId: mostRecentAnalysis.id,
+      videoId: mostRecentAnalysis.video_id,
+      videoSize: (mostRecentAnalysis as any).videos?.file_size,
+      averageScore: mostRecentAnalysis.average_score,
+      createdAt: mostRecentAnalysis.created_at
     });
-
-    if (matchingAnalysis) {
-      console.log('✅ Found matching analysis via direct search:', {
-        analysisId: matchingAnalysis.id,
-        videoSize: (matchingAnalysis as any).videos?.file_size,
-        averageScore: matchingAnalysis.average_score
-      });
-      return matchingAnalysis;
-    }
-
-    console.log('⏭️ No matching analysis found via direct search');
-    return null;
+    
+    return mostRecentAnalysis;
   } catch (error) {
     console.error('Error in findPreviousAnalysisDirectly:', error);
     return null;
