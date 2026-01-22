@@ -2480,6 +2480,8 @@ const App = () => {
       return;
     }
     
+    console.log('✅ All checks passed, starting analysis...');
+    
     // Start playing video immediately when analysis begins (muted and loop)
     if (videoRef.current && file?.type.startsWith('video')) {
         videoRef.current.muted = true;
@@ -2488,8 +2490,10 @@ const App = () => {
     }
 
     setLoading(true);
+    console.log('🔄 Loading state set to true');
     
     try {
+      console.log('🔑 Checking API key...');
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
         alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY בסביבת ההרצה.");
@@ -2497,6 +2501,7 @@ const App = () => {
         return;
       }
 
+      console.log('🤖 Creating AI instance...');
       const ai = new GoogleGenAI({ apiKey });
       const expertPanel = selectedExperts.join(', ');
 
@@ -2519,7 +2524,9 @@ const App = () => {
       if (file && user) {
         // בדיקה ישירה ב-Supabase לפי file_size בלבד - CRITICAL for duplicate detection
         try {
+          console.log('🔍 Checking for duplicate video...', { fileName: file.name, fileSize: file.size });
           const previousAnalysis = await findPreviousAnalysisByVideo(file.name, file.size);
+          console.log('🔍 Duplicate check result:', previousAnalysis ? 'Found duplicate' : 'No duplicate found');
           
           if (previousAnalysis && previousAnalysis.result) {
             previousAnalysisData = previousAnalysis;
@@ -2730,6 +2737,7 @@ const App = () => {
         ` : ''}
       `;
 
+      console.log('📦 Building parts array...');
       const parts = [];
       
       // Force a text part if prompt is empty to ensure API stability
@@ -2740,6 +2748,7 @@ const App = () => {
       }
       
       if (file) {
+        console.log('📁 Processing file...', { fileName: file.name, fileSize: file.size, fileType: file.type });
         const maxFileBytes = getMaxFileBytes(activeTrack, subscription || undefined);
         const maxVideoSeconds = getMaxVideoSeconds(activeTrack, subscription || undefined);
         const limitText = getUploadLimitText(activeTrack, subscription || undefined);
@@ -2761,10 +2770,12 @@ const App = () => {
           }
         }
         try {
+          console.log('🔄 Converting file to generative part...');
           const imagePart = await fileToGenerativePart(file);
           parts.push(imagePart);
+          console.log('✅ File converted successfully');
         } catch (e) {
-          console.error("File processing error", e);
+          console.error("❌ File processing error", e);
           alert("שגיאה בעיבוד הקובץ");
           setLoading(false);
           return;
@@ -2773,15 +2784,16 @@ const App = () => {
 
       if (pdfFile) {
          try {
+           console.log('📄 Processing PDF...');
            const pdfPart = await fileToGenerativePart(pdfFile);
            parts.push(pdfPart);
+           console.log('✅ PDF processed successfully');
          } catch(e) {
-            console.error("PDF processing error", e);
+            console.error("❌ PDF processing error", e);
          }
       }
 
-      // Reduced logging - only log key steps
-      console.log('🚀 Starting analysis...', { expertsCount: selectedExperts.length });
+      console.log('🚀 Starting AI analysis...', { expertsCount: selectedExperts.length, partsCount: parts.length });
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
