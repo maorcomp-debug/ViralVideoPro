@@ -162,32 +162,45 @@ export async function getUsageForCurrentPeriod() {
     }
 
     // Calculate total video minutes used this month
-    // Join with videos table to get duration
-    const { data: analysesWithVideos, error: videosError } = await supabase
-      .from('analyses')
-      .select(`
-        id,
-        video_id,
-        videos (
-          duration_seconds
-        )
-      `)
-      .eq('user_id', user.id)
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString())
-      .not('video_id', 'is', null);
-
+    // Join with videos table to get duration (with timeout to prevent hanging)
     let totalMinutesUsed = 0;
-    if (!videosError && analysesWithVideos) {
-      analysesWithVideos.forEach((analysis: any) => {
-        const video = analysis.videos;
-        if (video && video.duration_seconds) {
-          // Convert seconds to minutes (round up)
-          totalMinutesUsed += Math.ceil(video.duration_seconds / 60);
-        }
-      });
-    } else if (videosError) {
-      console.error('❌ Error fetching video durations:', videosError);
+    try {
+      const videosQueryPromise = supabase
+        .from('analyses')
+        .select(`
+          id,
+          video_id,
+          videos (
+            duration_seconds
+          )
+        `)
+        .eq('user_id', user.id)
+        .gte('created_at', monthStart.toISOString())
+        .lte('created_at', monthEnd.toISOString())
+        .not('video_id', 'is', null);
+
+      // Add timeout to prevent hanging (5 seconds max)
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+      const videosResult = await Promise.race([videosQueryPromise, timeoutPromise]) as any;
+
+      if (videosResult && !videosResult.error && videosResult.data) {
+        videosResult.data.forEach((analysis: any) => {
+          const video = analysis.videos;
+          if (video && video.duration_seconds) {
+            // Convert seconds to minutes (round up)
+            totalMinutesUsed += Math.ceil(video.duration_seconds / 60);
+          }
+        });
+      } else if (videosResult && videosResult.error) {
+        console.warn('⚠️ Error fetching video durations (non-critical):', videosResult.error);
+        // Don't fail - continue with minutesUsed = 0
+      } else {
+        console.warn('⚠️ Video durations query timed out (non-critical)');
+        // Don't fail - continue with minutesUsed = 0
+      }
+    } catch (error) {
+      console.warn('⚠️ Exception calculating minutes (non-critical):', error);
+      // Don't fail - continue with minutesUsed = 0
     }
 
     return {

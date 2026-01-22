@@ -2426,10 +2426,16 @@ const App = () => {
     }
     
     // Check subscription limits for ALL tiers (CRITICAL for plan enforcement)
+    // Add timeout to prevent hanging (10 seconds max)
     if (subscription) {
       console.log('🔍 Checking subscription limits...', { tier: subscription.tier });
       try {
-        const limitCheck = await checkSubscriptionLimits();
+        const limitCheckPromise = checkSubscriptionLimits();
+        const timeoutPromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => 
+          setTimeout(() => resolve({ allowed: true }), 10000) // 10 second timeout
+        );
+        const limitCheck = await Promise.race([limitCheckPromise, timeoutPromise]);
+        
         console.log('✅ Subscription limits check result:', limitCheck);
         if (!limitCheck.allowed) {
           console.warn('⚠️ Limit reached for tier:', subscription.tier);
@@ -2439,14 +2445,19 @@ const App = () => {
         }
       } catch (error: any) {
         console.error('❌ Error checking limits:', error);
-        // If check fails, still allow but log warning
+        // If check fails, allow but log warning (better UX than blocking)
         console.warn('⚠️ Limit check failed, allowing analysis (will be counted)');
       }
     } else {
       // No subscription - treat as free tier
       console.log('🔍 No subscription found, checking as free tier...');
       try {
-        const limitCheck = await checkSubscriptionLimits();
+        const limitCheckPromise = checkSubscriptionLimits();
+        const timeoutPromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => 
+          setTimeout(() => resolve({ allowed: true }), 10000) // 10 second timeout
+        );
+        const limitCheck = await Promise.race([limitCheckPromise, timeoutPromise]);
+        
         if (!limitCheck.allowed) {
           alert(limitCheck.message || 'סיימת את הניתוחים החינמיים. יש לשדרג את החבילה.');
           setShowSubscriptionModal(true);
