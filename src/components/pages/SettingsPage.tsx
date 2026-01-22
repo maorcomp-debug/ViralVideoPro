@@ -60,26 +60,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     }
   }, [activeTab, user]);
 
-  // Reload usage when subscription tab is opened
-  useEffect(() => {
-    if (activeTab === 'subscription' && user) {
-      // Force reload usage data when opening subscription tab
-      const reloadUsage = async () => {
-        try {
-          const { getUsageForCurrentPeriod } = await import('../../lib/supabase-helpers');
-          const updatedUsage = await getUsageForCurrentPeriod();
-          if (updatedUsage) {
-            // Update usage via parent component if possible
-            // The usage prop should already be updated by parent, but we can trigger a refresh
-          }
-        } catch (error) {
-          console.error('Error reloading usage:', error);
-        }
-      };
-      reloadUsage();
-    }
-  }, [activeTab, user]);
-
   const loadAnnouncements = async () => {
     if (!user) {
       setLoadingAnnouncements(false);
