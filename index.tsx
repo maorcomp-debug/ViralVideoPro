@@ -2374,8 +2374,6 @@ const App = () => {
           const previousAnalysis = await Promise.race([duplicateCheckPromise, timeoutPromise]) as any;
           
           if (previousAnalysis && previousAnalysis.result) {
-            // Only log if duplicate found
-            console.log('🔍 Found duplicate video - maintaining consistency');
             previousAnalysisData = previousAnalysis;
             const prevResult = previousAnalysis.result;
             const prevScore = previousAnalysis.average_score || 
@@ -2386,6 +2384,12 @@ const App = () => {
                                           prevTakeRecommendation.toLowerCase().includes('retake') ||
                                           prevTakeRecommendation.toLowerCase().includes('מומלץ לבצע') ||
                                           prevTakeRecommendation.toLowerCase().includes('מומלץ טייק');
+            
+            console.log('🔍 Found duplicate video - maintaining consistency', {
+              prevScore: prevScore.toFixed(0),
+              prevRecommendation: hadRetakeRecommendation ? 'retake' : 'ready',
+              analysisDate: previousAnalysis.created_at
+            });
             
             duplicateVideoContext = `
           
@@ -2411,6 +2415,8 @@ const App = () => {
           This ensures authenticity, prevents score manipulation, and maintains professional consistency.
           The user is analyzing the SAME video again - your job is to provide DIFFERENT insights while maintaining the SAME score.
           `;
+          } else {
+            console.log('⏭️ No duplicate video found - this is a new video');
           }
         } catch (error) {
           // Silent error - continue without duplicate detection if error occurs

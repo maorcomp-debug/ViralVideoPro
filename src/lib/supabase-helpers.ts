@@ -328,14 +328,16 @@ export async function getAnalyses(traineeId?: string) {
   return data || [];
 }
 
-// Check for previous analysis with same video file (by name + size)
+// Check for previous analysis with same video file (by name + size, or size only)
 export async function findPreviousAnalysisByVideo(fileName: string, fileSize: number) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
   try {
-    // First, try to find videos with matching name and size
-    const { data: videos, error: videosError } = await supabase
+    console.log('🔍 Searching for duplicate video:', { fileName, fileSize });
+    
+    // Strategy 1: Find videos with exact match (name + size)
+    const { data: exactVideos, error: exactVideosError } = await supabase
       .from('videos')
       .select('id, file_name, file_size')
       .eq('user_id', user.id)
@@ -344,17 +346,41 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
       .order('created_at', { ascending: false })
       .limit(10);
 
-    if (videosError) {
-      console.error('Error fetching videos:', videosError);
+    if (exactVideosError) {
+      console.error('Error fetching exact videos:', exactVideosError);
+    }
+
+    // Strategy 2: Find videos with same size (even if name is different - same file uploaded twice)
+    const { data: sizeVideos, error: sizeVideosError } = await supabase
+      .from('videos')
+      .select('id, file_name, file_size')
+      .eq('user_id', user.id)
+      .eq('file_size', fileSize)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (sizeVideosError) {
+      console.error('Error fetching videos by size:', sizeVideosError);
+    }
+
+    // Combine both strategies and remove duplicates
+    const allVideos = [
+      ...(exactVideos || []),
+      ...(sizeVideos || [])
+    ];
+    const uniqueVideos = Array.from(
+      new Map(allVideos.map(v => [v.id, v])).values()
+    );
+
+    if (uniqueVideos.length === 0) {
+      console.log('⏭️ No matching videos found');
       return null;
     }
 
-    if (!videos || videos.length === 0) {
-      return null;
-    }
+    console.log(`✅ Found ${uniqueVideos.length} potential matching video(s)`);
 
     // Find analyses for these videos
-    const videoIds = videos.map(v => v.id);
+    const videoIds = uniqueVideos.map(v => v.id);
     const { data: analyses, error: analysesError } = await supabase
       .from('analyses')
       .select('*, videos(file_name, file_size)')
@@ -367,6 +393,15 @@ export async function findPreviousAnalysisByVideo(fileName: string, fileSize: nu
     if (analysesError) {
       console.error('Error fetching analyses:', analysesError);
       return null;
+    }
+
+    if (analyses) {
+      console.log('✅ Found previous analysis for same video:', {
+        analysisId: analyses.id,
+        videoId: analyses.video_id,
+        createdAt: analyses.created_at,
+        averageScore: analyses.average_score
+      });
     }
 
     return analyses;
