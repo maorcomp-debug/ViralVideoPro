@@ -1157,7 +1157,14 @@ const App = () => {
     let currentUsage;
     try {
       console.log('📊 Getting usage data...');
-      currentUsage = await getUsageForCurrentPeriod();
+      // Add timeout protection - if it takes more than 3 seconds, allow analysis
+      const usagePromise = getUsageForCurrentPeriod();
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => {
+        console.warn('⚠️ Usage check timeout - allowing analysis');
+        resolve(null);
+      }, 3000));
+      
+      currentUsage = await Promise.race([usagePromise, timeoutPromise]) as any;
       console.log('📊 Usage data received:', currentUsage);
     } catch (error: any) {
       console.error('❌ Error getting usage data:', error);

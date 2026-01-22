@@ -133,8 +133,13 @@ export async function getCurrentSubscription() {
 export async function getUsageForCurrentPeriod() {
   try {
     console.log('📊 getUsageForCurrentPeriod: Starting...');
-    const subscription = await getCurrentSubscription();
-    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Get user first (don't wait for subscription)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('❌ getUsageForCurrentPeriod: Error getting user:', userError);
+      return null;
+    }
     if (!user) {
       console.warn('⚠️ getUsageForCurrentPeriod: No user');
       return null;
