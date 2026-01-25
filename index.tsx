@@ -2588,43 +2588,25 @@ const App = () => {
       return;
     }
     
-    // Quick check using cached usage data (non-blocking)
-    // Full check happens in background - don't block UI
-    const quickCheck = (() => {
-      if (!subscription) return { allowed: true };
-      const effectiveTier = subscription.tier;
-      const plan = SUBSCRIPTION_PLANS[effectiveTier];
-      if (!plan) return { allowed: true };
-      
-      // Use cached usage if available (fast check)
-      const cachedUsage = usage || subscription.usage;
-      if (cachedUsage && effectiveTier === 'free') {
-        const analysesUsed = cachedUsage.analysesUsed || 0;
-        const analysesLimit = plan.limits.maxAnalysesPerPeriod;
-        if (analysesLimit !== -1 && analysesUsed >= analysesLimit) {
-          const now = new Date();
-          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-          const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          return { 
-            allowed: false, 
-            message: `סיימת את ניתוח הטעימה החינמי (${analysesLimit} ניתוח). ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
-          };
+    // CRITICAL: Check subscription limits BEFORE starting analysis (BLOCKING)
+    // This prevents users from exceeding their package limits
+    setLoading(true); // Show loading while checking
+    
+    try {
+      const limitCheck = await checkSubscriptionLimits();
+      if (!limitCheck.allowed) {
+        setLoading(false);
+        if (limitCheck.message) {
+          alert(limitCheck.message);
         }
+        setShowSubscriptionModal(true);
+        return;
       }
-      return { allowed: true };
-    })();
-    
-    if (!quickCheck.allowed) {
-      if (quickCheck.message) {
-        alert(quickCheck.message);
-      }
-      return;
+    } catch (error) {
+      console.error('❌ Error checking subscription limits:', error);
+      // If check fails, allow analysis (better UX than blocking)
+      // But log the error for debugging
     }
-    
-    // Full check in background (non-blocking) - will enforce limits when saving
-    checkSubscriptionLimits().catch(() => {
-      // Ignore errors - limits will be enforced when saving analysis
-    });
     
     // Start playing video immediately when analysis begins (muted and loop)
     if (videoRef.current && file?.type.startsWith('video')) {
@@ -2633,8 +2615,8 @@ const App = () => {
         videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
     }
 
-    setLoading(true);
-    console.log('🔄 Loading state set to true');
+    // Loading already set to true above during limit check
+    console.log('🔄 Starting analysis after limit check passed');
     
     try {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
@@ -3014,11 +2996,19 @@ const App = () => {
             } catch (e) {
               // Ignore localStorage errors
             }
-          } catch (saveError) {
+          } catch (saveError: any) {
             console.error('❌ Error saving analysis immediately:', saveError);
             console.error('❌ Save error details:', JSON.stringify(saveError, null, 2));
+            console.error('❌ Save error code:', saveError?.code);
+            console.error('❌ Save error message:', saveError?.message);
+            console.error('❌ Save error hint:', saveError?.hint);
+            console.error('❌ Save error details:', saveError?.details);
+            
             // Show alert to user so they know the analysis wasn't saved
-            alert('⚠️ הניתוח הושלם אבל לא נשמר במסד הנתונים. נא לנסות שוב או ליצור קשר עם התמיכה.');
+            const errorMessage = saveError?.message || 'שגיאה לא ידועה';
+            const errorCode = saveError?.code || 'UNKNOWN';
+            alert(`⚠️ הניתוח הושלם אבל לא נשמר במסד הנתונים.\n\nשגיאה: ${errorMessage}\nקוד: ${errorCode}\n\nנא לנסות שוב או ליצור קשר עם התמיכה.`);
+            
             // Don't block UI - analysis result is still shown
             // Usage will be updated on next page load or when user manually saves
           }
