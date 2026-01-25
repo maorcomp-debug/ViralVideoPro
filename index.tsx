@@ -1170,99 +1170,105 @@ const App = () => {
   };
 
   const checkSubscriptionLimits = async (): Promise<{ allowed: boolean; message?: string }> => {
-    // If no subscription, treat as free tier
-    const effectiveTier = subscription?.tier || 'free';
-    const effectiveSubscription = subscription || {
-      tier: 'free' as SubscriptionTier,
-      billingPeriod: 'monthly' as BillingPeriod,
-      startDate: new Date(),
-      endDate: new Date(),
-      usage: { analysesUsed: 0, lastResetDate: new Date() },
-      isActive: true,
-    };
-
-    const plan = SUBSCRIPTION_PLANS[effectiveTier];
-    if (!plan) {
-      console.error('❌ Invalid tier:', effectiveTier);
-      return { allowed: false, message: 'חבילה לא תקינה. נא ליצור קשר עם התמיכה.' };
-    }
-    
-    // Check if subscription is active (for paid tiers)
-    if (effectiveTier !== 'free') {
-      if (!effectiveSubscription.isActive || new Date() > effectiveSubscription.endDate) {
-        return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
-      }
-    }
-
-    // Get current usage from database (always fresh - counts by current month)
-    // If this fails or returns null, allow analysis (better UX than blocking)
-    let currentUsage;
     try {
-      currentUsage = await getUsageForCurrentPeriod();
-    } catch (error: any) {
-      // Allow analysis if check fails
-      return { allowed: true };
-    }
+      // If no subscription, treat as free tier
+      const effectiveTier = subscription?.tier || 'free';
+      const effectiveSubscription = subscription || {
+        tier: 'free' as SubscriptionTier,
+        billingPeriod: 'monthly' as BillingPeriod,
+        startDate: new Date(),
+        endDate: new Date(),
+        usage: { analysesUsed: 0, lastResetDate: new Date() },
+        isActive: true,
+      };
+
+      const plan = SUBSCRIPTION_PLANS[effectiveTier];
+      if (!plan) {
+        console.error('❌ Invalid tier:', effectiveTier);
+        return { allowed: false, message: 'חבילה לא תקינה. נא ליצור קשר עם התמיכה.' };
+      }
     
-    if (!currentUsage) {
-      // Allow analysis if usage check fails - usage will be counted when analysis is saved
-      return { allowed: true };
-    }
+      // Check if subscription is active (for paid tiers)
+      if (effectiveTier !== 'free') {
+        if (!effectiveSubscription.isActive || new Date() > effectiveSubscription.endDate) {
+          return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+        }
+      }
 
-    const analysesUsed = currentUsage.analysesUsed;
-    const minutesUsed = currentUsage.minutesUsed || 0;
-    const analysesLimit = plan.limits.maxAnalysesPerPeriod;
-    const minutesLimit = plan.limits.maxVideoMinutesPerPeriod;
-
-    // For coach/coach-pro: Check ONLY minutes (analyses are unlimited)
-    if (effectiveTier === 'coach' || effectiveTier === 'coach-pro') {
-      if (minutesLimit === -1) {
-        // Unlimited minutes too
+      // Get current usage from database (always fresh - counts by current month)
+      // If this fails or returns null, allow analysis (better UX than blocking)
+      let currentUsage;
+      try {
+        currentUsage = await getUsageForCurrentPeriod();
+      } catch (error: any) {
+        // Allow analysis if check fails
         return { allowed: true };
-      } else if (minutesUsed >= minutesLimit) {
+      }
+      
+      if (!currentUsage) {
+        // Allow analysis if usage check fails - usage will be counted when analysis is saved
+        return { allowed: true };
+      }
+
+      const analysesUsed = currentUsage.analysesUsed;
+      const minutesUsed = currentUsage.minutesUsed || 0;
+      const analysesLimit = plan.limits.maxAnalysesPerPeriod;
+      const minutesLimit = plan.limits.maxVideoMinutesPerPeriod;
+
+      // For coach/coach-pro: Check ONLY minutes (analyses are unlimited)
+      if (effectiveTier === 'coach' || effectiveTier === 'coach-pro') {
+        if (minutesLimit === -1) {
+          // Unlimited minutes too
+          return { allowed: true };
+        } else if (minutesUsed >= minutesLimit) {
+          return { 
+            allowed: false, 
+            message: `סיימת את הדקות המוקצות בחודש הנוכחי (${minutesUsed}/${minutesLimit} דקות). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+          };
+        }
+        // Within minutes limit - allow (analyses are unlimited)
+        return { allowed: true };
+      }
+
+      // For other tiers: Check BOTH analyses AND minutes - whichever comes first blocks
+      // FREE tier: Only 1 analysis (no minutes limit)
+      if (effectiveTier === 'free') {
+        if (analysesUsed >= analysesLimit) {
+          const now = new Date();
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+          const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          return { 
+            allowed: false, 
+            message: `סיימת את ניתוח הטעימה החינמי (${analysesLimit} ניתוח). ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
+          };
+        }
+        return { allowed: true };
+      }
+
+      // For paid tiers (creator, pro): Check BOTH limits
+      // First check: analyses limit
+      if (analysesLimit !== -1 && analysesUsed >= analysesLimit) {
+        return { 
+          allowed: false, 
+          message: `סיימת את הניתוחים בחודש הנוכחי (${analysesUsed}/${analysesLimit}). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+        };
+      }
+
+      // Second check: minutes limit
+      if (minutesLimit !== -1 && minutesUsed >= minutesLimit) {
         return { 
           allowed: false, 
           message: `סיימת את הדקות המוקצות בחודש הנוכחי (${minutesUsed}/${minutesLimit} דקות). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
         };
       }
-      // Within minutes limit - allow (analyses are unlimited)
+
+      // Both limits OK
+      return { allowed: true };
+    } catch (error) {
+      console.error('❌ Error in checkSubscriptionLimits:', error);
+      // If check fails, allow analysis (better UX than blocking)
       return { allowed: true };
     }
-
-    // For other tiers: Check BOTH analyses AND minutes - whichever comes first blocks
-    // FREE tier: Only 1 analysis (no minutes limit)
-    if (effectiveTier === 'free') {
-      if (analysesUsed >= analysesLimit) {
-        const now = new Date();
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-        const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        return { 
-          allowed: false, 
-          message: `סיימת את ניתוח הטעימה החינמי (${analysesLimit} ניתוח). ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
-        };
-      }
-      return { allowed: true };
-    }
-
-    // For paid tiers (creator, pro): Check BOTH limits
-    // First check: analyses limit
-    if (analysesLimit !== -1 && analysesUsed >= analysesLimit) {
-      return { 
-        allowed: false, 
-        message: `סיימת את הניתוחים בחודש הנוכחי (${analysesUsed}/${analysesLimit}). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
-      };
-    }
-
-    // Second check: minutes limit
-    if (minutesLimit !== -1 && minutesUsed >= minutesLimit) {
-      return { 
-        allowed: false, 
-        message: `סיימת את הדקות המוקצות בחודש הנוכחי (${minutesUsed}/${minutesLimit} דקות). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
-      };
-    }
-
-    // Both limits OK
-    return { allowed: true };
   };
 
   const incrementUsage = async () => {
@@ -2613,12 +2619,22 @@ const App = () => {
     }
     
     // Check if user can run analysis (usage limits) - BEFORE setting loading state
-    const analysisCheck = await checkSubscriptionLimits();
-    if (!analysisCheck.allowed) {
-      if (analysisCheck.message) {
-        alert(analysisCheck.message);
+    console.log('🔍 Checking subscription limits...');
+    try {
+      const analysisCheck = await checkSubscriptionLimits();
+      console.log('🔍 Subscription limits check result:', analysisCheck);
+      if (!analysisCheck.allowed) {
+        if (analysisCheck.message) {
+          alert(analysisCheck.message);
+        }
+        console.warn('⚠️ Analysis blocked by subscription limits');
+        return; // Don't set loading to false here - it was never set to true
       }
-      return; // Don't set loading to false here - it was never set to true
+    } catch (limitCheckError) {
+      console.error('❌ Error checking subscription limits:', limitCheckError);
+      // If limit check fails, allow analysis (better UX than blocking)
+      // Usage will be checked and updated when analysis is saved
+      console.log('⚠️ Limit check failed, allowing analysis anyway');
     }
     
     console.log('✅ All checks passed, starting analysis...');
