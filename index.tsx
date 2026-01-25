@@ -1661,44 +1661,45 @@ const App = () => {
           setSavedAnalyses(uniqueAnalyses);
           
           // Update usage IMMEDIATELY after saving analysis - CRITICAL for accurate counter
-          // Force refresh from database to get accurate count
-          try {
-            // Wait a moment for database to commit
-            await new Promise(resolve => setTimeout(resolve, 500));
-            const updatedUsage = await getUsageForCurrentPeriod();
-            if (updatedUsage) {
-              setUsage(updatedUsage);
-              // Also update subscription state with usage
-              setSubscription(prev => prev ? {
-                ...prev,
-                usage: {
-                  analysesUsed: updatedUsage.analysesUsed,
-                  lastResetDate: updatedUsage.periodStart,
-                },
-              } : null);
+          // First, optimistically update local state
+          setUsage(prev => prev ? {
+            ...prev,
+            analysesUsed: prev.analysesUsed + 1,
+          } : null);
+          setSubscription(prev => prev ? {
+            ...prev,
+            usage: {
+              analysesUsed: (prev.usage.analysesUsed || 0) + 1,
+              lastResetDate: prev.usage.lastResetDate,
+            },
+          } : null);
+          
+          // Then refresh from database to get accurate count (with retries)
+          const updateUsageFromDB = async (retryCount = 0) => {
+            try {
+              // Wait a moment for database to commit
+              await new Promise(resolve => setTimeout(resolve, 300));
+              const updatedUsage = await getUsageForCurrentPeriod();
+              if (updatedUsage) {
+                setUsage(updatedUsage);
+                // Also update subscription state with usage
+                setSubscription(prev => prev ? {
+                  ...prev,
+                  usage: {
+                    analysesUsed: updatedUsage.analysesUsed,
+                    lastResetDate: updatedUsage.periodStart,
+                  },
+                } : null);
+              }
+            } catch (usageError) {
+              // Retry up to 3 times
+              if (retryCount < 3) {
+                setTimeout(() => updateUsageFromDB(retryCount + 1), (retryCount + 1) * 500);
+              }
             }
-          } catch (usageError) {
-            // Retry multiple times to ensure update
-            for (let i = 0; i < 3; i++) {
-              setTimeout(async () => {
-                try {
-                  const retryUsage = await getUsageForCurrentPeriod();
-                  if (retryUsage) {
-                    setUsage(retryUsage);
-                    setSubscription(prev => prev ? {
-                      ...prev,
-                      usage: {
-                        analysesUsed: retryUsage.analysesUsed,
-                        lastResetDate: retryUsage.periodStart,
-                      },
-                    } : null);
-                  }
-                } catch (retryError) {
-                  // Ignore retry errors
-                }
-              }, (i + 1) * 1000);
-            }
-          }
+          };
+          
+          updateUsageFromDB();
           
           // Notify other tabs/components that analysis was saved
           try {
@@ -1725,41 +1726,43 @@ const App = () => {
           });
           
           // Still try to update usage even if reload fails - CRITICAL
-          try {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            const updatedUsage = await getUsageForCurrentPeriod();
-            if (updatedUsage) {
-              setUsage(updatedUsage);
-              setSubscription(prev => prev ? {
-                ...prev,
-                usage: {
-                  analysesUsed: updatedUsage.analysesUsed,
-                  lastResetDate: updatedUsage.periodStart,
-                },
-              } : null);
+          // First, optimistically update local state
+          setUsage(prev => prev ? {
+            ...prev,
+            analysesUsed: prev.analysesUsed + 1,
+          } : null);
+          setSubscription(prev => prev ? {
+            ...prev,
+            usage: {
+              analysesUsed: (prev.usage.analysesUsed || 0) + 1,
+              lastResetDate: prev.usage.lastResetDate,
+            },
+          } : null);
+          
+          // Then refresh from database
+          const updateUsageFromDB = async (retryCount = 0) => {
+            try {
+              await new Promise(resolve => setTimeout(resolve, 300));
+              const updatedUsage = await getUsageForCurrentPeriod();
+              if (updatedUsage) {
+                setUsage(updatedUsage);
+                setSubscription(prev => prev ? {
+                  ...prev,
+                  usage: {
+                    analysesUsed: updatedUsage.analysesUsed,
+                    lastResetDate: updatedUsage.periodStart,
+                  },
+                } : null);
+              }
+            } catch (usageError) {
+              // Retry up to 3 times
+              if (retryCount < 3) {
+                setTimeout(() => updateUsageFromDB(retryCount + 1), (retryCount + 1) * 500);
+              }
             }
-          } catch (usageError) {
-            // Retry multiple times
-            for (let i = 0; i < 3; i++) {
-              setTimeout(async () => {
-                try {
-                  const retryUsage = await getUsageForCurrentPeriod();
-                  if (retryUsage) {
-                    setUsage(retryUsage);
-                    setSubscription(prev => prev ? {
-                      ...prev,
-                      usage: {
-                        analysesUsed: retryUsage.analysesUsed,
-                        lastResetDate: retryUsage.periodStart,
-                      },
-                    } : null);
-                  }
-                } catch (retryError) {
-                  // Ignore retry errors
-                }
-              }, (i + 1) * 1000);
-            }
-          }
+          };
+          
+          updateUsageFromDB();
           
           // Notify other tabs/components that analysis was saved
           try {
@@ -2520,6 +2523,16 @@ const App = () => {
     if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
       alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
       setShowSubscriptionModal(true);
+      return;
+    }
+    
+    // Check if user can run analysis (usage limits)
+    const analysisCheck = await canRunAnalysis();
+    if (!analysisCheck.allowed) {
+      if (analysisCheck.message) {
+        alert(analysisCheck.message);
+      }
+      setLoading(false);
       return;
     }
     
