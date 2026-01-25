@@ -103,9 +103,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       // Always reload usage when analysis is saved, not just on subscription tab
       // This ensures usage is always up-to-date
       if (user) {
-        // Small delay to ensure database has committed
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Longer delay to ensure database has committed and usage update completed
+        await new Promise(resolve => setTimeout(resolve, 2500));
         // Trigger parent to reload usage
+        onProfileUpdate();
+      }
+    };
+    
+    const handleUsageUpdated = async () => {
+      // Also listen for direct usage update events
+      if (user) {
+        await new Promise(resolve => setTimeout(resolve, 500));
         onProfileUpdate();
       }
     };
@@ -117,9 +125,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       }
     });
     window.addEventListener('analysis_saved', handleAnalysisSaved);
+    window.addEventListener('usage_updated', handleUsageUpdated);
     return () => {
       window.removeEventListener('storage', handleAnalysisSaved as any);
       window.removeEventListener('analysis_saved', handleAnalysisSaved);
+      window.removeEventListener('usage_updated', handleUsageUpdated);
     };
   }, [activeTab, onProfileUpdate, user]);
 
