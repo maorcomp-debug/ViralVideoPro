@@ -99,8 +99,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
   // Listen for analysis saved events to refresh usage
   useEffect(() => {
-    const handleAnalysisSaved = () => {
-      if (activeTab === 'subscription') {
+    const handleAnalysisSaved = async () => {
+      // Always reload usage when analysis is saved, not just on subscription tab
+      // This ensures usage is always up-to-date
+      if (user) {
+        // Small delay to ensure database has committed
+        await new Promise(resolve => setTimeout(resolve, 1000));
         // Trigger parent to reload usage
         onProfileUpdate();
       }
@@ -117,7 +121,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       window.removeEventListener('storage', handleAnalysisSaved as any);
       window.removeEventListener('analysis_saved', handleAnalysisSaved);
     };
-  }, [activeTab, onProfileUpdate]);
+  }, [activeTab, onProfileUpdate, user]);
 
   const loadAnnouncements = async () => {
     if (!user) {

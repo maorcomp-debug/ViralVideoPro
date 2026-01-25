@@ -1675,10 +1675,11 @@ const App = () => {
           } : null);
           
           // Then refresh from database to get accurate count (with retries)
-          const updateUsageFromDB = async (retryCount = 0) => {
+          // CRITICAL: This must work reliably for usage tracking
+          const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
             try {
-              // Wait a moment for database to commit
-              await new Promise(resolve => setTimeout(resolve, 300));
+              // Wait longer for database to commit (especially important for Supabase)
+              await new Promise(resolve => setTimeout(resolve, 800 + (retryCount * 200)));
               const updatedUsage = await getUsageForCurrentPeriod();
               if (updatedUsage) {
                 setUsage(updatedUsage);
@@ -1690,19 +1691,35 @@ const App = () => {
                     lastResetDate: updatedUsage.periodStart,
                   },
                 } : null);
+                console.log('✅ Usage updated from database:', { analysesUsed: updatedUsage.analysesUsed, retryCount });
+              } else {
+                // If no usage data, retry
+                if (retryCount < 5) {
+                  await updateUsageFromDB(retryCount + 1);
+                } else {
+                  console.error('❌ Failed to get usage after 5 retries');
+                }
               }
             } catch (usageError) {
-              // Retry up to 3 times
-              if (retryCount < 3) {
-                setTimeout(() => updateUsageFromDB(retryCount + 1), (retryCount + 1) * 500);
+              console.error('❌ Error updating usage from DB:', usageError);
+              // Retry up to 5 times with exponential backoff
+              if (retryCount < 5) {
+                await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 500));
+                await updateUsageFromDB(retryCount + 1);
+              } else {
+                console.error('❌ Failed to update usage after 5 retries');
               }
             }
           };
           
-          updateUsageFromDB();
+          // Start update immediately (don't await - let it run in background)
+          updateUsageFromDB().catch(err => console.error('❌ updateUsageFromDB failed:', err));
           
           // Notify other tabs/components that analysis was saved
+          // CRITICAL: Wait for usage update to complete before notifying
           try {
+            // Wait a bit more to ensure usage update is complete
+            await new Promise(resolve => setTimeout(resolve, 500));
             localStorage.setItem('analysis_saved', Date.now().toString());
             // Trigger custom event for same-tab listeners
             window.dispatchEvent(new CustomEvent('analysis_saved'));
@@ -1739,10 +1756,11 @@ const App = () => {
             },
           } : null);
           
-          // Then refresh from database
-          const updateUsageFromDB = async (retryCount = 0) => {
+          // Then refresh from database (with proper retry logic)
+          const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
             try {
-              await new Promise(resolve => setTimeout(resolve, 300));
+              // Wait longer for database to commit
+              await new Promise(resolve => setTimeout(resolve, 800 + (retryCount * 200)));
               const updatedUsage = await getUsageForCurrentPeriod();
               if (updatedUsage) {
                 setUsage(updatedUsage);
@@ -1753,19 +1771,35 @@ const App = () => {
                     lastResetDate: updatedUsage.periodStart,
                   },
                 } : null);
+                console.log('✅ Usage updated from database (fallback):', { analysesUsed: updatedUsage.analysesUsed, retryCount });
+              } else {
+                // If no usage data, retry
+                if (retryCount < 5) {
+                  await updateUsageFromDB(retryCount + 1);
+                } else {
+                  console.error('❌ Failed to get usage after 5 retries (fallback)');
+                }
               }
             } catch (usageError) {
-              // Retry up to 3 times
-              if (retryCount < 3) {
-                setTimeout(() => updateUsageFromDB(retryCount + 1), (retryCount + 1) * 500);
+              console.error('❌ Error updating usage from DB (fallback):', usageError);
+              // Retry up to 5 times with exponential backoff
+              if (retryCount < 5) {
+                await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 500));
+                await updateUsageFromDB(retryCount + 1);
+              } else {
+                console.error('❌ Failed to update usage after 5 retries (fallback)');
               }
             }
           };
           
-          updateUsageFromDB();
+          // Start update immediately (don't await - let it run in background)
+          updateUsageFromDB().catch(err => console.error('❌ updateUsageFromDB failed (fallback):', err));
           
           // Notify other tabs/components that analysis was saved
+          // CRITICAL: Wait for usage update to complete before notifying
           try {
+            // Wait a bit more to ensure usage update is complete
+            await new Promise(resolve => setTimeout(resolve, 500));
             localStorage.setItem('analysis_saved', Date.now().toString());
             // Trigger custom event for same-tab listeners
             window.dispatchEvent(new CustomEvent('analysis_saved'));
