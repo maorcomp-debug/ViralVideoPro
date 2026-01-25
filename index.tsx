@@ -3157,7 +3157,7 @@ const App = () => {
           )}
           <Divider />
           {!user && (
-            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ marginBottom: '0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -3172,11 +3172,12 @@ const App = () => {
                   backgroundSize: '200% auto',
                   border: 'none',
                   color: '#000',
-                  padding: '12px 35px',
+                  padding: '8px 20px',
                   borderRadius: '50px',
-                  fontSize: '1rem',
+                  fontSize: '0.85rem',
                   fontFamily: 'Assistant, sans-serif',
-                  fontWeight: 700,
+                  fontWeight: 600,
+                  margin: '8px 0 0 0',
                   opacity: (loggingOut || loadingAuth) ? 0.6 : 1,
                   cursor: (loggingOut || loadingAuth) ? 'not-allowed' : 'pointer',
                   transition: 'all 0.3s ease',

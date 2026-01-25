@@ -40,7 +40,7 @@ export const Description = styled.p`
   font-size: 1rem;
   max-width: 600px;
   line-height: 1.6;
-  margin-bottom: 30px;
+  margin-bottom: 10px;
   padding: 0 10px;
 `;
 
@@ -55,7 +55,7 @@ export const CTAButton = styled.button`
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
-  margin: 20px 0 0 0;
+  margin: 8px 0 0 0;
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(212, 160, 67, 0.3);
 
@@ -76,7 +76,7 @@ export const CapabilitiesButton = styled.button`
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  margin: 20px 0 0 0;
+  margin: 8px 0 0 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -101,7 +101,7 @@ export const Divider = styled.hr`
   max-width: 300px;
   border: none;
   border-top: 1px solid rgba(212, 160, 67, 0.3);
-  margin: 30px 0;
+  margin: 10px 0 8px 0;
 `;
 
 export const PackagesButton = styled.button`
@@ -109,12 +109,12 @@ export const PackagesButton = styled.button`
   border: 1px solid #D4A043;
   color: #D4A043;
   border-radius: 50px;
-  padding: 12px 35px;
+  padding: 8px 20px;
   font-family: 'Assistant', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
-  margin: 20px 0 0 0;
+  margin: 8px 0 0 0;
   transition: all 0.3s ease;
   box-shadow: 0 0 10px rgba(212, 160, 67, 0.1);
 
