@@ -876,6 +876,22 @@ const App = () => {
     }
   }, [location.search, user, profile, navigate, location.pathname]);
 
+  // Set activeTrack from profile when profile loads (especially for free tier users)
+  useEffect(() => {
+    if (!profile?.selected_primary_track) return;
+    
+    const profileTrack = profile.selected_primary_track as TrackId;
+    if (!profileTrack) return;
+    
+    // For free tier, always use the selected_primary_track from profile
+    if (subscription?.tier === 'free') {
+      setActiveTrack(profileTrack);
+    } else if (activeTrack === 'actors' && profileTrack !== 'actors') {
+      // For other tiers, set from profile if activeTrack is still default
+      setActiveTrack(profileTrack);
+    }
+  }, [profile?.selected_primary_track, subscription?.tier]);
+
   useEffect(() => {
     const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
     const maxExperts = getMaxExperts();
@@ -1300,7 +1316,9 @@ const App = () => {
 
     // Free tier: only selected_primary_track is available
     if (tier === 'free') {
-      return trackId === profile.selected_primary_track;
+      // Check if trackId matches the selected_primary_track from profile
+      const primaryTrack = profile.selected_primary_track as TrackId;
+      return trackId === primaryTrack;
     }
 
     // Creator tier: up to 2 tracks from selected_tracks array
