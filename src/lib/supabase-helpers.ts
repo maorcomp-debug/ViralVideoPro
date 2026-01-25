@@ -276,10 +276,19 @@ export async function saveAnalysis(analysisData: {
     .single();
 
   if (error) {
-    console.error('Error saving analysis:', error);
+    console.error('❌ Error saving analysis to database:', error);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    console.error('❌ Analysis data attempted:', {
+      user_id: user.id,
+      track: analysisData.track,
+      expert_panel: analysisData.expert_panel,
+      has_result: !!analysisData.result,
+      average_score: analysisData.average_score,
+    });
     throw error;
   }
 
+  console.log('✅ Analysis saved successfully to database:', { id: data?.id, user_id: user.id });
   return data;
 }
 

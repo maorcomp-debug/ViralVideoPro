@@ -3018,6 +3018,9 @@ const App = () => {
             }
           } catch (saveError) {
             console.error('❌ Error saving analysis immediately:', saveError);
+            console.error('❌ Save error details:', JSON.stringify(saveError, null, 2));
+            // Show alert to user so they know the analysis wasn't saved
+            alert('⚠️ הניתוח הושלם אבל לא נשמר במסד הנתונים. נא לנסות שוב או ליצור קשר עם התמיכה.');
             // Don't block UI - analysis result is still shown
             // Usage will be updated on next page load or when user manually saves
           }
