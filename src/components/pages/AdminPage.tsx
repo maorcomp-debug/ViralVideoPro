@@ -52,7 +52,6 @@ const saveAdminCache = (data: Partial<AdminCache>) => {
       timestamp: Date.now(),
     };
     sessionStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(updated));
-    console.log('💾 Admin data saved to cache');
   } catch (error) {
     console.error('Failed to save admin cache:', error);
   }
@@ -72,7 +71,6 @@ const loadAdminCache = (): Partial<AdminCache> | null => {
       return null;
     }
 
-    console.log('✅ Loaded admin data from cache');
     return data;
   } catch (error) {
     console.error('Failed to load admin cache:', error);
@@ -83,7 +81,6 @@ const loadAdminCache = (): Partial<AdminCache> | null => {
 const clearAdminCache = () => {
   try {
     sessionStorage.removeItem(ADMIN_CACHE_KEY);
-    console.log('🗑️ Admin cache cleared');
   } catch (error) {
     console.error('Failed to clear admin cache:', error);
   }
@@ -738,12 +735,10 @@ export const AdminPage: React.FC = () => {
   const loadData = async (forceRefresh = false) => {
     // Allow force refresh even if already loading
     if (isLoadingData && !forceRefresh) {
-      console.log('⏸️ Already loading data, skipping duplicate call (use forceRefresh=true to override)');
       return;
     }
     
     setIsLoadingData(true);
-    console.log('📊 Loading admin data for tab:', activeTab, activeSubTab || '', forceRefresh ? '(FORCED)' : '');
     
     try {
       // Clear cache if forced refresh
@@ -753,13 +748,11 @@ export const AdminPage: React.FC = () => {
       
       // Load data directly - no timeout, show real errors
       if (activeTab === 'overview') {
-        console.log('🔄 Fetching stats...');
         const statsData = await getAdminStats();
         setStats(statsData);
         saveAdminCache({ stats: statsData });
         console.log('✅ Stats loaded:', statsData?.totalUsers || 0, 'users');
       } else if (activeTab === 'users') {
-        console.log('🔄 Fetching users...');
         const usersData = await getAllUsers();
         setUsers(usersData || []);
         saveAdminCache({ users: usersData || [] });
@@ -767,7 +760,6 @@ export const AdminPage: React.FC = () => {
         
         // Load usage stats for all users (using service role for admin access)
         if (usersData && usersData.length > 0) {
-          console.log('🔄 Fetching usage stats for users...');
           const now = new Date();
           const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
           const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -810,32 +802,27 @@ export const AdminPage: React.FC = () => {
           }
         }
       } else if (activeTab === 'analyses') {
-        console.log('🔄 Fetching analyses...');
         const analysesData = await getAllAnalyses();
         setAnalyses(analysesData || []);
         saveAdminCache({ analyses: analysesData || [] });
         console.log('✅ Analyses loaded:', analysesData?.length || 0);
       } else if (activeTab === 'video') {
-        console.log('🔄 Fetching videos...');
         const videosData = await getAllVideos();
         setVideos(videosData || []);
         saveAdminCache({ videos: videosData || [] });
         console.log('✅ Videos loaded:', videosData?.length || 0);
       } else if (activeTab === 'alerts') {
         if (activeSubTab === 'send-update') {
-          console.log('🔄 Fetching announcements...');
           const announcementsData = await getAllAnnouncements();
           setAnnouncements(announcementsData || []);
           saveAdminCache({ announcements: announcementsData || [] });
           console.log('✅ Announcements loaded:', announcementsData?.length || 0);
         } else if (activeSubTab === 'coupons') {
-          console.log('🔄 Fetching coupons...');
           const couponsData = await getAllCoupons();
           setCoupons(couponsData || []);
           saveAdminCache({ coupons: couponsData || [] });
           console.log('✅ Coupons loaded:', couponsData?.length || 0);
         } else if (activeSubTab === 'trials') {
-          console.log('🔄 Fetching trials...');
           const trialsData = await getAllTrials();
           setTrials(trialsData || []);
           saveAdminCache({ trials: trialsData || [] });
@@ -849,14 +836,12 @@ export const AdminPage: React.FC = () => {
       // Don't show alert - it's annoying. Just log the error.
       // The empty tables will show the user that data didn't load.
     } finally {
-      console.log('🔓 Resetting isLoadingData to false');
       setIsLoadingData(false);
     }
   };
 
   // Load cached data immediately on mount for instant display (OPTIONAL - only for instant UX)
   useEffect(() => {
-    console.log('🚀 Admin panel opened');
     const cached = loadAdminCache();
     if (cached) {
       console.log('⚡ Loading cached data for instant display (will refresh immediately)');
@@ -869,7 +854,6 @@ export const AdminPage: React.FC = () => {
 
   // Load fresh data whenever tab changes
   useEffect(() => {
-    console.log('🔄 Tab changed, loading fresh data:', activeTab, activeSubTab);
     // Force refresh when tab changes
     loadData(true);
   }, [activeTab, activeSubTab]);
