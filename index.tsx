@@ -634,9 +634,10 @@ const App = () => {
       }
       setUserIsAdmin(adminStatus);
       
-      // If admin, ensure admin page data is fresh (silent - no logs)
-      if (adminStatus && window.location.pathname === '/admin') {
-        // Admin access confirmed - no need to log
+      // If admin, trigger refresh event for admin panel
+      if (adminStatus) {
+        // Dispatch event to refresh admin panel data
+        window.dispatchEvent(new CustomEvent('admin_data_refresh'));
       }
 
       // Determine subscription tier: prioritize subscription record, but use profile if subscription record doesn't exist yet
