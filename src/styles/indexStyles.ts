@@ -55,6 +55,7 @@ export const CTAButton = styled.button`
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
+  margin: 20px 0 0 0;
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(212, 160, 67, 0.3);
 
@@ -70,12 +71,12 @@ export const CapabilitiesButton = styled.button`
   border: 1px solid #D4A043;
   color: #D4A043;
   border-radius: 50px;
-  padding: 10px 30px;
+  padding: 12px 35px;
   font-family: 'Assistant', sans-serif;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  margin: 20px 0 20px 0;
+  margin: 20px 0 0 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -108,12 +109,12 @@ export const PackagesButton = styled.button`
   border: 1px solid #D4A043;
   color: #D4A043;
   border-radius: 50px;
-  padding: 10px 30px;
+  padding: 12px 35px;
   font-family: 'Assistant', sans-serif;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  margin: 20px 0 40px 0;
+  margin: 20px 0 0 0;
   transition: all 0.3s ease;
   box-shadow: 0 0 10px rgba(212, 160, 67, 0.1);
 
