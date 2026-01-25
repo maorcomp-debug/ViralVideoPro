@@ -2527,7 +2527,7 @@ const App = () => {
     }
     
     // Check if user can run analysis (usage limits)
-    const analysisCheck = await canRunAnalysis();
+    const analysisCheck = await checkSubscriptionLimits();
     if (!analysisCheck.allowed) {
       if (analysisCheck.message) {
         alert(analysisCheck.message);
