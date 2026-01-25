@@ -736,8 +736,9 @@ export const AdminPage: React.FC = () => {
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   const loadData = async (forceRefresh = false) => {
+    // Allow force refresh even if already loading
     if (isLoadingData && !forceRefresh) {
-      console.log('⏸️ Already loading data, skipping duplicate call');
+      console.log('⏸️ Already loading data, skipping duplicate call (use forceRefresh=true to override)');
       return;
     }
     
