@@ -876,21 +876,19 @@ const App = () => {
     }
   }, [location.search, user, profile, navigate, location.pathname]);
 
-  // Set activeTrack from profile when profile loads (especially for free tier users)
+  // Set activeTrack from profile when profile loads (for all tiers)
   useEffect(() => {
     if (!profile?.selected_primary_track) return;
     
     const profileTrack = profile.selected_primary_track as TrackId;
     if (!profileTrack) return;
     
-    // For free tier, always use the selected_primary_track from profile
-    if (subscription?.tier === 'free') {
-      setActiveTrack(profileTrack);
-    } else if (activeTrack === 'actors' && profileTrack !== 'actors') {
-      // For other tiers, set from profile if activeTrack is still default
+    // Always use the selected_primary_track from profile if it exists
+    // This ensures users see their chosen track regardless of tier
+    if (activeTrack !== profileTrack) {
       setActiveTrack(profileTrack);
     }
-  }, [profile?.selected_primary_track, subscription?.tier]);
+  }, [profile?.selected_primary_track]);
 
   useEffect(() => {
     const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
