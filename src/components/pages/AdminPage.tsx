@@ -840,7 +840,6 @@ export const AdminPage: React.FC = () => {
   useEffect(() => {
     const handleDataChange = (e: StorageEvent | Event) => {
       const eventType = (e as CustomEvent).type || (e as StorageEvent).key;
-      console.log('📢 Admin panel received event:', eventType);
       
       // Refresh data for any relevant event
       if (eventType === 'analysis_saved' || 
