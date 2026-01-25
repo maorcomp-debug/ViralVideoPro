@@ -7,15 +7,24 @@ import type { Database } from './supabase';
 let adminSupabaseClient: ReturnType<typeof createClient> | null = null;
 
 const getAdminClient = () => {
-  if (adminSupabaseClient) return adminSupabaseClient;
+  if (adminSupabaseClient) {
+    console.log('✅ getAdminClient: Using cached admin client');
+    return adminSupabaseClient;
+  }
   
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
   const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY?.trim() || '';
   
   if (!supabaseUrl || !serviceRoleKey) {
     console.warn('⚠️ Service role key not found - admin functions will use regular client');
+    console.warn('⚠️ VITE_SUPABASE_URL:', supabaseUrl ? '✅ Found' : '❌ Missing');
+    console.warn('⚠️ VITE_SUPABASE_SERVICE_ROLE_KEY:', serviceRoleKey ? '✅ Found' : '❌ Missing');
+    console.warn('⚠️ Make sure to add VITE_SUPABASE_SERVICE_ROLE_KEY to .env.local and restart dev server');
     return supabase;
   }
+  
+  console.log('✅ getAdminClient: Creating admin client with service role key');
+  console.log('✅ Service role key length:', serviceRoleKey.length);
   
   adminSupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
