@@ -1170,9 +1170,11 @@ const App = () => {
   };
 
   const checkSubscriptionLimits = async (): Promise<{ allowed: boolean; message?: string }> => {
+    console.log('🔍 checkSubscriptionLimits: Starting...', { tier: subscription?.tier || 'free' });
     try {
       // If no subscription, treat as free tier
       const effectiveTier = subscription?.tier || 'free';
+      console.log('🔍 checkSubscriptionLimits: Effective tier:', effectiveTier);
       const effectiveSubscription = subscription || {
         tier: 'free' as SubscriptionTier,
         billingPeriod: 'monthly' as BillingPeriod,
@@ -1197,10 +1199,19 @@ const App = () => {
 
       // Get current usage from database (always fresh - counts by current month)
       // If this fails or returns null, allow analysis (better UX than blocking)
+      // Add timeout wrapper to prevent hanging
       let currentUsage;
       try {
-        currentUsage = await getUsageForCurrentPeriod();
+        const usagePromise = getUsageForCurrentPeriod();
+        const timeoutPromise = new Promise<null>((resolve) => {
+          setTimeout(() => {
+            console.warn('⚠️ checkSubscriptionLimits: Usage check timeout, allowing analysis');
+            resolve(null);
+          }, 6000); // 6 seconds max (slightly longer than getUsageForCurrentPeriod's 5s)
+        });
+        currentUsage = await Promise.race([usagePromise, timeoutPromise]);
       } catch (error: any) {
+        console.error('❌ Error in usage check:', error);
         // Allow analysis if check fails
         return { allowed: true };
       }
@@ -1263,6 +1274,7 @@ const App = () => {
       }
 
       // Both limits OK
+      console.log('✅ checkSubscriptionLimits: All limits OK, allowing analysis');
       return { allowed: true };
     } catch (error) {
       console.error('❌ Error in checkSubscriptionLimits:', error);
@@ -2620,8 +2632,17 @@ const App = () => {
     
     // Check if user can run analysis (usage limits) - BEFORE setting loading state
     console.log('🔍 Checking subscription limits...');
+    let analysisCheck;
     try {
-      const analysisCheck = await checkSubscriptionLimits();
+      // Add timeout to prevent hanging (8 seconds max)
+      const checkPromise = checkSubscriptionLimits();
+      const timeoutPromise = new Promise<{ allowed: boolean }>((resolve) => {
+        setTimeout(() => {
+          console.warn('⚠️ checkSubscriptionLimits timeout after 8 seconds, allowing analysis');
+          resolve({ allowed: true });
+        }, 8000);
+      });
+      analysisCheck = await Promise.race([checkPromise, timeoutPromise]);
       console.log('🔍 Subscription limits check result:', analysisCheck);
       if (!analysisCheck.allowed) {
         if (analysisCheck.message) {
