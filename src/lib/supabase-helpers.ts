@@ -549,13 +549,21 @@ export async function getAllUsers() {
     console.log('🔍 getAllUsers: Starting fetch...');
     
     // First check if user is admin
-    const { data: { user } } = await supabase.auth.getUser();
+    console.log('🔍 getAllUsers: Getting user...');
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('❌ getAllUsers: Error getting user:', userError);
+      return [];
+    }
     if (!user) {
       console.error('❌ getAllUsers: No authenticated user');
       return [];
     }
+    console.log('✅ getAllUsers: User found:', user.email);
     
+    console.log('🔍 getAllUsers: Checking admin status...');
     const isUserAdmin = await isAdmin();
+    console.log('✅ getAllUsers: Admin check result:', isUserAdmin);
     if (!isUserAdmin) {
       console.error('❌ getAllUsers: User is not admin');
       return [];
@@ -564,31 +572,49 @@ export async function getAllUsers() {
     console.log('✅ getAllUsers: User is admin, fetching all users...');
     
     // Use admin client (service role) to bypass RLS
+    console.log('🔍 getAllUsers: Getting admin client...');
     const adminClient = getAdminClient();
+    console.log('✅ getAllUsers: Admin client obtained');
     
-    const { data, error } = await adminClient
+    console.log('🔍 getAllUsers: Executing query...');
+    const queryPromise = adminClient
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getAllUsers timeout after 10 seconds')), 10000)
+    );
+    
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
     if (error) {
       console.error('❌ getAllUsers: Error fetching users:', error);
       console.error('❌ getAllUsers: Error details:', JSON.stringify(error, null, 2));
+      console.error('❌ getAllUsers: Error code:', error?.code);
+      console.error('❌ getAllUsers: Error message:', error?.message);
+      console.error('❌ getAllUsers: Error hint:', error?.hint);
       
       // Fallback to regular client if service role fails
       console.log('🔄 getAllUsers: Trying with regular client as fallback...');
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (fallbackError) {
-        console.error('❌ getAllUsers: Fallback also failed:', fallbackError);
+      try {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (fallbackError) {
+          console.error('❌ getAllUsers: Fallback also failed:', fallbackError);
+          return [];
+        }
+        
+        console.log('✅ getAllUsers: loaded via fallback, count =', fallbackData?.length || 0);
+        return fallbackData || [];
+      } catch (fallbackException: any) {
+        console.error('❌ getAllUsers: Fallback exception:', fallbackException);
         return [];
       }
-      
-      console.log('✅ getAllUsers: loaded via fallback, count =', fallbackData?.length || 0);
-      return fallbackData || [];
     }
 
     console.log('✅ getAllUsers: loaded via admin client, count =', data?.length || 0);
@@ -605,8 +631,32 @@ export async function getAllUsers() {
     return data || [];
   } catch (error: any) {
     console.error('❌ getAllUsers: Final exception:', error);
-    console.error('❌ getAllUsers: Exception message:', error.message);
-    console.error('❌ getAllUsers: Stack:', error.stack);
+    console.error('❌ getAllUsers: Exception message:', error?.message);
+    console.error('❌ getAllUsers: Exception name:', error?.name);
+    console.error('❌ getAllUsers: Stack:', error?.stack);
+    
+    // If it's a timeout, try one more time with regular client
+    if (error?.message?.includes('timeout')) {
+      console.log('🔄 getAllUsers: Timeout occurred, trying regular client...');
+      try {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (fallbackError) {
+          console.error('❌ getAllUsers: Regular client also failed:', fallbackError);
+          return [];
+        }
+        
+        console.log('✅ getAllUsers: loaded via regular client after timeout, count =', fallbackData?.length || 0);
+        return fallbackData || [];
+      } catch (e: any) {
+        console.error('❌ getAllUsers: Regular client exception:', e);
+        return [];
+      }
+    }
+    
     return [];
   }
 }
@@ -647,8 +697,8 @@ export async function getAllAnalyses() {
     console.log('🔍 getAllAnalyses: Starting fetch...');
     
     // First check if user is admin
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       console.error('❌ getAllAnalyses: No authenticated user');
       return [];
     }
@@ -664,29 +714,44 @@ export async function getAllAnalyses() {
     // Use admin client (service role) to bypass RLS
     const adminClient = getAdminClient();
     
-    const { data, error } = await adminClient
+    console.log('🔍 getAllAnalyses: Executing query...');
+    const queryPromise = adminClient
       .from('analyses')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getAllAnalyses timeout after 10 seconds')), 10000)
+    );
+    
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
     if (error) {
       console.error('❌ getAllAnalyses: Error fetching analyses:', error);
       console.error('❌ getAllAnalyses: Error details:', JSON.stringify(error, null, 2));
+      console.error('❌ getAllAnalyses: Error code:', error?.code);
+      console.error('❌ getAllAnalyses: Error message:', error?.message);
       
       // Fallback to regular client if service role fails
       console.log('🔄 getAllAnalyses: Trying with regular client as fallback...');
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('analyses')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (fallbackError) {
-        console.error('❌ getAllAnalyses: Fallback also failed:', fallbackError);
+      try {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('analyses')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (fallbackError) {
+          console.error('❌ getAllAnalyses: Fallback also failed:', fallbackError);
+          return [];
+        }
+        
+        console.log('✅ getAllAnalyses: loaded via fallback, count =', fallbackData?.length || 0);
+        return fallbackData || [];
+      } catch (fallbackException: any) {
+        console.error('❌ getAllAnalyses: Fallback exception:', fallbackException);
         return [];
       }
-      
-      console.log('✅ getAllAnalyses: loaded via fallback, count =', fallbackData?.length || 0);
-      return fallbackData || [];
     }
 
     console.log('✅ getAllAnalyses: loaded via admin client, count =', data?.length || 0);
@@ -700,8 +765,32 @@ export async function getAllAnalyses() {
     }
     return data || [];
   } catch (error: any) {
-    console.error('❌ Error in getAllAnalyses:', error);
-    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    console.error('❌ getAllAnalyses: Final exception:', error);
+    console.error('❌ getAllAnalyses: Exception message:', error?.message);
+    console.error('❌ getAllAnalyses: Exception name:', error?.name);
+    
+    // If it's a timeout, try one more time with regular client
+    if (error?.message?.includes('timeout')) {
+      console.log('🔄 getAllAnalyses: Timeout occurred, trying regular client...');
+      try {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('analyses')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (fallbackError) {
+          console.error('❌ getAllAnalyses: Regular client also failed:', fallbackError);
+          return [];
+        }
+        
+        console.log('✅ getAllAnalyses: loaded via regular client after timeout, count =', fallbackData?.length || 0);
+        return fallbackData || [];
+      } catch (e: any) {
+        console.error('❌ getAllAnalyses: Regular client exception:', e);
+        return [];
+      }
+    }
+    
     return [];
   }
 }
