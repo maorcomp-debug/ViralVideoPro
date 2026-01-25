@@ -456,8 +456,8 @@ const App = () => {
             await new Promise(resolve => setTimeout(resolve, 200));
           }
           
-          // Force refresh after signup/signin to ensure latest profile data is loaded
-          const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED';
+          // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
+          const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
           await loadUserData(session.user, shouldForceRefresh);
         } catch (err) {
           console.error('Error loading user data in auth state change:', err);
@@ -466,8 +466,15 @@ const App = () => {
           isLoadingUserData = false;
         }
       } else {
-        // User logged out - reset all state
-        resetUserState();
+        // Only reset state if this is not INITIAL_SESSION (which might have null session temporarily)
+        // INITIAL_SESSION with null session means user is truly logged out
+        if (event !== 'INITIAL_SESSION') {
+          // User logged out - reset all state
+          resetUserState();
+        } else {
+          // On INITIAL_SESSION with no session, user is logged out - reset state
+          resetUserState();
+        }
       }
     });
 
@@ -2862,19 +2869,19 @@ const App = () => {
   }, [user, profile, isLoadingProfile]);
 
   // Ensure usage is always loaded after refresh, especially on SettingsPage
+  // Don't wait for subscription - load usage independently to prevent disappearing
   useEffect(() => {
     if (!user) return;
     if (!isSettingsPage) return;
-    if (!subscription) return; // Wait for subscription to be loaded first
     
-    // Load usage if missing or if we're on settings page
+    // Load usage independently - don't wait for subscription
     const loadUsageIfMissing = async () => {
       try {
         const usageData = await getUsageForCurrentPeriod();
         if (usageData) {
           setUsage(usageData);
           
-          // Update subscription with current usage
+          // Update subscription with current usage if subscription exists
           setSubscription(prev => {
             if (!prev) return null;
             return {
@@ -2912,9 +2919,9 @@ const App = () => {
       }
     };
     
-    // Load usage immediately on settings page
+    // Load usage immediately on settings page (don't wait for subscription)
     loadUsageIfMissing();
-  }, [user, isSettingsPage, subscription]);
+  }, [user, isSettingsPage]);
   
   const handleLogout = async () => {
     // Prevent double-click
