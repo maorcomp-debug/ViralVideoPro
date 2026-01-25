@@ -1046,8 +1046,8 @@ const App = () => {
             ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
           usage: {
-            analysesUsed: 0,
-            lastResetDate: new Date(),
+            analysesUsed: usage?.analysesUsed || 0, // Preserve existing usage count
+            lastResetDate: usage?.periodStart || new Date(),
           },
           isActive: true,
         };
@@ -1055,16 +1055,12 @@ const App = () => {
         console.log('✅ Subscription state updated locally:', newSubscription);
       }
 
-      // Reload user data in background to sync with database
+      // Reload user data to sync with database (AWAIT to ensure it completes)
       if (user) {
         console.log('🔄 Reloading user data from database to sync...');
-        // Don't await - let it happen in background while UI updates immediately
-        loadUserData(user, true).then(() => {
-          console.log('✅ User data synced from database');
-        }).catch((reloadError) => {
-          console.error('⚠️ Error syncing user data:', reloadError);
-          // Continue - local state is already updated
-        });
+        // AWAIT to ensure usage is reloaded correctly
+        await loadUserData(user, true);
+        console.log('✅ User data synced from database');
       }
 
       // Close modals immediately
