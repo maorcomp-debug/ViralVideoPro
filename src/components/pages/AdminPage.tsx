@@ -876,14 +876,16 @@ export const AdminPage: React.FC = () => {
       // Refresh data for any relevant event
       if (eventType === 'analysis_saved' || 
           eventType === 'usage_updated' ||
+          eventType === 'admin_data_refresh' ||
           (e as StorageEvent).key === 'analysis_saved') {
         console.log('🔄 Refreshing admin data due to', eventType);
         // Clear cache to force fresh load
         clearAdminCache();
-        // Delay refresh to allow database commit
+        // Delay refresh to allow database commit (shorter delay for admin_data_refresh)
+        const delay = eventType === 'admin_data_refresh' ? 500 : 1500;
         setTimeout(() => {
-          loadData();
-        }, 1500);
+          loadData(true); // Force refresh
+        }, delay);
       }
     };
     
@@ -891,13 +893,14 @@ export const AdminPage: React.FC = () => {
     window.addEventListener('storage', handleDataChange);
     window.addEventListener('analysis_saved', handleDataChange);
     window.addEventListener('usage_updated', handleDataChange);
+    window.addEventListener('admin_data_refresh', handleDataChange);
     
     // Also set up polling for critical tabs (every 30 seconds)
     const pollInterval = setInterval(() => {
       if (activeTab === 'users' || activeTab === 'analyses') {
         console.log('⏰ Polling refresh for', activeTab);
         clearAdminCache();
-        loadData();
+        loadData(true); // Force refresh
       }
     }, 30000); // 30 seconds
     
@@ -905,6 +908,7 @@ export const AdminPage: React.FC = () => {
       window.removeEventListener('storage', handleDataChange);
       window.removeEventListener('analysis_saved', handleDataChange);
       window.removeEventListener('usage_updated', handleDataChange);
+      window.removeEventListener('admin_data_refresh', handleDataChange);
       clearInterval(pollInterval);
     };
   }, [activeTab]);
