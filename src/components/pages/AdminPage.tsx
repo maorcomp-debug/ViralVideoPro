@@ -846,7 +846,6 @@ export const AdminPage: React.FC = () => {
           eventType === 'usage_updated' ||
           eventType === 'admin_data_refresh' ||
           (e as StorageEvent).key === 'analysis_saved') {
-        console.log('🔄 Refreshing admin data due to', eventType);
         // Clear cache to force fresh load
         clearAdminCache();
         // Delay refresh to allow database commit (shorter delay for admin_data_refresh)
@@ -866,7 +865,6 @@ export const AdminPage: React.FC = () => {
     // Also set up polling for critical tabs (every 30 seconds)
     const pollInterval = setInterval(() => {
       if (activeTab === 'users' || activeTab === 'analyses') {
-        console.log('⏰ Polling refresh for', activeTab);
         clearAdminCache();
         loadData(true); // Force refresh
       }
