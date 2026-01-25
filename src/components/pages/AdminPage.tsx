@@ -862,14 +862,15 @@ export const AdminPage: React.FC = () => {
       // Don't set state from cache - always load fresh data
       // Cache is only for instant display while loading
     }
-    // Always load fresh data on mount
-    loadData();
+    // Always load fresh data on mount (force refresh)
+    loadData(true);
   }, []);
 
   // Load fresh data whenever tab changes
   useEffect(() => {
     console.log('🔄 Tab changed, loading fresh data:', activeTab, activeSubTab);
-    loadData();
+    // Force refresh when tab changes
+    loadData(true);
   }, [activeTab, activeSubTab]);
   
   // Listen for ALL events that should trigger refresh
