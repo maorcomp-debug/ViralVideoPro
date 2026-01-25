@@ -28,7 +28,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'subscription' | 'updates'>('profile');
+  
+  // Load active tab from sessionStorage to preserve it after refresh
+  const getInitialTab = (): 'profile' | 'password' | 'subscription' | 'updates' => {
+    if (typeof window !== 'undefined') {
+      const savedTab = sessionStorage.getItem('settings_active_tab');
+      if (savedTab && ['profile', 'password', 'subscription', 'updates'].includes(savedTab)) {
+        return savedTab as 'profile' | 'password' | 'subscription' | 'updates';
+      }
+    }
+    return 'profile';
+  };
+  
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'subscription' | 'updates'>(getInitialTab());
+  
+  // Save active tab to sessionStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('settings_active_tab', activeTab);
+    }
+  }, [activeTab]);
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || '',
   });
@@ -65,6 +84,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     }
   }, [profile?.receive_updates]);
   
+  // Load usage when switching to subscription tab or when tab is already subscription
+  // Also load on mount if already on subscription tab (after refresh)
+  useEffect(() => {
+    if (activeTab === 'subscription' && user) {
+      // Small delay to ensure parent component is ready
+      const timer = setTimeout(() => {
+        // Trigger parent to reload usage when switching to subscription tab
+        onProfileUpdate();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, user, onProfileUpdate]);
+
   // Listen for analysis saved events to refresh usage
   useEffect(() => {
     const handleAnalysisSaved = () => {
