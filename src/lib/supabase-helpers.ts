@@ -619,19 +619,31 @@ async function getAllUsersViaClient() {
 
 export async function getAllAnalyses() {
   try {
+    console.log('🔍 getAllAnalyses: Starting fetch...');
     const { data, error } = await supabase
       .from('analyses')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching all analyses:', error);
+      console.error('❌ Error fetching all analyses:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
       throw error;
     }
 
+    console.log('✅ getAllAnalyses: loaded', data?.length || 0, 'analyses');
+    if (data && data.length > 0) {
+      console.log('📋 getAllAnalyses: Latest analysis:', {
+        id: data[0].id,
+        user_id: data[0].user_id,
+        track: data[0].track,
+        created_at: data[0].created_at
+      });
+    }
     return data || [];
   } catch (error: any) {
-    console.error('Error in getAllAnalyses:', error);
+    console.error('❌ Error in getAllAnalyses:', error);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 }

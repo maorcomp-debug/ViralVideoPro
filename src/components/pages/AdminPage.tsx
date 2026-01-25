@@ -30,7 +30,7 @@ import { fadeIn } from '../../styles/globalStyles';
 // ============================================
 
 const ADMIN_CACHE_KEY = 'viralypro_admin_cache';
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 30 * 1000; // 30 seconds (reduced from 5 minutes for better freshness)
 
 interface AdminCache {
   stats: any;
@@ -735,16 +735,21 @@ export const AdminPage: React.FC = () => {
   // Loading state
   const [isLoadingData, setIsLoadingData] = useState(false);
 
-  const loadData = async () => {
-    if (isLoadingData) {
+  const loadData = async (forceRefresh = false) => {
+    if (isLoadingData && !forceRefresh) {
       console.log('⏸️ Already loading data, skipping duplicate call');
       return;
     }
     
     setIsLoadingData(true);
-    console.log('📊 Loading admin data for tab:', activeTab, activeSubTab || '');
+    console.log('📊 Loading admin data for tab:', activeTab, activeSubTab || '', forceRefresh ? '(FORCED)' : '');
     
     try {
+      // Clear cache if forced refresh
+      if (forceRefresh) {
+        clearAdminCache();
+      }
+      
       // Load data directly - no timeout, show real errors
       if (activeTab === 'overview') {
         console.log('🔄 Fetching stats...');
@@ -774,7 +779,8 @@ export const AdminPage: React.FC = () => {
             .lte('created_at', monthEnd.toISOString());
           
           if (analysesError) {
-            console.error('Error fetching analyses for usage:', analysesError);
+            console.error('❌ Error fetching analyses for usage:', analysesError);
+            console.error('❌ Error details:', JSON.stringify(analysesError, null, 2));
           } else {
             // Count analyses per user
             const usageCounts: Record<string, number> = {};
@@ -833,6 +839,7 @@ export const AdminPage: React.FC = () => {
       
     } catch (error: any) {
       console.error('❌ Error loading admin data:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
       // Don't show alert - it's annoying. Just log the error.
       // The empty tables will show the user that data didn't load.
     } finally {
@@ -841,46 +848,64 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  // Load cached data immediately on mount for instant display
+  // Load cached data immediately on mount for instant display (OPTIONAL - only for instant UX)
   useEffect(() => {
     console.log('🚀 Admin panel opened');
     const cached = loadAdminCache();
     if (cached) {
-      console.log('⚡ Loading cached data for instant display');
-      if (cached.stats) setStats(cached.stats);
-      if (cached.users) setUsers(cached.users);
-      if (cached.analyses) setAnalyses(cached.analyses);
-      if (cached.videos) setVideos(cached.videos);
-      if (cached.announcements) setAnnouncements(cached.announcements);
-      if (cached.coupons) setCoupons(cached.coupons);
-      if (cached.trials) setTrials(cached.trials);
+      console.log('⚡ Loading cached data for instant display (will refresh immediately)');
+      // Don't set state from cache - always load fresh data
+      // Cache is only for instant display while loading
     }
+    // Always load fresh data on mount
+    loadData();
   }, []);
 
-  // Load fresh data whenever tab changes (including initial mount)
+  // Load fresh data whenever tab changes
   useEffect(() => {
+    console.log('🔄 Tab changed, loading fresh data:', activeTab, activeSubTab);
     loadData();
   }, [activeTab, activeSubTab]);
   
-  // Listen for storage events to refresh usage when analysis is saved
+  // Listen for ALL events that should trigger refresh
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent | Event) => {
-      // If analysis was saved, refresh usage data in users tab
-      const key = (e as StorageEvent).key;
-      if (key === 'analysis_saved' && activeTab === 'users') {
+    const handleDataChange = (e: StorageEvent | Event) => {
+      const eventType = (e as CustomEvent).type || (e as StorageEvent).key;
+      console.log('📢 Admin panel received event:', eventType);
+      
+      // Refresh data for any relevant event
+      if (eventType === 'analysis_saved' || 
+          eventType === 'usage_updated' ||
+          (e as StorageEvent).key === 'analysis_saved') {
+        console.log('🔄 Refreshing admin data due to', eventType);
+        // Clear cache to force fresh load
+        clearAdminCache();
         // Delay refresh to allow database commit
         setTimeout(() => {
           loadData();
-        }, 1000);
+        }, 1500);
       }
     };
     
-    // Listen to both storage events (cross-tab) and custom events (same-tab)
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('analysis_saved', handleStorageChange);
+    // Listen to multiple event types
+    window.addEventListener('storage', handleDataChange);
+    window.addEventListener('analysis_saved', handleDataChange);
+    window.addEventListener('usage_updated', handleDataChange);
+    
+    // Also set up polling for critical tabs (every 30 seconds)
+    const pollInterval = setInterval(() => {
+      if (activeTab === 'users' || activeTab === 'analyses') {
+        console.log('⏰ Polling refresh for', activeTab);
+        clearAdminCache();
+        loadData();
+      }
+    }, 30000); // 30 seconds
+    
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('analysis_saved', handleStorageChange);
+      window.removeEventListener('storage', handleDataChange);
+      window.removeEventListener('analysis_saved', handleDataChange);
+      window.removeEventListener('usage_updated', handleDataChange);
+      clearInterval(pollInterval);
     };
   }, [activeTab]);
 
@@ -1096,7 +1121,7 @@ export const AdminPage: React.FC = () => {
           <>
             <SectionHeader>
               <SectionTitle>משתמשים ({filteredUsers.length})</SectionTitle>
-              <RefreshButton onClick={loadData}>
+              <RefreshButton onClick={() => loadData(true)}>
                 🔄 רענן
               </RefreshButton>
             </SectionHeader>
@@ -1190,7 +1215,7 @@ export const AdminPage: React.FC = () => {
           <>
             <SectionHeader>
               <SectionTitle>ניתוחים ({analyses.length})</SectionTitle>
-              <RefreshButton onClick={loadData}>
+              <RefreshButton onClick={() => loadData(true)}>
                 🔄 רענן
               </RefreshButton>
             </SectionHeader>
@@ -1231,7 +1256,7 @@ export const AdminPage: React.FC = () => {
           <>
             <SectionHeader>
               <SectionTitle>וידאו ({videos.length})</SectionTitle>
-              <RefreshButton onClick={loadData}>
+              <RefreshButton onClick={() => loadData(true)}>
                 🔄 רענן
               </RefreshButton>
             </SectionHeader>
