@@ -2888,127 +2888,135 @@ const App = () => {
       
       // CRITICAL: Save analysis and update usage IMMEDIATELY after analysis completes successfully
       // This ensures usage is tracked correctly for all subscription tiers
+      // IMPORTANT: This runs in background - don't block UI if it fails
       if (user && file) {
-        try {
-          // Save video first if not already saved
-          let videoId: string | null = null;
-          if (file) {
-            try {
-              const uploadResult = await uploadVideo(file, user.id);
-              const videoData = await saveVideoToDatabase({
-                file_name: file.name,
-                file_path: uploadResult.path,
-                file_size: file.size,
-                duration_seconds: videoRef.current?.duration || null,
-                mime_type: file.type,
-              });
-              videoId = videoData.id;
-            } catch (videoError) {
-              console.warn('⚠️ Could not save video, continuing with analysis save:', videoError);
+        // Run save in background - don't await to avoid blocking UI
+        (async () => {
+          try {
+            // Save video first if not already saved
+            let videoId: string | null = null;
+            if (file) {
+              try {
+                const uploadResult = await uploadVideo(file, user.id);
+                const videoData = await saveVideoToDatabase({
+                  file_name: file.name,
+                  file_path: uploadResult.path,
+                  file_size: file.size,
+                  duration_seconds: videoRef.current?.duration || null,
+                  mime_type: file.type,
+                });
+                videoId = videoData.id;
+              } catch (videoError) {
+                console.warn('⚠️ Could not save video, continuing with analysis save:', videoError);
+              }
             }
-          }
 
-          // Save analysis to Supabase immediately
-          const resultWithMetadata = {
-            ...parsedResult,
-            metadata: {
-              ...(parsedResult.metadata || {}),
-              fileSize: file?.size || null,
-              file_size: file?.size || null,
-              fileName: file?.name || null,
-              file_name: file?.name || null,
-            }
-          };
-          
-          const analysisData = await saveAnalysis({
-            video_id: videoId || undefined,
-            trainee_id: activeTrack === 'coach' ? selectedTrainee || undefined : undefined,
-            track: activeTrack,
-            coach_training_track: activeTrack === 'coach' ? coachTrainingTrack : undefined,
-            analysis_depth: activeTrack === 'coach' ? analysisDepth : undefined,
-            expert_panel: selectedExperts,
-            prompt: prompt || undefined,
-            result: resultWithMetadata,
-            average_score: averageScore,
-          });
+            // Save analysis to Supabase immediately
+            const resultWithMetadata = {
+              ...parsedResult,
+              metadata: {
+                ...(parsedResult.metadata || {}),
+                fileSize: file?.size || null,
+                file_size: file?.size || null,
+                fileName: file?.name || null,
+                file_name: file?.name || null,
+              }
+            };
+            
+            const analysisData = await saveAnalysis({
+              video_id: videoId || undefined,
+              trainee_id: activeTrack === 'coach' ? selectedTrainee || undefined : undefined,
+              track: activeTrack,
+              coach_training_track: activeTrack === 'coach' ? coachTrainingTrack : undefined,
+              analysis_depth: activeTrack === 'coach' ? analysisDepth : undefined,
+              expert_panel: selectedExperts,
+              prompt: prompt || undefined,
+              result: resultWithMetadata,
+              average_score: averageScore,
+            });
 
-          console.log('✅ Analysis saved to database immediately after completion');
+            console.log('✅ Analysis saved to database immediately after completion');
 
-          // Update usage IMMEDIATELY after saving analysis - CRITICAL for accurate counter
-          // First, optimistically update local state
-          setUsage(prev => prev ? {
-            ...prev,
-            analysesUsed: prev.analysesUsed + 1,
-          } : null);
-          setSubscription(prev => prev ? {
-            ...prev,
-            usage: {
-              analysesUsed: (prev.usage.analysesUsed || 0) + 1,
-              lastResetDate: prev.usage.lastResetDate,
-            },
-          } : null);
-          
-          // Then refresh from database to get accurate count (with retries)
-          const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
-            try {
-              // Wait longer for database to commit (especially important for Supabase)
-              await new Promise(resolve => setTimeout(resolve, 800 + (retryCount * 200)));
-              const updatedUsage = await getUsageForCurrentPeriod();
-              if (updatedUsage) {
-                setUsage(updatedUsage);
-                // Also update subscription state with usage
-                setSubscription(prev => prev ? {
-                  ...prev,
-                  usage: {
-                    analysesUsed: updatedUsage.analysesUsed,
-                    lastResetDate: updatedUsage.periodStart,
-                  },
-                } : null);
-                console.log('✅ Usage updated from database:', { analysesUsed: updatedUsage.analysesUsed, retryCount });
-              } else {
-                // If no usage data, retry
+            // Update usage IMMEDIATELY after saving analysis - CRITICAL for accurate counter
+            // First, optimistically update local state
+            setUsage(prev => prev ? {
+              ...prev,
+              analysesUsed: prev.analysesUsed + 1,
+            } : null);
+            setSubscription(prev => prev ? {
+              ...prev,
+              usage: {
+                analysesUsed: (prev.usage.analysesUsed || 0) + 1,
+                lastResetDate: prev.usage.lastResetDate,
+              },
+            } : null);
+            
+            // Then refresh from database to get accurate count (with retries)
+            const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
+              try {
+                // Wait longer for database to commit (especially important for Supabase)
+                await new Promise(resolve => setTimeout(resolve, 800 + (retryCount * 200)));
+                const updatedUsage = await getUsageForCurrentPeriod();
+                if (updatedUsage) {
+                  setUsage(updatedUsage);
+                  // Also update subscription state with usage
+                  setSubscription(prev => prev ? {
+                    ...prev,
+                    usage: {
+                      analysesUsed: updatedUsage.analysesUsed,
+                      lastResetDate: updatedUsage.periodStart,
+                    },
+                  } : null);
+                  console.log('✅ Usage updated from database:', { analysesUsed: updatedUsage.analysesUsed, retryCount });
+                } else {
+                  // If no usage data, retry
+                  if (retryCount < 5) {
+                    await updateUsageFromDB(retryCount + 1);
+                  } else {
+                    console.error('❌ Failed to get usage after 5 retries');
+                  }
+                }
+              } catch (usageError) {
+                console.error('❌ Error updating usage from DB:', usageError);
+                // Retry up to 5 times with exponential backoff
                 if (retryCount < 5) {
+                  await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 500));
                   await updateUsageFromDB(retryCount + 1);
                 } else {
-                  console.error('❌ Failed to get usage after 5 retries');
+                  console.error('❌ Failed to update usage after 5 retries');
                 }
               }
-            } catch (usageError) {
-              console.error('❌ Error updating usage from DB:', usageError);
-              // Retry up to 5 times with exponential backoff
-              if (retryCount < 5) {
-                await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 500));
-                await updateUsageFromDB(retryCount + 1);
-              } else {
-                console.error('❌ Failed to update usage after 5 retries');
-              }
+            };
+            
+            // Start update immediately (don't await - let it run in background)
+            updateUsageFromDB().catch(err => console.error('❌ updateUsageFromDB failed:', err));
+            
+            // Notify other tabs/components that analysis was saved
+            // CRITICAL: Wait for usage update to complete before notifying
+            try {
+              // Wait a bit more to ensure usage update is complete
+              await new Promise(resolve => setTimeout(resolve, 500));
+              localStorage.setItem('analysis_saved', Date.now().toString());
+              // Trigger custom event for same-tab listeners
+              window.dispatchEvent(new CustomEvent('analysis_saved'));
+              // Trigger storage event for cross-tab listeners
+              window.dispatchEvent(new StorageEvent('storage', {
+                key: 'analysis_saved',
+                newValue: Date.now().toString()
+              }));
+            } catch (e) {
+              // Ignore localStorage errors
             }
-          };
-          
-          // Start update immediately (don't await - let it run in background)
-          updateUsageFromDB().catch(err => console.error('❌ updateUsageFromDB failed:', err));
-          
-          // Notify other tabs/components that analysis was saved
-          // CRITICAL: Wait for usage update to complete before notifying
-          try {
-            // Wait a bit more to ensure usage update is complete
-            await new Promise(resolve => setTimeout(resolve, 500));
-            localStorage.setItem('analysis_saved', Date.now().toString());
-            // Trigger custom event for same-tab listeners
-            window.dispatchEvent(new CustomEvent('analysis_saved'));
-            // Trigger storage event for cross-tab listeners
-            window.dispatchEvent(new StorageEvent('storage', {
-              key: 'analysis_saved',
-              newValue: Date.now().toString()
-            }));
-          } catch (e) {
-            // Ignore localStorage errors
+          } catch (saveError) {
+            console.error('❌ Error saving analysis immediately:', saveError);
+            // Don't block UI - analysis result is still shown
+            // Usage will be updated on next page load or when user manually saves
           }
-        } catch (saveError) {
-          console.error('❌ Error saving analysis immediately:', saveError);
-          // Don't block UI - analysis result is still shown
-        }
+        })();
       }
+      
+      // Analysis completed successfully - set loading to false
+      setLoading(false);
       
       // Jump to results area immediately
       setTimeout(() => {
