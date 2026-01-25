@@ -543,11 +543,44 @@ export async function getTrainees() {
 
 export async function isAdmin(): Promise<boolean> {
   try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Use getSession() instead of getUser() to avoid hanging
+    // Add timeout to prevent hanging
+    const getSessionPromise = supabase.auth.getSession();
+    const getSessionTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getSession timeout after 3 seconds')), 3000)
+    );
     
-    if (userError || !user) {
+    let session, sessionError;
+    try {
+      const result = await Promise.race([getSessionPromise, getSessionTimeout]) as any;
+      session = result?.data?.session;
+      sessionError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ isAdmin: getSession() timed out:', timeoutError?.message);
+      // Try to get user from localStorage directly
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+        const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || '';
+        const storageKey = `sb-${projectRef}-auth-token`;
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.currentSession?.user) {
+            session = { user: parsed.currentSession.user };
+          } else if (parsed?.user) {
+            session = { user: parsed.user };
+          }
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
+    if (sessionError || !session?.user) {
       return false;
     }
+    
+    const user = session.user;
 
     // Fast path: primary admin by email (robust גם אם יש בעיות RLS על profiles)
     if (user.email && user.email.toLowerCase() === 'viralypro@gmail.com') {
@@ -555,11 +588,27 @@ export async function isAdmin(): Promise<boolean> {
     }
 
     // Otherwise: בדיקה לפי role בפרופיל (כש-RLS מאפשר)
-    const { data: profile, error: profileError } = await supabase
+    // Add timeout to profile query
+    const profileQueryPromise = supabase
       .from('profiles')
       .select('role')
       .eq('user_id', user.id)
       .maybeSingle();
+    
+    const profileTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('profile query timeout after 3 seconds')), 3000)
+    );
+    
+    let profile, profileError;
+    try {
+      const result = await Promise.race([profileQueryPromise, profileTimeout]) as any;
+      profile = result?.data;
+      profileError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ isAdmin: profile query timed out:', timeoutError?.message);
+      // If profile query times out, assume not admin (safer)
+      return false;
+    }
     
     if (profileError || !profile) {
       return false;
