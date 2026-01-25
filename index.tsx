@@ -359,10 +359,8 @@ const App = () => {
     // Listen for subscription updates from other tabs/windows
     if (broadcastChannel) {
       broadcastChannel.onmessage = (event) => {
-        console.log('📡 Received subscription update from another tab/window:', event.data);
+        // Silent reload when subscription is updated in another tab (to reduce console noise)
         if (event.data.type === 'subscription-updated' && user && user.id === event.data.userId) {
-          // Reload user data when subscription is updated in another tab
-          console.log('🔄 Reloading user data due to subscription update from another tab');
           setTimeout(async () => {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
             if (currentUser && currentUser.id === user.id) {
@@ -525,8 +523,8 @@ const App = () => {
         retryCount++;
       }
       
-      // Always log profile load details to help debug
-      if (userProfile) {
+      // Only log profile load details if forceRefresh (to reduce console noise)
+      if (userProfile && forceRefresh) {
         console.log('📋 Profile loaded:', {
           subscriptionTier: userProfile.subscription_tier,
           subscriptionStatus: userProfile.subscription_status,
@@ -534,7 +532,7 @@ const App = () => {
           primaryTrack: userProfile.selected_primary_track,
           tracks: userProfile.selected_tracks,
         });
-      } else {
+      } else if (!userProfile) {
         console.warn('⚠️ Profile not found or failed to load after retries:', {
           userId: currentUser.id,
           forceRefresh,
@@ -572,13 +570,15 @@ const App = () => {
         setProfile(userProfile);
         // Cache profile for instant load on refresh
         saveProfileToCache(userProfile);
-        // Always log profile load to help debug
-        console.log('✅ Profile loaded successfully:', {
-          tier: userProfile.subscription_tier,
-          primaryTrack: userProfile.selected_primary_track,
-          tracks: userProfile.selected_tracks,
-          subscriptionStatus: userProfile.subscription_status,
-        });
+        // Only log profile load if forceRefresh (to reduce console noise)
+        if (forceRefresh) {
+          console.log('✅ Profile loaded successfully:', {
+            tier: userProfile.subscription_tier,
+            primaryTrack: userProfile.selected_primary_track,
+            tracks: userProfile.selected_tracks,
+            subscriptionStatus: userProfile.subscription_status,
+          });
+        }
       } else {
         // Profile not found - this shouldn't happen for registered users
         // But don't clear profile if we're in upgrade flow (might be loading)
@@ -628,12 +628,15 @@ const App = () => {
 
       // Check if user is admin (critical for admin panel access)
       const adminStatus = await isAdmin();
-      console.log('🔑 Admin check for', currentUser.email, ':', adminStatus ? 'Admin' : 'User');
+      // Only log admin check if forceRefresh (to reduce console noise)
+      if (forceRefresh) {
+        console.log('🔑 Admin check for', currentUser.email, ':', adminStatus ? 'Admin' : 'User');
+      }
       setUserIsAdmin(adminStatus);
       
-      // If admin, ensure admin page data is fresh
+      // If admin, ensure admin page data is fresh (silent - no logs)
       if (adminStatus && window.location.pathname === '/admin') {
-        console.log('✅ Admin access confirmed - ready for admin panel');
+        // Admin access confirmed - no need to log
       }
 
       // Determine subscription tier: prioritize subscription record, but use profile if subscription record doesn't exist yet
@@ -667,11 +670,14 @@ const App = () => {
         finalStartDate = userProfile?.subscription_start_date ? new Date(userProfile.subscription_start_date) : new Date();
         finalEndDate = userProfile?.subscription_end_date ? new Date(userProfile.subscription_end_date) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
         finalIsActive = true;
-        console.log('✅ Using profile tier (subscription record not found yet):', {
-          profileTier,
-          profileStatus,
-          finalTier,
-        });
+        // Only log if forceRefresh (to reduce console noise)
+        if (forceRefresh) {
+          console.log('✅ Using profile tier (subscription record not found yet):', {
+            profileTier,
+            profileStatus,
+            finalTier,
+          });
+        }
       } else {
         // Default to free tier ONLY if profile is not active or tier is invalid
         // Don't default to free if we just paid - check if profile was recently updated
@@ -680,16 +686,19 @@ const App = () => {
         }
         finalTier = 'free';
         finalIsActive = true; // Free tier never expires
-        console.log('ℹ️ Defaulting to free tier:', {
-          isProfileActive,
-          isValidProfileTier,
-          profileTier,
-          profileStatus,
-        });
+        // Only log if forceRefresh (to reduce console noise)
+        if (forceRefresh) {
+          console.log('ℹ️ Defaulting to free tier:', {
+            isProfileActive,
+            isValidProfileTier,
+            profileTier,
+            profileStatus,
+          });
+        }
       }
       
-      // Only log subscription state changes on force refresh or when tier actually changes
-      if (forceRefresh || subscription?.tier !== finalTier) {
+      // Only log subscription state changes when tier actually changes (to reduce console noise)
+      if (subscription?.tier !== finalTier) {
         console.log('📊 Setting subscription state:', {
           hasSubscriptionRecord: !!subData,
           subscriptionTier: subData?.plans?.tier,
@@ -2846,12 +2855,10 @@ const App = () => {
     
     // If user exists but profile is null and not currently loading, load it immediately
     const loadProfileIfMissing = async () => {
-      console.log('🔄 Profile missing after refresh, loading...', { userId: user.id });
       setIsLoadingProfile(true);
       try {
         const userProfile = await getCurrentUserProfile(true);
         if (userProfile) {
-          console.log('✅ Profile loaded after refresh:', { fullName: userProfile.full_name, email: userProfile.email });
           setProfile(userProfile);
           saveProfileToCache(userProfile); // Cache for next refresh
         } else {
