@@ -2526,14 +2526,13 @@ const App = () => {
       return;
     }
     
-    // Check if user can run analysis (usage limits)
+    // Check if user can run analysis (usage limits) - BEFORE setting loading state
     const analysisCheck = await checkSubscriptionLimits();
     if (!analysisCheck.allowed) {
       if (analysisCheck.message) {
         alert(analysisCheck.message);
       }
-      setLoading(false);
-      return;
+      return; // Don't set loading to false here - it was never set to true
     }
     
     console.log('✅ All checks passed, starting analysis...');
