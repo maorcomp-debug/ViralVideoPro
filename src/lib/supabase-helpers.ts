@@ -578,7 +578,32 @@ export async function getAllUsers() {
     
     // First check if user is admin
     console.log('🔍 getAllUsers: Getting user...');
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    // Add timeout to getUser() to prevent hanging
+    const getUserPromise = supabase.auth.getUser();
+    const getUserTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getUser timeout after 5 seconds')), 5000)
+    );
+    
+    let user, userError;
+    try {
+      const result = await Promise.race([getUserPromise, getUserTimeout]) as any;
+      user = result?.data?.user;
+      userError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ getAllUsers: getUser() timed out:', timeoutError?.message);
+      // Try to get user from session instead
+      console.log('🔄 getAllUsers: Trying to get user from session...');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        user = session.user;
+        console.log('✅ getAllUsers: Got user from session:', user.email);
+      } else {
+        console.error('❌ getAllUsers: No user in session either');
+        return [];
+      }
+    }
+    
     if (userError) {
       console.error('❌ getAllUsers: Error getting user:', userError);
       return [];
@@ -725,11 +750,38 @@ export async function getAllAnalyses() {
     console.log('🔍 getAllAnalyses: Starting fetch...');
     
     // First check if user is admin
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    console.log('🔍 getAllAnalyses: Getting user...');
+    
+    // Add timeout to getUser() to prevent hanging
+    const getUserPromise = supabase.auth.getUser();
+    const getUserTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getUser timeout after 5 seconds')), 5000)
+    );
+    
+    let user, userError;
+    try {
+      const result = await Promise.race([getUserPromise, getUserTimeout]) as any;
+      user = result?.data?.user;
+      userError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ getAllAnalyses: getUser() timed out:', timeoutError?.message);
+      // Try to get user from session instead
+      console.log('🔄 getAllAnalyses: Trying to get user from session...');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        user = session.user;
+        console.log('✅ getAllAnalyses: Got user from session:', user.email);
+      } else {
+        console.error('❌ getAllAnalyses: No user in session either');
+        return [];
+      }
+    }
+    
     if (userError || !user) {
       console.error('❌ getAllAnalyses: No authenticated user');
       return [];
     }
+    console.log('✅ getAllAnalyses: User found:', user.email);
     
     const isUserAdmin = await isAdmin();
     if (!isUserAdmin) {
@@ -1101,11 +1153,38 @@ export async function getAdminStats() {
   
   try {
     // First check if user is admin
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    console.log('🔍 getAdminStats: Getting user...');
+    
+    // Add timeout to getUser() to prevent hanging
+    const getUserPromise = supabase.auth.getUser();
+    const getUserTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getUser timeout after 5 seconds')), 5000)
+    );
+    
+    let user, userError;
+    try {
+      const result = await Promise.race([getUserPromise, getUserTimeout]) as any;
+      user = result?.data?.user;
+      userError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ getAdminStats: getUser() timed out:', timeoutError?.message);
+      // Try to get user from session instead
+      console.log('🔄 getAdminStats: Trying to get user from session...');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        user = session.user;
+        console.log('✅ getAdminStats: Got user from session:', user.email);
+      } else {
+        console.error('❌ getAdminStats: No user in session either');
+        return null;
+      }
+    }
+    
+    if (userError || !user) {
       console.error('❌ getAdminStats: No authenticated user');
       return null;
     }
+    console.log('✅ getAdminStats: User found:', user.email);
     
     const isUserAdmin = await isAdmin();
     if (!isUserAdmin) {
