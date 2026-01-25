@@ -772,11 +772,16 @@ export const AdminPage: React.FC = () => {
           const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
           
           // Get all analyses for current month in one query
-          const { data: allAnalyses, error: analysesError } = await supabase
-            .from('analyses')
-            .select('user_id')
-            .gte('created_at', monthStart.toISOString())
-            .lte('created_at', monthEnd.toISOString());
+          // Use getAllAnalyses helper which uses admin client
+          const allAnalysesData = await getAllAnalyses();
+          const allAnalyses = allAnalysesData
+            .filter((a: any) => {
+              const createdAt = new Date(a.created_at);
+              return createdAt >= monthStart && createdAt <= monthEnd;
+            })
+            .map((a: any) => ({ user_id: a.user_id }));
+          
+          let analysesError = null;
           
           if (analysesError) {
             console.error('❌ Error fetching analyses for usage:', analysesError);

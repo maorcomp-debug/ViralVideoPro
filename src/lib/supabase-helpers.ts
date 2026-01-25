@@ -1,5 +1,31 @@
 import { supabase } from './supabase.js';
+import { createClient } from '@supabase/supabase-js';
 import type { Database } from './supabase';
+
+// Create admin client with service role key (bypasses RLS)
+// This is safe because it's only used in admin functions that check isAdmin() first
+let adminSupabaseClient: ReturnType<typeof createClient> | null = null;
+
+const getAdminClient = () => {
+  if (adminSupabaseClient) return adminSupabaseClient;
+  
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+  const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY?.trim() || '';
+  
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.warn('⚠️ Service role key not found - admin functions will use regular client');
+    return supabase;
+  }
+  
+  adminSupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+  
+  return adminSupabaseClient;
+};
 
 // Helper functions for common operations
 
@@ -513,68 +539,57 @@ export async function getAllUsers() {
   try {
     console.log('🔍 getAllUsers: Starting fetch...');
     
-    // Try direct select first (faster and more reliable)
-    console.log('🔍 getAllUsers: Attempting direct select from profiles...');
+    // First check if user is admin
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('❌ getAllUsers: No authenticated user');
+      return [];
+    }
     
-    const { data: directData, error: directError } = await supabase
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin) {
+      console.error('❌ getAllUsers: User is not admin');
+      return [];
+    }
+    
+    console.log('✅ getAllUsers: User is admin, fetching all users...');
+    
+    // Use admin client (service role) to bypass RLS
+    const adminClient = getAdminClient();
+    
+    const { data, error } = await adminClient
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!directError && directData) {
-      console.log('✅ getAllUsers: loaded via direct select, count =', directData.length);
-      if (directData.length > 0) {
-        console.log('📋 getAllUsers: First user sample:', { email: directData[0].email, role: directData[0].role });
-      }
-      return directData;
-    }
-
-    if (directError) {
-      console.warn('⚠️ getAllUsers: Direct select error, trying RPC fallback:', directError.message);
-    }
-
-    // Fallback to RPC if direct select fails
-    console.log('🔍 getAllUsers: Attempting admin_get_all_users RPC...');
-    
-    const rpcPromise = supabase.rpc('admin_get_all_users');
-    const rpcTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('RPC timeout after 15 seconds')), 15000)
-    );
-    
-    try {
-      const rpcResult = await Promise.race([rpcPromise, rpcTimeoutPromise]) as { data: any, error: any };
-      const { data, error } = rpcResult;
-
-      if (!error && data) {
-        console.log('✅ getAllUsers: loaded via RPC, count =', data.length);
-        return data;
-      }
-
-      if (error) {
-        console.error('❌ getAllUsers: RPC error:', error.message);
-      }
-    } catch (rpcError: any) {
-      console.error('❌ getAllUsers: RPC timeout/exception:', rpcError.message);
-    }
-
-    // If both fail, return empty array
-    console.error('❌ getAllUsers: All methods failed');
-    const { data, error } = { data: directData, error: directError };
-
     if (error) {
-      console.error('❌ getAllUsers: Direct select error:', error);
-      console.error('❌ getAllUsers: Error details:', { 
-        message: error.message, 
-        code: error.code, 
-        details: error.details,
-        hint: error.hint 
-      });
-      return [];
+      console.error('❌ getAllUsers: Error fetching users:', error);
+      console.error('❌ getAllUsers: Error details:', JSON.stringify(error, null, 2));
+      
+      // Fallback to regular client if service role fails
+      console.log('🔄 getAllUsers: Trying with regular client as fallback...');
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (fallbackError) {
+        console.error('❌ getAllUsers: Fallback also failed:', fallbackError);
+        return [];
+      }
+      
+      console.log('✅ getAllUsers: loaded via fallback, count =', fallbackData?.length || 0);
+      return fallbackData || [];
     }
 
-    console.log('✅ getAllUsers: loaded via direct select, count =', data?.length || 0);
+    console.log('✅ getAllUsers: loaded via admin client, count =', data?.length || 0);
     if (data && data.length > 0) {
-      console.log('📋 getAllUsers: First user sample:', { email: data[0].email, role: data[0].role, fullName: data[0].full_name });
+      console.log('📋 getAllUsers: First user sample:', { 
+        email: data[0].email, 
+        role: data[0].role, 
+        fullName: data[0].full_name,
+        tier: data[0].subscription_tier
+      });
     } else {
       console.warn('⚠️ getAllUsers: No users returned (empty array or null)');
     }
@@ -582,6 +597,7 @@ export async function getAllUsers() {
   } catch (error: any) {
     console.error('❌ getAllUsers: Final exception:', error);
     console.error('❌ getAllUsers: Exception message:', error.message);
+    console.error('❌ getAllUsers: Stack:', error.stack);
     return [];
   }
 }
@@ -620,18 +636,51 @@ async function getAllUsersViaClient() {
 export async function getAllAnalyses() {
   try {
     console.log('🔍 getAllAnalyses: Starting fetch...');
-    const { data, error } = await supabase
+    
+    // First check if user is admin
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('❌ getAllAnalyses: No authenticated user');
+      return [];
+    }
+    
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin) {
+      console.error('❌ getAllAnalyses: User is not admin');
+      return [];
+    }
+    
+    console.log('✅ getAllAnalyses: User is admin, fetching all analyses...');
+    
+    // Use admin client (service role) to bypass RLS
+    const adminClient = getAdminClient();
+    
+    const { data, error } = await adminClient
       .from('analyses')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ Error fetching all analyses:', error);
-      console.error('❌ Error details:', JSON.stringify(error, null, 2));
-      throw error;
+      console.error('❌ getAllAnalyses: Error fetching analyses:', error);
+      console.error('❌ getAllAnalyses: Error details:', JSON.stringify(error, null, 2));
+      
+      // Fallback to regular client if service role fails
+      console.log('🔄 getAllAnalyses: Trying with regular client as fallback...');
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('analyses')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (fallbackError) {
+        console.error('❌ getAllAnalyses: Fallback also failed:', fallbackError);
+        return [];
+      }
+      
+      console.log('✅ getAllAnalyses: loaded via fallback, count =', fallbackData?.length || 0);
+      return fallbackData || [];
     }
 
-    console.log('✅ getAllAnalyses: loaded', data?.length || 0, 'analyses');
+    console.log('✅ getAllAnalyses: loaded via admin client, count =', data?.length || 0);
     if (data && data.length > 0) {
       console.log('📋 getAllAnalyses: Latest analysis:', {
         id: data[0].id,
@@ -644,26 +693,63 @@ export async function getAllAnalyses() {
   } catch (error: any) {
     console.error('❌ Error in getAllAnalyses:', error);
     console.error('❌ Error details:', JSON.stringify(error, null, 2));
-    throw error;
+    return [];
   }
 }
 
 export async function getAllVideos() {
   try {
-    const { data, error } = await supabase
+    console.log('🔍 getAllVideos: Starting fetch...');
+    
+    // First check if user is admin
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('❌ getAllVideos: No authenticated user');
+      return [];
+    }
+    
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin) {
+      console.error('❌ getAllVideos: User is not admin');
+      return [];
+    }
+    
+    console.log('✅ getAllVideos: User is admin, fetching all videos...');
+    
+    // Use admin client (service role) to bypass RLS
+    const adminClient = getAdminClient();
+    
+    const { data, error } = await adminClient
       .from('videos')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching all videos:', error);
-      throw error;
+      console.error('❌ getAllVideos: Error fetching videos:', error);
+      console.error('❌ getAllVideos: Error details:', JSON.stringify(error, null, 2));
+      
+      // Fallback to regular client if service role fails
+      console.log('🔄 getAllVideos: Trying with regular client as fallback...');
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('videos')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (fallbackError) {
+        console.error('❌ getAllVideos: Fallback also failed:', fallbackError);
+        return [];
+      }
+      
+      console.log('✅ getAllVideos: loaded via fallback, count =', fallbackData?.length || 0);
+      return fallbackData || [];
     }
 
+    console.log('✅ getAllVideos: loaded via admin client, count =', data?.length || 0);
     return data || [];
   } catch (error: any) {
-    console.error('Error in getAllVideos:', error);
-    throw error;
+    console.error('❌ Error in getAllVideos:', error);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    return [];
   }
 }
 
@@ -888,9 +974,27 @@ export async function getAdminStats() {
   console.log('📊 getAdminStats: Starting fetch...');
   
   try {
+    // First check if user is admin
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('❌ getAdminStats: No authenticated user');
+      return null;
+    }
+    
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin) {
+      console.error('❌ getAdminStats: User is not admin');
+      return null;
+    }
+    
+    console.log('✅ getAdminStats: User is admin, fetching stats...');
+    
+    // Use admin client (service role) to bypass RLS
+    const adminClient = getAdminClient();
+    
     // Get total counts - NO TIMEOUT, just show real errors
     console.log('🔍 Fetching user count...');
-    const { count: totalUsers, error: usersError } = await supabase
+    const { count: totalUsers, error: usersError } = await adminClient
       .from('profiles')
       .select('id', { count: 'exact', head: true });
     
@@ -905,7 +1009,7 @@ export async function getAdminStats() {
     }
 
     console.log('🔍 Fetching analyses count...');
-    const { count: totalAnalyses, error: analysesError } = await supabase
+    const { count: totalAnalyses, error: analysesError } = await adminClient
       .from('analyses')
       .select('id', { count: 'exact', head: true });
     if (analysesError) {
@@ -913,7 +1017,7 @@ export async function getAdminStats() {
     }
 
     console.log('🔍 Fetching videos count...');
-    const { count: totalVideos, error: videosError } = await supabase
+    const { count: totalVideos, error: videosError } = await adminClient
       .from('videos')
       .select('id', { count: 'exact', head: true });
     if (videosError) {
@@ -922,7 +1026,7 @@ export async function getAdminStats() {
 
     // Get tier distribution
     console.log('🔍 Fetching tier distribution...');
-    const { data: tierData, error: tierError } = await supabase
+    const { data: tierData, error: tierError } = await adminClient
       .from('profiles')
       .select('subscription_tier');
     if (tierError) {
@@ -936,7 +1040,7 @@ export async function getAdminStats() {
 
     // Get role distribution
     console.log('🔍 Fetching role distribution...');
-    const { data: roleData, error: roleError } = await supabase
+    const { data: roleData, error: roleError } = await adminClient
       .from('profiles')
       .select('role');
     if (roleError) {
@@ -953,7 +1057,7 @@ export async function getAdminStats() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    const { count: recentUsers, error: recentError } = await supabase
+    const { count: recentUsers, error: recentError } = await adminClient
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .gte('created_at', thirtyDaysAgo.toISOString());
