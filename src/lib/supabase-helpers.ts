@@ -298,9 +298,28 @@ export async function saveAnalysis(analysisData: {
   result: any;
   average_score: number;
 }) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+  console.log('💾 saveAnalysis: Starting save...');
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) {
+    console.error('❌ saveAnalysis: Error getting user:', userError);
+    throw new Error('User not authenticated');
+  }
+  if (!user) {
+    console.error('❌ saveAnalysis: No user found');
+    throw new Error('User not authenticated');
+  }
+  
+  console.log('✅ saveAnalysis: User authenticated:', user.email);
+  console.log('💾 saveAnalysis: Analysis data:', {
+    track: analysisData.track,
+    expert_panel: analysisData.expert_panel?.length || 0,
+    has_result: !!analysisData.result,
+    average_score: analysisData.average_score,
+    has_video_id: !!analysisData.video_id,
+    has_trainee_id: !!analysisData.trainee_id,
+  });
 
+  console.log('💾 saveAnalysis: Executing insert...');
   const { data, error } = await supabase
     .from('analyses')
     .insert({
@@ -311,9 +330,13 @@ export async function saveAnalysis(analysisData: {
     .single();
 
   if (error) {
-    console.error('❌ Error saving analysis to database:', error);
-    console.error('❌ Error details:', JSON.stringify(error, null, 2));
-    console.error('❌ Analysis data attempted:', {
+    console.error('❌ saveAnalysis: Error saving analysis to database:', error);
+    console.error('❌ saveAnalysis: Error code:', error.code);
+    console.error('❌ saveAnalysis: Error message:', error.message);
+    console.error('❌ saveAnalysis: Error hint:', error.hint);
+    console.error('❌ saveAnalysis: Error details:', error.details);
+    console.error('❌ saveAnalysis: Full error:', JSON.stringify(error, null, 2));
+    console.error('❌ saveAnalysis: Analysis data attempted:', {
       user_id: user.id,
       track: analysisData.track,
       expert_panel: analysisData.expert_panel,
@@ -323,7 +346,12 @@ export async function saveAnalysis(analysisData: {
     throw error;
   }
 
-  console.log('✅ Analysis saved successfully to database:', { id: data?.id, user_id: user.id });
+  console.log('✅ saveAnalysis: Analysis saved successfully to database:', { 
+    id: data?.id, 
+    user_id: user.id,
+    track: data?.track,
+    created_at: data?.created_at
+  });
   return data;
 }
 
