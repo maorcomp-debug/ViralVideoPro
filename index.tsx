@@ -726,6 +726,7 @@ const App = () => {
       }
 
       // Load usage and update subscription state (but preserve tier!)
+      // Always load fresh usage data to ensure accuracy
       const usageData = await getUsageForCurrentPeriod();
       if (usageData) {
         setUsage(usageData);
@@ -739,6 +740,14 @@ const App = () => {
               lastResetDate: usageData.periodStart,
             },
           };
+        });
+      } else {
+        // If usage data is null, set it to empty to prevent display issues
+        setUsage({
+          analysesUsed: 0,
+          minutesUsed: 0,
+          periodStart: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+          periodEnd: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999),
         });
       }
 
@@ -2851,6 +2860,61 @@ const App = () => {
     // Load immediately (no delay needed since we have cache)
     loadProfileIfMissing();
   }, [user, profile, isLoadingProfile]);
+
+  // Ensure usage is always loaded after refresh, especially on SettingsPage
+  useEffect(() => {
+    if (!user) return;
+    if (!isSettingsPage) return;
+    if (!subscription) return; // Wait for subscription to be loaded first
+    
+    // Load usage if missing or if we're on settings page
+    const loadUsageIfMissing = async () => {
+      try {
+        const usageData = await getUsageForCurrentPeriod();
+        if (usageData) {
+          setUsage(usageData);
+          
+          // Update subscription with current usage
+          setSubscription(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              usage: {
+                analysesUsed: usageData.analysesUsed,
+                lastResetDate: usageData.periodStart,
+              },
+            };
+          });
+        } else {
+          // If usage data is null, set default values to prevent display issues
+          const now = new Date();
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          setUsage({
+            analysesUsed: 0,
+            minutesUsed: 0,
+            periodStart: monthStart,
+            periodEnd: monthEnd,
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error loading usage after refresh:', error);
+        // Set default values on error
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        setUsage({
+          analysesUsed: 0,
+          minutesUsed: 0,
+          periodStart: monthStart,
+          periodEnd: monthEnd,
+        });
+      }
+    };
+    
+    // Load usage immediately on settings page
+    loadUsageIfMissing();
+  }, [user, isSettingsPage, subscription]);
   
   const handleLogout = async () => {
     // Prevent double-click
