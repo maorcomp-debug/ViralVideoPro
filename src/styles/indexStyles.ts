@@ -6,7 +6,7 @@ import { fadeIn, shimmer, glowReady, breathingHigh } from './globalStyles';
 export const Title = styled.h1`
   font-size: 3.5rem;
   color: #D4A043;
-  margin: 10px 0 5px;
+  margin: 0 0 5px 0;
   letter-spacing: 3px;
   text-transform: uppercase;
   background: linear-gradient(to bottom, #fcf6ba, #bf953f, #b38728, #fbf5b7, #aa771c);
@@ -1394,7 +1394,7 @@ export const LogoContainer = styled.div`
   width: 100%;
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 0;
 `;
 
 export const LogoPlaceholder = styled.div`
