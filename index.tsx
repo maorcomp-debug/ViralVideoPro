@@ -2832,10 +2832,8 @@ const App = () => {
 
       if (pdfFile) {
          try {
-           console.log('📄 Processing PDF...');
            const pdfPart = await fileToGenerativePart(pdfFile);
            parts.push(pdfPart);
-           console.log('✅ PDF processed successfully');
          } catch(e) {
             console.error("❌ PDF processing error", e);
          }

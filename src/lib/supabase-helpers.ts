@@ -132,68 +132,67 @@ export async function getCurrentSubscription() {
 
 export async function getUsageForCurrentPeriod() {
   try {
-    const usagePromise = (async () => {
-      // Get user first (don't wait for subscription)
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        return null;
-      }
+    // Get user first (don't wait for subscription)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return null;
+    }
 
-      // ALWAYS count analyses in current calendar month (not subscription period)
-      // This ensures accurate monthly usage tracking regardless of subscription start date
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // ALWAYS count analyses in current calendar month (not subscription period)
+    // This ensures accurate monthly usage tracking regardless of subscription start date
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-      // Count analyses
-      const { count, error } = await supabase
+    // Count analyses
+    const { count, error } = await supabase
+      .from('analyses')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
+
+    if (error) {
+      return null;
+    }
+
+    // Calculate total video minutes used this month
+    // Join with videos table to get duration
+    let totalMinutesUsed = 0;
+    try {
+      const { data: analysesWithVideos, error: videosError } = await supabase
         .from('analyses')
-        .select('id', { count: 'exact', head: true })
+        .select(`
+          id,
+          video_id,
+          videos (
+            duration_seconds
+          )
+        `)
         .eq('user_id', user.id)
         .gte('created_at', monthStart.toISOString())
-        .lte('created_at', monthEnd.toISOString());
+        .lte('created_at', monthEnd.toISOString())
+        .not('video_id', 'is', null);
 
-      if (error) {
-        return null;
+      if (!videosError && analysesWithVideos) {
+        analysesWithVideos.forEach((analysis: any) => {
+          const video = analysis.videos;
+          if (video && video.duration_seconds) {
+            // Convert seconds to minutes (round up)
+            totalMinutesUsed += Math.ceil(video.duration_seconds / 60);
+          }
+        });
       }
+    } catch (error) {
+      // Non-critical error - continue with minutesUsed = 0
+    }
 
-      // Calculate total video minutes used this month
-      // Join with videos table to get duration
-      let totalMinutesUsed = 0;
-      try {
-        const { data: analysesWithVideos, error: videosError } = await supabase
-          .from('analyses')
-          .select(`
-            id,
-            video_id,
-            videos (
-              duration_seconds
-            )
-          `)
-          .eq('user_id', user.id)
-          .gte('created_at', monthStart.toISOString())
-          .lte('created_at', monthEnd.toISOString())
-          .not('video_id', 'is', null);
-
-        if (!videosError && analysesWithVideos) {
-          analysesWithVideos.forEach((analysis: any) => {
-            const video = analysis.videos;
-            if (video && video.duration_seconds) {
-              // Convert seconds to minutes (round up)
-              totalMinutesUsed += Math.ceil(video.duration_seconds / 60);
-            }
-          });
-        }
-      } catch (error) {
-        // Non-critical error - continue with minutesUsed = 0
-      }
-
-      return {
-        analysesUsed: count || 0,
-        minutesUsed: totalMinutesUsed,
-        periodStart: monthStart,
-        periodEnd: monthEnd,
-      };
+    return {
+      analysesUsed: count || 0,
+      minutesUsed: totalMinutesUsed,
+      periodStart: monthStart,
+      periodEnd: monthEnd,
+    };
   } catch (error) {
     console.error('Error in getUsageForCurrentPeriod:', error);
     return null;
