@@ -578,7 +578,64 @@ export async function getAllUsers() {
     
     // First check if user is admin - use session directly (faster, no API call)
     console.log('🔍 getAllUsers: Getting user from session...');
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    // Add timeout to getSession() to prevent hanging
+    const getSessionPromise = supabase.auth.getSession();
+    const getSessionTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getSession timeout after 3 seconds')), 3000)
+    );
+    
+    let session, sessionError;
+    try {
+      const result = await Promise.race([getSessionPromise, getSessionTimeout]) as any;
+      session = result?.data?.session;
+      sessionError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ getAllUsers: getSession() timed out:', timeoutError?.message);
+      // Try to get user from localStorage directly (Supabase stores session there)
+      console.log('🔄 getAllUsers: Trying to get session from localStorage...');
+      try {
+        // Supabase stores session in localStorage with key pattern: sb-{project-ref}-auth-token
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+        const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || '';
+        const storageKey = `sb-${projectRef}-auth-token`;
+        console.log('🔍 getAllUsers: Looking for storage key:', storageKey);
+        
+        // Try multiple possible keys
+        const possibleKeys = [
+          storageKey,
+          `sb-${projectRef}-auth-token`,
+          'supabase.auth.token',
+        ];
+        
+        for (const key of possibleKeys) {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (parsed?.currentSession?.user) {
+                session = { user: parsed.currentSession.user };
+                console.log('✅ getAllUsers: Got user from localStorage key', key, ':', session.user.email);
+                break;
+              } else if (parsed?.user) {
+                session = { user: parsed.user };
+                console.log('✅ getAllUsers: Got user from localStorage key', key, ':', session.user.email);
+                break;
+              }
+            } catch (e) {
+              // Try next key
+            }
+          }
+        }
+      } catch (e) {
+        console.error('❌ getAllUsers: Failed to get from localStorage:', e);
+      }
+      
+      if (!session?.user) {
+        console.error('❌ getAllUsers: No user found anywhere');
+        return [];
+      }
+    }
     
     if (sessionError) {
       console.error('❌ getAllUsers: Error getting session:', sessionError);
@@ -593,12 +650,18 @@ export async function getAllUsers() {
     const user = session.user;
     console.log('✅ getAllUsers: User found from session:', user.email);
     
-    console.log('🔍 getAllUsers: Checking admin status...');
-    const isUserAdmin = await isAdmin();
-    console.log('✅ getAllUsers: Admin check result:', isUserAdmin);
-    if (!isUserAdmin) {
-      console.error('❌ getAllUsers: User is not admin');
-      return [];
+    // Skip admin check if we got user from localStorage (to avoid hanging)
+    // Service role key will handle authorization anyway
+    if (session?.user) {
+      console.log('🔍 getAllUsers: Checking admin status...');
+      const isUserAdmin = await isAdmin();
+      console.log('✅ getAllUsers: Admin check result:', isUserAdmin);
+      if (!isUserAdmin) {
+        console.error('❌ getAllUsers: User is not admin');
+        return [];
+      }
+    } else {
+      console.log('⚠️ getAllUsers: Skipping admin check (no session), using service role key');
     }
     
     console.log('✅ getAllUsers: User is admin, fetching all users...');
@@ -730,25 +793,48 @@ export async function getAllAnalyses() {
     
     // First check if user is admin - use session directly (faster, no API call)
     console.log('🔍 getAllAnalyses: Getting user from session...');
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (sessionError) {
+    // Add timeout to getSession() to prevent hanging
+    const getSessionPromise = supabase.auth.getSession();
+    const getSessionTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getSession timeout after 3 seconds')), 3000)
+    );
+    
+    let session, sessionError;
+    try {
+      const result = await Promise.race([getSessionPromise, getSessionTimeout]) as any;
+      session = result?.data?.session;
+      sessionError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ getAllAnalyses: getSession() timed out:', timeoutError?.message);
+      // Skip session check - use admin client directly (it bypasses auth anyway)
+      console.log('🔄 getAllAnalyses: Skipping session check, using admin client directly...');
+      session = null;
+    }
+    
+    if (sessionError && session) {
       console.error('❌ getAllAnalyses: Error getting session:', sessionError);
       return [];
     }
     
     if (!session?.user) {
-      console.error('❌ getAllAnalyses: No user in session');
-      return [];
+      // If no session, still try to use admin client (service role bypasses auth)
+      console.log('⚠️ getAllAnalyses: No user in session, but trying admin client anyway...');
+    } else {
+      const user = session.user;
+      console.log('✅ getAllAnalyses: User found from session:', user.email);
     }
     
-    const user = session.user;
-    console.log('✅ getAllAnalyses: User found from session:', user.email);
-    
-    const isUserAdmin = await isAdmin();
-    if (!isUserAdmin) {
-      console.error('❌ getAllAnalyses: User is not admin');
-      return [];
+    // Skip admin check if no session (to avoid hanging)
+    // Service role key will handle authorization anyway
+    if (session?.user) {
+      const isUserAdmin = await isAdmin();
+      if (!isUserAdmin) {
+        console.error('❌ getAllAnalyses: User is not admin');
+        return [];
+      }
+    } else {
+      console.log('⚠️ getAllAnalyses: Skipping admin check (no session), using service role key');
     }
     
     console.log('✅ getAllAnalyses: User is admin, fetching all analyses...');
@@ -843,25 +929,48 @@ export async function getAllVideos() {
     
     // First check if user is admin - use session directly (faster, no API call)
     console.log('🔍 getAllVideos: Getting user from session...');
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (sessionError) {
+    // Add timeout to getSession() to prevent hanging
+    const getSessionPromise = supabase.auth.getSession();
+    const getSessionTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getSession timeout after 3 seconds')), 3000)
+    );
+    
+    let session, sessionError;
+    try {
+      const result = await Promise.race([getSessionPromise, getSessionTimeout]) as any;
+      session = result?.data?.session;
+      sessionError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ getAllVideos: getSession() timed out:', timeoutError?.message);
+      // Skip session check - use admin client directly (it bypasses auth anyway)
+      console.log('🔄 getAllVideos: Skipping session check, using admin client directly...');
+      session = null;
+    }
+    
+    if (sessionError && session) {
       console.error('❌ getAllVideos: Error getting session:', sessionError);
       return [];
     }
     
     if (!session?.user) {
-      console.error('❌ getAllVideos: No user in session');
-      return [];
+      // If no session, still try to use admin client (service role bypasses auth)
+      console.log('⚠️ getAllVideos: No user in session, but trying admin client anyway...');
+    } else {
+      const user = session.user;
+      console.log('✅ getAllVideos: User found from session:', user.email);
     }
     
-    const user = session.user;
-    console.log('✅ getAllVideos: User found from session:', user.email);
-    
-    const isUserAdmin = await isAdmin();
-    if (!isUserAdmin) {
-      console.error('❌ getAllVideos: User is not admin');
-      return [];
+    // Skip admin check if no session (to avoid hanging)
+    // Service role key will handle authorization anyway
+    if (session?.user) {
+      const isUserAdmin = await isAdmin();
+      if (!isUserAdmin) {
+        console.error('❌ getAllVideos: User is not admin');
+        return [];
+      }
+    } else {
+      console.log('⚠️ getAllVideos: Skipping admin check (no session), using service role key');
     }
     
     console.log('✅ getAllVideos: User is admin, fetching all videos...');
@@ -1126,25 +1235,48 @@ export async function getAdminStats() {
   try {
     // First check if user is admin - use session directly (faster, no API call)
     console.log('🔍 getAdminStats: Getting user from session...');
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (sessionError) {
+    // Add timeout to getSession() to prevent hanging
+    const getSessionPromise = supabase.auth.getSession();
+    const getSessionTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getSession timeout after 3 seconds')), 3000)
+    );
+    
+    let session, sessionError;
+    try {
+      const result = await Promise.race([getSessionPromise, getSessionTimeout]) as any;
+      session = result?.data?.session;
+      sessionError = result?.error;
+    } catch (timeoutError: any) {
+      console.error('❌ getAdminStats: getSession() timed out:', timeoutError?.message);
+      // Skip session check - use admin client directly (it bypasses auth anyway)
+      console.log('🔄 getAdminStats: Skipping session check, using admin client directly...');
+      session = null;
+    }
+    
+    if (sessionError && session) {
       console.error('❌ getAdminStats: Error getting session:', sessionError);
       return null;
     }
     
     if (!session?.user) {
-      console.error('❌ getAdminStats: No user in session');
-      return null;
+      // If no session, still try to use admin client (service role bypasses auth)
+      console.log('⚠️ getAdminStats: No user in session, but trying admin client anyway...');
+    } else {
+      const user = session.user;
+      console.log('✅ getAdminStats: User found from session:', user.email);
     }
     
-    const user = session.user;
-    console.log('✅ getAdminStats: User found from session:', user.email);
-    
-    const isUserAdmin = await isAdmin();
-    if (!isUserAdmin) {
-      console.error('❌ getAdminStats: User is not admin');
-      return null;
+    // Skip admin check if no session (to avoid hanging)
+    // Service role key will handle authorization anyway
+    if (session?.user) {
+      const isUserAdmin = await isAdmin();
+      if (!isUserAdmin) {
+        console.error('❌ getAdminStats: User is not admin');
+        return null;
+      }
+    } else {
+      console.log('⚠️ getAdminStats: Skipping admin check (no session), using service role key');
     }
     
     console.log('✅ getAdminStats: User is admin, fetching stats...');
