@@ -341,13 +341,11 @@ const App = () => {
     // Load cached profile & subscription immediately for instant UI (prevents email flash on refresh)
     const cachedProfile = loadProfileFromCache();
     if (cachedProfile) {
-      console.log('⚡ Loaded profile from cache for instant display');
       setProfile(cachedProfile);
     }
     
     const cachedSubscription = loadSubscriptionFromCache();
     if (cachedSubscription) {
-      console.log('⚡ Loaded subscription from cache for instant display');
       setSubscription(cachedSubscription);
     }
     

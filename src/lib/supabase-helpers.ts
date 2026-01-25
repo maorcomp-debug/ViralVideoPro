@@ -8,7 +8,6 @@ let adminSupabaseClient: ReturnType<typeof createClient> | null = null;
 
 const getAdminClient = () => {
   if (adminSupabaseClient) {
-    console.log('✅ getAdminClient: Using cached admin client');
     return adminSupabaseClient;
   }
   
@@ -17,18 +16,28 @@ const getAdminClient = () => {
   
   if (!supabaseUrl || !serviceRoleKey) {
     console.warn('⚠️ Service role key not found - admin functions will use regular client');
-    console.warn('⚠️ VITE_SUPABASE_URL:', supabaseUrl ? '✅ Found' : '❌ Missing');
-    console.warn('⚠️ VITE_SUPABASE_SERVICE_ROLE_KEY:', serviceRoleKey ? '✅ Found' : '❌ Missing');
-    console.warn('⚠️ Make sure to add VITE_SUPABASE_SERVICE_ROLE_KEY to .env.local and restart dev server');
     return supabase;
   }
   
-  console.log('✅ getAdminClient: Creating admin client with service role key');
-  
+  // Create admin client with unique storage key to avoid conflicts with main client
+  // Use different storage key to avoid conflicts with main Supabase client
   adminSupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
-      persistSession: false
+      persistSession: false,
+      storageKey: 'admin-auth-token', // Use different storage key to avoid conflicts
+      storage: typeof window !== 'undefined' ? {
+        getItem: (key: string) => {
+          // Use separate storage for admin client
+          return localStorage.getItem(`admin-${key}`);
+        },
+        setItem: (key: string, value: string) => {
+          localStorage.setItem(`admin-${key}`, value);
+        },
+        removeItem: (key: string) => {
+          localStorage.removeItem(`admin-${key}`);
+        }
+      } : undefined
     }
   });
   
@@ -711,7 +720,7 @@ export async function getAllUsers() {
       }
     }
 
-    console.log('✅ getAllUsers: loaded', data?.length || 0, 'users');
+    // Return users without logging (AdminPage will log the result)
     return data || [];
   } catch (error: any) {
     console.error('❌ getAllUsers: Final exception:', error);
@@ -849,7 +858,7 @@ export async function getAllAnalyses() {
       }
     }
 
-    console.log('✅ getAllAnalyses: loaded', data?.length || 0, 'analyses');
+    // Return analyses without logging (AdminPage will log the result)
     return data || [];
   } catch (error: any) {
     console.error('❌ getAllAnalyses: Final exception:', error);
@@ -942,7 +951,7 @@ export async function getAllVideos() {
       return fallbackData || [];
     }
 
-    console.log('✅ getAllVideos: loaded', data?.length || 0, 'videos');
+    // Return videos without logging (AdminPage will log the result)
     return data || [];
   } catch (error: any) {
     console.error('❌ Error in getAllVideos:', error);
@@ -1169,8 +1178,6 @@ export async function createUser(email: string, password: string, profileData: {
 // ============================================
 
 export async function getAdminStats() {
-  console.log('📊 getAdminStats: Starting fetch...');
-  
   try {
     // First check if user is admin - use session directly (faster, no API call)
     
@@ -1278,7 +1285,7 @@ export async function getAdminStats() {
       roleDistribution,
     };
     
-    console.log('✅ getAdminStats: Success!', result);
+    // Return stats without logging (AdminPage will log the result)
     return result;
     
   } catch (error: any) {

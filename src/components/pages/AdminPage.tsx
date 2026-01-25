@@ -751,12 +751,10 @@ export const AdminPage: React.FC = () => {
         const statsData = await getAdminStats();
         setStats(statsData);
         saveAdminCache({ stats: statsData });
-        console.log('✅ Stats loaded:', statsData?.totalUsers || 0, 'users');
       } else if (activeTab === 'users') {
         const usersData = await getAllUsers();
         setUsers(usersData || []);
         saveAdminCache({ users: usersData || [] });
-        console.log('✅ Users loaded:', usersData?.length || 0);
         
         // Load usage stats for all users (using service role for admin access)
         if (usersData && usersData.length > 0) {
@@ -774,59 +772,46 @@ export const AdminPage: React.FC = () => {
             })
             .map((a: any) => ({ user_id: a.user_id }));
           
-          let analysesError = null;
+          // Count analyses per user
+          const usageCounts: Record<string, number> = {};
+          allAnalyses?.forEach((analysis: any) => {
+            usageCounts[analysis.user_id] = (usageCounts[analysis.user_id] || 0) + 1;
+          });
           
-          if (analysesError) {
-            console.error('❌ Error fetching analyses for usage:', analysesError);
-            console.error('❌ Error details:', JSON.stringify(analysesError, null, 2));
-          } else {
-            // Count analyses per user
-            const usageCounts: Record<string, number> = {};
-            allAnalyses?.forEach((analysis: any) => {
-              usageCounts[analysis.user_id] = (usageCounts[analysis.user_id] || 0) + 1;
-            });
-            
-            // Build usage map
-            const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
-            usersData.forEach((user: any) => {
-              const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
-              const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
-              usageMap[user.user_id] = {
-                analysesUsed: usageCounts[user.user_id] || 0,
-                maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
-              };
-            });
-            
-            setUserUsageMap(usageMap);
-            console.log('✅ Usage stats loaded for', Object.keys(usageMap).length, 'users');
-          }
+          // Build usage map
+          const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
+          usersData.forEach((user: any) => {
+            const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
+            const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+            usageMap[user.user_id] = {
+              analysesUsed: usageCounts[user.user_id] || 0,
+              maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
+            };
+          });
+          
+          setUserUsageMap(usageMap);
         }
       } else if (activeTab === 'analyses') {
         const analysesData = await getAllAnalyses();
         setAnalyses(analysesData || []);
         saveAdminCache({ analyses: analysesData || [] });
-        console.log('✅ Analyses loaded:', analysesData?.length || 0);
       } else if (activeTab === 'video') {
         const videosData = await getAllVideos();
         setVideos(videosData || []);
         saveAdminCache({ videos: videosData || [] });
-        console.log('✅ Videos loaded:', videosData?.length || 0);
       } else if (activeTab === 'alerts') {
         if (activeSubTab === 'send-update') {
           const announcementsData = await getAllAnnouncements();
           setAnnouncements(announcementsData || []);
           saveAdminCache({ announcements: announcementsData || [] });
-          console.log('✅ Announcements loaded:', announcementsData?.length || 0);
         } else if (activeSubTab === 'coupons') {
           const couponsData = await getAllCoupons();
           setCoupons(couponsData || []);
           saveAdminCache({ coupons: couponsData || [] });
-          console.log('✅ Coupons loaded:', couponsData?.length || 0);
         } else if (activeSubTab === 'trials') {
           const trialsData = await getAllTrials();
           setTrials(trialsData || []);
           saveAdminCache({ trials: trialsData || [] });
-          console.log('✅ Trials loaded:', trialsData?.length || 0);
         }
       }
       
