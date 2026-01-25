@@ -825,15 +825,8 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  // Load cached data immediately on mount for instant display (OPTIONAL - only for instant UX)
+  // Load fresh data on mount
   useEffect(() => {
-    const cached = loadAdminCache();
-    if (cached) {
-      console.log('⚡ Loading cached data for instant display (will refresh immediately)');
-      // Don't set state from cache - always load fresh data
-      // Cache is only for instant display while loading
-    }
-    // Always load fresh data on mount (force refresh)
     loadData(true);
   }, []);
 
