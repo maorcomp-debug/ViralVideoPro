@@ -132,14 +132,6 @@ export async function getCurrentSubscription() {
 
 export async function getUsageForCurrentPeriod() {
   try {
-    // Add timeout to prevent hanging (5 seconds max)
-    const timeoutPromise = new Promise<null>((resolve) => {
-      setTimeout(() => {
-        console.warn('⚠️ getUsageForCurrentPeriod: Timeout after 5 seconds, returning null');
-        resolve(null);
-      }, 5000);
-    });
-
     const usagePromise = (async () => {
       // Get user first (don't wait for subscription)
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -202,10 +194,6 @@ export async function getUsageForCurrentPeriod() {
         periodStart: monthStart,
         periodEnd: monthEnd,
       };
-    })();
-
-    // Race between usage fetch and timeout
-    return await Promise.race([usagePromise, timeoutPromise]);
   } catch (error) {
     console.error('Error in getUsageForCurrentPeriod:', error);
     return null;

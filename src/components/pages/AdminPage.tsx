@@ -866,8 +866,12 @@ export const AdminPage: React.FC = () => {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent | Event) => {
       // If analysis was saved, refresh usage data in users tab
-      if ((e as StorageEvent).key === 'analysis_saved' && activeTab === 'users') {
-        loadData();
+      const key = (e as StorageEvent).key;
+      if (key === 'analysis_saved' && activeTab === 'users') {
+        // Delay refresh to allow database commit
+        setTimeout(() => {
+          loadData();
+        }, 1000);
       }
     };
     

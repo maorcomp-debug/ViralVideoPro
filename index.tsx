@@ -1170,11 +1170,9 @@ const App = () => {
   };
 
   const checkSubscriptionLimits = async (): Promise<{ allowed: boolean; message?: string }> => {
-    console.log('🔍 checkSubscriptionLimits: Starting...', { tier: subscription?.tier || 'free' });
     try {
       // If no subscription, treat as free tier
       const effectiveTier = subscription?.tier || 'free';
-      console.log('🔍 checkSubscriptionLimits: Effective tier:', effectiveTier);
       const effectiveSubscription = subscription || {
         tier: 'free' as SubscriptionTier,
         billingPeriod: 'monthly' as BillingPeriod,
@@ -1199,19 +1197,10 @@ const App = () => {
 
       // Get current usage from database (always fresh - counts by current month)
       // If this fails or returns null, allow analysis (better UX than blocking)
-      // Add timeout wrapper to prevent hanging
       let currentUsage;
       try {
-        const usagePromise = getUsageForCurrentPeriod();
-        const timeoutPromise = new Promise<null>((resolve) => {
-          setTimeout(() => {
-            console.warn('⚠️ checkSubscriptionLimits: Usage check timeout, allowing analysis');
-            resolve(null);
-          }, 6000); // 6 seconds max (slightly longer than getUsageForCurrentPeriod's 5s)
-        });
-        currentUsage = await Promise.race([usagePromise, timeoutPromise]);
+        currentUsage = await getUsageForCurrentPeriod();
       } catch (error: any) {
-        console.error('❌ Error in usage check:', error);
         // Allow analysis if check fails
         return { allowed: true };
       }
@@ -1274,7 +1263,6 @@ const App = () => {
       }
 
       // Both limits OK
-      console.log('✅ checkSubscriptionLimits: All limits OK, allowing analysis');
       return { allowed: true };
     } catch (error) {
       console.error('❌ Error in checkSubscriptionLimits:', error);
@@ -2580,24 +2568,7 @@ const App = () => {
   };
 
   const handleGenerate = async () => {
-    console.log('🎬 handleGenerate called', { 
-      hasPrompt: !!prompt.trim(), 
-      hasFile: !!file, 
-      selectedExpertsCount: selectedExperts.length,
-      selectedExperts: selectedExperts,
-      isReady: (!!prompt.trim() || !!file) && selectedExperts.length >= 3,
-      userIsAdmin: userIsAdmin,
-      user: user?.email,
-      subscription: subscription?.tier,
-      activeTrack: activeTrack
-    });
-    
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) {
-      console.warn('⚠️ Cannot start analysis:', {
-        reason: !prompt.trim() && !file ? 'No prompt or file' : 'Less than 3 experts selected',
-        selectedExperts: selectedExperts.length,
-        hasFile: !!file
-      });
       return;
     }
     
@@ -2610,14 +2581,7 @@ const App = () => {
     
     // Check if current track is available for user's subscription
     const trackAvailable = isTrackAvailable(activeTrack);
-    console.log('🔍 Track availability check:', { 
-      activeTrack, 
-      trackAvailable, 
-      userIsAdmin,
-      subscription: subscription?.tier 
-    });
     if (!trackAvailable) {
-      console.warn('⚠️ Track not available for user');
       alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
       setShowSubscriptionModal(true);
       return;
@@ -2630,35 +2594,43 @@ const App = () => {
       return;
     }
     
-    // Check if user can run analysis (usage limits) - BEFORE setting loading state
-    console.log('🔍 Checking subscription limits...');
-    let analysisCheck;
-    try {
-      // Add timeout to prevent hanging (8 seconds max)
-      const checkPromise = checkSubscriptionLimits();
-      const timeoutPromise = new Promise<{ allowed: boolean }>((resolve) => {
-        setTimeout(() => {
-          console.warn('⚠️ checkSubscriptionLimits timeout after 8 seconds, allowing analysis');
-          resolve({ allowed: true });
-        }, 8000);
-      });
-      analysisCheck = await Promise.race([checkPromise, timeoutPromise]);
-      console.log('🔍 Subscription limits check result:', analysisCheck);
-      if (!analysisCheck.allowed) {
-        if (analysisCheck.message) {
-          alert(analysisCheck.message);
+    // Quick check using cached usage data (non-blocking)
+    // Full check happens in background - don't block UI
+    const quickCheck = (() => {
+      if (!subscription) return { allowed: true };
+      const effectiveTier = subscription.tier;
+      const plan = SUBSCRIPTION_PLANS[effectiveTier];
+      if (!plan) return { allowed: true };
+      
+      // Use cached usage if available (fast check)
+      const cachedUsage = usage || subscription.usage;
+      if (cachedUsage && effectiveTier === 'free') {
+        const analysesUsed = cachedUsage.analysesUsed || 0;
+        const analysesLimit = plan.limits.maxAnalysesPerPeriod;
+        if (analysesLimit !== -1 && analysesUsed >= analysesLimit) {
+          const now = new Date();
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+          const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          return { 
+            allowed: false, 
+            message: `סיימת את ניתוח הטעימה החינמי (${analysesLimit} ניתוח). ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
+          };
         }
-        console.warn('⚠️ Analysis blocked by subscription limits');
-        return; // Don't set loading to false here - it was never set to true
       }
-    } catch (limitCheckError) {
-      console.error('❌ Error checking subscription limits:', limitCheckError);
-      // If limit check fails, allow analysis (better UX than blocking)
-      // Usage will be checked and updated when analysis is saved
-      console.log('⚠️ Limit check failed, allowing analysis anyway');
+      return { allowed: true };
+    })();
+    
+    if (!quickCheck.allowed) {
+      if (quickCheck.message) {
+        alert(quickCheck.message);
+      }
+      return;
     }
     
-    console.log('✅ All checks passed, starting analysis...');
+    // Full check in background (non-blocking) - will enforce limits when saving
+    checkSubscriptionLimits().catch(() => {
+      // Ignore errors - limits will be enforced when saving analysis
+    });
     
     // Start playing video immediately when analysis begins (muted and loop)
     if (videoRef.current && file?.type.startsWith('video')) {
@@ -2671,7 +2643,6 @@ const App = () => {
     console.log('🔄 Loading state set to true');
     
     try {
-      console.log('🔑 Checking API key...');
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
         alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY בסביבת ההרצה.");
@@ -2679,7 +2650,6 @@ const App = () => {
         return;
       }
 
-      console.log('🤖 Creating AI instance...');
       const ai = new GoogleGenAI({ apiKey });
       const expertPanel = selectedExperts.join(', ');
 
@@ -2819,7 +2789,6 @@ const App = () => {
         ` : ''}
       `;
 
-      console.log('📦 Building parts array...');
       const parts = [];
       
       // Force a text part if prompt is empty to ensure API stability
@@ -2830,7 +2799,6 @@ const App = () => {
       }
       
       if (file) {
-        console.log('📁 Processing file...', { fileName: file.name, fileSize: file.size, fileType: file.type });
         const maxFileBytes = getMaxFileBytes(activeTrack, subscription || undefined);
         const maxVideoSeconds = getMaxVideoSeconds(activeTrack, subscription || undefined);
         const limitText = getUploadLimitText(activeTrack, subscription || undefined);
@@ -2852,10 +2820,8 @@ const App = () => {
           }
         }
         try {
-          console.log('🔄 Converting file to generative part...');
           const imagePart = await fileToGenerativePart(file);
           parts.push(imagePart);
-          console.log('✅ File converted successfully');
         } catch (e) {
           console.error("❌ File processing error", e);
           alert("שגיאה בעיבוד הקובץ");
@@ -2875,7 +2841,6 @@ const App = () => {
          }
       }
 
-      console.log('🚀 Starting AI analysis...', { expertsCount: selectedExperts.length, partsCount: parts.length });
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
