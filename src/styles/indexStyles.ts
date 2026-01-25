@@ -71,10 +71,10 @@ export const CapabilitiesButton = styled.button`
   border: 1px solid #D4A043;
   color: #D4A043;
   border-radius: 50px;
-  padding: 12px 35px;
+  padding: 10px 30px;
   font-family: 'Assistant', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 600;
   cursor: pointer;
   margin: 8px 0 0 0;
   display: flex;
@@ -109,9 +109,9 @@ export const PackagesButton = styled.button`
   border: 1px solid #D4A043;
   color: #D4A043;
   border-radius: 50px;
-  padding: 8px 20px;
+  padding: 10px 25px;
   font-family: 'Assistant', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   margin: 8px 0 0 0;
