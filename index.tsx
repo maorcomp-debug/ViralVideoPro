@@ -293,7 +293,21 @@ const App = () => {
     if (typeof window === 'undefined') return null;
     try {
       const cached = sessionStorage.getItem(SUBSCRIPTION_CACHE_KEY);
-      return cached ? JSON.parse(cached) : null;
+      if (!cached) return null;
+      const subscriptionData = JSON.parse(cached);
+      // Convert date strings back to Date objects (JSON.stringify converts Date to string)
+      if (subscriptionData) {
+        if (subscriptionData.startDate && typeof subscriptionData.startDate === 'string') {
+          subscriptionData.startDate = new Date(subscriptionData.startDate);
+        }
+        if (subscriptionData.endDate && typeof subscriptionData.endDate === 'string') {
+          subscriptionData.endDate = new Date(subscriptionData.endDate);
+        }
+        if (subscriptionData.usage?.lastResetDate && typeof subscriptionData.usage.lastResetDate === 'string') {
+          subscriptionData.usage.lastResetDate = new Date(subscriptionData.usage.lastResetDate);
+        }
+      }
+      return subscriptionData;
     } catch (e) {
       console.warn('Failed to load cached subscription:', e);
       return null;
