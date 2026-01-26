@@ -1236,7 +1236,7 @@ const App = () => {
               .select('id', { count: 'exact', head: true })
               .eq('user_id', currentUser.id);
             
-            if (!error && count !== null) {
+            if (!error && count !== null && count !== undefined) {
               totalAnalysesCount = count;
             } else {
               // If count fails, use current month count as fallback
