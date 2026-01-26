@@ -2649,7 +2649,9 @@ const App = () => {
     }
     
     // Check if user is logged in
+    console.log('🔍 Check 1: User authentication', { hasUser: !!user });
     if (!user) {
+      console.warn('⚠️ Blocked: User not logged in');
       alert('עליך להרשם תחילה כדי לבצע ניתוח.');
       setShowAuthModal(true);
       return;
@@ -2657,26 +2659,35 @@ const App = () => {
     
     // Check if current track is available for user's subscription
     const trackAvailable = isTrackAvailable(activeTrack);
+    console.log('🔍 Check 2: Track availability', { activeTrack, trackAvailable });
     if (!trackAvailable) {
+      console.warn('⚠️ Blocked: Track not available for subscription');
       alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
       setShowSubscriptionModal(true);
       return;
     }
     
     // Check feature access for coach track - must have premium subscription
-    if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
-      alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
-      setShowSubscriptionModal(true);
-      return;
+    if (activeTrack === 'coach') {
+      const hasFeature = canUseFeature('traineeManagement');
+      console.log('🔍 Check 3: Coach feature access', { activeTrack, hasFeature });
+      if (!hasFeature) {
+        console.warn('⚠️ Blocked: Coach track requires premium subscription');
+        alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
+        setShowSubscriptionModal(true);
+        return;
+      }
     }
     
     // CRITICAL: Check subscription limits BEFORE starting analysis (BLOCKING)
     // This prevents users from exceeding their package limits
     // DO NOT set loading yet - wait until check passes to avoid showing loading when blocking
-    
+    console.log('🔍 Check 4: Subscription limits');
     try {
       const limitCheck = await checkSubscriptionLimits();
+      console.log('🔍 Subscription limits check result', limitCheck);
       if (!limitCheck.allowed) {
+        console.warn('⚠️ Blocked: Subscription limits exceeded', limitCheck);
         // Block analysis - show message and open subscription modal
         if (limitCheck.message) {
           alert(limitCheck.message);
@@ -2692,6 +2703,7 @@ const App = () => {
     }
     
     // All checks passed - NOW set loading and start analysis
+    console.log('✅ All checks passed, starting analysis');
     setLoading(true);
     
     // Start playing video immediately when analysis begins (muted and loop)
@@ -2701,7 +2713,12 @@ const App = () => {
         videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
     }
 
-    console.log('🔄 Starting analysis after limit check passed');
+    console.log('🔄 Starting analysis after limit check passed', {
+      hasFile: !!file,
+      hasPrompt: !!prompt.trim(),
+      expertsCount: selectedExperts.length,
+      activeTrack
+    });
     
     try {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
