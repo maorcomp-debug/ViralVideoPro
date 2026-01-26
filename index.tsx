@@ -1241,16 +1241,11 @@ const App = () => {
 
       // Get current usage from database (always fresh - counts by current month)
       // If this fails or returns null, allow analysis (better UX than blocking)
-      // Add timeout to prevent hanging
       let currentUsage;
       try {
-        const usagePromise = getUsageForCurrentPeriod();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Usage check timeout')), 5000)
-        );
-        currentUsage = await Promise.race([usagePromise, timeoutPromise]);
+        currentUsage = await getUsageForCurrentPeriod();
       } catch (error: any) {
-        // Allow analysis if check fails or times out
+        // Allow analysis if check fails
         return { allowed: true };
       }
       
@@ -1285,20 +1280,12 @@ const App = () => {
         // For free tier, count ALL analyses ever made (not just current month)
         let totalAnalysesCount = 0;
         try {
-          const getUserPromise = supabase.auth.getUser();
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Get user timeout')), 3000)
-          );
-          const { data: { user: currentUser } } = await Promise.race([getUserPromise, timeoutPromise]) as any;
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
           if (currentUser) {
-            const countPromise = supabase
+            const { count, error } = await supabase
               .from('analyses')
               .select('id', { count: 'exact', head: true })
               .eq('user_id', currentUser.id);
-            const countTimeout = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Count timeout')), 3000)
-            );
-            const { count, error } = await Promise.race([countPromise, countTimeout]) as any;
             
             if (!error && count !== null && count !== undefined) {
               totalAnalysesCount = count;
@@ -1310,7 +1297,7 @@ const App = () => {
             totalAnalysesCount = analysesUsed;
           }
         } catch (error) {
-          // If count fails or times out, use current month count as fallback
+          // If count fails, use current month count as fallback
           totalAnalysesCount = analysesUsed;
         }
         
@@ -2682,20 +2669,22 @@ const App = () => {
     // CRITICAL: Check subscription limits BEFORE starting analysis (BLOCKING)
     // This prevents users from exceeding their package limits
     // DO NOT set loading yet - wait until check passes to avoid showing loading when blocking
+    let limitCheck;
     try {
-      const limitCheck = await checkSubscriptionLimits();
-      if (!limitCheck || !limitCheck.allowed) {
-        // Block analysis - show message and open subscription modal
-        if (limitCheck?.message) {
-          alert(limitCheck.message);
-        }
-        setShowSubscriptionModal(true);
-        return; // Exit early - don't start analysis
-      }
+      limitCheck = await checkSubscriptionLimits();
     } catch (error) {
       console.error('❌ Error checking subscription limits:', error);
       // If check fails, allow analysis (better UX than blocking)
-      // The check will be done again when saving the analysis
+      limitCheck = { allowed: true };
+    }
+    
+    if (!limitCheck || !limitCheck.allowed) {
+      // Block analysis - show message and open subscription modal
+      if (limitCheck?.message) {
+        alert(limitCheck.message);
+      }
+      setShowSubscriptionModal(true);
+      return; // Exit early - don't start analysis
     }
     
     // All checks passed - NOW set loading and start analysis
