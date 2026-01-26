@@ -2621,6 +2621,15 @@ const App = () => {
   };
 
   const handleGenerate = async () => {
+    console.log('🎯 handleGenerate called', {
+      loading,
+      hasPrompt: !!prompt.trim(),
+      hasFile: !!file,
+      expertsCount: selectedExperts.length,
+      selectedExperts: selectedExperts,
+      isReady: (!!prompt.trim() || !!file) && selectedExperts.length >= 3
+    });
+    
     // CRITICAL: Prevent double-clicks and ensure button is not disabled
     if (loading) {
       console.warn('⚠️ Analysis already in progress, ignoring duplicate click');
@@ -2632,8 +2641,10 @@ const App = () => {
       console.warn('⚠️ Cannot start analysis: missing file/prompt or insufficient experts', {
         hasPrompt: !!prompt.trim(),
         hasFile: !!file,
-        expertsCount: selectedExperts.length
+        expertsCount: selectedExperts.length,
+        selectedExperts: selectedExperts
       });
+      alert(`לא ניתן להתחיל ניתוח: ${!prompt.trim() && !file ? 'חסר קובץ או טקסט' : ''} ${selectedExperts.length < 3 ? `חסרים מומחים (נבחרו ${selectedExperts.length} מתוך 3 נדרשים)` : ''}`);
       return;
     }
     
@@ -3120,6 +3131,11 @@ const App = () => {
       } else {
         alert(`אירעה שגיאה בניתוח (קוד: ${code || 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
       }
+    } catch (error: any) {
+      console.error('❌ Error in handleGenerate:', error);
+      // CRITICAL: Always reset loading state on error
+      setLoading(false);
+      throw error; // Re-throw to be caught by outer try-catch
     } finally {
       // CRITICAL: Always reset loading state, even on error
       setLoading(false);
@@ -3131,22 +3147,37 @@ const App = () => {
   const isReady = useMemo(() => {
     const hasInput = !!prompt.trim() || !!file;
     const hasEnoughExperts = selectedExperts.length >= 3;
-    const isNotLoading = !loading;
-    const result = hasInput && hasEnoughExperts && isNotLoading;
+    // Don't check loading here - it's already checked in disabled prop
+    const result = hasInput && hasEnoughExperts;
+    
+    // Always log button state for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Button state check:', {
+        hasInput,
+        hasEnoughExperts,
+        promptLength: prompt.trim().length,
+        hasFile: !!file,
+        selectedExpertsCount: selectedExperts.length,
+        selectedExperts: selectedExperts,
+        loading,
+        isReady: result,
+        willBeDisabled: loading || !result
+      });
+    }
     
     // Debug log if button is disabled unexpectedly
     if (!result && hasInput && hasEnoughExperts) {
       console.warn('⚠️ Button disabled but should be enabled:', {
         hasInput,
         hasEnoughExperts,
-        isNotLoading,
         loading,
-        selectedExpertsCount: selectedExperts.length
+        selectedExpertsCount: selectedExperts.length,
+        selectedExperts: selectedExperts
       });
     }
     
     return result;
-  }, [prompt, file, selectedExperts.length, loading]);
+  }, [prompt, file, selectedExperts, loading]);
 
   const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
   const currentExpertsList = EXPERTS_BY_TRACK[trackToUse];
@@ -4115,10 +4146,27 @@ const App = () => {
             onChange={(e) => setPrompt(e.target.value)}
           />
           <ActionButton 
-            onClick={handleGenerate} 
+            onClick={(e) => {
+              console.log('🔘 Action button clicked', { loading, isReady, disabled: loading || !isReady });
+              if (!loading && isReady) {
+                handleGenerate();
+              } else {
+                console.warn('⚠️ Button click ignored - button is disabled', { loading, isReady });
+                if (!isReady) {
+                  const reasons = [];
+                  if (!prompt.trim() && !file) reasons.push('חסר קובץ או טקסט');
+                  if (selectedExperts.length < 3) reasons.push(`חסרים מומחים (${selectedExperts.length}/3)`);
+                  alert(`לא ניתן להתחיל ניתוח:\n${reasons.join('\n')}`);
+                }
+              }
+            }}
             disabled={loading || !isReady}
             $isReady={isReady}
             $isLoading={loading}
+            style={{
+              cursor: (loading || !isReady) ? 'not-allowed' : 'pointer',
+              opacity: (loading || !isReady) ? 0.6 : 1
+            }}
           >
             {loading ? 'צוות המומחים צופה כעת בסרטון' : (isImprovementMode ? 'נתח שיפורים' : 'אקשן !')}
           </ActionButton>
