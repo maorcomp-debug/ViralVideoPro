@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import styled, { css } from 'styled-components';
@@ -346,157 +346,10 @@ const App = () => {
 
   // Admin state is managed by loadUserData - no fast-path needed here
 
-  // Initialize Supabase Auth
-  useEffect(() => {
-    let mounted = true;
-    let timeoutId: NodeJS.Timeout | null = null;
-    let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
-    
-    // Load cached profile & subscription immediately for instant UI (prevents email flash on refresh)
-    const cachedProfile = loadProfileFromCache();
-    if (cachedProfile) {
-      setProfile(cachedProfile);
-    }
-    
-    const cachedSubscription = loadSubscriptionFromCache();
-    if (cachedSubscription) {
-      setSubscription(cachedSubscription);
-    }
-    
-    // Set up BroadcastChannel to sync subscription updates across multiple tabs/windows
-    const broadcastChannel = typeof BroadcastChannel !== 'undefined' 
-      ? new BroadcastChannel('viraly-subscription-sync') 
-      : null;
-    
-    // Listen for subscription updates from other tabs/windows
-    if (broadcastChannel) {
-      broadcastChannel.onmessage = (event) => {
-        // Silent reload when subscription is updated in another tab (to reduce console noise)
-        if (event.data.type === 'subscription-updated' && user && user.id === event.data.userId) {
-          setTimeout(async () => {
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
-            if (currentUser && currentUser.id === user.id) {
-              await loadUserData(currentUser, true);
-            }
-          }, 500);
-        }
-      };
-    }
-    
-    // Try to get session quickly, but don't block UI if it takes too long
-    // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
-    timeoutId = setTimeout(() => {
-      if (mounted) {
-        // Silently allow UI to render - onAuthStateChange will handle session when ready
-        setLoadingAuth(false);
-      }
-    }, 5000); // 5 second timeout (reduced for better UX)
-    
-    // Check initial session (only once on mount)
-    // This is non-blocking - if it takes too long, timeout will unblock the UI
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        if (timeoutId) clearTimeout(timeoutId);
-        if (!mounted) return;
-        
-        if (error) {
-          console.error('❌ Error getting session:', error);
-          setLoadingAuth(false);
-          return;
-        }
-        
-        // Update user state immediately if session exists
-        setUser(session?.user ?? null);
-        setLoadingAuth(false);
-        
-        // Don't load user data here - let onAuthStateChange handle it to avoid duplicates
-        // onAuthStateChange will fire immediately after getSession returns a session
-      })
-      .catch((error) => {
-        if (timeoutId) clearTimeout(timeoutId);
-        console.error('❌ Error in getSession promise:', error);
-        if (mounted) {
-          setLoadingAuth(false);
-        }
-      });
-
-    // Listen for auth changes (this handles both initial session and subsequent changes)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-      
-      // Log only important auth state changes (skip TOKEN_REFRESHED to reduce noise)
-      if (event !== 'TOKEN_REFRESHED') {
-        console.log('[App] Auth state changed:', event, session?.user?.id);
-      }
-      
-      // Update user state
-      setUser(session?.user ?? null);
-      
-      // Handle INITIAL_SESSION event (when app first loads)
-      if (event === 'INITIAL_SESSION') {
-        if (!session?.user) {
-          console.log('[App] User logged out');
-        } else {
-          console.log('[App] User logged in:', { id: session.user.id, email: session.user.email });
-        }
-      }
-      
-      // If this is an email confirmation event, close other tabs/windows that might be showing old data
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Check if this is from email verification (has hash in URL)
-        const urlHash = window.location.hash;
-        if (urlHash.includes('access_token') || urlHash.includes('type=recovery')) {
-          console.log('📧 Email verification detected, this window should be the active one');
-          // Optionally, we could try to close other windows, but that's not always possible
-          // Instead, we'll rely on BroadcastChannel to sync data
-        }
-      }
-      
-      if (session?.user) {
-        // Prevent duplicate loadUserData calls
-        if (isLoadingUserData) {
-          // Silent skip - no need to log every duplicate call
-          return;
-        }
-        
-        isLoadingUserData = true;
-        try {
-          // Small delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
-          if (event === 'SIGNED_IN' && window.location.pathname !== '/admin') {
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-          
-          // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
-          const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
-          await loadUserData(session.user, shouldForceRefresh);
-        } catch (err) {
-          console.error('Error loading user data in auth state change:', err);
-          // Don't block UI if user data loading fails
-        } finally {
-          isLoadingUserData = false;
-        }
-      } else {
-        // Only reset state if this is not INITIAL_SESSION (which might have null session temporarily)
-        // INITIAL_SESSION with null session means user is truly logged out
-        if (event !== 'INITIAL_SESSION') {
-          // User logged out - reset all state
-          resetUserState();
-        } else {
-          // On INITIAL_SESSION with no session, user is logged out - reset state
-          resetUserState();
-        }
-      }
-    });
-
-    return () => {
-      mounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
-      subscription.unsubscribe();
-    };
-  }, []);
-
   // Load user data from Supabase (with protection against duplicate calls)
-  const loadUserData = async (currentUser: User, forceRefresh = false) => {
+  // Wrapped in useCallback to prevent recreation on every render and fix React hooks error #300
+  // MUST be defined BEFORE useEffect that uses it
+  const loadUserData = useCallback(async (currentUser: User, forceRefresh = false) => {
     try {
       // Only log if forceRefresh is true or if it's a significant call
       if (forceRefresh) {
@@ -711,7 +564,8 @@ const App = () => {
       }
       
       // Only log subscription state changes when tier actually changes (to reduce console noise)
-      if (subscription?.tier !== finalTier) {
+      // Note: We can't use subscription from closure here as it might be stale, so we just log if forceRefresh
+      if (forceRefresh) {
         console.log('📊 Setting subscription state:', {
           hasSubscriptionRecord: !!subData,
           subscriptionTier: subData?.plans?.tier,
@@ -823,7 +677,161 @@ const App = () => {
     } finally {
       setIsLoadingProfile(false);
     }
-  };
+  }, []); // Empty deps - all state setters are stable, subscription comparison removed to prevent infinite loops
+
+  // Initialize Supabase Auth
+  useEffect(() => {
+    let mounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
+    let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
+    
+    // Load cached profile & subscription immediately for instant UI (prevents email flash on refresh)
+    const cachedProfile = loadProfileFromCache();
+    if (cachedProfile) {
+      setProfile(cachedProfile);
+    }
+    
+    const cachedSubscription = loadSubscriptionFromCache();
+    if (cachedSubscription) {
+      setSubscription(cachedSubscription);
+    }
+    
+    // Set up BroadcastChannel to sync subscription updates across multiple tabs/windows
+    const broadcastChannel = typeof BroadcastChannel !== 'undefined' 
+      ? new BroadcastChannel('viraly-subscription-sync') 
+      : null;
+    
+    // Listen for subscription updates from other tabs/windows
+    if (broadcastChannel) {
+      broadcastChannel.onmessage = (event) => {
+        // Silent reload when subscription is updated in another tab (to reduce console noise)
+        if (event.data.type === 'subscription-updated' && user && user.id === event.data.userId) {
+          setTimeout(async () => {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (currentUser && currentUser.id === user.id) {
+              // Use the latest loadUserData from closure
+              loadUserData(currentUser, true).catch(err => console.error('Error in broadcast reload:', err));
+            }
+          }, 500);
+        }
+      };
+    }
+    
+    // Try to get session quickly, but don't block UI if it takes too long
+    // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
+    timeoutId = setTimeout(() => {
+      if (mounted) {
+        // Silently allow UI to render - onAuthStateChange will handle session when ready
+        setLoadingAuth(false);
+      }
+    }, 5000); // 5 second timeout (reduced for better UX)
+    
+    // Check initial session (only once on mount)
+    // This is non-blocking - if it takes too long, timeout will unblock the UI
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('❌ Error getting session:', error);
+          setLoadingAuth(false);
+          return;
+        }
+        
+        // Update user state immediately if session exists
+        setUser(session?.user ?? null);
+        setLoadingAuth(false);
+        
+        // Don't load user data here - let onAuthStateChange handle it to avoid duplicates
+        // onAuthStateChange will fire immediately after getSession returns a session
+      })
+      .catch((error) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        console.error('❌ Error in getSession promise:', error);
+        if (mounted) {
+          setLoadingAuth(false);
+        }
+      });
+
+    // Listen for auth changes (this handles both initial session and subsequent changes)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
+      // Log only important auth state changes (skip TOKEN_REFRESHED to reduce noise)
+      if (event !== 'TOKEN_REFRESHED') {
+        console.log('[App] Auth state changed:', event, session?.user?.id);
+      }
+      
+      // Update user state
+      setUser(session?.user ?? null);
+      
+      // Handle INITIAL_SESSION event (when app first loads)
+      if (event === 'INITIAL_SESSION') {
+        if (!session?.user) {
+          console.log('[App] User logged out');
+        } else {
+          console.log('[App] User logged in:', { id: session.user.id, email: session.user.email });
+        }
+      }
+      
+      // If this is an email confirmation event, close other tabs/windows that might be showing old data
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Check if this is from email verification (has hash in URL)
+        const urlHash = window.location.hash;
+        if (urlHash.includes('access_token') || urlHash.includes('type=recovery')) {
+          console.log('📧 Email verification detected, this window should be the active one');
+          // Optionally, we could try to close other windows, but that's not always possible
+          // Instead, we'll rely on BroadcastChannel to sync data
+        }
+      }
+      
+      if (session?.user) {
+        // Prevent duplicate loadUserData calls
+        if (isLoadingUserData) {
+          // Silent skip - no need to log every duplicate call
+          return;
+        }
+        
+        isLoadingUserData = true;
+        try {
+          // Small delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
+          if (event === 'SIGNED_IN' && window.location.pathname !== '/admin') {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+          
+          // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
+          const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
+          // Use the latest loadUserData from closure
+          await loadUserData(session.user, shouldForceRefresh);
+        } catch (err) {
+          console.error('Error loading user data in auth state change:', err);
+          // Don't block UI if user data loading fails
+        } finally {
+          isLoadingUserData = false;
+        }
+      } else {
+        // Only reset state if this is not INITIAL_SESSION (which might have null session temporarily)
+        // INITIAL_SESSION with null session means user is truly logged out
+        if (event !== 'INITIAL_SESSION') {
+          // User logged out - reset all state
+          resetUserState();
+        } else {
+          // On INITIAL_SESSION with no session, user is logged out - reset state
+          resetUserState();
+        }
+      }
+    });
+
+    return () => {
+      mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+      subscription.unsubscribe();
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+    };
+  }, [loadUserData]); // Include loadUserData in dependencies
 
   // Check for upgrade success parameter and show UpgradeBenefitsModal
   // This must be after all state and function declarations
@@ -888,7 +896,7 @@ const App = () => {
       }
       
     }
-  }, [location.search, user, profile, navigate, location.pathname]);
+  }, [location.search, user, profile, navigate, location.pathname, loadUserData]);
 
   // Set activeTrack from profile when profile loads (for all tiers)
   useEffect(() => {
