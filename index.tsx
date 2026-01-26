@@ -701,18 +701,20 @@ const App = () => {
       ? new BroadcastChannel('viraly-subscription-sync') 
       : null;
     
-    // Listen for subscription updates from other tabs/windows
+    // Listen for subscription updates from other tabs/windows - IMMEDIATE update
     if (broadcastChannel) {
       broadcastChannel.onmessage = (event) => {
-        // Silent reload when subscription is updated in another tab (to reduce console noise)
+        // IMMEDIATE reload when subscription is updated in another tab (no delay)
         if (event.data.type === 'subscription-updated' && user && user.id === event.data.userId) {
-          setTimeout(async () => {
+          // No setTimeout - update immediately
+          (async () => {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
             if (currentUser && currentUser.id === user.id) {
-              // Use the latest loadUserData from closure
-              loadUserData(currentUser, true).catch(err => console.error('Error in broadcast reload:', err));
+              // Use the latest loadUserData from closure - IMMEDIATE update
+              await loadUserData(currentUser, true).catch(err => console.error('Error in broadcast reload:', err));
+              console.log('✅ Subscription synced IMMEDIATELY from other tab');
             }
-          }, 500);
+          })();
         }
       };
     }
@@ -869,17 +871,18 @@ const App = () => {
         const newSearch = newSearchParams.toString();
         navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
         
-        // Reload user data in background to update subscription state and profile
-        // This ensures profile is loaded for track selection
+        // IMMEDIATELY reload user data to update subscription state and profile
+        // This ensures profile is loaded for track selection instantly
         if (user) {
-        setTimeout(async () => {
-          try {
-              console.log('🔄 Reloading user data after upgrade modal opens');
-            await loadUserData(user, true);
-          } catch (e) {
-            console.error('Error reloading user data after upgrade:', e);
-          }
-        }, 500);
+          (async () => {
+            try {
+              console.log('🔄 Reloading user data IMMEDIATELY after upgrade modal opens');
+              await loadUserData(user, true);
+              console.log('✅ Subscription refreshed IMMEDIATELY after upgrade modal');
+            } catch (e) {
+              console.error('Error reloading user data after upgrade:', e);
+            }
+          })();
       } else {
           // If no user yet, wait a bit and try again
           setTimeout(async () => {
@@ -1098,12 +1101,12 @@ const App = () => {
         console.log('✅ Subscription state updated locally:', newSubscription);
       }
 
-      // Reload user data to sync with database (AWAIT to ensure it completes)
+      // IMMEDIATELY reload user data to sync with database (no delay - instant update)
       if (user) {
-        console.log('🔄 Reloading user data from database to sync...');
-        // AWAIT to ensure usage is reloaded correctly
+        console.log('🔄 Reloading user data IMMEDIATELY from database...');
+        // AWAIT to ensure subscription is reloaded correctly - no delay needed
         await loadUserData(user, true);
-        console.log('✅ User data synced from database');
+        console.log('✅ User data synced IMMEDIATELY from database');
       }
 
       // Close modals immediately
@@ -3073,14 +3076,14 @@ const App = () => {
             });
 
             // Analysis saved successfully - NOW update usage IMMEDIATELY (not in background!)
-            // Shorter wait since analysis is saved (video duration is optional)
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // Minimal wait - database commit is usually instant for inserts
+            await new Promise(resolve => setTimeout(resolve, 100));
             
             // Update usage from database (with retries if needed)
             const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
               try {
-                // Wait for database to commit (shorter wait since analysis is already saved)
-                await new Promise(resolve => setTimeout(resolve, 500 + (retryCount * 200)));
+                // Minimal wait for database commit - most databases commit instantly
+                await new Promise(resolve => setTimeout(resolve, 200 + (retryCount * 100)));
                 const updatedUsage = await getUsageForCurrentPeriod();
                 if (updatedUsage) {
                   setUsage(updatedUsage);
@@ -3151,6 +3154,28 @@ const App = () => {
             
             // AWAIT the update - don't run in background!
             await updateUsageFromDB();
+            
+            // CRITICAL: Refresh subscription data IMMEDIATELY after analysis is saved
+            // This ensures subscription status, tier, and all other data are up-to-date instantly
+            if (user) {
+              try {
+                // Minimal wait - database commit is usually instant for inserts
+                await new Promise(resolve => setTimeout(resolve, 100));
+                // Reload user data to refresh subscription from database IMMEDIATELY
+                await loadUserData(user, true);
+                console.log('✅ Subscription refreshed IMMEDIATELY from database after analysis');
+              } catch (refreshError) {
+                console.error('❌ Error refreshing subscription after analysis:', refreshError);
+                // Retry once after short delay if first attempt failed
+                try {
+                  await new Promise(resolve => setTimeout(resolve, 300));
+                  await loadUserData(user, true);
+                  console.log('✅ Subscription refreshed on retry');
+                } catch (retryError) {
+                  console.error('❌ Retry also failed, subscription will update on next page interaction');
+                }
+              }
+            }
             
             // Notify other tabs/components that analysis was saved (already triggered in updateUsageFromDB)
             // But also update localStorage for cross-tab sync
@@ -3468,7 +3493,8 @@ const App = () => {
           usage={usage}
           onProfileUpdate={async (forceUsageRefresh = false) => {
             if (user) {
-              await loadUserData(user);
+              // Always force refresh to ensure subscription data is up-to-date
+              await loadUserData(user, true);
             }
           }}
           onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
@@ -4607,18 +4633,17 @@ const App = () => {
         onSelect={async (trackIds) => {
           setActiveTrack(trackIds[0]);
           setShowTrackSelectionModal(false);
-          // Reload user data after a short delay to ensure DB update
+          // IMMEDIATELY reload user data to ensure subscription is updated instantly
           if (user) {
-            setTimeout(async () => {
-              await loadUserData(user);
-              // After track selection after upgrade, sign out user
-              // Set flag to show popup message after logout
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('pending_package_upgrade', 'true');
-              }
-              // Sign out after track selection to refresh cache
-              await handleLogout();
-            }, 500);
+            // No delay - update immediately
+            await loadUserData(user, true);
+            // After track selection after upgrade, sign out user
+            // Set flag to show popup message after logout
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('pending_package_upgrade', 'true');
+            }
+            // Sign out after track selection to refresh cache
+            await handleLogout();
           }
         }}
       />
@@ -4681,11 +4706,10 @@ const App = () => {
               selected_primary_track: primaryTrack as any,
             });
             
-            // Reload user data to get updated profile
+            // IMMEDIATELY reload user data to get updated profile (no delay)
             if (user) {
-              setTimeout(async () => {
-                await loadUserData(user, true);
-              }, 300);
+              await loadUserData(user, true);
+              console.log('✅ Subscription refreshed IMMEDIATELY after track update');
             }
             
             // Only close modal if explicitly requested (for single track selection)
@@ -4698,9 +4722,10 @@ const App = () => {
           }
         }}
         onFinishTrackSelection={async () => {
-          // After finishing track selection, reload user data
+          // After finishing track selection, IMMEDIATELY reload user data (no delay)
           if (user) {
             await loadUserData(user, true);
+            console.log('✅ Subscription refreshed IMMEDIATELY after track selection');
           }
         }}
       />
