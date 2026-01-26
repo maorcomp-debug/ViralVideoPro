@@ -1653,6 +1653,14 @@ const App = () => {
     }
 
     setIsSavingAnalysis(true);
+    
+    // CRITICAL: Add safety timeout to ensure isSavingAnalysis is reset if something goes wrong
+    // This prevents the button from getting stuck in saving state
+    let savingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      console.warn('⚠️ Saving timeout - resetting isSavingAnalysis state');
+      setIsSavingAnalysis(false);
+    }, 120000); // 2 minutes max - should never take this long
+    
     try {
       // Save video if exists (only when saving analysis, not before)
       // If same file was uploaded before, reuse existing video record
@@ -1949,6 +1957,11 @@ const App = () => {
       console.error('Error saving analysis:', error);
       alert('אירעה שגיאה בשמירת הניתוח. נסה שוב.');
     } finally {
+      // CRITICAL: Always reset saving state, even on error
+      if (savingTimeout) {
+        clearTimeout(savingTimeout);
+        savingTimeout = null;
+      }
       setIsSavingAnalysis(false);
     }
   };
@@ -2698,6 +2711,13 @@ const App = () => {
     // All checks passed - NOW set loading and start analysis
     setLoading(true);
     
+    // CRITICAL: Add safety timeout to ensure loading is reset if something goes wrong
+    // This prevents the button from getting stuck in loading state
+    let loadingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      console.warn('⚠️ Loading timeout - resetting loading state');
+      setLoading(false);
+    }, 300000); // 5 minutes max - should never take this long
+    
     // Start playing video immediately when analysis begins (muted and loop)
     if (videoRef.current && file?.type.startsWith('video')) {
         videoRef.current.muted = true;
@@ -2710,6 +2730,10 @@ const App = () => {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
         alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY בסביבת ההרצה.");
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          loadingTimeout = null;
+        }
         setLoading(false);
         return;
       }
@@ -3104,6 +3128,10 @@ const App = () => {
       }
       
       // Analysis completed successfully - set loading to false
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+      }
       setLoading(false);
       
       // Jump to results area immediately
@@ -3136,6 +3164,10 @@ const App = () => {
       }
     } finally {
       // CRITICAL: Always reset loading state, even on error
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+      }
       setLoading(false);
     }
   };
