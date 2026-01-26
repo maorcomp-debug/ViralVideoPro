@@ -1380,6 +1380,17 @@ export const AdminPage: React.FC = () => {
                               {isOverLimit && ' ⚠️ הגבלה הגיעה'}
                             </span>
                           )}
+                          {user.subscription_start_date && new Date(user.subscription_start_date) > new Date(new Date().getFullYear(), new Date().getMonth(), 1) && (
+                            <span style={{ 
+                              fontSize: '0.7rem', 
+                              color: '#D4A043', 
+                              display: 'block', 
+                              marginTop: '2px',
+                              fontStyle: 'italic'
+                            }}>
+                              עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleDateString('he-IL')}</TableCell>
                         <ActionsCell>
