@@ -1015,8 +1015,11 @@ export async function updateUserProfile(userId: string, updates: {
   selected_tracks?: string[];
   selected_primary_track?: string;
 }) {
-  // Update profile
-  const { error: profileError } = await supabase
+  // Use admin client to bypass RLS (this function is called from admin panel)
+  const adminClient = getAdminClient();
+  
+  // Update profile with admin client
+  const { error: profileError } = await adminClient
     .from('profiles')
     .update(updates)
     .eq('user_id', userId);
@@ -1030,8 +1033,8 @@ export async function updateUserProfile(userId: string, updates: {
   if (updates.subscription_tier !== undefined) {
     const newTier = updates.subscription_tier;
     
-    // Get the plan_id for the new tier
-    const { data: plan, error: planError } = await supabase
+    // Get the plan_id for the new tier (use admin client)
+    const { data: plan, error: planError } = await adminClient
       .from('plans')
       .select('id')
       .eq('tier', newTier)
@@ -1044,8 +1047,8 @@ export async function updateUserProfile(userId: string, updates: {
     }
 
     if (newTier === 'free') {
-      // For free tier, delete all active subscriptions
-      const { error: deleteError } = await supabase
+      // For free tier, cancel all active subscriptions
+      const { error: deleteError } = await adminClient
         .from('subscriptions')
         .update({ status: 'cancelled' })
         .eq('user_id', userId)
@@ -1073,7 +1076,7 @@ export async function updateUserProfile(userId: string, updates: {
             return end;
           })();
 
-      const { error: subError } = await supabase
+      const { error: subError } = await adminClient
         .from('subscriptions')
         .upsert({
           user_id: userId,

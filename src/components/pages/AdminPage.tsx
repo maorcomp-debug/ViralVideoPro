@@ -1055,14 +1055,50 @@ export const AdminPage: React.FC = () => {
         await updateUserProfile(userId, { subscription_tier: newTier, subscription_status: 'active' });
         
         // After successful DB update, refresh data to ensure consistency
-        // But keep the optimistic update visible until refresh completes
         const freshUsersData = await getAllUsers();
         if (freshUsersData) {
           setUsers(freshUsersData);
+          // Update cache with fresh data
+          const updatedCache = loadAdminCache();
           saveAdminCache({ 
-            ...existingCache,
+            ...updatedCache,
             users: freshUsersData 
           });
+          
+          // Recalculate usage stats with new package data
+          if (freshUsersData.length > 0) {
+            const now = new Date();
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            
+            // Get all analyses for current month
+            const allAnalysesData = await getAllAnalyses();
+            const allAnalyses = allAnalysesData
+              .filter((a: any) => {
+                const createdAt = new Date(a.created_at);
+                return createdAt >= monthStart && createdAt <= monthEnd;
+              })
+              .map((a: any) => ({ user_id: a.user_id }));
+            
+            // Count analyses per user
+            const usageCounts: Record<string, number> = {};
+            allAnalyses?.forEach((analysis: any) => {
+              usageCounts[analysis.user_id] = (usageCounts[analysis.user_id] || 0) + 1;
+            });
+            
+            // Build usage map with updated package data
+            const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
+            freshUsersData.forEach((user: any) => {
+              const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
+              const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+              usageMap[user.user_id] = {
+                analysesUsed: usageCounts[user.user_id] || 0,
+                maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
+              };
+            });
+            
+            setUserUsageMap(usageMap);
+          }
         }
         
         alert('החבילה עודכנה בהצלחה');
