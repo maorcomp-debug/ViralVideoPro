@@ -877,6 +877,21 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                         </>
                       )}
                     </PackageFeatures>
+                    {!isCurrentTier && currentSubscription && (
+                      <div style={{
+                        padding: '8px 12px',
+                        margin: '10px 0',
+                        background: 'rgba(212, 160, 67, 0.1)',
+                        border: '1px solid rgba(212, 160, 67, 0.3)',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        color: '#D4A043',
+                        fontStyle: 'italic',
+                        textAlign: 'center'
+                      }}>
+                        ✨ עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                      </div>
+                    )}
                     <PackageButton
                       onClick={async () => {
                         if (!isCurrentTier) {
