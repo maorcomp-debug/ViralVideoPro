@@ -1042,10 +1042,17 @@ export async function updateUserProfile(userId: string, updates: {
   // Use admin client to bypass RLS (this function is called from admin panel)
   const adminClient = getAdminClient();
   
+  // If subscription_tier is being updated, set subscription_start_date to NOW to reset usage
+  const finalUpdates = { ...updates };
+  if (updates.subscription_tier !== undefined) {
+    finalUpdates.subscription_start_date = new Date().toISOString();
+    finalUpdates.subscription_status = 'active';
+  }
+  
   // Update profile with admin client
   const { error: profileError } = await adminClient
     .from('profiles')
-    .update(updates)
+    .update(finalUpdates)
     .eq('user_id', userId);
 
   if (profileError) {
@@ -1073,18 +1080,9 @@ export async function updateUserProfile(userId: string, updates: {
 
     // When upgrading package, reset subscription period to NOW (this resets usage count)
     // This ensures analyses from previous package don't count towards new package
-    const now = new Date();
-    const subscriptionStartDate = now; // Reset period starts NOW when package is upgraded
+    // Note: subscription_start_date is already updated in finalUpdates above
+    const subscriptionStartDate = new Date(finalUpdates.subscription_start_date || new Date());
     const subscriptionPeriod = updates.subscription_period || 'monthly';
-    
-    // Also update subscription_start_date in profile to track when package was upgraded
-    await adminClient
-      .from('profiles')
-      .update({ 
-        subscription_start_date: subscriptionStartDate.toISOString(),
-        subscription_status: 'active'
-      })
-      .eq('user_id', userId);
 
     if (newTier === 'free') {
       // For free tier, cancel all active subscriptions
