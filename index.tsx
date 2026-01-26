@@ -798,14 +798,16 @@ const App = () => {
         isLoadingUserData = true;
         try {
           // Small delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
+          // This ensures database triggers have time to create/update profile
           if (event === 'SIGNED_IN' && window.location.pathname !== '/admin') {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 300)); // Slightly longer delay for profile creation
           }
           
           // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
           const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
           // Use the latest loadUserData from closure
           await loadUserData(session.user, shouldForceRefresh);
+          console.log('✅ User data loaded from onAuthStateChange:', { event, userId: session.user.id });
         } catch (err) {
           console.error('Error loading user data in auth state change:', err);
           // Don't block UI if user data loading fails
@@ -4552,13 +4554,10 @@ const App = () => {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={async () => {
-          // After registration, profile is updated but onAuthStateChange may have already loaded old data
-          // Force reload user data to ensure we have the latest profile with updated settings
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          if (currentUser) {
-            console.log('🔄 Force reloading user data after registration to get updated profile');
-            await loadUserData(currentUser, true); // forceRefresh = true
-          }
+          // NOTE: onAuthStateChange will automatically call loadUserData when SIGNED_IN event fires
+          // No need to call it here to avoid duplicate calls
+          // The onAuthStateChange handler already handles loading user data with forceRefresh=true for SIGNED_IN events
+          console.log('✅ Auth success - onAuthStateChange will handle user data loading');
         }}
       />
       
