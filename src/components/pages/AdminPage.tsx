@@ -66,14 +66,13 @@ const loadAdminCache = (): Partial<AdminCache> | null => {
     const age = Date.now() - data.timestamp;
 
     if (age > CACHE_DURATION) {
-      console.log('⏰ Admin cache expired');
       sessionStorage.removeItem(ADMIN_CACHE_KEY);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error('Failed to load admin cache:', error);
+    // Silently fail - cache is not critical
     return null;
   }
 };
@@ -864,8 +863,15 @@ export const AdminPage: React.FC = () => {
         saveAdminCache({ stats: statsData });
       } else if (activeTab === 'users') {
         const usersData = await getAllUsers();
-        setUsers(usersData || []);
-        saveAdminCache({ users: usersData || [] });
+        if (usersData) {
+          setUsers(usersData);
+          // Update cache with fresh data
+          const existingCache = loadAdminCache();
+          saveAdminCache({ 
+            ...existingCache,
+            users: usersData 
+          });
+        }
         
         // Load usage stats for all users in background (non-blocking)
         // This improves initial load time - usage stats will appear when ready
@@ -1032,28 +1038,39 @@ export const AdminPage: React.FC = () => {
       );
       setUsers(updatedUsers);
       
-      // Update cache immediately
-      saveAdminCache({ users: updatedUsers });
+      // Update cache immediately with updated users
+      const existingCache = loadAdminCache();
+      saveAdminCache({ 
+        ...existingCache,
+        users: updatedUsers 
+      });
       
       // Close modal immediately
       setShowPackageModal(false);
       setSelectedUserId(null);
       setSelectedPackage('');
       
-      // Update database in background (don't await - let it run async)
-      updateUserProfile(userId, { subscription_tier: newTier, subscription_status: 'active' })
-        .then(() => {
-          // Refresh data in background after DB update completes
-          loadData(true).catch(() => {});
-        })
-        .catch((error: any) => {
-          console.error('Error updating package:', error);
-          // Revert optimistic update on error
-          loadData(true).catch(() => {});
-          alert('שגיאה בעדכון החבילה: ' + (error.message || 'Unknown error'));
-        });
-      
-      alert('החבילה עודכנה בהצלחה');
+      // Update database and then refresh
+      try {
+        await updateUserProfile(userId, { subscription_tier: newTier, subscription_status: 'active' });
+        
+        // After successful DB update, refresh data to ensure consistency
+        // But keep the optimistic update visible until refresh completes
+        const freshUsersData = await getAllUsers();
+        if (freshUsersData) {
+          setUsers(freshUsersData);
+          saveAdminCache({ 
+            ...existingCache,
+            users: freshUsersData 
+          });
+        }
+        
+        alert('החבילה עודכנה בהצלחה');
+      } catch (dbError: any) {
+        // If DB update fails, revert optimistic update
+        loadData(true).catch(() => {});
+        alert('שגיאה בעדכון החבילה: ' + (dbError.message || 'Unknown error'));
+      }
     } catch (error: any) {
       console.error('Error updating package:', error);
       // Revert on error
