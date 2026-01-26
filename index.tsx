@@ -3172,7 +3172,19 @@ const App = () => {
     }
   };
 
-  const isReady = (!!prompt || !!file) && selectedExperts.length >= 3;
+  const isReady = (!!prompt.trim() || !!file) && selectedExperts.length >= 3;
+
+  // Safety net: Reset loading if it gets stuck for too long
+  useEffect(() => {
+    if (loading) {
+      const timeout = setTimeout(() => {
+        console.warn('⚠️ Loading state stuck for 6 minutes - resetting');
+        setLoading(false);
+      }, 360000); // 6 minutes (longer than the 5 minute timeout in handleGenerate)
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [loading]);
 
   const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
   const currentExpertsList = EXPERTS_BY_TRACK[trackToUse];

@@ -1099,6 +1099,12 @@ export const ActionButton = styled.button<{ $isReady?: boolean; $isLoading?: boo
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    pointer-events: none;
+  }
+  
+  /* Prevent button from being stuck in disabled state */
+  &[aria-disabled="false"] {
+    pointer-events: auto;
   }
 `;
 
