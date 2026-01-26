@@ -2700,10 +2700,19 @@ const App = () => {
     // CRITICAL: Check subscription limits BEFORE starting analysis (BLOCKING)
     // This prevents users from exceeding their package limits
     // DO NOT set loading yet - wait until check passes to avoid showing loading when blocking
+    // Add timeout to prevent hanging - if check takes too long, allow analysis
     console.log('🔍 Checking subscription limits...');
     let limitCheck;
     try {
-      limitCheck = await checkSubscriptionLimits();
+      const checkPromise = checkSubscriptionLimits();
+      const timeoutPromise = new Promise<{ allowed: boolean }>((resolve) => {
+        setTimeout(() => {
+          console.warn('⚠️ Subscription limits check timeout after 5 seconds - allowing analysis');
+          resolve({ allowed: true });
+        }, 5000); // 5 second timeout
+      });
+      
+      limitCheck = await Promise.race([checkPromise, timeoutPromise]);
       console.log('✅ Subscription limits check completed:', limitCheck);
     } catch (error) {
       console.error('❌ Error checking subscription limits:', error);
