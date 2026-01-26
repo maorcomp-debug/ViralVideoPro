@@ -946,7 +946,7 @@ export const AdminPage: React.FC = () => {
       window.removeEventListener('analysis_saved', handleDataChange);
       window.removeEventListener('usage_updated', handleDataChange);
       window.removeEventListener('admin_data_refresh', handleDataChange);
-      clearInterval(pollInterval);
+      // No pollInterval to clear - polling is disabled
     };
   }, [activeTab]);
 
