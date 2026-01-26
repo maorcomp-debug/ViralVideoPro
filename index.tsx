@@ -3131,11 +3131,6 @@ const App = () => {
       } else {
         alert(`אירעה שגיאה בניתוח (קוד: ${code || 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
       }
-    } catch (error: any) {
-      console.error('❌ Error in handleGenerate:', error);
-      // CRITICAL: Always reset loading state on error
-      setLoading(false);
-      throw error; // Re-throw to be caught by outer try-catch
     } finally {
       // CRITICAL: Always reset loading state, even on error
       setLoading(false);
