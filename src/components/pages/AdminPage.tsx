@@ -1614,6 +1614,7 @@ export const AdminPage: React.FC = () => {
                     handleEditPackage(selectedUserId, newTier);
                   }
                 }}
+                autoFocus
               >
                 <option value="">-- בחר חבילה --</option>
                 <option value="free">נסיון</option>
