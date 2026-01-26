@@ -2657,13 +2657,17 @@ const App = () => {
   const handleGenerate = async () => {
     // CRITICAL: Prevent double-clicks and ensure button is not disabled
     if (loading) {
+      console.log('⚠️ Analysis already in progress, ignoring click');
       return;
     }
     
     // Validate inputs
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) {
+      console.log('⚠️ Validation failed:', { hasPrompt: !!prompt.trim(), hasFile: !!file, expertsCount: selectedExperts.length });
       return;
     }
+    
+    console.log('✅ Starting analysis...', { hasFile: !!file, fileType: file?.type, expertsCount: selectedExperts.length });
     
     // Check if user is logged in
     if (!user) {
@@ -2719,10 +2723,46 @@ const App = () => {
     }, 300000); // 5 minutes max - should never take this long
     
     // Start playing video immediately when analysis begins (muted and loop)
-    if (videoRef.current && file?.type.startsWith('video')) {
-        videoRef.current.muted = true;
-        videoRef.current.loop = true;
-        videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
+    // This runs in parallel with the analysis - video plays while analysis is processing
+    if (file?.type.startsWith('video')) {
+      // Use setTimeout to ensure video element is ready and DOM is updated
+      setTimeout(() => {
+        if (videoRef.current) {
+          try {
+            videoRef.current.muted = true;
+            videoRef.current.loop = true;
+            // Ensure video is ready to play
+            if (videoRef.current.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+              videoRef.current.play().catch(e => {
+                console.log('Video playback error (non-critical):', e);
+                // Try again after a short delay if initial play fails
+                setTimeout(() => {
+                  if (videoRef.current) {
+                    videoRef.current.play().catch(err => console.log('Retry playback failed:', err));
+                  }
+                }, 500);
+              });
+            } else {
+              // Wait for video to be ready
+              const onCanPlay = () => {
+                if (videoRef.current) {
+                  videoRef.current.muted = true;
+                  videoRef.current.loop = true;
+                  videoRef.current.play().catch(e => console.log('Playback after ready failed:', e));
+                  videoRef.current.removeEventListener('canplay', onCanPlay);
+                }
+              };
+              videoRef.current.addEventListener('canplay', onCanPlay);
+              // Also try to load if not already loading
+              if (videoRef.current.readyState === 0) {
+                videoRef.current.load();
+              }
+            }
+          } catch (error) {
+            console.error('Error setting up video playback:', error);
+          }
+        }
+      }, 100); // Small delay to ensure DOM is ready
     }
 
     
@@ -4006,7 +4046,8 @@ const App = () => {
                   controls
                   muted
                   playsInline
-                  preload="metadata"
+                  preload="auto"
+                  autoPlay={false}
                   style={{
                     width: '100%',
                     height: 'auto',
