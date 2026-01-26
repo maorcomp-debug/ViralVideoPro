@@ -2612,23 +2612,27 @@ const App = () => {
     
     // CRITICAL: Check subscription limits BEFORE starting analysis (BLOCKING)
     // This prevents users from exceeding their package limits
-    setLoading(true); // Show loading while checking
+    // DO NOT set loading yet - wait until check passes to avoid showing loading when blocking
     
     try {
       const limitCheck = await checkSubscriptionLimits();
       if (!limitCheck.allowed) {
-        setLoading(false);
+        // Block analysis - show message and open subscription modal
         if (limitCheck.message) {
           alert(limitCheck.message);
         }
         setShowSubscriptionModal(true);
-        return;
+        return; // Exit early - don't start analysis
       }
     } catch (error) {
       console.error('❌ Error checking subscription limits:', error);
-      // If check fails, allow analysis (better UX than blocking)
-      // But log the error for debugging
+      // If check fails, block analysis to be safe (don't allow unlimited usage)
+      alert('שגיאה בבדיקת מגבלות החבילה. נא ליצור קשר עם התמיכה.');
+      return; // Exit early - don't start analysis
     }
+    
+    // All checks passed - NOW set loading and start analysis
+    setLoading(true);
     
     // Start playing video immediately when analysis begins (muted and loop)
     if (videoRef.current && file?.type.startsWith('video')) {
@@ -2637,7 +2641,6 @@ const App = () => {
         videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
     }
 
-    // Loading already set to true above during limit check
     console.log('🔄 Starting analysis after limit check passed');
     
     try {
