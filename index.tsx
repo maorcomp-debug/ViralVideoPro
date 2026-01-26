@@ -1216,7 +1216,7 @@ const App = () => {
         } else if (minutesUsed >= minutesLimit) {
           return { 
             allowed: false, 
-            message: `סיימת את הדקות המוקצות בחודש הנוכחי (${minutesUsed}/${minutesLimit} דקות). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+            message: 'סיימת את מכסת המנוי החודשי, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה' 
           };
         }
         // Within minutes limit - allow (analyses are unlimited)
@@ -1224,15 +1224,12 @@ const App = () => {
       }
 
       // For other tiers: Check BOTH analyses AND minutes - whichever comes first blocks
-      // FREE tier: Only 1 analysis (no minutes limit)
+      // FREE tier: Only 1 analysis TOTAL (not monthly, not renewable)
       if (effectiveTier === 'free') {
         if (analysesUsed >= analysesLimit) {
-          const now = new Date();
-          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-          const daysLeft = Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           return { 
             allowed: false, 
-            message: `סיימת את ניתוח הטעימה החינמי (${analysesLimit} ניתוח). ניתוח נוסף יתאפשר בעוד ${daysLeft} ימים (תחילת חודש הבא) או שדרג לחבילה משלמת כדי להמשיך` 
+            message: 'סיימת את ניתוח הטעימה החינמי, שדרג לחבילה בתשלום מבין החבילות המוצעות' 
           };
         }
         return { allowed: true };
@@ -1243,7 +1240,7 @@ const App = () => {
       if (analysesLimit !== -1 && analysesUsed >= analysesLimit) {
         return { 
           allowed: false, 
-          message: `סיימת את הניתוחים בחודש הנוכחי (${analysesUsed}/${analysesLimit}). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+          message: 'סיימת את מכסת המנוי החודשי, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה' 
         };
       }
 
@@ -1251,7 +1248,7 @@ const App = () => {
       if (minutesLimit !== -1 && minutesUsed >= minutesLimit) {
         return { 
           allowed: false, 
-          message: `סיימת את הדקות המוקצות בחודש הנוכחי (${minutesUsed}/${minutesLimit} דקות). יתאפס בתחילת החודש הבא או שדרג לחבילה גבוהה יותר` 
+          message: 'סיימת את מכסת המנוי החודשי, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה' 
         };
       }
 
