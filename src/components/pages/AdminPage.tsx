@@ -53,7 +53,7 @@ const saveAdminCache = (data: Partial<AdminCache>) => {
     };
     sessionStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(updated));
   } catch (error) {
-    console.error('Failed to save admin cache:', error);
+    // Silently fail - cache is not critical
   }
 };
 
@@ -1024,21 +1024,40 @@ export const AdminPage: React.FC = () => {
 
   const handleEditPackage = async (userId: string, newTier: SubscriptionTier) => {
     try {
-      await updateUserProfile(userId, { subscription_tier: newTier, subscription_status: 'active' });
-      setShowPackageModal(false);
-      setSelectedUserId(null);
-      setSelectedPackage('');
-      // Update local state immediately for instant feedback
-      setUsers(prevUsers => prevUsers.map(user => 
+      // Update local state IMMEDIATELY for instant feedback (optimistic update)
+      const updatedUsers = users.map(user => 
         user.user_id === userId 
           ? { ...user, subscription_tier: newTier, subscription_status: 'active' }
           : user
-      ));
-      // Refresh in background
-      loadData(true).catch(err => console.error('Background refresh failed:', err));
+      );
+      setUsers(updatedUsers);
+      
+      // Update cache immediately
+      saveAdminCache({ users: updatedUsers });
+      
+      // Close modal immediately
+      setShowPackageModal(false);
+      setSelectedUserId(null);
+      setSelectedPackage('');
+      
+      // Update database in background (don't await - let it run async)
+      updateUserProfile(userId, { subscription_tier: newTier, subscription_status: 'active' })
+        .then(() => {
+          // Refresh data in background after DB update completes
+          loadData(true).catch(() => {});
+        })
+        .catch((error: any) => {
+          console.error('Error updating package:', error);
+          // Revert optimistic update on error
+          loadData(true).catch(() => {});
+          alert('שגיאה בעדכון החבילה: ' + (error.message || 'Unknown error'));
+        });
+      
       alert('החבילה עודכנה בהצלחה');
     } catch (error: any) {
       console.error('Error updating package:', error);
+      // Revert on error
+      loadData(true).catch(() => {});
       alert('שגיאה בעדכון החבילה: ' + (error.message || 'Unknown error'));
     }
   };
@@ -1055,6 +1074,15 @@ export const AdminPage: React.FC = () => {
       handleEditPackage(selectedUserId, selectedPackage);
     }
   };
+  
+  // Check if package selection has changed from original
+  const getOriginalPackage = () => {
+    if (!selectedUserId) return '';
+    const user = users.find(u => u.user_id === selectedUserId);
+    return (user?.subscription_tier as SubscriptionTier) || '';
+  };
+  
+  const hasPackageChanged = selectedPackage && selectedPackage !== getOriginalPackage();
 
   const handleSendUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1656,7 +1684,7 @@ export const AdminPage: React.FC = () => {
               </CancelButton>
               <ConfirmButton 
                 onClick={handleConfirmPackage}
-                disabled={!selectedPackage || !['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(selectedPackage)}
+                disabled={!selectedPackage || !hasPackageChanged || !['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(selectedPackage)}
               >
                 אישור
               </ConfirmButton>
