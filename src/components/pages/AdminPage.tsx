@@ -679,6 +679,77 @@ const ActionsCell = styled(TableCell)`
   flex-wrap: wrap;
 `;
 
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: ${fadeIn} 0.2s ease;
+`;
+
+const ModalContent = styled.div`
+  background: #1a1a1a;
+  border: 2px solid #D4A043;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: ${fadeIn} 0.3s ease;
+`;
+
+const ModalTitle = styled.h2`
+  color: #D4A043;
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  text-align: center;
+`;
+
+const ModalButtons = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+`;
+
+const CancelButton = styled.button`
+  background: rgba(212, 160, 67, 0.2);
+  border: 1px solid #D4A043;
+  color: #D4A043;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.3s;
+
+  &:hover {
+    background: rgba(212, 160, 67, 0.3);
+  }
+`;
+
+const ConfirmButton = styled.button`
+  background: #D4A043;
+  border: none;
+  color: #000;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: all 0.3s;
+
+  &:hover {
+    background: #F5C842;
+  }
+`;
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -731,11 +802,50 @@ export const AdminPage: React.FC = () => {
 
   // Loading state
   const [isLoadingData, setIsLoadingData] = useState(false);
+  
+  // Package selection modal state
+  const [showPackageModal, setShowPackageModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const loadData = async (forceRefresh = false) => {
     // Allow force refresh even if already loading
     if (isLoadingData && !forceRefresh) {
       return;
+    }
+    
+    // Load from cache first for instant display
+    const cached = loadAdminCache();
+    if (cached && !forceRefresh) {
+      if (activeTab === 'overview' && cached.stats) {
+        setStats(cached.stats);
+      } else if (activeTab === 'users' && cached.users) {
+        setUsers(cached.users || []);
+        if (cached.users && cached.users.length > 0) {
+          // Build usage map from cached data if available
+          const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
+          cached.users.forEach((user: any) => {
+            const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
+            const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+            usageMap[user.user_id] = {
+              analysesUsed: 0, // Will be updated when fresh data loads
+              maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
+            };
+          });
+          setUserUsageMap(usageMap);
+        }
+      } else if (activeTab === 'analyses' && cached.analyses) {
+        setAnalyses(cached.analyses || []);
+      } else if (activeTab === 'video' && cached.videos) {
+        setVideos(cached.videos || []);
+      } else if (activeTab === 'alerts') {
+        if (activeSubTab === 'send-update' && cached.announcements) {
+          setAnnouncements(cached.announcements || []);
+        } else if (activeSubTab === 'coupons' && cached.coupons) {
+          setCoupons(cached.coupons || []);
+        } else if (activeSubTab === 'trials' && cached.trials) {
+          setTrials(cached.trials || []);
+        }
+      }
     }
     
     setIsLoadingData(true);
@@ -906,12 +1016,19 @@ export const AdminPage: React.FC = () => {
   const handleEditPackage = async (userId: string, newTier: SubscriptionTier) => {
     try {
       await updateUserProfile(userId, { subscription_tier: newTier, subscription_status: 'active' });
-      await loadData();
+      setShowPackageModal(false);
+      setSelectedUserId(null);
+      await loadData(true); // Force refresh
       alert('החבילה עודכנה בהצלחה');
     } catch (error: any) {
       console.error('Error updating package:', error);
       alert('שגיאה בעדכון החבילה: ' + (error.message || 'Unknown error'));
     }
+  };
+  
+  const openPackageModal = (userId: string) => {
+    setSelectedUserId(userId);
+    setShowPackageModal(true);
   };
 
   const handleSendUpdate = async (e: React.FormEvent) => {
@@ -1163,12 +1280,7 @@ export const AdminPage: React.FC = () => {
                               הפוך לאדמין
                             </ActionButton>
                           )}
-                          <ActionButton $variant="primary" onClick={() => {
-                            const newTier = prompt('הזן חבילה חדשה (free, creator, pro, coach, coach-pro):');
-                            if (newTier && ['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(newTier)) {
-                              handleEditPackage(user.user_id, newTier as SubscriptionTier);
-                            }
-                          }}>
+                          <ActionButton $variant="primary" onClick={() => openPackageModal(user.user_id)}>
                             ערוך חבילה
                           </ActionButton>
                         </ActionsCell>
@@ -1482,6 +1594,46 @@ export const AdminPage: React.FC = () => {
           <EmptyState>תת-טאב זה עדיין בפיתוח</EmptyState>
         )}
       </ContentArea>
+      
+      {/* Package Selection Modal */}
+      {showPackageModal && selectedUserId && (
+        <ModalOverlay onClick={() => {
+          setShowPackageModal(false);
+          setSelectedUserId(null);
+        }}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>בחר חבילה חדשה</ModalTitle>
+            <FormGroup>
+              <FormLabel>חבילה</FormLabel>
+              <FormSelect
+                id="package-select"
+                defaultValue=""
+                onChange={(e) => {
+                  const newTier = e.target.value as SubscriptionTier;
+                  if (newTier && ['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(newTier)) {
+                    handleEditPackage(selectedUserId, newTier);
+                  }
+                }}
+              >
+                <option value="">-- בחר חבילה --</option>
+                <option value="free">נסיון</option>
+                <option value="creator">יוצרים</option>
+                <option value="pro">יוצרים באקסטרים</option>
+                <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                <option value="coach-pro">מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו</option>
+              </FormSelect>
+            </FormGroup>
+            <ModalButtons>
+              <CancelButton onClick={() => {
+                setShowPackageModal(false);
+                setSelectedUserId(null);
+              }}>
+                ביטול
+              </CancelButton>
+            </ModalButtons>
+          </ModalContent>
+        </ModalOverlay>
+      )}
       </AdminContainer>
   );
 };
