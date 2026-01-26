@@ -1226,7 +1226,31 @@ const App = () => {
       // For other tiers: Check BOTH analyses AND minutes - whichever comes first blocks
       // FREE tier: Only 1 analysis TOTAL (not monthly, not renewable)
       if (effectiveTier === 'free') {
-        if (analysesUsed >= analysesLimit) {
+        // For free tier, count ALL analyses ever made (not just current month)
+        let totalAnalysesCount = 0;
+        try {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (currentUser) {
+            const { count, error } = await supabase
+              .from('analyses')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', currentUser.id);
+            
+            if (!error && count !== null) {
+              totalAnalysesCount = count;
+            } else {
+              // If count fails, use current month count as fallback
+              totalAnalysesCount = analysesUsed;
+            }
+          } else {
+            totalAnalysesCount = analysesUsed;
+          }
+        } catch (error) {
+          // If count fails, use current month count as fallback
+          totalAnalysesCount = analysesUsed;
+        }
+        
+        if (totalAnalysesCount >= analysesLimit) {
           return { 
             allowed: false, 
             message: 'סיימת את ניתוח הטעימה החינמי, שדרג לחבילה בתשלום מבין החבילות המוצעות' 
