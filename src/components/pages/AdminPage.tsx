@@ -874,44 +874,45 @@ export const AdminPage: React.FC = () => {
         }
         
         // Load usage stats for all users in background (non-blocking)
-        // This improves initial load time - usage stats will appear when ready
+        // IMPORTANT: Count analyses only from subscription_start_date (not from month start)
+        // This ensures analyses from previous package don't count towards new package
         if (usersData && usersData.length > 0) {
           // Start usage calculation in background
           (async () => {
             try {
-              const now = new Date();
-              const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-              const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-              
-              // Get all analyses for current month in one query
+              // Get all analyses (will filter by subscription_start_date per user)
               const allAnalysesData = await getAllAnalyses();
-              const allAnalyses = allAnalysesData
-                .filter((a: any) => {
-                  const createdAt = new Date(a.created_at);
-                  return createdAt >= monthStart && createdAt <= monthEnd;
-                })
-                .map((a: any) => ({ user_id: a.user_id }));
               
-              // Count analyses per user
-              const usageCounts: Record<string, number> = {};
-              allAnalyses?.forEach((analysis: any) => {
-                usageCounts[analysis.user_id] = (usageCounts[analysis.user_id] || 0) + 1;
-              });
-              
-              // Build usage map
+              // Build usage map - count analyses only from subscription_start_date for each user
               const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
               usersData.forEach((user: any) => {
                 const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
                 const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+                
+                // Count analyses from subscription_start_date (or month start if no start date)
+                const periodStart = user.subscription_start_date 
+                  ? new Date(user.subscription_start_date)
+                  : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+                
+                const periodEnd = user.subscription_end_date
+                  ? new Date(user.subscription_end_date)
+                  : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
+                
+                // Count only analyses within the subscription period
+                const userAnalyses = allAnalysesData.filter((a: any) => {
+                  if (a.user_id !== user.user_id) return false;
+                  const createdAt = new Date(a.created_at);
+                  return createdAt >= periodStart && createdAt <= periodEnd;
+                });
+                
                 usageMap[user.user_id] = {
-                  analysesUsed: usageCounts[user.user_id] || 0,
+                  analysesUsed: userAnalyses.length,
                   maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
                 };
               });
               
               setUserUsageMap(usageMap);
             } catch (error) {
-              console.error('Error loading usage stats:', error);
               // Don't block UI if usage stats fail
             }
           })();
@@ -1066,33 +1067,37 @@ export const AdminPage: React.FC = () => {
           });
           
           // Recalculate usage stats with new package data
+          // IMPORTANT: Count analyses only from subscription_start_date (not from month start)
+          // This ensures analyses from previous package don't count towards new package
           if (freshUsersData.length > 0) {
-            const now = new Date();
-            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-            
-            // Get all analyses for current month
+            // Get all analyses (will filter by subscription_start_date per user)
             const allAnalysesData = await getAllAnalyses();
-            const allAnalyses = allAnalysesData
-              .filter((a: any) => {
-                const createdAt = new Date(a.created_at);
-                return createdAt >= monthStart && createdAt <= monthEnd;
-              })
-              .map((a: any) => ({ user_id: a.user_id }));
-            
-            // Count analyses per user
-            const usageCounts: Record<string, number> = {};
-            allAnalyses?.forEach((analysis: any) => {
-              usageCounts[analysis.user_id] = (usageCounts[analysis.user_id] || 0) + 1;
-            });
             
             // Build usage map with updated package data
+            // Count analyses only from subscription_start_date for each user
             const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
             freshUsersData.forEach((user: any) => {
               const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
               const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+              
+              // Count analyses from subscription_start_date (or month start if no start date)
+              const periodStart = user.subscription_start_date 
+                ? new Date(user.subscription_start_date)
+                : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+              
+              const periodEnd = user.subscription_end_date
+                ? new Date(user.subscription_end_date)
+                : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
+              
+              // Count only analyses within the subscription period
+              const userAnalyses = allAnalysesData.filter((a: any) => {
+                if (a.user_id !== user.user_id) return false;
+                const createdAt = new Date(a.created_at);
+                return createdAt >= periodStart && createdAt <= periodEnd;
+              });
+              
               usageMap[user.user_id] = {
-                analysesUsed: usageCounts[user.user_id] || 0,
+                analysesUsed: userAnalyses.length,
                 maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
               };
             });
@@ -1101,7 +1106,7 @@ export const AdminPage: React.FC = () => {
           }
         }
         
-        alert('החבילה עודכנה בהצלחה');
+        alert('החבילה עודכנה בהצלחה\n\nעם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה');
       } catch (dbError: any) {
         // If DB update fails, revert optimistic update
         loadData(true).catch(() => {});

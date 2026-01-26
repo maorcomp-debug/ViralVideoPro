@@ -181,19 +181,43 @@ export async function getUsageForCurrentPeriod() {
       return null;
     }
 
-    // ALWAYS count analyses in current calendar month (not subscription period)
-    // This ensures accurate monthly usage tracking regardless of subscription start date
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // Get user profile to check subscription_start_date
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('subscription_start_date, subscription_end_date, subscription_tier')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    // Count analyses
+    // Determine period start: use subscription_start_date if available, otherwise use month start
+    // This ensures analyses from previous package don't count towards new package
+    let periodStart: Date;
+    let periodEnd: Date;
+    
+    if (profile?.subscription_start_date) {
+      // Count from subscription start date (package upgrade resets usage)
+      periodStart = new Date(profile.subscription_start_date);
+      periodEnd = profile.subscription_end_date 
+        ? new Date(profile.subscription_end_date)
+        : (() => {
+            // If no end date, calculate based on subscription period (default monthly)
+            const end = new Date(periodStart);
+            end.setMonth(end.getMonth() + 1);
+            return end;
+          })();
+    } else {
+      // Fallback: count from current calendar month (for users without subscription_start_date)
+      const now = new Date();
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    // Count analyses within subscription period (from subscription_start_date)
     const { count, error } = await supabase
       .from('analyses')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString());
+      .gte('created_at', periodStart.toISOString())
+      .lte('created_at', periodEnd.toISOString());
 
     if (error) {
       return null;
@@ -213,8 +237,8 @@ export async function getUsageForCurrentPeriod() {
           )
         `)
         .eq('user_id', user.id)
-        .gte('created_at', monthStart.toISOString())
-        .lte('created_at', monthEnd.toISOString())
+        .gte('created_at', periodStart.toISOString())
+        .lte('created_at', periodEnd.toISOString())
         .not('video_id', 'is', null);
 
       if (!videosError && analysesWithVideos) {
@@ -233,8 +257,8 @@ export async function getUsageForCurrentPeriod() {
     return {
       analysesUsed: count || 0,
       minutesUsed: totalMinutesUsed,
-      periodStart: monthStart,
-      periodEnd: monthEnd,
+      periodStart,
+      periodEnd,
     };
   } catch (error) {
     console.error('Error in getUsageForCurrentPeriod:', error);
@@ -665,9 +689,9 @@ export async function getAllUsers() {
       .select('*')
       .order('created_at', { ascending: false });
     
-    // Add timeout to prevent hanging
+    // Add shorter timeout to prevent hanging (reduced from 10s to 5s for faster response)
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('getAllUsers timeout after 10 seconds')), 10000)
+      setTimeout(() => reject(new Error('getAllUsers timeout after 5 seconds')), 5000)
     );
     
     const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
@@ -1030,6 +1054,7 @@ export async function updateUserProfile(userId: string, updates: {
   }
 
   // If subscription_tier is being updated, also update/delete subscriptions table
+  // IMPORTANT: When package is upgraded, reset usage by setting subscription_start_date to NOW
   if (updates.subscription_tier !== undefined) {
     const newTier = updates.subscription_tier;
     
@@ -1046,6 +1071,21 @@ export async function updateUserProfile(userId: string, updates: {
       // Don't throw - profile update succeeded, subscription update is secondary
     }
 
+    // When upgrading package, reset subscription period to NOW (this resets usage count)
+    // This ensures analyses from previous package don't count towards new package
+    const now = new Date();
+    const subscriptionStartDate = now; // Reset period starts NOW when package is upgraded
+    const subscriptionPeriod = updates.subscription_period || 'monthly';
+    
+    // Also update subscription_start_date in profile to track when package was upgraded
+    await adminClient
+      .from('profiles')
+      .update({ 
+        subscription_start_date: subscriptionStartDate.toISOString(),
+        subscription_status: 'active'
+      })
+      .eq('user_id', userId);
+
     if (newTier === 'free') {
       // For free tier, cancel all active subscriptions
       const { error: deleteError } = await adminClient
@@ -1059,16 +1099,12 @@ export async function updateUserProfile(userId: string, updates: {
         // Don't throw - profile update succeeded
       }
     } else if (plan) {
-      // For paid tiers, update or create subscription
-      const startDate = updates.subscription_start_date 
-        ? new Date(updates.subscription_start_date)
-        : new Date();
-      
+      // For paid tiers, update or create subscription with reset start date
       const endDate = updates.subscription_end_date
         ? new Date(updates.subscription_end_date)
         : (() => {
-            const end = new Date(startDate);
-            if (updates.subscription_period === 'yearly') {
+            const end = new Date(subscriptionStartDate);
+            if (subscriptionPeriod === 'yearly') {
               end.setFullYear(end.getFullYear() + 1);
             } else {
               end.setMonth(end.getMonth() + 1);
@@ -1082,8 +1118,8 @@ export async function updateUserProfile(userId: string, updates: {
           user_id: userId,
           plan_id: plan.id,
           status: updates.subscription_status === 'active' ? 'active' : 'inactive',
-          billing_period: (updates.subscription_period as 'monthly' | 'yearly') || 'monthly',
-          start_date: startDate.toISOString(),
+          billing_period: (subscriptionPeriod as 'monthly' | 'yearly') || 'monthly',
+          start_date: subscriptionStartDate.toISOString(),
           end_date: endDate.toISOString(),
         }, {
           onConflict: 'user_id,plan_id',
