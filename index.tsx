@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import styled, { css } from 'styled-components';
@@ -906,9 +906,32 @@ const App = () => {
 
   useEffect(() => {
     const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
+    
+    // Safety check: ensure track exists and has experts
+    if (!trackToUse || !EXPERTS_BY_TRACK[trackToUse] || EXPERTS_BY_TRACK[trackToUse].length === 0) {
+      console.warn('⚠️ Track not found or has no experts:', trackToUse);
+      return; // Don't reset selectedExperts if track is invalid
+    }
+    
     const maxExperts = getMaxExperts();
-    const defaults = EXPERTS_BY_TRACK[trackToUse].slice(0, Math.min(3, maxExperts)).map(e => e.title);
-    setSelectedExperts(defaults);
+    const availableExperts = EXPERTS_BY_TRACK[trackToUse];
+    const defaults = availableExperts.slice(0, Math.min(3, maxExperts)).map(e => e.title);
+    
+    // Only update if we have valid defaults (at least 3 experts or all available)
+    if (defaults.length >= 3 || defaults.length === availableExperts.length) {
+      setSelectedExperts(defaults);
+    } else {
+      // If we can't get 3 experts, keep current selection or use all available
+      setSelectedExperts(prev => {
+        // If current selection is valid for this track, keep it
+        const validForTrack = prev.filter(e => availableExperts.some(exp => exp.title === e));
+        if (validForTrack.length >= 3) {
+          return validForTrack;
+        }
+        // Otherwise use all available experts
+        return availableExperts.map(e => e.title);
+      });
+    }
   }, [activeTrack, coachTrainingTrack, subscription]);
 
   // Subscription is now managed via Supabase - no local sync needed
@@ -2598,7 +2621,19 @@ const App = () => {
   };
 
   const handleGenerate = async () => {
+    // CRITICAL: Prevent double-clicks and ensure button is not disabled
+    if (loading) {
+      console.warn('⚠️ Analysis already in progress, ignoring duplicate click');
+      return;
+    }
+    
+    // Validate inputs
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) {
+      console.warn('⚠️ Cannot start analysis: missing file/prompt or insufficient experts', {
+        hasPrompt: !!prompt.trim(),
+        hasFile: !!file,
+        expertsCount: selectedExperts.length
+      });
       return;
     }
     
@@ -3086,11 +3121,32 @@ const App = () => {
         alert(`אירעה שגיאה בניתוח (קוד: ${code || 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
       }
     } finally {
+      // CRITICAL: Always reset loading state, even on error
       setLoading(false);
+      console.log('✅ Analysis completed, loading state reset');
     }
   };
 
-  const isReady = (!!prompt || !!file) && selectedExperts.length >= 3;
+  // CRITICAL: Calculate isReady with safety checks to prevent button from being disabled incorrectly
+  const isReady = useMemo(() => {
+    const hasInput = !!prompt.trim() || !!file;
+    const hasEnoughExperts = selectedExperts.length >= 3;
+    const isNotLoading = !loading;
+    const result = hasInput && hasEnoughExperts && isNotLoading;
+    
+    // Debug log if button is disabled unexpectedly
+    if (!result && hasInput && hasEnoughExperts) {
+      console.warn('⚠️ Button disabled but should be enabled:', {
+        hasInput,
+        hasEnoughExperts,
+        isNotLoading,
+        loading,
+        selectedExpertsCount: selectedExperts.length
+      });
+    }
+    
+    return result;
+  }, [prompt, file, selectedExperts.length, loading]);
 
   const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
   const currentExpertsList = EXPERTS_BY_TRACK[trackToUse];
