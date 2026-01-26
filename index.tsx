@@ -2877,12 +2877,12 @@ const App = () => {
                   file_name: file.name,
                   file_path: uploadResult.path,
                   file_size: file.size,
-                  duration_seconds: videoRef.current?.duration || null,
+                  duration_seconds: videoRef.current?.duration ? Math.round(videoRef.current.duration) : null,
                   mime_type: file.type,
                 });
                 videoId = videoData.id;
               } catch (videoError) {
-                console.warn('⚠️ Could not save video, continuing with analysis save:', videoError);
+                // Video save failed, but continue with analysis
               }
             }
 
