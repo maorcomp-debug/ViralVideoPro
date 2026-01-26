@@ -2763,56 +2763,6 @@ const App = () => {
       return;
     }
     
-    // CRITICAL: Add safety timeout to ensure loading is reset if something goes wrong
-    // This prevents the button from getting stuck in loading state
-    let loadingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-      console.warn('⚠️ Loading timeout - resetting loading state');
-      setLoading(false);
-    }, 300000); // 5 minutes max - should never take this long
-    
-    // Start playing video immediately when analysis begins (muted and loop)
-    // This runs in parallel with the analysis - video plays while analysis is processing
-    console.log('🎬 Setting up video playback...', { hasVideo: file?.type.startsWith('video'), videoRefExists: !!videoRef.current });
-    if (file?.type.startsWith('video')) {
-      // Use setTimeout to ensure video element is ready and DOM is updated
-      setTimeout(() => {
-        if (videoRef.current) {
-          try {
-            videoRef.current.muted = true;
-            videoRef.current.loop = true;
-            // Ensure video is ready to play
-            if (videoRef.current.readyState >= 2) { // HAVE_CURRENT_DATA or higher
-              videoRef.current.play().catch(e => {
-                console.log('Video playback error (non-critical):', e);
-                // Try again after a short delay if initial play fails
-                setTimeout(() => {
-                  if (videoRef.current) {
-                    videoRef.current.play().catch(err => console.log('Retry playback failed:', err));
-                  }
-                }, 500);
-              });
-            } else {
-              // Wait for video to be ready
-              const onCanPlay = () => {
-                if (videoRef.current) {
-                  videoRef.current.muted = true;
-                  videoRef.current.loop = true;
-                  videoRef.current.play().catch(e => console.log('Playback after ready failed:', e));
-                  videoRef.current.removeEventListener('canplay', onCanPlay);
-                }
-              };
-              videoRef.current.addEventListener('canplay', onCanPlay);
-              // Also try to load if not already loading
-              if (videoRef.current.readyState === 0) {
-                videoRef.current.load();
-              }
-            }
-          } catch (error) {
-            console.error('Error setting up video playback:', error);
-          }
-        }
-      }, 100); // Small delay to ensure DOM is ready
-    }
     try {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
