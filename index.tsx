@@ -797,10 +797,10 @@ const App = () => {
         
         isLoadingUserData = true;
         try {
-          // Small delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
-          // This ensures database triggers have time to create/update profile
+          // Minimal delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
+          // Reduced delay for faster login - triggers are usually instant
           if (event === 'SIGNED_IN' && window.location.pathname !== '/admin') {
-            await new Promise(resolve => setTimeout(resolve, 300)); // Slightly longer delay for profile creation
+            await new Promise(resolve => setTimeout(resolve, 100)); // Minimal delay for profile creation
           }
           
           // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded

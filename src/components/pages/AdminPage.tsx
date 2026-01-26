@@ -30,7 +30,7 @@ import { fadeIn } from '../../styles/globalStyles';
 // ============================================
 
 const ADMIN_CACHE_KEY = 'viralypro_admin_cache';
-const CACHE_DURATION = 30 * 1000; // 30 seconds (reduced from 5 minutes for better freshness)
+const CACHE_DURATION = 0; // DISABLED: No cache - always fetch fresh data directly from Supabase
 
 interface AdminCache {
   stats: any;
@@ -813,64 +813,23 @@ export const AdminPage: React.FC = () => {
       return;
     }
     
-    // Load from cache first for instant display
-    const cached = loadAdminCache();
-    if (cached && !forceRefresh) {
-      if (activeTab === 'overview' && cached.stats) {
-        setStats(cached.stats);
-      } else if (activeTab === 'users' && cached.users) {
-        setUsers(cached.users || []);
-        if (cached.users && cached.users.length > 0) {
-          // Build usage map from cached data if available
-          const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
-          cached.users.forEach((user: any) => {
-            const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
-            const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
-            usageMap[user.user_id] = {
-              analysesUsed: 0, // Will be updated when fresh data loads
-              maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
-            };
-          });
-          setUserUsageMap(usageMap);
-        }
-      } else if (activeTab === 'analyses' && cached.analyses) {
-        setAnalyses(cached.analyses || []);
-      } else if (activeTab === 'video' && cached.videos) {
-        setVideos(cached.videos || []);
-      } else if (activeTab === 'alerts') {
-        if (activeSubTab === 'send-update' && cached.announcements) {
-          setAnnouncements(cached.announcements || []);
-        } else if (activeSubTab === 'coupons' && cached.coupons) {
-          setCoupons(cached.coupons || []);
-        } else if (activeSubTab === 'trials' && cached.trials) {
-          setTrials(cached.trials || []);
-        }
-      }
-    }
+    // CACHE DISABLED: Always fetch fresh data directly from Supabase for instant updates
+    // No cache loading - go straight to database
     
     setIsLoadingData(true);
     
     try {
-      // Clear cache if forced refresh
-      if (forceRefresh) {
-        clearAdminCache();
-      }
+      // Always clear cache to ensure fresh data
+      clearAdminCache();
       
-      // Load data directly - load only what's needed for current tab
+      // Load data directly from Supabase - no cache, always fresh
       if (activeTab === 'overview') {
         const statsData = await getAdminStats();
         setStats(statsData);
-        saveAdminCache({ stats: statsData });
       } else if (activeTab === 'users') {
         const usersData = await getAllUsers();
         if (usersData) {
           setUsers(usersData);
-          // Update cache with fresh data
-          const existingCache = loadAdminCache();
-          saveAdminCache({ 
-            ...existingCache,
-            users: usersData 
-          });
         }
         
         // Load usage stats for all users in background (non-blocking)
@@ -920,24 +879,19 @@ export const AdminPage: React.FC = () => {
       } else if (activeTab === 'analyses') {
         const analysesData = await getAllAnalyses();
         setAnalyses(analysesData || []);
-        saveAdminCache({ analyses: analysesData || [] });
       } else if (activeTab === 'video') {
         const videosData = await getAllVideos();
         setVideos(videosData || []);
-        saveAdminCache({ videos: videosData || [] });
       } else if (activeTab === 'alerts') {
         if (activeSubTab === 'send-update') {
           const announcementsData = await getAllAnnouncements();
           setAnnouncements(announcementsData || []);
-          saveAdminCache({ announcements: announcementsData || [] });
         } else if (activeSubTab === 'coupons') {
           const couponsData = await getAllCoupons();
           setCoupons(couponsData || []);
-          saveAdminCache({ coupons: couponsData || [] });
         } else if (activeSubTab === 'trials') {
           const trialsData = await getAllTrials();
           setTrials(trialsData || []);
-          saveAdminCache({ trials: trialsData || [] });
         }
       }
       
@@ -972,13 +926,9 @@ export const AdminPage: React.FC = () => {
           eventType === 'usage_updated' ||
           eventType === 'admin_data_refresh' ||
           (e as StorageEvent).key === 'analysis_saved') {
-        // Clear cache to force fresh load
+        // Clear cache and refresh immediately - no delays needed
         clearAdminCache();
-        // Delay refresh to allow database commit (shorter delay for admin_data_refresh)
-        const delay = eventType === 'admin_data_refresh' ? 500 : 1500;
-        setTimeout(() => {
-          loadData(true); // Force refresh
-        }, delay);
+        loadData(true); // Force refresh immediately
       }
     };
     
@@ -988,13 +938,8 @@ export const AdminPage: React.FC = () => {
     window.addEventListener('usage_updated', handleDataChange);
     window.addEventListener('admin_data_refresh', handleDataChange);
     
-    // Also set up polling for critical tabs (every 30 seconds)
-    const pollInterval = setInterval(() => {
-      if (activeTab === 'users' || activeTab === 'analyses') {
-        clearAdminCache();
-        loadData(true); // Force refresh
-      }
-    }, 30000); // 30 seconds
+    // Polling disabled - updates happen immediately via events
+    // No need for polling when cache is disabled and events trigger immediate refreshes
     
     return () => {
       window.removeEventListener('storage', handleDataChange);
@@ -1009,12 +954,18 @@ export const AdminPage: React.FC = () => {
     if (!confirm('האם אתה בטוח שברצונך למחוק את המשתמש?')) return;
 
     try {
+      // Delete user directly from Supabase
       await deleteUser(userId);
-      await loadData();
+      // Clear cache and reload immediately - no delays
+      clearAdminCache();
+      await loadData(true); // Force refresh to get fresh data
       alert('המשתמש נמחק בהצלחה');
     } catch (error: any) {
       console.error('Error deleting user:', error);
       alert('שגיאה במחיקת המשתמש: ' + (error.message || 'Unknown error'));
+      // Reload data even on error to ensure UI is in sync
+      clearAdminCache();
+      loadData(true).catch(() => {});
     }
   };
 
@@ -1039,12 +990,7 @@ export const AdminPage: React.FC = () => {
       );
       setUsers(updatedUsers);
       
-      // Update cache immediately with updated users
-      const existingCache = loadAdminCache();
-      saveAdminCache({ 
-        ...existingCache,
-        users: updatedUsers 
-      });
+      // Cache disabled - no need to update cache
       
       // Close modal immediately
       setShowPackageModal(false);
@@ -1059,12 +1005,7 @@ export const AdminPage: React.FC = () => {
         const freshUsersData = await getAllUsers();
         if (freshUsersData) {
           setUsers(freshUsersData);
-          // Update cache with fresh data
-          const updatedCache = loadAdminCache();
-          saveAdminCache({ 
-            ...updatedCache,
-            users: freshUsersData 
-          });
+          // Cache disabled - no need to update cache
           
           // Recalculate usage stats with new package data
           // IMPORTANT: Count analyses only from subscription_start_date (not from month start)
