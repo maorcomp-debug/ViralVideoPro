@@ -555,7 +555,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     **תקופת חיוב:** {subscription?.billingPeriod === 'monthly' ? 'חודשי' : 'שנתי'}
                   </p>
                   <p style={{ margin: '5px 0', color: '#ccc' }}>
-                    **תאריך סיום:** {subscription?.endDate ? subscription.endDate.toLocaleDateString('he-IL') : 'לא ידוע'}
+                    **תאריך סיום:** {subscription?.endDate ? (subscription.endDate instanceof Date ? subscription.endDate.toLocaleDateString('he-IL') : new Date(subscription.endDate).toLocaleDateString('he-IL')) : 'לא ידוע'}
                   </p>
                 </>
               )}
