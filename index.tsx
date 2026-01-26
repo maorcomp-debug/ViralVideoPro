@@ -1221,7 +1221,10 @@ const App = () => {
     
       // Check if subscription is active (for paid tiers)
       if (effectiveTier !== 'free') {
-        if (!effectiveSubscription.isActive || new Date() > effectiveSubscription.endDate) {
+        const endDate = effectiveSubscription.endDate instanceof Date 
+          ? effectiveSubscription.endDate 
+          : new Date(effectiveSubscription.endDate);
+        if (!effectiveSubscription.isActive || new Date() > endDate) {
           return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
         }
       }
@@ -2621,37 +2624,18 @@ const App = () => {
   };
 
   const handleGenerate = async () => {
-    console.log('🎯 handleGenerate called', {
-      loading,
-      hasPrompt: !!prompt.trim(),
-      hasFile: !!file,
-      expertsCount: selectedExperts.length,
-      selectedExperts: selectedExperts,
-      isReady: (!!prompt.trim() || !!file) && selectedExperts.length >= 3
-    });
-    
     // CRITICAL: Prevent double-clicks and ensure button is not disabled
     if (loading) {
-      console.warn('⚠️ Analysis already in progress, ignoring duplicate click');
       return;
     }
     
     // Validate inputs
     if ((!prompt.trim() && !file) || selectedExperts.length < 3) {
-      console.warn('⚠️ Cannot start analysis: missing file/prompt or insufficient experts', {
-        hasPrompt: !!prompt.trim(),
-        hasFile: !!file,
-        expertsCount: selectedExperts.length,
-        selectedExperts: selectedExperts
-      });
-      alert(`לא ניתן להתחיל ניתוח: ${!prompt.trim() && !file ? 'חסר קובץ או טקסט' : ''} ${selectedExperts.length < 3 ? `חסרים מומחים (נבחרו ${selectedExperts.length} מתוך 3 נדרשים)` : ''}`);
       return;
     }
     
     // Check if user is logged in
-    console.log('🔍 Check 1: User authentication', { hasUser: !!user });
     if (!user) {
-      console.warn('⚠️ Blocked: User not logged in');
       alert('עליך להרשם תחילה כדי לבצע ניתוח.');
       setShowAuthModal(true);
       return;
@@ -2659,35 +2643,25 @@ const App = () => {
     
     // Check if current track is available for user's subscription
     const trackAvailable = isTrackAvailable(activeTrack);
-    console.log('🔍 Check 2: Track availability', { activeTrack, trackAvailable });
     if (!trackAvailable) {
-      console.warn('⚠️ Blocked: Track not available for subscription');
       alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
       setShowSubscriptionModal(true);
       return;
     }
     
     // Check feature access for coach track - must have premium subscription
-    if (activeTrack === 'coach') {
-      const hasFeature = canUseFeature('traineeManagement');
-      console.log('🔍 Check 3: Coach feature access', { activeTrack, hasFeature });
-      if (!hasFeature) {
-        console.warn('⚠️ Blocked: Coach track requires premium subscription');
-        alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
-        setShowSubscriptionModal(true);
-        return;
-      }
+    if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
+      alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
+      setShowSubscriptionModal(true);
+      return;
     }
     
     // CRITICAL: Check subscription limits BEFORE starting analysis (BLOCKING)
     // This prevents users from exceeding their package limits
     // DO NOT set loading yet - wait until check passes to avoid showing loading when blocking
-    console.log('🔍 Check 4: Subscription limits');
     try {
       const limitCheck = await checkSubscriptionLimits();
-      console.log('🔍 Subscription limits check result', limitCheck);
       if (!limitCheck.allowed) {
-        console.warn('⚠️ Blocked: Subscription limits exceeded', limitCheck);
         // Block analysis - show message and open subscription modal
         if (limitCheck.message) {
           alert(limitCheck.message);
@@ -2697,13 +2671,11 @@ const App = () => {
       }
     } catch (error) {
       console.error('❌ Error checking subscription limits:', error);
-      // If check fails, block analysis to be safe (don't allow unlimited usage)
-      alert('שגיאה בבדיקת מגבלות החבילה. נא ליצור קשר עם התמיכה.');
-      return; // Exit early - don't start analysis
+      // If check fails, allow analysis (better UX than blocking)
+      // The check will be done again when saving the analysis
     }
     
     // All checks passed - NOW set loading and start analysis
-    console.log('✅ All checks passed, starting analysis');
     setLoading(true);
     
     // Start playing video immediately when analysis begins (muted and loop)
@@ -2713,12 +2685,6 @@ const App = () => {
         videoRef.current.play().catch(e => console.log('Playback not allowed:', e));
     }
 
-    console.log('🔄 Starting analysis after limit check passed', {
-      hasFile: !!file,
-      hasPrompt: !!prompt.trim(),
-      expertsCount: selectedExperts.length,
-      activeTrack
-    });
     
     try {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
@@ -3151,45 +3117,10 @@ const App = () => {
     } finally {
       // CRITICAL: Always reset loading state, even on error
       setLoading(false);
-      console.log('✅ Analysis completed, loading state reset');
     }
   };
 
-  // CRITICAL: Calculate isReady with safety checks to prevent button from being disabled incorrectly
-  const isReady = useMemo(() => {
-    const hasInput = !!prompt.trim() || !!file;
-    const hasEnoughExperts = selectedExperts.length >= 3;
-    // Don't check loading here - it's already checked in disabled prop
-    const result = hasInput && hasEnoughExperts;
-    
-    // Always log button state for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 Button state check:', {
-        hasInput,
-        hasEnoughExperts,
-        promptLength: prompt.trim().length,
-        hasFile: !!file,
-        selectedExpertsCount: selectedExperts.length,
-        selectedExperts: selectedExperts,
-        loading,
-        isReady: result,
-        willBeDisabled: loading || !result
-      });
-    }
-    
-    // Debug log if button is disabled unexpectedly
-    if (!result && hasInput && hasEnoughExperts) {
-      console.warn('⚠️ Button disabled but should be enabled:', {
-        hasInput,
-        hasEnoughExperts,
-        loading,
-        selectedExpertsCount: selectedExperts.length,
-        selectedExperts: selectedExperts
-      });
-    }
-    
-    return result;
-  }, [prompt, file, selectedExperts, loading]);
+  const isReady = (!!prompt || !!file) && selectedExperts.length >= 3;
 
   const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
   const currentExpertsList = EXPERTS_BY_TRACK[trackToUse];
@@ -4158,27 +4089,10 @@ const App = () => {
             onChange={(e) => setPrompt(e.target.value)}
           />
           <ActionButton 
-            onClick={(e) => {
-              console.log('🔘 Action button clicked', { loading, isReady, disabled: loading || !isReady });
-              if (!loading && isReady) {
-                handleGenerate();
-              } else {
-                console.warn('⚠️ Button click ignored - button is disabled', { loading, isReady });
-                if (!isReady) {
-                  const reasons = [];
-                  if (!prompt.trim() && !file) reasons.push('חסר קובץ או טקסט');
-                  if (selectedExperts.length < 3) reasons.push(`חסרים מומחים (${selectedExperts.length}/3)`);
-                  alert(`לא ניתן להתחיל ניתוח:\n${reasons.join('\n')}`);
-                }
-              }
-            }}
+            onClick={handleGenerate}
             disabled={loading || !isReady}
             $isReady={isReady}
             $isLoading={loading}
-            style={{
-              cursor: (loading || !isReady) ? 'not-allowed' : 'pointer',
-              opacity: (loading || !isReady) ? 0.6 : 1
-            }}
           >
             {loading ? 'צוות המומחים צופה כעת בסרטון' : (isImprovementMode ? 'נתח שיפורים' : 'אקשן !')}
           </ActionButton>
