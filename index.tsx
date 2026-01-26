@@ -741,11 +741,12 @@ const App = () => {
       }
 
       // Load usage and update subscription state (but preserve tier!)
-      // Always load fresh usage data to ensure accuracy
+      // Always load fresh usage data to ensure accuracy (includes both analyses and minutes)
       const usageData = await getUsageForCurrentPeriod();
       if (usageData) {
         setUsage(usageData);
         // Update subscription with current usage, but preserve tier and other subscription data
+        // Note: minutesUsed is in usage state, not in subscription.usage (subscription.usage only has analyses)
         setSubscription(prev => {
           if (!prev) return null;
           return {
@@ -1747,15 +1748,15 @@ const App = () => {
           } : null);
           
           // Then refresh from database to get accurate count (with retries)
-          // CRITICAL: This must work reliably for usage tracking
+          // CRITICAL: This must work reliably for usage tracking (both analyses and minutes)
           const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
             try {
-              // Wait longer for database to commit (especially important for Supabase)
-              await new Promise(resolve => setTimeout(resolve, 800 + (retryCount * 200)));
+              // Wait longer for database to commit (especially important for video duration to be saved)
+              await new Promise(resolve => setTimeout(resolve, 1000 + (retryCount * 300)));
               const updatedUsage = await getUsageForCurrentPeriod();
               if (updatedUsage) {
-                setUsage(updatedUsage);
-                // Also update subscription state with usage
+                setUsage(updatedUsage); // This includes both analysesUsed and minutesUsed
+                // Also update subscription state with usage (analyses only - minutes are in usage state)
                 setSubscription(prev => prev ? {
                   ...prev,
                   usage: {
@@ -1763,7 +1764,7 @@ const App = () => {
                     lastResetDate: updatedUsage.periodStart,
                   },
                 } : null);
-                console.log('✅ Usage updated from database:', { analysesUsed: updatedUsage.analysesUsed, retryCount });
+                console.log('✅ Usage updated from database:', { analysesUsed: updatedUsage.analysesUsed, minutesUsed: updatedUsage.minutesUsed, retryCount });
               } else {
                 // If no usage data, retry
                 if (retryCount < 5) {
@@ -1829,13 +1830,14 @@ const App = () => {
           } : null);
           
           // Then refresh from database (with proper retry logic)
+          // CRITICAL: This must work reliably for usage tracking (both analyses and minutes)
           const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
             try {
-              // Wait longer for database to commit
-              await new Promise(resolve => setTimeout(resolve, 800 + (retryCount * 200)));
+              // Wait longer for database to commit (especially important for video duration to be saved)
+              await new Promise(resolve => setTimeout(resolve, 1000 + (retryCount * 300)));
               const updatedUsage = await getUsageForCurrentPeriod();
               if (updatedUsage) {
-                setUsage(updatedUsage);
+                setUsage(updatedUsage); // This includes both analysesUsed and minutesUsed
                 setSubscription(prev => prev ? {
                   ...prev,
                   usage: {
@@ -1843,7 +1845,7 @@ const App = () => {
                     lastResetDate: updatedUsage.periodStart,
                   },
                 } : null);
-                console.log('✅ Usage updated from database (fallback):', { analysesUsed: updatedUsage.analysesUsed, retryCount });
+                console.log('✅ Usage updated from database (fallback):', { analysesUsed: updatedUsage.analysesUsed, minutesUsed: updatedUsage.minutesUsed, retryCount });
               } else {
                 // If no usage data, retry
                 if (retryCount < 5) {
@@ -2938,12 +2940,12 @@ const App = () => {
             // Update usage from database (with retries if needed)
             const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
               try {
-                // Wait for database to commit
-                await new Promise(resolve => setTimeout(resolve, 500 + (retryCount * 200)));
+                // Wait longer for database to commit (especially for video duration to be saved)
+                await new Promise(resolve => setTimeout(resolve, 1000 + (retryCount * 300)));
                 const updatedUsage = await getUsageForCurrentPeriod();
                 if (updatedUsage) {
                   setUsage(updatedUsage);
-                  // Also update subscription state with usage
+                  // Also update subscription state with usage (analyses only - minutes are in usage state)
                   setSubscription(prev => prev ? {
                     ...prev,
                     usage: {
@@ -2962,7 +2964,7 @@ const App = () => {
                     await updateUsageFromDB(retryCount + 1);
                   } else {
                     console.error('❌ Failed to get usage after 5 retries');
-                    // Fallback: optimistically update local state
+                    // Fallback: optimistically update local state (only analyses, not minutes - need video duration)
                     setUsage(prev => prev ? {
                       ...prev,
                       analysesUsed: prev.analysesUsed + 1,
@@ -2980,11 +2982,11 @@ const App = () => {
                 console.error('❌ Error updating usage from DB:', usageError);
                 // Retry up to 5 times
                 if (retryCount < 5) {
-                  await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 300));
+                  await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 400));
                   await updateUsageFromDB(retryCount + 1);
                 } else {
                   console.error('❌ Failed to update usage after 5 retries');
-                  // Fallback: optimistically update local state
+                  // Fallback: optimistically update local state (only analyses, not minutes - need video duration)
                   setUsage(prev => prev ? {
                     ...prev,
                     analysesUsed: prev.analysesUsed + 1,
