@@ -3171,6 +3171,17 @@ const App = () => {
     navigate('/admin', { replace: true });
   }, [isSettingsPage, user, userIsAdmin, navigate]);
 
+  // Check admin status when entering admin page
+  useEffect(() => {
+    if (isAdminPage && user) {
+      isAdmin().then(adminStatus => {
+        setUserIsAdmin(adminStatus);
+      }).catch(() => {
+        setUserIsAdmin(false);
+      });
+    }
+  }, [isAdminPage, user]);
+
   // Ensure profile is always loaded after refresh (fixes stuck email display)
   useEffect(() => {
     if (!user) return;
@@ -3372,17 +3383,6 @@ const App = () => {
       </>
     );
   }
-
-  // Check admin status when entering admin page
-  useEffect(() => {
-    if (isAdminPage && user) {
-      isAdmin().then(adminStatus => {
-        setUserIsAdmin(adminStatus);
-      }).catch(() => {
-        setUserIsAdmin(false);
-      });
-    }
-  }, [isAdminPage, user]);
 
   if (isAdminPage) {
     return (
