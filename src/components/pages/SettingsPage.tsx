@@ -591,6 +591,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         *כמות ניתוחים: ללא הגבלה (מוגבל בדקות בלבד)
                       </p>
                     )}
+                    {profile?.subscription_start_date && new Date(profile.subscription_start_date) > new Date(new Date().getFullYear(), new Date().getMonth(), 1) && (
+                      <p style={{ 
+                        margin: '10px 0 5px 0', 
+                        color: '#D4A043', 
+                        fontSize: '0.9rem',
+                        fontStyle: 'italic',
+                        padding: '8px 12px',
+                        background: 'rgba(212, 160, 67, 0.1)',
+                        border: '1px solid rgba(212, 160, 67, 0.3)',
+                        borderRadius: '6px'
+                      }}>
+                        ✨ עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                      </p>
+                    )}
                   </>
                 );
               })()}
