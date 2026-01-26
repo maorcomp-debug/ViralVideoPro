@@ -278,11 +278,19 @@ export async function saveVideoToDatabase(videoData: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
+  // Round duration_seconds to integer if provided (database expects integer)
+  const processedData = {
+    ...videoData,
+    duration_seconds: videoData.duration_seconds != null 
+      ? Math.round(videoData.duration_seconds) 
+      : null,
+  };
+
   const { data, error } = await supabase
     .from('videos')
     .insert({
       user_id: user.id,
-      ...videoData,
+      ...processedData,
     })
     .select()
     .single();
@@ -306,7 +314,6 @@ export async function saveAnalysis(analysisData: {
   result: any;
   average_score: number;
 }) {
-  console.log('💾 saveAnalysis: Starting save...');
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError) {
     console.error('❌ saveAnalysis: Error getting user:', userError);
@@ -317,17 +324,6 @@ export async function saveAnalysis(analysisData: {
     throw new Error('User not authenticated');
   }
   
-  console.log('✅ saveAnalysis: User authenticated:', user.email);
-  console.log('💾 saveAnalysis: Analysis data:', {
-    track: analysisData.track,
-    expert_panel: analysisData.expert_panel?.length || 0,
-    has_result: !!analysisData.result,
-    average_score: analysisData.average_score,
-    has_video_id: !!analysisData.video_id,
-    has_trainee_id: !!analysisData.trainee_id,
-  });
-
-  console.log('💾 saveAnalysis: Executing insert...');
   const { data, error } = await supabase
     .from('analyses')
     .insert({
@@ -341,25 +337,9 @@ export async function saveAnalysis(analysisData: {
     console.error('❌ saveAnalysis: Error saving analysis to database:', error);
     console.error('❌ saveAnalysis: Error code:', error.code);
     console.error('❌ saveAnalysis: Error message:', error.message);
-    console.error('❌ saveAnalysis: Error hint:', error.hint);
-    console.error('❌ saveAnalysis: Error details:', error.details);
-    console.error('❌ saveAnalysis: Full error:', JSON.stringify(error, null, 2));
-    console.error('❌ saveAnalysis: Analysis data attempted:', {
-      user_id: user.id,
-      track: analysisData.track,
-      expert_panel: analysisData.expert_panel,
-      has_result: !!analysisData.result,
-      average_score: analysisData.average_score,
-    });
     throw error;
   }
 
-  console.log('✅ saveAnalysis: Analysis saved successfully to database:', { 
-    id: data?.id, 
-    user_id: user.id,
-    track: data?.track,
-    created_at: data?.created_at
-  });
   return data;
 }
 
