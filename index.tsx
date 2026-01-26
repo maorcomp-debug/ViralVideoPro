@@ -1209,9 +1209,11 @@ const App = () => {
   };
 
   const checkSubscriptionLimits = async (): Promise<{ allowed: boolean; message?: string }> => {
+    console.log('🔍 [checkSubscriptionLimits] Starting...', { tier: subscription?.tier });
     try {
       // If no subscription, treat as free tier
       const effectiveTier = subscription?.tier || 'free';
+      console.log('🔍 [checkSubscriptionLimits] Effective tier:', effectiveTier);
       const effectiveSubscription = subscription || {
         tier: 'free' as SubscriptionTier,
         billingPeriod: 'monthly' as BillingPeriod,
@@ -1249,10 +1251,13 @@ const App = () => {
 
       // Get current usage from database (always fresh - counts by current month)
       // If this fails or returns null, allow analysis (better UX than blocking)
+      console.log('🔍 [checkSubscriptionLimits] Getting current usage...');
       let currentUsage;
       try {
         currentUsage = await getUsageForCurrentPeriod();
+        console.log('🔍 [checkSubscriptionLimits] Current usage:', currentUsage);
       } catch (error: any) {
+        console.error('❌ [checkSubscriptionLimits] Error getting usage:', error);
         // Allow analysis if check fails
         return { allowed: true };
       }
@@ -1336,6 +1341,7 @@ const App = () => {
       }
 
       // Both limits OK
+      console.log('✅ [checkSubscriptionLimits] All limits OK, allowing analysis');
       return { allowed: true };
     } catch (error) {
       console.error('❌ Error in checkSubscriptionLimits:', error);
@@ -2694,9 +2700,11 @@ const App = () => {
     // CRITICAL: Check subscription limits BEFORE starting analysis (BLOCKING)
     // This prevents users from exceeding their package limits
     // DO NOT set loading yet - wait until check passes to avoid showing loading when blocking
+    console.log('🔍 Checking subscription limits...');
     let limitCheck;
     try {
       limitCheck = await checkSubscriptionLimits();
+      console.log('✅ Subscription limits check completed:', limitCheck);
     } catch (error) {
       console.error('❌ Error checking subscription limits:', error);
       // If check fails, allow analysis (better UX than blocking)
@@ -2704,6 +2712,7 @@ const App = () => {
     }
     
     if (!limitCheck || !limitCheck.allowed) {
+      console.log('❌ Subscription limits check failed, blocking analysis');
       // Block analysis - show message and open subscription modal
       if (limitCheck?.message) {
         alert(limitCheck.message);
@@ -2711,9 +2720,12 @@ const App = () => {
       setShowSubscriptionModal(true);
       return; // Exit early - don't start analysis
     }
+    console.log('✅ Subscription limits check passed');
     
     // All checks passed - NOW set loading and start analysis
+    console.log('✅ All checks passed, setting loading to true');
     setLoading(true);
+    console.log('✅ Loading state set to true');
     
     // CRITICAL: Add safety timeout to ensure loading is reset if something goes wrong
     // This prevents the button from getting stuck in loading state
@@ -2724,6 +2736,7 @@ const App = () => {
     
     // Start playing video immediately when analysis begins (muted and loop)
     // This runs in parallel with the analysis - video plays while analysis is processing
+    console.log('🎬 Setting up video playback...', { hasVideo: file?.type.startsWith('video'), videoRefExists: !!videoRef.current });
     if (file?.type.startsWith('video')) {
       // Use setTimeout to ensure video element is ready and DOM is updated
       setTimeout(() => {
@@ -2764,9 +2777,11 @@ const App = () => {
         }
       }, 100); // Small delay to ensure DOM is ready
     }
+    console.log('✅ Video setup completed (or skipped if no video)');
 
-    
+    console.log('🚀 Entering main analysis try block...');
     try {
+      console.log('🔑 Checking API key...');
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
         alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY בסביבת ההרצה.");
@@ -2927,29 +2942,36 @@ const App = () => {
       }
       
       if (file) {
+        console.log('📁 Processing file...', { fileName: file.name, fileSize: file.size, fileType: file.type });
         const maxFileBytes = getMaxFileBytes(activeTrack, subscription || undefined);
         const maxVideoSeconds = getMaxVideoSeconds(activeTrack, subscription || undefined);
         const limitText = getUploadLimitText(activeTrack, subscription || undefined);
         
         // Check file size
         if (file.size > maxFileBytes) {
+           console.error('❌ File too large:', { fileSize: file.size, maxBytes: maxFileBytes });
            alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
            setLoading(false);
            return;
         }
+        console.log('✅ File size check passed');
         
         // Check video duration if it's a video file
         if (file.type.startsWith('video') && videoRef.current) {
           const duration = videoRef.current.duration || 0;
+          console.log('🎬 Video duration:', duration, 'max:', maxVideoSeconds);
           if (duration > maxVideoSeconds) {
+            console.error('❌ Video too long:', { duration, maxSeconds: maxVideoSeconds });
             alert(`הסרטון חורג מהמגבלה: ${limitText}.`);
             setLoading(false);
             return;
           }
         }
         try {
+          console.log('🔄 Converting file to generative part...');
           const imagePart = await fileToGenerativePart(file);
           parts.push(imagePart);
+          console.log('✅ File converted successfully');
         } catch (e) {
           console.error("❌ File processing error", e);
           alert("שגיאה בעיבוד הקובץ");
@@ -2960,14 +2982,16 @@ const App = () => {
 
       if (pdfFile) {
          try {
+           console.log('📄 Processing PDF...');
            const pdfPart = await fileToGenerativePart(pdfFile);
            parts.push(pdfPart);
+           console.log('✅ PDF processed successfully');
          } catch(e) {
             console.error("❌ PDF processing error", e);
          }
       }
 
-
+      console.log('🚀 Calling Gemini API...', { partsCount: parts.length, model: 'gemini-2.5-flash' });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: { parts },
@@ -2976,6 +3000,7 @@ const App = () => {
           responseMimeType: "application/json"
         }
       });
+      console.log('✅ Gemini API response received');
 
       // Reduced logging
 
@@ -3189,7 +3214,8 @@ const App = () => {
         code: error?.error?.code || error?.status,
         status: error?.status,
         statusText: error?.statusText,
-        response: error?.response
+        response: error?.response,
+        stack: error?.stack
       });
       
       const code = error?.error?.code || error?.status;
@@ -3213,6 +3239,18 @@ const App = () => {
   };
 
   const isReady = (!!prompt.trim() || !!file) && selectedExperts.length >= 3;
+  
+  // Debug: Log button state
+  useEffect(() => {
+    console.log('🔘 Button state:', { 
+      isReady, 
+      loading, 
+      disabled: loading || !isReady,
+      hasPrompt: !!prompt.trim(),
+      hasFile: !!file,
+      expertsCount: selectedExperts.length
+    });
+  }, [isReady, loading, prompt, file, selectedExperts.length]);
 
   // Safety net: Reset loading if it gets stuck for too long
   useEffect(() => {
