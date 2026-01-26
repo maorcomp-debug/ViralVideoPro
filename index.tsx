@@ -1221,11 +1221,21 @@ const App = () => {
     
       // Check if subscription is active (for paid tiers)
       if (effectiveTier !== 'free') {
-        const endDate = effectiveSubscription.endDate instanceof Date 
-          ? effectiveSubscription.endDate 
-          : new Date(effectiveSubscription.endDate);
-        if (!effectiveSubscription.isActive || new Date() > endDate) {
-          return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+        try {
+          const endDate = effectiveSubscription.endDate instanceof Date 
+            ? effectiveSubscription.endDate 
+            : new Date(effectiveSubscription.endDate);
+          // Validate date
+          if (isNaN(endDate.getTime())) {
+            // Invalid date - allow analysis
+            return { allowed: true };
+          }
+          if (!effectiveSubscription.isActive || new Date() > endDate) {
+            return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+          }
+        } catch (error) {
+          // If date parsing fails, allow analysis
+          return { allowed: true };
         }
       }
 
@@ -2661,9 +2671,9 @@ const App = () => {
     // DO NOT set loading yet - wait until check passes to avoid showing loading when blocking
     try {
       const limitCheck = await checkSubscriptionLimits();
-      if (!limitCheck.allowed) {
+      if (!limitCheck || !limitCheck.allowed) {
         // Block analysis - show message and open subscription modal
-        if (limitCheck.message) {
+        if (limitCheck?.message) {
           alert(limitCheck.message);
         }
         setShowSubscriptionModal(true);

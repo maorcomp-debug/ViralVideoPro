@@ -195,15 +195,32 @@ export async function getUsageForCurrentPeriod() {
     
     if (profile?.subscription_start_date) {
       // Count from subscription start date (package upgrade resets usage)
-      periodStart = new Date(profile.subscription_start_date);
-      periodEnd = profile.subscription_end_date 
-        ? new Date(profile.subscription_end_date)
-        : (() => {
-            // If no end date, calculate based on subscription period (default monthly)
-            const end = new Date(periodStart);
-            end.setMonth(end.getMonth() + 1);
-            return end;
-          })();
+      try {
+        periodStart = new Date(profile.subscription_start_date);
+        // Validate date
+        if (isNaN(periodStart.getTime())) {
+          throw new Error('Invalid subscription_start_date');
+        }
+        periodEnd = profile.subscription_end_date 
+          ? (() => {
+              const end = new Date(profile.subscription_end_date);
+              if (isNaN(end.getTime())) {
+                throw new Error('Invalid subscription_end_date');
+              }
+              return end;
+            })()
+          : (() => {
+              // If no end date, calculate based on subscription period (default monthly)
+              const end = new Date(periodStart);
+              end.setMonth(end.getMonth() + 1);
+              return end;
+            })();
+      } catch (error) {
+        // If date parsing fails, fallback to current month
+        const now = new Date();
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
     } else {
       // Fallback: count from current calendar month (for users without subscription_start_date)
       const now = new Date();
