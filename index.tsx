@@ -3024,12 +3024,12 @@ const App = () => {
       
       // CRITICAL: Save analysis and update usage IMMEDIATELY after analysis completes successfully
       // This ensures usage is tracked correctly for all subscription tiers
-      // IMPORTANT: This runs in background - don't block UI if it fails
-      if (user && file) {
+      // IMPORTANT: Update usage even if there's no file - analysis itself counts!
+      if (user) {
         // Run save in background - don't await to avoid blocking UI
         (async () => {
           try {
-            // Save video first if not already saved
+            // Save video first if exists (not required for analysis to be saved)
             let videoId: string | null = null;
             if (file) {
               try {
@@ -3043,11 +3043,12 @@ const App = () => {
                 });
                 videoId = videoData.id;
               } catch (videoError) {
-                // Video save failed, but continue with analysis
+                // Video save failed, but continue with analysis - analysis can be saved without video
+                console.error('Video save failed, continuing with analysis:', videoError);
               }
             }
 
-            // Save analysis to Supabase immediately
+            // Save analysis to Supabase immediately (even without video)
             const resultWithMetadata = {
               ...parsedResult,
               metadata: {
@@ -3072,14 +3073,14 @@ const App = () => {
             });
 
             // Analysis saved successfully - NOW update usage IMMEDIATELY (not in background!)
-            // Wait a moment for database commit
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Shorter wait since analysis is saved (video duration is optional)
+            await new Promise(resolve => setTimeout(resolve, 300));
             
             // Update usage from database (with retries if needed)
             const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
               try {
-                // Wait longer for database to commit (especially for video duration to be saved)
-                await new Promise(resolve => setTimeout(resolve, 1000 + (retryCount * 300)));
+                // Wait for database to commit (shorter wait since analysis is already saved)
+                await new Promise(resolve => setTimeout(resolve, 500 + (retryCount * 200)));
                 const updatedUsage = await getUsageForCurrentPeriod();
                 if (updatedUsage) {
                   setUsage(updatedUsage);
@@ -3091,22 +3092,23 @@ const App = () => {
                       lastResetDate: updatedUsage.periodStart,
                     },
                   } : null);
-                  // Usage updated successfully - trigger refresh in SettingsPage
+                  // Usage updated successfully - trigger refresh in SettingsPage IMMEDIATELY
                   if (user) {
-                    // Trigger profile update to refresh SettingsPage
+                    // Trigger usage update event for SettingsPage
                     window.dispatchEvent(new CustomEvent('usage_updated'));
+                    // Also trigger analysis_saved for backward compatibility
+                    window.dispatchEvent(new CustomEvent('analysis_saved'));
                   }
                 } else {
                   // If no usage data, retry
-                  if (retryCount < 5) {
+                  if (retryCount < 3) {
                     await updateUsageFromDB(retryCount + 1);
                   } else {
-                    console.error('❌ Failed to get usage after 5 retries');
-                    // Fallback: optimistically update local state (only analyses, not minutes - need video duration)
+                    // Fallback: optimistically update local state
                     setUsage(prev => prev ? {
                       ...prev,
-                      analysesUsed: prev.analysesUsed + 1,
-                    } : null);
+                      analysesUsed: (prev?.analysesUsed || 0) + 1,
+                    } : { analysesUsed: 1, minutesUsed: 0, periodStart: new Date(), periodEnd: new Date() });
                     setSubscription(prev => prev ? {
                       ...prev,
                       usage: {
@@ -3114,21 +3116,24 @@ const App = () => {
                         lastResetDate: prev.usage.lastResetDate,
                       },
                     } : null);
+                    // Still trigger update event
+                    if (user) {
+                      window.dispatchEvent(new CustomEvent('usage_updated'));
+                    }
                   }
                 }
               } catch (usageError) {
                 console.error('❌ Error updating usage from DB:', usageError);
-                // Retry up to 5 times
-                if (retryCount < 5) {
-                  await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 400));
+                // Retry up to 3 times (reduced from 5 for faster response)
+                if (retryCount < 3) {
+                  await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 300));
                   await updateUsageFromDB(retryCount + 1);
                 } else {
-                  console.error('❌ Failed to update usage after 5 retries');
-                  // Fallback: optimistically update local state (only analyses, not minutes - need video duration)
+                  // Fallback: optimistically update local state
                   setUsage(prev => prev ? {
                     ...prev,
-                    analysesUsed: prev.analysesUsed + 1,
-                  } : null);
+                    analysesUsed: (prev?.analysesUsed || 0) + 1,
+                  } : { analysesUsed: 1, minutesUsed: 0, periodStart: new Date(), periodEnd: new Date() });
                   setSubscription(prev => prev ? {
                     ...prev,
                     usage: {
@@ -3136,6 +3141,10 @@ const App = () => {
                       lastResetDate: prev.usage.lastResetDate,
                     },
                   } : null);
+                  // Still trigger update event
+                  if (user) {
+                    window.dispatchEvent(new CustomEvent('usage_updated'));
+                  }
                 }
               }
             };
@@ -3143,16 +3152,11 @@ const App = () => {
             // AWAIT the update - don't run in background!
             await updateUsageFromDB();
             
-            // Notify other tabs/components that analysis was saved
+            // Notify other tabs/components that analysis was saved (already triggered in updateUsageFromDB)
+            // But also update localStorage for cross-tab sync
             try {
               localStorage.setItem('analysis_saved', Date.now().toString());
-              // Trigger custom event for same-tab listeners
-              window.dispatchEvent(new CustomEvent('analysis_saved'));
-              // Trigger storage event for cross-tab listeners
-              window.dispatchEvent(new StorageEvent('storage', {
-                key: 'analysis_saved',
-                newValue: Date.now().toString()
-              }));
+              localStorage.setItem('usage_updated', Date.now().toString());
             } catch (e) {
               // Ignore localStorage errors
             }

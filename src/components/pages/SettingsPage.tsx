@@ -86,52 +86,42 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   
   // Load usage when switching to subscription tab or when tab is already subscription
   // Also load on mount if already on subscription tab (after refresh)
-  useEffect(() => {
-    if (activeTab === 'subscription' && user) {
-      // Small delay to ensure parent component is ready
-      const timer = setTimeout(() => {
-        // Trigger parent to reload usage when switching to subscription tab
-        onProfileUpdate();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab, user, onProfileUpdate]);
+  // REMOVED: This was causing duplicate updates - usage_updated event already handles this
+  // useEffect(() => {
+  //   if (activeTab === 'subscription' && user) {
+  //     const timer = setTimeout(() => {
+  //       onProfileUpdate();
+  //     }, 100);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [activeTab, user, onProfileUpdate]);
 
   // Listen for analysis saved events to refresh usage
   useEffect(() => {
-    const handleAnalysisSaved = async () => {
-      // Always reload usage when analysis is saved, not just on subscription tab
-      // This ensures usage is always up-to-date
-      if (user) {
-        // Longer delay to ensure database has committed and usage update completed
-        await new Promise(resolve => setTimeout(resolve, 2500));
-        // Trigger parent to reload usage
-        onProfileUpdate();
-      }
-    };
-    
     const handleUsageUpdated = async () => {
-      // Also listen for direct usage update events
+      // Listen for direct usage update events - this is the primary way to update
+      // Shorter delay since usage is already updated in parent component
       if (user) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
         onProfileUpdate();
       }
     };
     
     // Listen to both storage events (cross-tab) and custom events (same-tab)
+    // Use only usage_updated event to avoid duplicate updates
     window.addEventListener('storage', (e: StorageEvent) => {
-      if (e.key === 'analysis_saved') {
-        handleAnalysisSaved();
+      if (e.key === 'analysis_saved' || e.key === 'usage_updated') {
+        handleUsageUpdated();
       }
     });
-    window.addEventListener('analysis_saved', handleAnalysisSaved);
+    window.addEventListener('analysis_saved', handleUsageUpdated);
     window.addEventListener('usage_updated', handleUsageUpdated);
     return () => {
-      window.removeEventListener('storage', handleAnalysisSaved as any);
-      window.removeEventListener('analysis_saved', handleAnalysisSaved);
+      window.removeEventListener('storage', handleUsageUpdated as any);
+      window.removeEventListener('analysis_saved', handleUsageUpdated);
       window.removeEventListener('usage_updated', handleUsageUpdated);
     };
-  }, [activeTab, onProfileUpdate, user]);
+  }, [onProfileUpdate, user]);
 
   const loadAnnouncements = async () => {
     if (!user) {
