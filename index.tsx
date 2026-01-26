@@ -1241,11 +1241,16 @@ const App = () => {
 
       // Get current usage from database (always fresh - counts by current month)
       // If this fails or returns null, allow analysis (better UX than blocking)
+      // Add timeout to prevent hanging
       let currentUsage;
       try {
-        currentUsage = await getUsageForCurrentPeriod();
+        const usagePromise = getUsageForCurrentPeriod();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Usage check timeout')), 5000)
+        );
+        currentUsage = await Promise.race([usagePromise, timeoutPromise]);
       } catch (error: any) {
-        // Allow analysis if check fails
+        // Allow analysis if check fails or times out
         return { allowed: true };
       }
       
@@ -1280,12 +1285,20 @@ const App = () => {
         // For free tier, count ALL analyses ever made (not just current month)
         let totalAnalysesCount = 0;
         try {
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          const getUserPromise = supabase.auth.getUser();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Get user timeout')), 3000)
+          );
+          const { data: { user: currentUser } } = await Promise.race([getUserPromise, timeoutPromise]) as any;
           if (currentUser) {
-            const { count, error } = await supabase
+            const countPromise = supabase
               .from('analyses')
               .select('id', { count: 'exact', head: true })
               .eq('user_id', currentUser.id);
+            const countTimeout = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Count timeout')), 3000)
+            );
+            const { count, error } = await Promise.race([countPromise, countTimeout]) as any;
             
             if (!error && count !== null && count !== undefined) {
               totalAnalysesCount = count;
@@ -1297,7 +1310,7 @@ const App = () => {
             totalAnalysesCount = analysesUsed;
           }
         } catch (error) {
-          // If count fails, use current month count as fallback
+          // If count fails or times out, use current month count as fallback
           totalAnalysesCount = analysesUsed;
         }
         
@@ -3370,6 +3383,17 @@ const App = () => {
       </>
     );
   }
+
+  // Check admin status when entering admin page
+  useEffect(() => {
+    if (isAdminPage && user) {
+      isAdmin().then(adminStatus => {
+        setUserIsAdmin(adminStatus);
+      }).catch(() => {
+        setUserIsAdmin(false);
+      });
+    }
+  }, [isAdminPage, user]);
 
   if (isAdminPage) {
     return (
