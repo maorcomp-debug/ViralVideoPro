@@ -806,6 +806,7 @@ export const AdminPage: React.FC = () => {
   // Package selection modal state
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<SubscriptionTier | ''>('');
 
   const loadData = async (forceRefresh = false) => {
     // Allow force refresh even if already loading
@@ -856,7 +857,7 @@ export const AdminPage: React.FC = () => {
         clearAdminCache();
       }
       
-      // Load data directly - no timeout, show real errors
+      // Load data directly - load only what's needed for current tab
       if (activeTab === 'overview') {
         const statsData = await getAdminStats();
         setStats(statsData);
@@ -866,40 +867,48 @@ export const AdminPage: React.FC = () => {
         setUsers(usersData || []);
         saveAdminCache({ users: usersData || [] });
         
-        // Load usage stats for all users (using service role for admin access)
+        // Load usage stats for all users in background (non-blocking)
+        // This improves initial load time - usage stats will appear when ready
         if (usersData && usersData.length > 0) {
-          const now = new Date();
-          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-          
-          // Get all analyses for current month in one query
-          // Use getAllAnalyses helper which uses admin client
-          const allAnalysesData = await getAllAnalyses();
-          const allAnalyses = allAnalysesData
-            .filter((a: any) => {
-              const createdAt = new Date(a.created_at);
-              return createdAt >= monthStart && createdAt <= monthEnd;
-            })
-            .map((a: any) => ({ user_id: a.user_id }));
-          
-          // Count analyses per user
-          const usageCounts: Record<string, number> = {};
-          allAnalyses?.forEach((analysis: any) => {
-            usageCounts[analysis.user_id] = (usageCounts[analysis.user_id] || 0) + 1;
-          });
-          
-          // Build usage map
-          const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
-          usersData.forEach((user: any) => {
-            const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
-            const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
-            usageMap[user.user_id] = {
-              analysesUsed: usageCounts[user.user_id] || 0,
-              maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
-            };
-          });
-          
-          setUserUsageMap(usageMap);
+          // Start usage calculation in background
+          (async () => {
+            try {
+              const now = new Date();
+              const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+              const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+              
+              // Get all analyses for current month in one query
+              const allAnalysesData = await getAllAnalyses();
+              const allAnalyses = allAnalysesData
+                .filter((a: any) => {
+                  const createdAt = new Date(a.created_at);
+                  return createdAt >= monthStart && createdAt <= monthEnd;
+                })
+                .map((a: any) => ({ user_id: a.user_id }));
+              
+              // Count analyses per user
+              const usageCounts: Record<string, number> = {};
+              allAnalyses?.forEach((analysis: any) => {
+                usageCounts[analysis.user_id] = (usageCounts[analysis.user_id] || 0) + 1;
+              });
+              
+              // Build usage map
+              const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
+              usersData.forEach((user: any) => {
+                const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
+                const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+                usageMap[user.user_id] = {
+                  analysesUsed: usageCounts[user.user_id] || 0,
+                  maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
+                };
+              });
+              
+              setUserUsageMap(usageMap);
+            } catch (error) {
+              console.error('Error loading usage stats:', error);
+              // Don't block UI if usage stats fail
+            }
+          })();
         }
       } else if (activeTab === 'analyses') {
         const analysesData = await getAllAnalyses();
@@ -1018,7 +1027,15 @@ export const AdminPage: React.FC = () => {
       await updateUserProfile(userId, { subscription_tier: newTier, subscription_status: 'active' });
       setShowPackageModal(false);
       setSelectedUserId(null);
-      await loadData(true); // Force refresh
+      setSelectedPackage('');
+      // Update local state immediately for instant feedback
+      setUsers(prevUsers => prevUsers.map(user => 
+        user.user_id === userId 
+          ? { ...user, subscription_tier: newTier, subscription_status: 'active' }
+          : user
+      ));
+      // Refresh in background
+      loadData(true).catch(err => console.error('Background refresh failed:', err));
       alert('החבילה עודכנה בהצלחה');
     } catch (error: any) {
       console.error('Error updating package:', error);
@@ -1027,8 +1044,16 @@ export const AdminPage: React.FC = () => {
   };
   
   const openPackageModal = (userId: string) => {
+    const user = users.find(u => u.user_id === userId);
     setSelectedUserId(userId);
+    setSelectedPackage((user?.subscription_tier as SubscriptionTier) || '');
     setShowPackageModal(true);
+  };
+  
+  const handleConfirmPackage = () => {
+    if (selectedUserId && selectedPackage && ['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(selectedPackage)) {
+      handleEditPackage(selectedUserId, selectedPackage);
+    }
   };
 
   const handleSendUpdate = async (e: React.FormEvent) => {
@@ -1607,12 +1632,9 @@ export const AdminPage: React.FC = () => {
               <FormLabel>חבילה</FormLabel>
               <FormSelect
                 id="package-select"
-                defaultValue=""
+                value={selectedPackage}
                 onChange={(e) => {
-                  const newTier = e.target.value as SubscriptionTier;
-                  if (newTier && ['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(newTier)) {
-                    handleEditPackage(selectedUserId, newTier);
-                  }
+                  setSelectedPackage(e.target.value as SubscriptionTier);
                 }}
                 autoFocus
               >
@@ -1628,9 +1650,16 @@ export const AdminPage: React.FC = () => {
               <CancelButton onClick={() => {
                 setShowPackageModal(false);
                 setSelectedUserId(null);
+                setSelectedPackage('');
               }}>
                 ביטול
               </CancelButton>
+              <ConfirmButton 
+                onClick={handleConfirmPackage}
+                disabled={!selectedPackage || !['free', 'creator', 'pro', 'coach', 'coach-pro'].includes(selectedPackage)}
+              >
+                אישור
+              </ConfirmButton>
             </ModalButtons>
           </ModalContent>
         </ModalOverlay>
