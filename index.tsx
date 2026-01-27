@@ -1215,16 +1215,46 @@ const App = () => {
 
   const checkSubscriptionLimits = async (): Promise<{ allowed: boolean; message?: string }> => {
     try {
-      // If no subscription, treat as free tier
-      const effectiveTier = subscription?.tier || 'free';
+      // CRITICAL: Check subscription status from profile FIRST (most reliable source)
+      // Profile always has the latest subscription status, even if subscription object is not loaded
+      let profileEndDate: Date | null = null;
+      let profileIsActive = true;
+      let profileTier: SubscriptionTier = 'free';
+      
+      if (profile) {
+        profileTier = (profile.subscription_tier as SubscriptionTier) || 'free';
+        profileIsActive = profile.subscription_status === 'active';
+        
+        if (profile.subscription_end_date) {
+          try {
+            profileEndDate = new Date(profile.subscription_end_date);
+            if (isNaN(profileEndDate.getTime())) {
+              profileEndDate = null;
+            }
+          } catch (e) {
+            profileEndDate = null;
+          }
+        }
+      }
+      
+      // If no subscription object, use profile data
+      const effectiveTier = subscription?.tier || profileTier || 'free';
       const effectiveSubscription = subscription || {
-        tier: 'free' as SubscriptionTier,
+        tier: effectiveTier,
         billingPeriod: 'monthly' as BillingPeriod,
         startDate: new Date(),
-        endDate: new Date(),
+        endDate: profileEndDate || new Date(),
         usage: { analysesUsed: 0, lastResetDate: new Date() },
-        isActive: true,
+        isActive: profileIsActive,
       };
+      
+      // Override with profile data if available (more reliable)
+      if (profileEndDate) {
+        effectiveSubscription.endDate = profileEndDate;
+      }
+      if (profile) {
+        effectiveSubscription.isActive = profileIsActive;
+      }
 
       const plan = SUBSCRIPTION_PLANS[effectiveTier];
       if (!plan) {
