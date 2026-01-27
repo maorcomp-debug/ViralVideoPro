@@ -549,7 +549,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   </p>
                 </>
               )}
-              {usage && subscription && (() => {
+              {usage && (() => {
+                // If subscription is not loaded yet, show usage without limits
+                if (!subscription) {
+                  return (
+                    <p style={{ margin: '5px 0', color: '#ccc' }}>
+                      **ניתוחים שבוצעו החודש:** {usage.analysesUsed}
+                    </p>
+                  );
+                }
+                
                 const plan = SUBSCRIPTION_PLANS[subscription.tier];
                 const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
                 const maxMinutes = plan?.limits.maxVideoMinutesPerPeriod || 0;

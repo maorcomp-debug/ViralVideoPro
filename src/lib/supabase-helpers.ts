@@ -690,10 +690,9 @@ export async function getAllUsers() {
       return [];
     }
     
-    // Fast admin check - skip for known admin email to speed up loading
-    if (session?.user?.email?.toLowerCase() === 'viralypro@gmail.com') {
-      // Known admin - skip isAdmin() check to speed up
-    } else if (session?.user) {
+    // Skip admin check if we got user from localStorage (to avoid hanging)
+    // Service role key will handle authorization anyway
+    if (session?.user) {
       const isUserAdmin = await isAdmin();
       if (!isUserAdmin) {
         return [];
@@ -830,10 +829,9 @@ export async function getAllAnalyses() {
       return [];
     }
     
-    // Fast admin check - skip for known admin email to speed up loading
-    if (session?.user?.email?.toLowerCase() === 'viralypro@gmail.com') {
-      // Known admin - skip isAdmin() check to speed up
-    } else if (session?.user) {
+    // Skip admin check if no session (to avoid hanging)
+    // Service role key will handle authorization anyway
+    if (session?.user) {
       const isUserAdmin = await isAdmin();
       if (!isUserAdmin) {
         return [];
@@ -937,10 +935,9 @@ export async function getAllVideos() {
       return [];
     }
     
-    // Fast admin check - skip for known admin email to speed up loading
-    if (session?.user?.email?.toLowerCase() === 'viralypro@gmail.com') {
-      // Known admin - skip isAdmin() check to speed up
-    } else if (session?.user) {
+    // Skip admin check if no session (to avoid hanging)
+    // Service role key will handle authorization anyway
+    if (session?.user) {
       const isUserAdmin = await isAdmin();
       if (!isUserAdmin) {
         return [];
@@ -1239,10 +1236,9 @@ export async function getAdminStats() {
       return null;
     }
     
-    // Fast admin check - skip for known admin email to speed up loading
-    if (session?.user?.email?.toLowerCase() === 'viralypro@gmail.com') {
-      // Known admin - skip isAdmin() check to speed up
-    } else if (session?.user) {
+    // Skip admin check if no session (to avoid hanging)
+    // Service role key will handle authorization anyway
+    if (session?.user) {
       const isUserAdmin = await isAdmin();
       if (!isUserAdmin) {
         console.error('❌ getAdminStats: User is not admin');

@@ -835,10 +835,9 @@ export const AdminPage: React.FC = () => {
         // Load usage stats for all users in background (non-blocking)
         // IMPORTANT: Count analyses only from subscription_start_date (not from month start)
         // This ensures analyses from previous package don't count towards new package
-        // OPTIMIZED: Load usage stats immediately but don't block UI
         if (usersData && usersData.length > 0) {
-          // Start usage calculation immediately (non-blocking)
-          Promise.resolve().then(async () => {
+          // Start usage calculation in background
+          (async () => {
             try {
               // Get all analyses (will filter by subscription_start_date per user)
               const allAnalysesData = await getAllAnalyses();
@@ -875,7 +874,7 @@ export const AdminPage: React.FC = () => {
             } catch (error) {
               // Don't block UI if usage stats fail
             }
-          });
+          })();
         }
       } else if (activeTab === 'analyses') {
         const analysesData = await getAllAnalyses();
@@ -1048,7 +1047,7 @@ export const AdminPage: React.FC = () => {
           }
         }
         
-        alert('החבילה עודכנה בהצלחה');
+        alert('החבילה עודכנה בהצלחה\n\nעם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה');
       } catch (dbError: any) {
         // If DB update fails, revert optimistic update
         loadData(true).catch(() => {});
@@ -1322,7 +1321,17 @@ export const AdminPage: React.FC = () => {
                               {isOverLimit && ' ⚠️ הגבלה הגיעה'}
                             </span>
                           )}
-                          {/* Removed upgrade message from admin panel - not needed here */}
+                          {user.subscription_start_date && new Date(user.subscription_start_date) > new Date(new Date().getFullYear(), new Date().getMonth(), 1) && (
+                            <span style={{ 
+                              fontSize: '0.7rem', 
+                              color: '#D4A043', 
+                              display: 'block', 
+                              marginTop: '2px',
+                              fontStyle: 'italic'
+                            }}>
+                              עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleDateString('he-IL')}</TableCell>
                         <ActionsCell>
