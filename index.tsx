@@ -1270,17 +1270,22 @@ const App = () => {
       }
 
       // Get current usage from database (always fresh - counts by current month)
-      // If this fails or returns null, allow analysis (better UX than blocking)
+      // CRITICAL: If usage check fails, we still need to check subscription status
+      // Don't allow analysis if subscription is expired, even if usage check fails
       let currentUsage;
       try {
         currentUsage = await getUsageForCurrentPeriod();
       } catch (error: any) {
-        // Allow analysis if check fails
-        return { allowed: true };
+        console.error('❌ Error getting usage:', error);
+        // Don't return here - continue to check if subscription is expired
+        // If subscription is expired, we should block even if usage check fails
+        currentUsage = null;
       }
       
+      // If usage check failed but subscription is still valid, allow analysis
+      // Usage will be counted when analysis is saved
       if (!currentUsage) {
-        // Allow analysis if usage check fails - usage will be counted when analysis is saved
+        // Only allow if subscription is still valid (checked above)
         return { allowed: true };
       }
 
@@ -2763,12 +2768,47 @@ const App = () => {
     }, 300000); // 5 minutes max
     
     // Start playing video immediately when analysis begins (muted and loop)
+    // CRITICAL: Set muted=true by default, but allow user to unmute via video controls
+    // Video should continue playing even after unmute
     if (file?.type.startsWith('video')) {
       setTimeout(() => {
         if (videoRef.current) {
           try {
+            // Set muted=true by default, but user can unmute via controls
             videoRef.current.muted = true;
             videoRef.current.loop = true;
+            
+            // Track if user manually paused (to prevent auto-resume)
+            let userPaused = false;
+            
+            // Listen for pause events - track if user manually paused
+            const handlePause = () => {
+              // Check if pause was due to unmute (browser policy) or user action
+              // If video is paused but not muted, it might be due to unmute policy
+              if (videoRef.current && !videoRef.current.muted && videoRef.current.paused) {
+                // Video paused after unmute - try to resume
+                setTimeout(() => {
+                  if (videoRef.current && !userPaused) {
+                    videoRef.current.play().catch(() => {
+                      // If play fails, mute again to allow playback
+                      if (videoRef.current) {
+                        videoRef.current.muted = true;
+                        videoRef.current.play().catch(() => {});
+                      }
+                    });
+                  }
+                }, 100);
+              } else {
+                // User manually paused - don't auto-resume
+                userPaused = true;
+              }
+            };
+            
+            // Listen for play events
+            const handlePlay = () => {
+              userPaused = false; // Reset flag when video plays
+            };
+            
             if (videoRef.current.readyState >= 2) {
               videoRef.current.play().catch(() => {
                 // Retry after short delay
@@ -2781,6 +2821,7 @@ const App = () => {
             } else {
               const onCanPlay = () => {
                 if (videoRef.current) {
+                  // Ensure muted=true by default, but allow controls to unmute
                   videoRef.current.muted = true;
                   videoRef.current.loop = true;
                   videoRef.current.play().catch(() => {});
@@ -2792,6 +2833,29 @@ const App = () => {
                 videoRef.current.load();
               }
             }
+            
+            // Add event listeners to handle play/pause
+            videoRef.current.addEventListener('play', handlePlay);
+            videoRef.current.addEventListener('pause', handlePause);
+            
+            // Also listen for volumechange to handle unmute
+            const handleVolumeChange = () => {
+              if (videoRef.current && !videoRef.current.muted && videoRef.current.paused) {
+                // Video was unmuted and paused (browser policy) - try to resume
+                setTimeout(() => {
+                  if (videoRef.current && !userPaused) {
+                    videoRef.current.play().catch(() => {
+                      // If play fails due to autoplay policy, mute again
+                      if (videoRef.current) {
+                        videoRef.current.muted = true;
+                        videoRef.current.play().catch(() => {});
+                      }
+                    });
+                  }
+                }, 100);
+              }
+            };
+            videoRef.current.addEventListener('volumechange', handleVolumeChange);
           } catch (error) {
             // Non-critical error - continue with analysis
           }
@@ -4118,7 +4182,6 @@ const App = () => {
                   ref={videoRef}
                   src={previewUrl}
                   controls
-                  muted
                   playsInline
                   preload="auto"
                   autoPlay={false}
@@ -4127,6 +4190,13 @@ const App = () => {
                     height: 'auto',
                     maxHeight: '100%',
                     objectFit: 'contain'
+                  }}
+                  onLoadedMetadata={(e) => {
+                    // Set muted by default when video loads, but allow user to unmute via controls
+                    const video = e.currentTarget;
+                    if (video) {
+                      video.muted = true;
+                    }
                   }}
                 />
               ) : (
