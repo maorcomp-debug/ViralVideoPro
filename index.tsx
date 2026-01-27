@@ -1299,6 +1299,26 @@ const App = () => {
         }
       }
 
+      // CRITICAL: Double-check subscription expiration from profile before allowing analysis
+      // This ensures we catch expired subscriptions even if subscription object is stale
+      if (profile && profile.subscription_end_date) {
+        try {
+          const profileEndDate = new Date(profile.subscription_end_date);
+          if (!isNaN(profileEndDate.getTime())) {
+            const now = new Date();
+            if (now > profileEndDate) {
+              // Subscription expired according to profile - block analysis
+              return { 
+                allowed: false, 
+                message: 'המנוי שלך פג תוקף. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
+              };
+            }
+          }
+        } catch (e) {
+          // Ignore date parsing errors
+        }
+      }
+      
       // Get current usage from database (always fresh - counts by current month)
       // CRITICAL: If usage check fails, we still need to check subscription status
       // Don't allow analysis if subscription is expired, even if usage check fails
@@ -2798,46 +2818,15 @@ const App = () => {
     }, 300000); // 5 minutes max
     
     // Start playing video immediately when analysis begins (muted and loop)
-    // CRITICAL: Set muted=true by default, but allow user to unmute via video controls
-    // Video should continue playing even after unmute
+    // CRITICAL: Video starts muted by default, but user can unmute via controls
+    // When user unmutes, browser may pause due to autoplay policy - user can manually play
     if (file?.type.startsWith('video')) {
       setTimeout(() => {
         if (videoRef.current) {
           try {
-            // Set muted=true by default, but user can unmute via controls
+            // Set muted=true by default for autoplay compatibility
             videoRef.current.muted = true;
             videoRef.current.loop = true;
-            
-            // Track if user manually paused (to prevent auto-resume)
-            let userPaused = false;
-            
-            // Listen for pause events - track if user manually paused
-            const handlePause = () => {
-              // Check if pause was due to unmute (browser policy) or user action
-              // If video is paused but not muted, it might be due to unmute policy
-              if (videoRef.current && !videoRef.current.muted && videoRef.current.paused) {
-                // Video paused after unmute - try to resume
-                setTimeout(() => {
-                  if (videoRef.current && !userPaused) {
-                    videoRef.current.play().catch(() => {
-                      // If play fails, mute again to allow playback
-                      if (videoRef.current) {
-                        videoRef.current.muted = true;
-                        videoRef.current.play().catch(() => {});
-                      }
-                    });
-                  }
-                }, 100);
-              } else {
-                // User manually paused - don't auto-resume
-                userPaused = true;
-              }
-            };
-            
-            // Listen for play events
-            const handlePlay = () => {
-              userPaused = false; // Reset flag when video plays
-            };
             
             if (videoRef.current.readyState >= 2) {
               videoRef.current.play().catch(() => {
@@ -2864,28 +2853,9 @@ const App = () => {
               }
             }
             
-            // Add event listeners to handle play/pause
-            videoRef.current.addEventListener('play', handlePlay);
-            videoRef.current.addEventListener('pause', handlePause);
-            
-            // Also listen for volumechange to handle unmute
-            const handleVolumeChange = () => {
-              if (videoRef.current && !videoRef.current.muted && videoRef.current.paused) {
-                // Video was unmuted and paused (browser policy) - try to resume
-                setTimeout(() => {
-                  if (videoRef.current && !userPaused) {
-                    videoRef.current.play().catch(() => {
-                      // If play fails due to autoplay policy, mute again
-                      if (videoRef.current) {
-                        videoRef.current.muted = true;
-                        videoRef.current.play().catch(() => {});
-                      }
-                    });
-                  }
-                }, 100);
-              }
-            };
-            videoRef.current.addEventListener('volumechange', handleVolumeChange);
+            // Listen for volumechange - when user unmutes, video may pause due to browser policy
+            // Don't auto-resume - let user click play button manually
+            // This is the expected browser behavior and provides better UX
           } catch (error) {
             // Non-critical error - continue with analysis
           }
