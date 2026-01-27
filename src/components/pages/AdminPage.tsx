@@ -1124,7 +1124,7 @@ export const AdminPage: React.FC = () => {
   };
 
   const handleCreateCoupon = async (e?: React.FormEvent) => {
-    // תומך גם ב-submit של הטופס וגם בלחיצה ישירה על הכפתור
+    // תומך גם ב-submit של הטופס (אנטר) וגם בלחיצה ישירה על הכפתור
     if (e) {
       e.preventDefault();
     }
@@ -1542,6 +1542,7 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'alerts' && activeSubTab === 'coupons' && (
           <>
             <SectionTitle>ניהול קופונים</SectionTitle>
+            {/* הטופס אחראי על הולידציה ושמירה של השדות, הכפתור עצמו מחוץ לטופס כדי לוודא שהקליק תמיד מגיע */}
             <form onSubmit={handleCreateCoupon}>
               <h3 style={{ color: '#D4A043', marginBottom: '20px' }}>יצירת הטבה חדשה</h3>
               <FormGroup>
@@ -1613,7 +1614,7 @@ export const AdminPage: React.FC = () => {
         </FormGroup>
       )}
 
-      {couponForm.benefitType === 'registration_discount' && (
+              {couponForm.benefitType === 'registration_discount' && (
         <>
           <FormGroup>
             <FormLabel>סוג ההנחה להרשמה</FormLabel>
@@ -1746,13 +1747,17 @@ export const AdminPage: React.FC = () => {
                   פעיל
                 </CheckboxLabel>
               </FormGroup>
-              {/* כפתור יצירת ההטבה – מפעיל ישירות את הפונקציה גם אם ה-submit של הטופס נחסם ע"י ולידציה */}
-              <SubmitButton type="button" onClick={() => handleCreateCoupon()}>
-                צור הטבה
-              </SubmitButton>
-                </form>
-              </>
-            )}
+            </form>
+            {/* כפתור יצירת ההטבה – מחוץ לטופס כדי לוודא שאין שום מנגנון HTML שחוסם את הקליק */}
+            <SubmitButton
+              type="button"
+              onClick={() => handleCreateCoupon()}
+              style={{ marginTop: '10px' }}
+            >
+              צור הטבה
+            </SubmitButton>
+          </>
+        )}
 
         {activeTab === 'alerts' && activeSubTab === 'trials' && (
           <EmptyState>תת-טאב זה עדיין בפיתוח</EmptyState>
