@@ -2703,6 +2703,40 @@ const App = () => {
       return;
     }
     
+    // CRITICAL: Check subscription limits FIRST, before starting analysis
+    // This must happen BEFORE setLoading(true) to prevent analysis from starting
+    let limitCheck;
+    try {
+      const checkPromise = checkSubscriptionLimits();
+      const timeoutPromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => {
+        setTimeout(() => {
+          // Timeout - block analysis to prevent unauthorized usage
+          resolve({ 
+            allowed: false, 
+            message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
+          });
+        }, 5000); // 5 second timeout
+      });
+      
+      limitCheck = await Promise.race([checkPromise, timeoutPromise]);
+    } catch (error) {
+      console.error('❌ Error checking subscription limits:', error);
+      // Block analysis on error to prevent unauthorized usage
+      limitCheck = { 
+        allowed: false, 
+        message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
+      };
+    }
+    
+    // If subscription check failed, block analysis immediately
+    if (!limitCheck || !limitCheck.allowed) {
+      if (limitCheck?.message) {
+        alert(limitCheck.message);
+      }
+      setShowSubscriptionModal(true);
+      return; // Exit early - don't start analysis
+    }
+    
     // Check if current track is available for user's subscription
     const trackAvailable = isTrackAvailable(activeTrack);
     if (!trackAvailable) {
@@ -2719,6 +2753,7 @@ const App = () => {
     }
     
     // Set loading IMMEDIATELY for better UX - user sees response right away
+    // Only set loading AFTER all checks pass
     setLoading(true);
     
     // CRITICAL: Add safety timeout to ensure loading is reset if something goes wrong
@@ -2764,43 +2799,7 @@ const App = () => {
       }, 100);
     }
     
-    // Check subscription limits in parallel (non-blocking after loading is set)
-    // CRITICAL: If check times out or fails, BLOCK analysis to prevent unauthorized usage
-    let limitCheck;
-    try {
-      const checkPromise = checkSubscriptionLimits();
-      const timeoutPromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => {
-        setTimeout(() => {
-          // Timeout - block analysis to prevent unauthorized usage
-          resolve({ 
-            allowed: false, 
-            message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
-          });
-        }, 5000); // 5 second timeout
-      });
-      
-      limitCheck = await Promise.race([checkPromise, timeoutPromise]);
-    } catch (error) {
-      console.error('❌ Error checking subscription limits:', error);
-      // Block analysis on error to prevent unauthorized usage
-      limitCheck = { 
-        allowed: false, 
-        message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
-      };
-    }
-    
-    if (!limitCheck || !limitCheck.allowed) {
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-        loadingTimeout = null;
-      }
-      setLoading(false);
-      if (limitCheck?.message) {
-        alert(limitCheck.message);
-      }
-      setShowSubscriptionModal(true);
-      return;
-    }
+    // Subscription check already done above - no need to check again
     
     try {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
