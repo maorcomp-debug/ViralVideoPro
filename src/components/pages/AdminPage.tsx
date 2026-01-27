@@ -822,67 +822,77 @@ export const AdminPage: React.FC = () => {
       // Always clear cache to ensure fresh data
       clearAdminCache();
       
-      // CRITICAL: Load ALL data simultaneously when entering admin panel
-      // This ensures all tab counts and data are ready immediately
-      // Load all data in parallel for maximum speed
-      const [
-        statsData,
-        usersData,
-        analysesData,
-        videosData,
-        announcementsData,
-        couponsData,
-        trialsData
-      ] = await Promise.all([
-        getAdminStats(),
-        getAllUsers(),
-        getAllAnalyses(),
-        getAllVideos(),
-        getAllAnnouncements(),
-        getAllCoupons(),
-        getAllTrials()
-      ]);
-      
-      // Set all data immediately
-      setStats(statsData);
-      setUsers(usersData || []);
-      setAnalyses(analysesData || []);
-      setVideos(videosData || []);
-      setAnnouncements(announcementsData || []);
-      setCoupons(couponsData || []);
-      setTrials(trialsData || []);
-      
-      // Load usage stats for all users (non-blocking, runs after main data is loaded)
-      if (usersData && usersData.length > 0 && analysesData) {
-        // Build usage map - count analyses only from subscription_start_date for each user
-        const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
-        usersData.forEach((user: any) => {
-          const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
-          const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
-          
-          // Count analyses from subscription_start_date (or month start if no start date)
-          const periodStart = user.subscription_start_date 
-            ? new Date(user.subscription_start_date)
-            : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-          
-          const periodEnd = user.subscription_end_date
-            ? new Date(user.subscription_end_date)
-            : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
-          
-          // Count only analyses within the subscription period
-          const userAnalyses = analysesData.filter((a: any) => {
-            if (a.user_id !== user.user_id) return false;
-            const createdAt = new Date(a.created_at);
-            return createdAt >= periodStart && createdAt <= periodEnd;
-          });
-          
-          usageMap[user.user_id] = {
-            analysesUsed: userAnalyses.length,
-            maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
-          };
-        });
+      // Load data directly from Supabase - no cache, always fresh
+      if (activeTab === 'overview') {
+        const statsData = await getAdminStats();
+        setStats(statsData);
+      } else if (activeTab === 'users') {
+        const usersData = await getAllUsers();
+        if (usersData) {
+          setUsers(usersData);
+        }
         
-        setUserUsageMap(usageMap);
+        // Load usage stats for all users in background (non-blocking)
+        // IMPORTANT: Count analyses only from subscription_start_date (not from month start)
+        // This ensures analyses from previous package don't count towards new package
+        if (usersData && usersData.length > 0) {
+          // Start usage calculation in background
+          (async () => {
+            try {
+              // Get all analyses (will filter by subscription_start_date per user)
+              const allAnalysesData = await getAllAnalyses();
+              
+              // Build usage map - count analyses only from subscription_start_date for each user
+              const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
+              usersData.forEach((user: any) => {
+                const plan = SUBSCRIPTION_PLANS[user.subscription_tier as SubscriptionTier];
+                const maxAnalyses = plan?.limits.maxAnalysesPerPeriod || 0;
+                
+                // Count analyses from subscription_start_date (or month start if no start date)
+                const periodStart = user.subscription_start_date 
+                  ? new Date(user.subscription_start_date)
+                  : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+                
+                const periodEnd = user.subscription_end_date
+                  ? new Date(user.subscription_end_date)
+                  : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
+                
+                // Count only analyses within the subscription period
+                const userAnalyses = allAnalysesData.filter((a: any) => {
+                  if (a.user_id !== user.user_id) return false;
+                  const createdAt = new Date(a.created_at);
+                  return createdAt >= periodStart && createdAt <= periodEnd;
+                });
+                
+                usageMap[user.user_id] = {
+                  analysesUsed: userAnalyses.length,
+                  maxAnalyses: maxAnalyses === -1 ? -1 : maxAnalyses
+                };
+              });
+              
+              setUserUsageMap(usageMap);
+            } catch (error) {
+              // Don't block UI if usage stats fail
+            }
+          })();
+        }
+      } else if (activeTab === 'analyses') {
+        const analysesData = await getAllAnalyses();
+        setAnalyses(analysesData || []);
+      } else if (activeTab === 'video') {
+        const videosData = await getAllVideos();
+        setVideos(videosData || []);
+      } else if (activeTab === 'alerts') {
+        if (activeSubTab === 'send-update') {
+          const announcementsData = await getAllAnnouncements();
+          setAnnouncements(announcementsData || []);
+        } else if (activeSubTab === 'coupons') {
+          const couponsData = await getAllCoupons();
+          setCoupons(couponsData || []);
+        } else if (activeSubTab === 'trials') {
+          const trialsData = await getAllTrials();
+          setTrials(trialsData || []);
+        }
       }
       
     } catch (error: any) {
@@ -895,13 +905,16 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  // Load ALL data on mount - everything loads simultaneously
+  // Load fresh data on mount
   useEffect(() => {
     loadData(true);
   }, []);
 
-  // No need to reload data when tab changes - all data is already loaded
-  // Tab changes only affect which data is displayed, not what data is loaded
+  // Load fresh data whenever tab changes
+  useEffect(() => {
+    // Force refresh when tab changes
+    loadData(true);
+  }, [activeTab, activeSubTab]);
   
   // Listen for ALL events that should trigger refresh
   useEffect(() => {
@@ -1308,7 +1321,17 @@ export const AdminPage: React.FC = () => {
                               {isOverLimit && ' ⚠️ הגבלה הגיעה'}
                             </span>
                           )}
-                          {/* Removed upgrade message from admin panel - not needed here */}
+                          {user.subscription_start_date && new Date(user.subscription_start_date) > new Date(new Date().getFullYear(), new Date().getMonth(), 1) && (
+                            <span style={{ 
+                              fontSize: '0.7rem', 
+                              color: '#D4A043', 
+                              display: 'block', 
+                              marginTop: '2px',
+                              fontStyle: 'italic'
+                            }}>
+                              עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleDateString('he-IL')}</TableCell>
                         <ActionsCell>
