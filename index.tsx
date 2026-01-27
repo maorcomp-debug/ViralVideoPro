@@ -337,12 +337,8 @@ const App = () => {
     clearProfileCache(); // Clear cached profile on logout
   };
 
-  // Auto-save subscription to cache whenever it changes
-  useEffect(() => {
-    if (subscription) {
-      saveSubscriptionToCache(subscription);
-    }
-  }, [subscription]);
+  // CACHE DISABLED: Don't auto-save subscription to cache to prevent stale data
+  // Subscription is always loaded fresh from database
 
   // Admin state is managed by loadUserData - no fast-path needed here
 
@@ -499,10 +495,11 @@ const App = () => {
       }
       setUserIsAdmin(adminStatus);
       
-      // If admin, trigger refresh event for admin panel
+      // If admin, trigger refresh event for admin panel IMMEDIATELY
       if (adminStatus) {
-        // Dispatch event to refresh admin panel data
+        // Dispatch event to refresh admin panel data - no delay, immediate update
         window.dispatchEvent(new CustomEvent('admin_data_refresh'));
+        console.log('✅ Admin data refresh event dispatched');
       }
 
       // Determine subscription tier: prioritize subscription record, but use profile if subscription record doesn't exist yet
@@ -685,16 +682,9 @@ const App = () => {
     let timeoutId: NodeJS.Timeout | null = null;
     let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
     
-    // Load cached profile & subscription immediately for instant UI (prevents email flash on refresh)
-    const cachedProfile = loadProfileFromCache();
-    if (cachedProfile) {
-      setProfile(cachedProfile);
-    }
-    
-    const cachedSubscription = loadSubscriptionFromCache();
-    if (cachedSubscription) {
-      setSubscription(cachedSubscription);
-    }
+    // CACHE DISABLED: Don't load cached data to prevent showing stale data after refresh
+    // Always load fresh data from database to ensure accuracy
+    // This prevents showing old email/name or outdated subscription info
     
     // Set up BroadcastChannel to sync subscription updates across multiple tabs/windows
     const broadcastChannel = typeof BroadcastChannel !== 'undefined' 
@@ -797,10 +787,10 @@ const App = () => {
         
         isLoadingUserData = true;
         try {
-          // Minimal delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
-          // Reduced delay for faster login - triggers are usually instant
+          // No delay for admin - instant login
+          // Minimal delay only for regular users to allow profile creation
           if (event === 'SIGNED_IN' && window.location.pathname !== '/admin') {
-            await new Promise(resolve => setTimeout(resolve, 100)); // Minimal delay for profile creation
+            await new Promise(resolve => setTimeout(resolve, 50)); // Minimal delay for profile creation
           }
           
           // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
@@ -1243,8 +1233,13 @@ const App = () => {
             // Invalid date - allow analysis
             return { allowed: true };
           }
-          if (!effectiveSubscription.isActive || new Date() > endDate) {
-            return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+          // CRITICAL: Check if subscription has expired - block analysis if expired
+          const now = new Date();
+          if (!effectiveSubscription.isActive || now > endDate) {
+            return { 
+              allowed: false, 
+              message: 'המנוי שלך פג תוקף. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
+            };
           }
         } catch (error) {
           // If date parsing fails, allow analysis
@@ -1822,8 +1817,10 @@ const App = () => {
           // CRITICAL: This must work reliably for usage tracking (both analyses and minutes)
           const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
             try {
-              // Wait longer for database to commit (especially important for video duration to be saved)
-              await new Promise(resolve => setTimeout(resolve, 1000 + (retryCount * 300)));
+              // Minimal wait only on retry - first attempt is immediate
+              if (retryCount > 0) {
+                await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
+              }
               const updatedUsage = await getUsageForCurrentPeriod();
               if (updatedUsage) {
                 setUsage(updatedUsage); // This includes both analysesUsed and minutesUsed
@@ -1838,20 +1835,20 @@ const App = () => {
                 console.log('✅ Usage updated from database:', { analysesUsed: updatedUsage.analysesUsed, minutesUsed: updatedUsage.minutesUsed, retryCount });
               } else {
                 // If no usage data, retry
-                if (retryCount < 5) {
+                if (retryCount < 3) {
                   await updateUsageFromDB(retryCount + 1);
                 } else {
-                  console.error('❌ Failed to get usage after 5 retries');
+                  console.error('❌ Failed to get usage after 3 retries');
                 }
               }
             } catch (usageError) {
               console.error('❌ Error updating usage from DB:', usageError);
-              // Retry up to 5 times with exponential backoff
-              if (retryCount < 5) {
-                await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 500));
+              // Retry up to 3 times with shorter delays
+              if (retryCount < 3) {
+                await new Promise(resolve => setTimeout(resolve, 200 * (retryCount + 1)));
                 await updateUsageFromDB(retryCount + 1);
               } else {
-                console.error('❌ Failed to update usage after 5 retries');
+                console.error('❌ Failed to update usage after 3 retries');
               }
             }
           };
@@ -1859,11 +1856,9 @@ const App = () => {
           // Start update immediately (don't await - let it run in background)
           updateUsageFromDB().catch(err => console.error('❌ updateUsageFromDB failed:', err));
           
-          // Notify other tabs/components that analysis was saved
-          // CRITICAL: Wait for usage update to complete before notifying
+          // Notify other tabs/components that analysis was saved IMMEDIATELY
+          // No delay needed - usage update happens in background
           try {
-            // Wait a bit more to ensure usage update is complete
-            await new Promise(resolve => setTimeout(resolve, 500));
             localStorage.setItem('analysis_saved', Date.now().toString());
             // Trigger custom event for same-tab listeners
             window.dispatchEvent(new CustomEvent('analysis_saved'));
@@ -1904,8 +1899,10 @@ const App = () => {
           // CRITICAL: This must work reliably for usage tracking (both analyses and minutes)
           const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
             try {
-              // Wait longer for database to commit (especially important for video duration to be saved)
-              await new Promise(resolve => setTimeout(resolve, 1000 + (retryCount * 300)));
+              // Minimal wait only on retry - first attempt is immediate
+              if (retryCount > 0) {
+                await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
+              }
               const updatedUsage = await getUsageForCurrentPeriod();
               if (updatedUsage) {
                 setUsage(updatedUsage); // This includes both analysesUsed and minutesUsed
@@ -1919,20 +1916,20 @@ const App = () => {
                 console.log('✅ Usage updated from database (fallback):', { analysesUsed: updatedUsage.analysesUsed, minutesUsed: updatedUsage.minutesUsed, retryCount });
               } else {
                 // If no usage data, retry
-                if (retryCount < 5) {
+                if (retryCount < 3) {
                   await updateUsageFromDB(retryCount + 1);
                 } else {
-                  console.error('❌ Failed to get usage after 5 retries (fallback)');
+                  console.error('❌ Failed to get usage after 3 retries (fallback)');
                 }
               }
             } catch (usageError) {
               console.error('❌ Error updating usage from DB (fallback):', usageError);
-              // Retry up to 5 times with exponential backoff
-              if (retryCount < 5) {
-                await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 500));
+              // Retry up to 3 times with shorter delays
+              if (retryCount < 3) {
+                await new Promise(resolve => setTimeout(resolve, 200 * (retryCount + 1)));
                 await updateUsageFromDB(retryCount + 1);
               } else {
-                console.error('❌ Failed to update usage after 5 retries (fallback)');
+                console.error('❌ Failed to update usage after 3 retries (fallback)');
               }
             }
           };
@@ -1940,11 +1937,9 @@ const App = () => {
           // Start update immediately (don't await - let it run in background)
           updateUsageFromDB().catch(err => console.error('❌ updateUsageFromDB failed (fallback):', err));
           
-          // Notify other tabs/components that analysis was saved
-          // CRITICAL: Wait for usage update to complete before notifying
+          // Notify other tabs/components that analysis was saved IMMEDIATELY
+          // No delay needed - usage update happens in background
           try {
-            // Wait a bit more to ensure usage update is complete
-            await new Promise(resolve => setTimeout(resolve, 500));
             localStorage.setItem('analysis_saved', Date.now().toString());
             // Trigger custom event for same-tab listeners
             window.dispatchEvent(new CustomEvent('analysis_saved'));
@@ -3078,14 +3073,15 @@ const App = () => {
             });
 
             // Analysis saved successfully - NOW update usage IMMEDIATELY (not in background!)
-            // Minimal wait - database commit is usually instant for inserts
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // No wait needed - database commit is instant for inserts
             
             // Update usage from database (with retries if needed)
             const updateUsageFromDB = async (retryCount = 0): Promise<void> => {
               try {
-                // Minimal wait for database commit - most databases commit instantly
-                await new Promise(resolve => setTimeout(resolve, 200 + (retryCount * 100)));
+                // Minimal wait only on retry - first attempt is immediate
+                if (retryCount > 0) {
+                  await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+                }
                 const updatedUsage = await getUsageForCurrentPeriod();
                 if (updatedUsage) {
                   setUsage(updatedUsage);
@@ -3129,9 +3125,9 @@ const App = () => {
                 }
               } catch (usageError) {
                 console.error('❌ Error updating usage from DB:', usageError);
-                // Retry up to 3 times (reduced from 5 for faster response)
-                if (retryCount < 3) {
-                  await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 300));
+                // Retry up to 2 times with shorter delays for faster response
+                if (retryCount < 2) {
+                  await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 200)); // Reduced delay
                   await updateUsageFromDB(retryCount + 1);
                 } else {
                   // Fallback: optimistically update local state
@@ -3158,25 +3154,18 @@ const App = () => {
             await updateUsageFromDB();
             
             // CRITICAL: Refresh subscription data IMMEDIATELY after analysis is saved
-            // This ensures subscription status, tier, and all other data are up-to-date instantly
+            // No delay - database commit is instant, reload immediately
             if (user) {
-              try {
-                // Minimal wait - database commit is usually instant for inserts
-                await new Promise(resolve => setTimeout(resolve, 100));
-                // Reload user data to refresh subscription from database IMMEDIATELY
-                await loadUserData(user, true);
-                console.log('✅ Subscription refreshed IMMEDIATELY from database after analysis');
-              } catch (refreshError) {
+              // Reload user data immediately - no delays needed
+              loadUserData(user, true).catch((refreshError) => {
                 console.error('❌ Error refreshing subscription after analysis:', refreshError);
                 // Retry once after short delay if first attempt failed
-                try {
-                  await new Promise(resolve => setTimeout(resolve, 300));
-                  await loadUserData(user, true);
-                  console.log('✅ Subscription refreshed on retry');
-                } catch (retryError) {
-                  console.error('❌ Retry also failed, subscription will update on next page interaction');
-                }
-              }
+                setTimeout(() => {
+                  loadUserData(user, true).catch(() => {
+                    console.error('❌ Retry also failed, subscription will update on next page interaction');
+                  });
+                }, 200);
+              });
             }
             
             // Notify other tabs/components that analysis was saved (already triggered in updateUsageFromDB)
@@ -3419,29 +3408,11 @@ const App = () => {
       setTakbullPaymentUrl('');
       setTakbullOrderReference('');
       
-      // Sign out from Supabase WITH timeout (prevent hanging)
-      console.log('🔄 Signing out from Supabase...');
-      const signOutPromise = supabase.auth.signOut();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('SignOut timeout after 3s')), 3000)
-      );
-      
-      try {
-        const { error } = await Promise.race([signOutPromise, timeoutPromise]) as { error: any };
-        if (error) {
-          console.warn('⚠️ SignOut error (continuing anyway):', error.message);
-        } else {
-          console.log('✅ Signed out successfully');
-        }
-      } catch (timeoutError: any) {
-        console.warn('⚠️ SignOut timeout (forcing logout):', timeoutError.message);
-      }
-      
-      // Reset all state
+      // Reset all state IMMEDIATELY for instant UI feedback
       setUser(null);
       resetUserState();
       
-      // Clear all storage
+      // Clear all storage IMMEDIATELY
       try {
         localStorage.clear();
         sessionStorage.clear();
@@ -3449,12 +3420,18 @@ const App = () => {
         console.error('Error clearing storage:', e);
       }
       
+      // Sign out from Supabase in background (non-blocking)
+      // Don't wait for signOut to complete - reset UI immediately
+      supabase.auth.signOut().catch(() => {
+        // Ignore errors - UI is already reset
+      });
+      
       // Set logout flag
       localStorage.setItem('just_logged_out', 'true');
       
       console.log('✅ Logout complete, reloading page...');
       
-      // Force page reload to ensure clean state
+      // Force page reload IMMEDIATELY to ensure clean state
       window.location.reload();
       
     } catch (error) {
@@ -3603,9 +3580,12 @@ const App = () => {
           {user && (
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
               {/* מחובר כ: במרכז מעל הלחצנים */}
-              <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
-                מחובר כ: <span style={{ color: '#fff' }}>{profile?.full_name || user.email}</span>
-              </span>
+              {/* Only show when profile is loaded to prevent email flash */}
+              {profile && (
+                <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
+                  מחובר כ: <span style={{ color: '#fff' }}>{profile.full_name || user.email}</span>
+                </span>
+              )}
               
               {/* הלחצנים במרכז */}
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -4452,16 +4432,12 @@ const App = () => {
               const maxPollAttempts = 15; // 15 attempts * 2 seconds = 30 seconds max
               const pollInterval = 2000; // 2 seconds
               
-              // First immediate check
-                await loadUserData(currentUser, true);
-              await new Promise(resolve => setTimeout(resolve, 500)); // Wait for state update
+              // First immediate check - no delays
+              await loadUserData(currentUser, true);
               
               const checkTierUpdate = async (): Promise<string> => {
-                // Force reload user data
+                // Force reload user data - no delays
                 await loadUserData(currentUser, true);
-                
-                // Wait a bit for state to update
-                await new Promise(resolve => setTimeout(resolve, 300));
                 
                 // Get fresh data directly from DB (more reliable than state)
                 const newSub = await getCurrentSubscription();
