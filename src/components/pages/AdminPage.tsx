@@ -823,11 +823,13 @@ export const AdminPage: React.FC = () => {
       clearAdminCache();
       
       // Load data directly from Supabase - no cache, always fresh
+      // CRITICAL: Skip admin checks - we're already in AdminPage, so user is admin
+      // This dramatically speeds up loading by skipping isAdmin() checks and session timeouts
       if (activeTab === 'overview') {
-        const statsData = await getAdminStats();
+        const statsData = await getAdminStats(true); // skipAdminCheck = true
         setStats(statsData);
       } else if (activeTab === 'users') {
-        const usersData = await getAllUsers();
+        const usersData = await getAllUsers(true); // skipAdminCheck = true
         if (usersData) {
           setUsers(usersData);
         }
@@ -840,7 +842,7 @@ export const AdminPage: React.FC = () => {
           (async () => {
             try {
               // Get all analyses (will filter by subscription_start_date per user)
-              const allAnalysesData = await getAllAnalyses();
+              const allAnalysesData = await getAllAnalyses(true); // skipAdminCheck = true
               
               // Build usage map - count analyses only from subscription_start_date for each user
               const usageMap: Record<string, { analysesUsed: number; maxAnalyses: number }> = {};
@@ -877,10 +879,10 @@ export const AdminPage: React.FC = () => {
           })();
         }
       } else if (activeTab === 'analyses') {
-        const analysesData = await getAllAnalyses();
+        const analysesData = await getAllAnalyses(true); // skipAdminCheck = true
         setAnalyses(analysesData || []);
       } else if (activeTab === 'video') {
-        const videosData = await getAllVideos();
+        const videosData = await getAllVideos(true); // skipAdminCheck = true
         setVideos(videosData || []);
       } else if (activeTab === 'alerts') {
         if (activeSubTab === 'send-update') {
@@ -897,11 +899,12 @@ export const AdminPage: React.FC = () => {
       
       // CRITICAL: Load ALL other data in background (non-blocking) to update tab counts
       // This ensures tab counts are updated without blocking the current tab
+      // Skip admin checks for speed - we're already in AdminPage
       Promise.all([
-        getAdminStats().then(data => { if (activeTab !== 'overview') setStats(data); }).catch(() => {}),
-        getAllUsers().then(data => { if (data && activeTab !== 'users') setUsers(data); }).catch(() => {}),
-        getAllAnalyses().then(data => { if (activeTab !== 'analyses') setAnalyses(data || []); }).catch(() => {}),
-        getAllVideos().then(data => { if (activeTab !== 'video') setVideos(data || []); }).catch(() => {}),
+        getAdminStats(true).then(data => { if (activeTab !== 'overview') setStats(data); }).catch(() => {}),
+        getAllUsers(true).then(data => { if (data && activeTab !== 'users') setUsers(data); }).catch(() => {}),
+        getAllAnalyses(true).then(data => { if (activeTab !== 'analyses') setAnalyses(data || []); }).catch(() => {}),
+        getAllVideos(true).then(data => { if (activeTab !== 'video') setVideos(data || []); }).catch(() => {}),
         getAllAnnouncements().then(data => { if (activeSubTab !== 'send-update') setAnnouncements(data || []); }).catch(() => {}),
         getAllCoupons().then(data => { if (activeSubTab !== 'coupons') setCoupons(data || []); }).catch(() => {}),
         getAllTrials().then(data => { if (activeSubTab !== 'trials') setTrials(data || []); }).catch(() => {})

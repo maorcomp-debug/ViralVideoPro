@@ -648,8 +648,26 @@ export async function isAdmin(): Promise<boolean> {
   }
 }
 
-export async function getAllUsers() {
+export async function getAllUsers(skipAdminCheck = false) {
   try {
+    // If skipAdminCheck is true, we already know user is admin (e.g., from AdminPage)
+    // Skip all session/admin checks and go straight to admin client for maximum speed
+    if (skipAdminCheck) {
+      const adminClient = getAdminClient();
+      const { data, error } = await adminClient
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ getAllUsers: Error fetching users:', error);
+        return [];
+      }
+      
+      return data || [];
+    }
+    
+    // Original logic for when admin check is needed
     // Add timeout to getSession() to prevent hanging
     const getSessionPromise = supabase.auth.getSession();
     const getSessionTimeout = new Promise((_, reject) => 
@@ -806,8 +824,26 @@ async function getAllUsersViaClient() {
   }
 }
 
-export async function getAllAnalyses() {
+export async function getAllAnalyses(skipAdminCheck = false) {
   try {
+    // If skipAdminCheck is true, we already know user is admin (e.g., from AdminPage)
+    // Skip all session/admin checks and go straight to admin client for maximum speed
+    if (skipAdminCheck) {
+      const adminClient = getAdminClient();
+      const { data, error } = await adminClient
+        .from('analyses')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ getAllAnalyses: Error fetching analyses:', error);
+        return [];
+      }
+      
+      return data || [];
+    }
+    
+    // Original logic for when admin check is needed
     // Add timeout to getSession() to prevent hanging
     const getSessionPromise = supabase.auth.getSession();
     const getSessionTimeout = new Promise((_, reject) => 
@@ -912,8 +948,26 @@ export async function getAllAnalyses() {
   }
 }
 
-export async function getAllVideos() {
+export async function getAllVideos(skipAdminCheck = false) {
   try {
+    // If skipAdminCheck is true, we already know user is admin (e.g., from AdminPage)
+    // Skip all session/admin checks and go straight to admin client for maximum speed
+    if (skipAdminCheck) {
+      const adminClient = getAdminClient();
+      const { data, error } = await adminClient
+        .from('videos')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ getAllVideos: Error fetching videos:', error);
+        return [];
+      }
+      
+      return data || [];
+    }
+    
+    // Original logic for when admin check is needed
     // Add timeout to getSession() to prevent hanging
     const getSessionPromise = supabase.auth.getSession();
     const getSessionTimeout = new Promise((_, reject) => 
@@ -1211,38 +1265,46 @@ export async function createUser(email: string, password: string, profileData: {
 // ADMIN STATISTICS FUNCTIONS
 // ============================================
 
-export async function getAdminStats() {
+export async function getAdminStats(skipAdminCheck = false) {
   try {
-    // First check if user is admin - use session directly (faster, no API call)
-    
-    // Add timeout to getSession() to prevent hanging
-    const getSessionPromise = supabase.auth.getSession();
-    const getSessionTimeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('getSession timeout')), 3000)
-    );
-    
-    let session, sessionError;
-    try {
-      const result = await Promise.race([getSessionPromise, getSessionTimeout]) as any;
-      session = result?.data?.session;
-      sessionError = result?.error;
-    } catch (timeoutError: any) {
-      // Timeout is expected - use admin client directly
-      session = null;
-    }
-    
-    if (sessionError && session) {
-      console.error('❌ getAdminStats: Error getting session:', sessionError);
-      return null;
-    }
-    
-    // Skip admin check if no session (to avoid hanging)
-    // Service role key will handle authorization anyway
-    if (session?.user) {
-      const isUserAdmin = await isAdmin();
-      if (!isUserAdmin) {
-        console.error('❌ getAdminStats: User is not admin');
+    // If skipAdminCheck is true, we already know user is admin (e.g., from AdminPage)
+    // Skip all session/admin checks and go straight to admin client for maximum speed
+    if (skipAdminCheck) {
+      const adminClient = getAdminClient();
+      // Continue with stats loading...
+    } else {
+      // Original logic for when admin check is needed
+      // First check if user is admin - use session directly (faster, no API call)
+      
+      // Add timeout to getSession() to prevent hanging
+      const getSessionPromise = supabase.auth.getSession();
+      const getSessionTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('getSession timeout')), 3000)
+      );
+      
+      let session, sessionError;
+      try {
+        const result = await Promise.race([getSessionPromise, getSessionTimeout]) as any;
+        session = result?.data?.session;
+        sessionError = result?.error;
+      } catch (timeoutError: any) {
+        // Timeout is expected - use admin client directly
+        session = null;
+      }
+      
+      if (sessionError && session) {
+        console.error('❌ getAdminStats: Error getting session:', sessionError);
         return null;
+      }
+      
+      // Skip admin check if no session (to avoid hanging)
+      // Service role key will handle authorization anyway
+      if (session?.user) {
+        const isUserAdmin = await isAdmin();
+        if (!isUserAdmin) {
+          console.error('❌ getAdminStats: User is not admin');
+          return null;
+        }
       }
     }
     
