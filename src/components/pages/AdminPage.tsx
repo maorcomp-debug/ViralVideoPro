@@ -895,6 +895,20 @@ export const AdminPage: React.FC = () => {
         }
       }
       
+      // CRITICAL: Load ALL other data in background (non-blocking) to update tab counts
+      // This ensures tab counts are updated without blocking the current tab
+      Promise.all([
+        getAdminStats().then(data => { if (activeTab !== 'overview') setStats(data); }).catch(() => {}),
+        getAllUsers().then(data => { if (data && activeTab !== 'users') setUsers(data); }).catch(() => {}),
+        getAllAnalyses().then(data => { if (activeTab !== 'analyses') setAnalyses(data || []); }).catch(() => {}),
+        getAllVideos().then(data => { if (activeTab !== 'video') setVideos(data || []); }).catch(() => {}),
+        getAllAnnouncements().then(data => { if (activeSubTab !== 'send-update') setAnnouncements(data || []); }).catch(() => {}),
+        getAllCoupons().then(data => { if (activeSubTab !== 'coupons') setCoupons(data || []); }).catch(() => {}),
+        getAllTrials().then(data => { if (activeSubTab !== 'trials') setTrials(data || []); }).catch(() => {})
+      ]).catch(() => {
+        // Ignore errors in background loading - main tab data already loaded
+      });
+      
     } catch (error: any) {
       console.error('❌ Error loading admin data:', error);
       console.error('❌ Error details:', JSON.stringify(error, null, 2));
