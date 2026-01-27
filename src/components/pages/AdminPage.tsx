@@ -971,8 +971,8 @@ export const AdminPage: React.FC = () => {
     if (!confirm('האם אתה בטוח שברצונך למחוק את המשתמש?')) return;
 
     try {
-      // Delete user directly from Supabase
-      await deleteUser(userId);
+      // Delete user directly using admin client (skipAdminCheck = true for speed)
+      await deleteUser(userId, true);
       // Clear cache and reload immediately - no delays
       clearAdminCache();
       await loadData(true); // Force refresh to get fresh data

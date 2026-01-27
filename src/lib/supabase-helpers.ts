@@ -1223,31 +1223,64 @@ export async function updateCurrentUserProfile(updates: {
   }
 }
 
-export async function deleteUser(userId: string) {
-  // Get current user token for authorization
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.access_token) {
-    throw new Error('Not authenticated');
+export async function deleteUser(userId: string, skipAdminCheck = false) {
+  try {
+    // If skipAdminCheck is true, use admin client directly (faster, no API call needed)
+    if (skipAdminCheck) {
+      const adminClient = getAdminClient();
+      
+      // Delete related data first (in case cascade doesn't work)
+      await adminClient.from('subscriptions').delete().eq('user_id', userId);
+      await adminClient.from('takbull_orders').delete().eq('user_id', userId);
+      await adminClient.from('analyses').delete().eq('user_id', userId);
+      await adminClient.from('videos').delete().eq('user_id', userId);
+      await adminClient.from('trainees').delete().eq('coach_id', userId);
+      await adminClient.from('coupon_redemptions').delete().eq('user_id', userId);
+      await adminClient.from('user_trials').delete().eq('user_id', userId);
+      await adminClient.from('user_announcements').delete().eq('user_id', userId);
+      
+      // Delete profile
+      await adminClient.from('profiles').delete().eq('user_id', userId);
+      
+      // Delete user from auth.users (requires admin client)
+      const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
+      
+      if (deleteError) {
+        console.error('❌ Error deleting user from auth:', deleteError);
+        throw new Error(`Failed to delete user: ${deleteError.message}`);
+      }
+      
+      return { ok: true, message: 'User deleted successfully' };
+    }
+    
+    // Original logic: Get current user token for authorization
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      throw new Error('Not authenticated');
+    }
+
+    // Call the API route to delete the user (which will delete from auth.users)
+    const response = await fetch('/api/admin/delete-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to delete user');
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('❌ Error in deleteUser:', error);
+    throw error;
   }
-
-  // Call the API route to delete the user (which will delete from auth.users)
-  const response = await fetch('/api/admin/delete-user', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ userId }),
-  });
-
-  const result = await response.json();
-
-  if (!result.ok) {
-    throw new Error(result.error || 'Failed to delete user');
-  }
-
-  return result;
 }
 
 export async function createUser(email: string, password: string, profileData: {
