@@ -1232,22 +1232,35 @@ const App = () => {
         return { allowed: false, message: 'חבילה לא תקינה. נא ליצור קשר עם התמיכה.' };
       }
     
-      // CRITICAL: Check if subscription has expired - applies to ALL tiers (including free/trial)
+      // CRITICAL: Check if subscription has expired - applies to ALL tiers (free, creator, pro, coach, coach-pro)
       // This check must happen BEFORE usage checks to prevent analysis when subscription is expired
-      if (effectiveSubscription.endDate) {
+      // For ALL paid tiers (creator, pro, coach, coach-pro), check endDate and isActive
+      // For free tier, also check endDate if it exists (trial period)
+      if (effectiveTier !== 'free' || effectiveSubscription.endDate) {
         try {
-          const endDate = effectiveSubscription.endDate instanceof Date 
-            ? effectiveSubscription.endDate 
-            : new Date(effectiveSubscription.endDate);
-          // Validate date
-          if (!isNaN(endDate.getTime())) {
-            const now = new Date();
-            // Check if subscription has expired
-            if (!effectiveSubscription.isActive || now > endDate) {
-              return { 
-                allowed: false, 
-                message: 'המנוי שלך פג תוקף. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
-              };
+          // Check isActive flag first (for all paid tiers)
+          if (effectiveTier !== 'free' && !effectiveSubscription.isActive) {
+            return { 
+              allowed: false, 
+              message: 'המנוי שלך לא פעיל. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
+            };
+          }
+          
+          // Check endDate if it exists (for all tiers including free/trial)
+          if (effectiveSubscription.endDate) {
+            const endDate = effectiveSubscription.endDate instanceof Date 
+              ? effectiveSubscription.endDate 
+              : new Date(effectiveSubscription.endDate);
+            // Validate date
+            if (!isNaN(endDate.getTime())) {
+              const now = new Date();
+              // Check if subscription has expired
+              if (now > endDate) {
+                return { 
+                  allowed: false, 
+                  message: 'המנוי שלך פג תוקף. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
+                };
+              }
             }
           }
         } catch (error) {
@@ -1277,6 +1290,7 @@ const App = () => {
       const minutesLimit = plan.limits.maxVideoMinutesPerPeriod;
 
       // For coach/coach-pro: Check ONLY minutes (analyses are unlimited)
+      // CRITICAL: Subscription end date and isActive already checked above for all tiers
       if (effectiveTier === 'coach' || effectiveTier === 'coach-pro') {
         if (minutesLimit === -1) {
           // Unlimited minutes too
@@ -1284,7 +1298,7 @@ const App = () => {
         } else if (minutesUsed >= minutesLimit) {
           return { 
             allowed: false, 
-            message: 'סיימת את מכסת המנוי החודשי, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה' 
+            message: 'סיימת את מכסת המנוי החודשי. כדי להמשיך לנתח, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה.' 
           };
         }
         // Within minutes limit - allow (analyses are unlimited)
@@ -1331,11 +1345,12 @@ const App = () => {
       }
 
       // For paid tiers (creator, pro): Check BOTH limits
+      // CRITICAL: Subscription end date and isActive already checked above for all tiers
       // First check: analyses limit
       if (analysesLimit !== -1 && analysesUsed >= analysesLimit) {
         return { 
           allowed: false, 
-          message: 'סיימת את מכסת המנוי החודשי, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה' 
+          message: 'סיימת את מכסת המנוי החודשי. כדי להמשיך לנתח, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה.' 
         };
       }
 
@@ -1343,7 +1358,7 @@ const App = () => {
       if (minutesLimit !== -1 && minutesUsed >= minutesLimit) {
         return { 
           allowed: false, 
-          message: 'סיימת את מכסת המנוי החודשי, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה' 
+          message: 'סיימת את מכסת המנוי החודשי. כדי להמשיך לנתח, שדרג חבילה מבין החבילות המוצעות או המתן לחידוש החבילה.' 
         };
       }
 
