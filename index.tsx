@@ -2818,32 +2818,40 @@ const App = () => {
     }, 300000); // 5 minutes max
     
     // Start playing video immediately when analysis begins (muted and loop)
-    // CRITICAL: Video starts muted by default, but user can unmute via controls
-    // When user unmutes, browser may pause due to autoplay policy - user can manually play
+    // CRITICAL: Video must be muted for autoplay to work in browsers
+    // User can unmute via controls after video starts playing
     if (file?.type.startsWith('video')) {
       setTimeout(() => {
         if (videoRef.current) {
           try {
-            // Set muted=true by default for autoplay compatibility
+            // Ensure muted=true for autoplay compatibility (required by browser policy)
             videoRef.current.muted = true;
             videoRef.current.loop = true;
             
             if (videoRef.current.readyState >= 2) {
-              videoRef.current.play().catch(() => {
+              videoRef.current.play().catch((error) => {
+                console.warn('Video play failed, retrying:', error);
                 // Retry after short delay
                 setTimeout(() => {
                   if (videoRef.current) {
-                    videoRef.current.play().catch(() => {});
+                    videoRef.current.muted = true; // Ensure still muted
+                    videoRef.current.play().catch(() => {
+                      // If still fails, continue analysis anyway - video playback is not critical
+                      console.warn('Video autoplay failed after retry - analysis will continue');
+                    });
                   }
                 }, 500);
               });
             } else {
               const onCanPlay = () => {
                 if (videoRef.current) {
-                  // Ensure muted=true by default, but allow controls to unmute
+                  // Ensure muted=true for autoplay (required by browser policy)
                   videoRef.current.muted = true;
                   videoRef.current.loop = true;
-                  videoRef.current.play().catch(() => {});
+                  videoRef.current.play().catch(() => {
+                    // Continue analysis even if video play fails
+                    console.warn('Video play failed on canplay event - analysis will continue');
+                  });
                   videoRef.current.removeEventListener('canplay', onCanPlay);
                 }
               };
@@ -2853,11 +2861,12 @@ const App = () => {
               }
             }
             
-            // Listen for volumechange - when user unmutes, video may pause due to browser policy
-            // Don't auto-resume - let user click play button manually
-            // This is the expected browser behavior and provides better UX
+            // Note: When the user unmutes the video, some browsers may pause autoplay.
+            // We handle this at the <video> element level (onVolumeChange) and simply re-call play()
+            // so that the video keeps running normally even after unmuting.
           } catch (error) {
             // Non-critical error - continue with analysis
+            console.warn('Error setting up video playback:', error);
           }
         }
       }, 100);
@@ -4184,7 +4193,10 @@ const App = () => {
                   controls
                   playsInline
                   preload="auto"
-                  autoPlay={false}
+                  // מתחיל אוטומטית במצב מושתק (מותאם למדיניות דפדפנים)
+                  autoPlay
+                  defaultMuted
+                  loop
                   style={{
                     width: '100%',
                     height: 'auto',
@@ -4192,10 +4204,21 @@ const App = () => {
                     objectFit: 'contain'
                   }}
                   onLoadedMetadata={(e) => {
-                    // Set muted by default when video loads, but allow user to unmute via controls
+                    // לוודא שבהרצה הראשונה הסרטון מושתק ורץ
                     const video = e.currentTarget;
-                    if (video) {
+                    if (video && video.currentTime === 0) {
                       video.muted = true;
+                      // ליתר ביטחון להתחיל ניגון אם הדפדפן מאפשר
+                      video.play().catch(() => {});
+                    }
+                  }}
+                  onVolumeChange={(e) => {
+                    const video = e.currentTarget;
+                    // אם המשתמש ביטל השתקה, לשמור על הסרטון בריצה
+                    if (!video.muted && video.paused) {
+                      video.play().catch(() => {
+                        // במידה והדפדפן חוסם, המשתמש יוכל ללחוץ Play ידנית
+                      });
                     }
                   }}
                 />

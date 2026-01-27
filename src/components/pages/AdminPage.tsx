@@ -797,6 +797,11 @@ export const AdminPage: React.FC = () => {
     registrationType: 'percentage' as 'percentage' | 'fixed_amount' | 'free_analyses',
     registrationValue: '', // ערך ההנחה (אחוז או סכום)
     registrationAnalysesCount: '', // מספר ניתוחים במתנה בהרשמה
+    // הגדרות שליחה ויעד
+    deliveryEmail: false,
+    deliveryInApp: true,
+    targetScope: 'all' as 'all' | 'package' | 'user',
+    targetUserEmail: '',
   });
 
   // Loading state
@@ -1152,7 +1157,7 @@ export const AdminPage: React.FC = () => {
         .substring(0, 10)
         .toUpperCase() || 'COUPON' + Date.now().toString().slice(-6);
 
-      await createCoupon({
+      const coupon = await createCoupon({
         code,
         description: couponForm.description || couponForm.title,
         discount_type: discountType,
@@ -1165,6 +1170,40 @@ export const AdminPage: React.FC = () => {
           ? parseInt(couponForm.days) 
           : (couponForm.benefitType === 'free_week' ? 7 : couponForm.benefitType === 'free_month' ? 30 : undefined),
       });
+
+      // שליחת ההטבה לפי בחירתך (מייל / הודעות מנוי)
+      // משתמשים במנגנון הקיים של createAnnouncement כדי לשלוח הודעה מנוסחת עם קוד ההטבה
+      if (couponForm.deliveryEmail || couponForm.deliveryInApp) {
+        try {
+          const targetAll = couponForm.targetScope === 'all';
+          const targetTier = couponForm.targetScope === 'package' && couponForm.package !== 'all'
+            ? [couponForm.package]
+            : undefined;
+
+          await createAnnouncement({
+            title: `הטבה חדשה: ${couponForm.title}`,
+            message: `קיבלת הטבה חדשה.\n\nתיאור: ${couponForm.description || couponForm.title}\nקוד הטבה לשימוש: ${code}\n\nסוג שליחה: ${
+              couponForm.deliveryEmail && couponForm.deliveryInApp
+                ? 'מייל + הודעות מנוי'
+                : couponForm.deliveryEmail
+                  ? 'מייל'
+                  : 'הודעות מנוי'
+            }`,
+            target_all: targetAll,
+            target_tier: targetTier,
+          });
+
+          if (couponForm.targetScope === 'user' && couponForm.targetUserEmail) {
+            // נכון לעכשיו אין מפתח ישיר לשליחת הטבה למשתמש בודד דרך announcements,
+            // לכן ההודעה נשלחת לפי כלל/חבילה, ואת הקוד למשתמש בודד מומלץ גם לשלוח ידנית במייל.
+            console.log('Target single user email for manual followup:', couponForm.targetUserEmail);
+          }
+        } catch (announceError) {
+          console.error('Error sending coupon announcement:', announceError);
+          // לא נחסום את יצירת ההטבה אם השליחה נכשלה
+        }
+      }
+
       alert('ההטבה נוצרה בהצלחה');
       setCouponForm({
         benefitType: 'free_week',
@@ -1178,6 +1217,10 @@ export const AdminPage: React.FC = () => {
         registrationType: 'percentage',
         registrationValue: '',
         registrationAnalysesCount: '',
+        deliveryEmail: false,
+        deliveryInApp: true,
+        targetScope: 'all',
+        targetUserEmail: '',
       });
       await loadData();
     } catch (error: any) {
@@ -1641,6 +1684,55 @@ export const AdminPage: React.FC = () => {
                   <option value="coach-pro">מאמנים פרו</option>
                 </FormSelect>
               </FormGroup>
+              <FormGroup>
+                <FormLabel>שליחת ההטבה</FormLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <CheckboxLabel>
+                    <Checkbox
+                      type="checkbox"
+                      checked={couponForm.deliveryInApp}
+                      onChange={(e) => setCouponForm({ ...couponForm, deliveryInApp: e.target.checked })}
+                    />
+                    שלח כהודעת מנוי בתוך המערכת
+                  </CheckboxLabel>
+                  <CheckboxLabel>
+                    <Checkbox
+                      type="checkbox"
+                      checked={couponForm.deliveryEmail}
+                      onChange={(e) => setCouponForm({ ...couponForm, deliveryEmail: e.target.checked })}
+                    />
+                    שלח גם במייל (דרך מנגנון העדכונים)
+                  </CheckboxLabel>
+                </div>
+              </FormGroup>
+              <FormGroup>
+                <FormLabel>למי מיועדת ההטבה?</FormLabel>
+                <FormSelect
+                  value={couponForm.targetScope}
+                  onChange={(e) => setCouponForm({ 
+                    ...couponForm, 
+                    targetScope: e.target.value as 'all' | 'package' | 'user',
+                  })}
+                >
+                  <option value="all">לכל המנויים</option>
+                  <option value="package">לחבילת מנוי מסוימת (ע"פ בחירת החבילה למעלה)</option>
+                  <option value="user">למשתמש ספציפי</option>
+                </FormSelect>
+              </FormGroup>
+              {couponForm.targetScope === 'user' && (
+                <FormGroup>
+                  <FormLabel>אימייל של המשתמש (לשימוש ידני / תיעוד)</FormLabel>
+                  <FormInput
+                    type="email"
+                    placeholder="name@example.com"
+                    value={couponForm.targetUserEmail}
+                    onChange={(e) => setCouponForm({ ...couponForm, targetUserEmail: e.target.value })}
+                  />
+                  <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '6px' }}>
+                    כרגע ההודעה האוטומטית נשלחת לפי כללי/חבילה. את הקוד למשתמש בודד מומלץ גם לשלוח ידנית במייל.
+                  </div>
+                </FormGroup>
+              )}
               <FormGroup>
                 <CheckboxLabel>
                   <Checkbox
