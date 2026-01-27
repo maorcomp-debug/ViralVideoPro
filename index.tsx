@@ -1232,23 +1232,27 @@ const App = () => {
         return { allowed: false, message: 'חבילה לא תקינה. נא ליצור קשר עם התמיכה.' };
       }
     
-      // Check if subscription is active (for paid tiers)
-      if (effectiveTier !== 'free') {
+      // CRITICAL: Check if subscription has expired - applies to ALL tiers (including free/trial)
+      // This check must happen BEFORE usage checks to prevent analysis when subscription is expired
+      if (effectiveSubscription.endDate) {
         try {
           const endDate = effectiveSubscription.endDate instanceof Date 
             ? effectiveSubscription.endDate 
             : new Date(effectiveSubscription.endDate);
           // Validate date
-          if (isNaN(endDate.getTime())) {
-            // Invalid date - allow analysis
-            return { allowed: true };
-          }
-          if (!effectiveSubscription.isActive || new Date() > endDate) {
-            return { allowed: false, message: 'המנוי פג תוקף. יש לחדש את המנוי' };
+          if (!isNaN(endDate.getTime())) {
+            const now = new Date();
+            // Check if subscription has expired
+            if (!effectiveSubscription.isActive || now > endDate) {
+              return { 
+                allowed: false, 
+                message: 'המנוי שלך פג תוקף. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
+              };
+            }
           }
         } catch (error) {
-          // If date parsing fails, allow analysis
-          return { allowed: true };
+          console.error('❌ Error checking subscription end date:', error);
+          // If date parsing fails, continue to usage checks (don't block unnecessarily)
         }
       }
 
@@ -1310,14 +1314,17 @@ const App = () => {
             totalAnalysesCount = analysesUsed;
           }
         } catch (error) {
+          console.error('❌ Error counting analyses for free tier:', error);
           // If count fails, use current month count as fallback
           totalAnalysesCount = analysesUsed;
         }
         
+        // CRITICAL: Block if user has already used their free analysis
+        // analysesLimit for free tier is 1, so if totalAnalysesCount >= 1, block
         if (totalAnalysesCount >= analysesLimit) {
           return { 
             allowed: false, 
-            message: 'סיימת את ניתוח הטעימה החינמי, שדרג לחבילה בתשלום מבין החבילות המוצעות' 
+            message: 'סיימת את ניתוח הטעימה החינמי. כדי להמשיך לנתח, אנא שדרג לחבילה בתשלום מבין החבילות המוצעות.' 
           };
         }
         return { allowed: true };
@@ -1344,8 +1351,12 @@ const App = () => {
       return { allowed: true };
     } catch (error) {
       console.error('❌ Error in checkSubscriptionLimits:', error);
-      // If check fails, allow analysis (better UX than blocking)
-      return { allowed: true };
+      // CRITICAL: If check fails, block analysis to prevent unauthorized usage
+      // Better to block than allow unauthorized analysis
+      return { 
+        allowed: false, 
+        message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
+      };
     }
   };
 
@@ -2739,20 +2750,28 @@ const App = () => {
     }
     
     // Check subscription limits in parallel (non-blocking after loading is set)
-    // Add timeout to prevent hanging - if check takes too long, allow analysis
+    // CRITICAL: If check times out or fails, BLOCK analysis to prevent unauthorized usage
     let limitCheck;
     try {
       const checkPromise = checkSubscriptionLimits();
-      const timeoutPromise = new Promise<{ allowed: boolean }>((resolve) => {
+      const timeoutPromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => {
         setTimeout(() => {
-          resolve({ allowed: true });
+          // Timeout - block analysis to prevent unauthorized usage
+          resolve({ 
+            allowed: false, 
+            message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
+          });
         }, 5000); // 5 second timeout
       });
       
       limitCheck = await Promise.race([checkPromise, timeoutPromise]);
     } catch (error) {
       console.error('❌ Error checking subscription limits:', error);
-      limitCheck = { allowed: true };
+      // Block analysis on error to prevent unauthorized usage
+      limitCheck = { 
+        allowed: false, 
+        message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
+      };
     }
     
     if (!limitCheck || !limitCheck.allowed) {
