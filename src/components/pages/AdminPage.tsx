@@ -1123,8 +1123,11 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleCreateCoupon = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateCoupon = async (e?: React.FormEvent) => {
+    // תומך גם ב-submit של הטופס וגם בלחיצה ישירה על הכפתור
+    if (e) {
+      e.preventDefault();
+    }
     try {
       // Map benefit type to discount_type + ערכים מספריים
       let discountType: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription' = 'trial_subscription';
@@ -1736,14 +1739,17 @@ export const AdminPage: React.FC = () => {
               <FormGroup>
                 <CheckboxLabel>
                   <Checkbox
-                                type="checkbox"
+                    type="checkbox"
                     checked={couponForm.active}
                     onChange={(e) => setCouponForm({ ...couponForm, active: e.target.checked })}
                   />
                   פעיל
                 </CheckboxLabel>
               </FormGroup>
-              <SubmitButton type="submit">צור הטבה</SubmitButton>
+              {/* כפתור יצירת ההטבה – מפעיל ישירות את הפונקציה גם אם ה-submit של הטופס נחסם ע"י ולידציה */}
+              <SubmitButton type="button" onClick={() => handleCreateCoupon()}>
+                צור הטבה
+              </SubmitButton>
                 </form>
               </>
             )}
