@@ -79,6 +79,8 @@ export interface Database {
           receive_updates: boolean;
           bonus_tracks: number | null;
           bonus_analyses_remaining: number | null;
+          pending_payment_discount_type: string | null;
+          pending_payment_discount_value: number | null;
         };
         Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;

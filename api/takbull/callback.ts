@@ -407,6 +407,8 @@ export default async function handler(
           subscription_end_date: endDate.toISOString(),
           subscription_status: 'active',
           updated_at: new Date().toISOString(),
+          pending_payment_discount_type: null,
+          pending_payment_discount_value: null,
         };
         
         // Update tracks if we have them (for pro/coach) or preserve them (for creator)

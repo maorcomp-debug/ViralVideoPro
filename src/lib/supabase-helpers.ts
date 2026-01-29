@@ -1824,6 +1824,22 @@ export async function redeemCoupon(code: string, userId: string) {
     }
   }
 
+  // percentage / fixed_amount: store for first payment (registration coupon → Takbull)
+  if (coupon.discount_type === 'percentage' || coupon.discount_type === 'fixed_amount') {
+    const value = coupon.discount_value != null ? Number(coupon.discount_value) : 0;
+    const { error: pendingErr } = await supabase
+      .from('profiles')
+      .update({
+        pending_payment_discount_type: coupon.discount_type,
+        pending_payment_discount_value: value,
+      })
+      .eq('user_id', userId);
+    if (pendingErr) {
+      console.error('Error saving pending payment discount:', pendingErr);
+      // Don't throw – redemption is still valid
+    }
+  }
+
   // Create redemption record
   const { error: redemptionError } = await supabase
     .from('coupon_redemptions')
@@ -2000,7 +2016,7 @@ export async function grantTrialToUsers(userIds: string[], tier: 'creator' | 'pr
 export async function updateCoupon(couponId: string, data: {
   code?: string;
   description?: string;
-  discount_type?: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription';
+  discount_type?: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription' | 'extra_track';
   discount_value?: number;
   free_analyses_count?: number;
   trial_tier?: 'creator' | 'pro' | 'coach';
@@ -2023,6 +2039,8 @@ export async function updateCoupon(couponId: string, data: {
   // Handle discount_value based on type
   if (data.discount_type === 'free_analyses' && data.free_analyses_count !== undefined) {
     updateData.discount_value = data.free_analyses_count;
+  } else if (data.discount_type === 'extra_track') {
+    updateData.discount_value = null;
   } else if (data.discount_value !== undefined) {
     updateData.discount_value = data.discount_value;
   }

@@ -112,9 +112,30 @@ export default async function handler(
       });
     }
 
-    const amount = body.billingPeriod === 'monthly' 
+    let amount = body.billingPeriod === 'monthly' 
       ? plan.monthly_price 
       : plan.yearly_price;
+
+    // Apply pending registration coupon discount (percentage or fixed_amount)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('pending_payment_discount_type, pending_payment_discount_value')
+      .eq('user_id', body.userId)
+      .maybeSingle();
+
+    const discountType = (profile as any)?.pending_payment_discount_type;
+    const discountValue = (profile as any)?.pending_payment_discount_value;
+    if (discountType && discountValue != null && amount > 0) {
+      if (discountType === 'percentage') {
+        const pct = Math.min(100, Math.max(0, Number(discountValue)));
+        amount = Math.round(amount * (1 - pct / 100));
+      } else if (discountType === 'fixed_amount') {
+        const fixed = Math.min(amount, Math.max(0, Number(discountValue)));
+        amount = Math.round(amount - fixed);
+      }
+      amount = Math.max(0, amount);
+      console.log('💰 Applied registration coupon discount:', { discountType, discountValue, finalAmount: amount });
+    }
 
     console.log('💰 Plan details:', {
       planId,

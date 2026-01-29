@@ -954,6 +954,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         }}
                       >
                         ✓ קוד קופון תקין{couponValid.coupon?.description ? `: ${couponValid.coupon.description}` : ''}
+                        {(couponValid.coupon?.discount_type === 'percentage' || couponValid.coupon?.discount_type === 'fixed_amount') && (
+                          <div style={{ marginTop: '6px', fontSize: '0.8rem', color: 'rgba(76, 175, 80, 0.95)' }}>
+                            ההנחה תחול על התשלום הראשון בחבילה (בעת חיבור Takbull).
+                          </div>
+                        )}
                       </div>
                     )}
                     {couponValid?.valid === false && (
