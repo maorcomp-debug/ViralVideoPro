@@ -784,6 +784,41 @@ const getBenefitTypeLabelFromForm = (benefitType: string): string => {
   return labels[benefitType] || 'הטבה';
 };
 
+/** פירוט ההטבה למייל (אחוז הנחה, סכום, ניתוחים וכו') */
+function buildBenefitDetailsForEmail(form: {
+  benefitType: string;
+  percent?: string;
+  analysesCount?: string;
+  registrationType?: string;
+  registrationValue?: string;
+  registrationAnalysesCount?: string;
+  days?: string;
+  package?: string;
+}): string {
+  switch (form.benefitType) {
+    case 'free_week':
+      return 'שבוע ניסיון חינם';
+    case 'free_month':
+      return 'חודש ניסיון חינם';
+    case 'discount_percent':
+      return form.percent ? `${form.percent}% הנחה` : 'הנחה באחוזים';
+    case 'gift_analyses':
+      return form.analysesCount ? `${form.analysesCount} ניתוחי וידאו בחינם` : 'ניתוחי וידאו בחינם';
+    case 'extra_track':
+      return 'מסלול ניתוח נוסף חינם';
+    case 'registration_discount':
+      if (form.registrationType === 'percentage' && form.registrationValue)
+        return `${form.registrationValue}% הנחה בהרשמה`;
+      if (form.registrationType === 'fixed_amount' && form.registrationValue)
+        return `הנחה של ${form.registrationValue} ₪ בהרשמה`;
+      if (form.registrationType === 'free_analyses' && form.registrationAnalysesCount)
+        return `${form.registrationAnalysesCount} ניתוחים בחינם בהרשמה`;
+      return 'הנחה בהרשמה';
+    default:
+      return 'הטבה';
+  }
+}
+
 export const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<MainTab>('overview');
@@ -1206,7 +1241,7 @@ export const AdminPage: React.FC = () => {
       return;
     }
     setIsCreatingCoupon(true);
-    const TIMEOUT_MS = 20000;
+    const TIMEOUT_MS = 45000;
     const timeoutPromise = new Promise<never>((_, rej) =>
       setTimeout(() => rej(new Error('הפעולה ארכה יותר מדי. נסה לרענן את הדף.')), TIMEOUT_MS)
     );
@@ -1284,6 +1319,7 @@ export const AdminPage: React.FC = () => {
 
         if (sendEmail) {
           try {
+            const benefitDetails = buildBenefitDetailsForEmail(couponForm);
             const apiBase = ((import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
             const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/send-benefit-email` : '/api/send-benefit-email';
             const res = await fetch(url, {
@@ -1295,6 +1331,7 @@ export const AdminPage: React.FC = () => {
                 benefitTypeLabel: getBenefitTypeLabelFromForm(couponForm.benefitType),
                 benefitTitle: titleTrimmed,
                 couponCode: code,
+                benefitDetails,
                 targetAll,
                 targetTier,
               }),
@@ -1329,10 +1366,10 @@ export const AdminPage: React.FC = () => {
           targetScope: 'all',
           targetUserEmail: '',
         });
-        await loadData(true);
       })();
 
       await Promise.race([work, timeoutPromise]);
+      await loadData(true);
     } catch (error: any) {
       console.error('Error creating coupon:', error);
       alert('שגיאה ביצירת ההטבה: ' + (error.message || 'Unknown error'));

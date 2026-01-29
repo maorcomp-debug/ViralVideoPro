@@ -190,6 +190,7 @@ const App = () => {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [redeemCodeFromUrl, setRedeemCodeFromUrl] = useState<string | null>(null);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
@@ -904,7 +905,21 @@ const App = () => {
     }
   }, [location.search, user, profile, navigate, location.pathname, loadUserData]);
 
-  // Redeem coupon from URL (?redeem=CODE) – from email or updates; first activation wins
+  // When not logged in and URL has ?redeem=CODE – open registration with coupon field (from "מימוש ההטבה" in email)
+  useEffect(() => {
+    if (loadingAuth || user) return;
+    const searchParams = new URLSearchParams(location.search);
+    const redeemCode = searchParams.get('redeem');
+    if (!redeemCode?.trim()) return;
+    setRedeemCodeFromUrl(redeemCode.trim());
+    setShowAuthModal(true);
+    const next = new URLSearchParams(location.search);
+    next.delete('redeem');
+    const q = next.toString();
+    navigate(`${location.pathname}${q ? `?${q}` : ''}`, { replace: true });
+  }, [loadingAuth, user, location.search, location.pathname, navigate]);
+
+  // Redeem coupon from URL (?redeem=CODE) when user is logged in – from email or updates; first activation wins
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const redeemCode = searchParams.get('redeem');
@@ -3638,8 +3653,9 @@ const App = () => {
         />
         <AuthModal
           isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
+          onClose={() => { setShowAuthModal(false); setRedeemCodeFromUrl(null); }}
           onAuthSuccess={() => {}}
+          initialRedeemCode={redeemCodeFromUrl}
         />
       </>
     );
@@ -4700,13 +4716,14 @@ const App = () => {
       
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={() => { setShowAuthModal(false); setRedeemCodeFromUrl(null); }}
         onAuthSuccess={async () => {
           // NOTE: onAuthStateChange will automatically call loadUserData when SIGNED_IN event fires
           // No need to call it here to avoid duplicate calls
           // The onAuthStateChange handler already handles loading user data with forceRefresh=true for SIGNED_IN events
           console.log('✅ Auth success - onAuthStateChange will handle user data loading');
         }}
+        initialRedeemCode={redeemCodeFromUrl}
       />
       
       <PackageSelectionModal

@@ -10,6 +10,8 @@ interface SendBenefitEmailRequest {
   benefitTitle?: string;
   /** קוד הקופון – למייל עם קוד ולקישור מימוש ?redeem= */
   couponCode?: string;
+  /** פירוט ההטבה למייל (אחוז הנחה, סכום, ניתוחים וכו') */
+  benefitDetails?: string;
   targetAll?: boolean;
   targetTier?: string[];
 }
@@ -20,9 +22,9 @@ function escapeHtml(text: string): string {
 }
 
 /** Benefit email HTML – RTL Hebrew, same visual style as account verification (dark theme, yellow CTA). */
-function buildBenefitEmailHtml(redemptionUrl: string, couponCode?: string): string {
+function buildBenefitEmailHtml(redemptionUrl: string, couponCode?: string, benefitDetails?: string): string {
   const ctaIntro = couponCode
-    ? `כדי לממש את ההטבה, העתק או הזן את קוד ההטבה (<strong>${escapeHtml(couponCode)}</strong>) ולחץ על הכפתור למימוש ההטבה.`
+    ? `כדי לממש את ההטבה, העתק או הזן את קוד ההטבה :  <strong>${escapeHtml(couponCode)}</strong>  ולחץ על הכפתור למימוש ההטבה.`
     : 'כדי לממש את ההטבה, לחץ על הכפתור:';
   return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
@@ -39,6 +41,7 @@ function buildBenefitEmailHtml(redemptionUrl: string, couponCode?: string): stri
     <p style="margin: 0 0 24px 0; line-height: 1.6; color: #fff;">
       Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
     </p>
+    ${benefitDetails ? `<p style="margin: 0 0 16px 0; line-height: 1.6; color: #D4A043; font-weight: 600;">${escapeHtml(benefitDetails)}</p>` : ''}
     <p style="margin: 0 0 16px 0; line-height: 1.6; color: #fff;">
       ${ctaIntro}
     </p>
@@ -115,14 +118,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? `${baseUrl}?redeem=${encodeURIComponent(body.couponCode)}`
       : baseUrl;
     const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
-    const htmlBody = buildBenefitEmailHtml(redemptionUrl, body.couponCode);
+    const htmlBody = buildBenefitEmailHtml(redemptionUrl, body.couponCode, body.benefitDetails);
     const ctaText = body.couponCode
-      ? `כדי לממש את ההטבה, העתק או הזן את קוד ההטבה (${body.couponCode}) ולחץ על הקישור למימוש:`
+      ? `כדי לממש את ההטבה, העתק או הזן את קוד ההטבה :  ${body.couponCode}  ולחץ על הכפתור למימוש ההטבה.`
       : 'כדי לממש את ההטבה, לחץ על הקישור:';
     const textBody = [
       'ברוך הבא ל־ Viraly',
       'Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.',
       '',
+      ...(body.benefitDetails ? [body.benefitDetails, ''] : []),
       ctaText,
       redemptionUrl,
       '',

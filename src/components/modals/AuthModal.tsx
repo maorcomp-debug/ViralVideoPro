@@ -165,12 +165,15 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuthSuccess: () => void;
+  /** כשנפתח מהקישור "מימוש ההטבה" במייל – מציג הרשמה עם שדה קופון מופעל וממולא */
+  initialRedeemCode?: string | null;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
-  onAuthSuccess
+  onAuthSuccess,
+  initialRedeemCode,
 }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -193,6 +196,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
 
   const tierRequiresTrack = (tier: SubscriptionTier) => tier === 'free' || tier === 'creator';
+
+  // When opened from "Redeem Offer" link (?redeem=CODE), switch to registration with coupon field on and pre-filled
+  React.useEffect(() => {
+    if (!isOpen || !initialRedeemCode?.trim()) return;
+    const code = initialRedeemCode.trim().toUpperCase();
+    setIsSignUp(true);
+    setShowCouponField(true);
+    setCouponCode(code);
+    setCouponValid(null);
+    validateCoupon(code).then((validation) => setCouponValid(validation)).catch(() => setCouponValid({ valid: false, error: 'שגיאה בבדיקת קוד הקופון' }));
+  }, [isOpen, initialRedeemCode]);
 
   // Validate coupon code
   const handleCouponValidation = async (code: string) => {
