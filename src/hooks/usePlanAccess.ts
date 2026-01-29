@@ -72,10 +72,14 @@ export function getPlanAccess(subscription: UserSubscription | null): PlanAccess
   // Create object with pure functions - no side effects
   // All functions use values from the subscription passed in
   // No access to external state or localStorage
+  const baseMaxTracks = getMaxTracksForTier(subscription.tier);
+  const bonusTracks = subscription.bonusTracks ?? 0;
+  const maxTracks = baseMaxTracks + bonusTracks;
+
   return {
     planLabel: plan.name,
     maxExperts: plan.limits.maxExperts || 3,
-    maxTracks: getMaxTracksForTier(subscription.tier),
+    maxTracks,
     maxVideoSeconds: plan.limits.maxVideoSeconds,
     maxVideoMB: plan.limits.maxFileBytes / (1024 * 1024), // Convert bytes to MB
     maxAnalysesPerPeriod: plan.limits.maxAnalysesPerPeriod,
@@ -107,7 +111,9 @@ export function getPlanAccess(subscription: UserSubscription | null): PlanAccess
       if (analysesUsed < 0) {
         return false;
       }
-      return analysesUsed < plan.limits.maxAnalysesPerPeriod;
+      const bonusAnalyses = subscription.bonusAnalysesRemaining ?? 0;
+      const effectiveLimit = plan.limits.maxAnalysesPerPeriod + bonusAnalyses;
+      return analysesUsed < effectiveLimit;
     },
 
     hasMinutesLeft(minutesUsed: number): boolean {
@@ -144,7 +150,6 @@ export function getPlanAccess(subscription: UserSubscription | null): PlanAccess
     },
 
     canSelectTrack(currentTracksCount: number): boolean {
-      const maxTracks = getMaxTracksForTier(subscription.tier);
       // Validation - verify value is valid
       if (currentTracksCount < 0) {
         return false;

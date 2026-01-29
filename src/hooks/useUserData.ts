@@ -248,6 +248,8 @@ export const useUserData = ({
         newIsActive: finalIsActive,
       });
       
+      const bonusTracks = (userProfile as { bonus_tracks?: number } | null)?.bonus_tracks ?? 0;
+      const bonusAnalysesRemaining = (userProfile as { bonus_analyses_remaining?: number } | null)?.bonus_analyses_remaining ?? 0;
       setSubscription({
         tier: finalTier,
         billingPeriod: finalBillingPeriod,
@@ -258,6 +260,8 @@ export const useUserData = ({
           lastResetDate: finalStartDate,
         },
         isActive: finalIsActive,
+        bonusTracks: bonusTracks > 0 ? bonusTracks : undefined,
+        bonusAnalysesRemaining: bonusAnalysesRemaining > 0 ? bonusAnalysesRemaining : undefined,
       });
       
       // Broadcast subscription update to other tabs/windows
@@ -289,6 +293,8 @@ export const useUserData = ({
               analysesUsed: usageData.analysesUsed,
               lastResetDate: usageData.periodStart,
             },
+            bonusTracks: prev.bonusTracks,
+            bonusAnalysesRemaining: prev.bonusAnalysesRemaining,
           };
         });
       }

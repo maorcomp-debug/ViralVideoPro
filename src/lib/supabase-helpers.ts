@@ -1787,6 +1787,43 @@ export async function redeemCoupon(code: string, userId: string) {
     }
   }
 
+  // extra_track: add one bonus analysis track (for free/creator tiers)
+  if (coupon.discount_type === 'extra_track') {
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('bonus_tracks')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const current = (profileRow as { bonus_tracks?: number } | null)?.bonus_tracks ?? 0;
+    const { error: profileErr } = await supabase
+      .from('profiles')
+      .update({ bonus_tracks: current + 1 })
+      .eq('user_id', userId);
+    if (profileErr) {
+      console.error('Error updating profile bonus_tracks:', profileErr);
+      throw new Error('שגיאה בעדכון מסלול הניתוח הנוסף');
+    }
+  }
+
+  // free_analyses: add bonus video analyses to user's quota
+  if (coupon.discount_type === 'free_analyses') {
+    const amount = coupon.discount_value ?? (coupon as { free_analyses_count?: number }).free_analyses_count ?? 1;
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('bonus_analyses_remaining')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const current = (profileRow as { bonus_analyses_remaining?: number } | null)?.bonus_analyses_remaining ?? 0;
+    const { error: profileErr } = await supabase
+      .from('profiles')
+      .update({ bonus_analyses_remaining: current + amount })
+      .eq('user_id', userId);
+    if (profileErr) {
+      console.error('Error updating profile bonus_analyses_remaining:', profileErr);
+      throw new Error('שגיאה בעדכון ניתוחי הווידאו במתנה');
+    }
+  }
+
   // Create redemption record
   const { error: redemptionError } = await supabase
     .from('coupon_redemptions')
@@ -1869,7 +1906,7 @@ export async function createCoupon(data: {
 export async function createCouponAsAdmin(data: {
   code: string;
   description?: string;
-  discount_type: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription';
+  discount_type: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription' | 'extra_track';
   discount_value?: number;
   free_analyses_count?: number;
   trial_tier?: 'creator' | 'pro' | 'coach';
@@ -1882,9 +1919,11 @@ export async function createCouponAsAdmin(data: {
   if (!user) throw new Error('לא מזוהה משתמש. רענן את הדף והתחבר שוב.');
   const adminClient = getAdminClient();
 
-  const discountValue = data.discount_type === 'free_analyses' 
+  const discountValue = data.discount_type === 'free_analyses'
     ? (data.free_analyses_count || data.discount_value || null)
-    : data.discount_value || null;
+    : data.discount_type === 'extra_track'
+      ? null
+      : data.discount_value || null;
 
   const { data: coupon, error } = await adminClient
     .from('coupons')

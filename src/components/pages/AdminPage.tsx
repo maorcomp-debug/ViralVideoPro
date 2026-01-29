@@ -758,6 +758,19 @@ const ConfirmButton = styled.button`
 type MainTab = 'overview' | 'users' | 'analyses' | 'video' | 'alerts';
 type SubTab = 'send-update' | 'coupons' | 'trials' | 'history';
 
+/** תווית בעברית לסוג ההטבה */
+const getBenefitTypeLabel = (discountType: string): string => {
+  const labels: Record<string, string> = {
+    trial_subscription: 'ניסיון חינם',
+    percentage: 'אחוז הנחה',
+    fixed_amount: 'סכום הנחה',
+    free_analyses: 'ניתוח וידאו מתנה',
+    extra_track: 'מסלול ניתוח נוסף חינם',
+    registration_discount: 'קופון הנחה להרשמה',
+  };
+  return labels[discountType] || discountType;
+};
+
 export const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<MainTab>('overview');
@@ -814,6 +827,11 @@ export const AdminPage: React.FC = () => {
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<SubscriptionTier | ''>('');
+  // Coupon edit modal
+  const [editingCoupon, setEditingCoupon] = useState<any | null>(null);
+  const [editCouponForm, setEditCouponForm] = useState({ code: '', description: '', is_active: true });
+  // History tab search
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
 
   const loadData = async (forceRefresh = false) => {
     // Allow force refresh even if already loading
@@ -1108,6 +1126,45 @@ export const AdminPage: React.FC = () => {
   
   const hasPackageChanged = selectedPackage && selectedPackage !== getOriginalPackage();
 
+  const handleEditCoupon = (coupon: any) => {
+    setEditingCoupon(coupon);
+    setEditCouponForm({
+      code: coupon.code || '',
+      description: coupon.description || '',
+      is_active: coupon.is_active !== false,
+    });
+  };
+
+  const handleSaveEditCoupon = async () => {
+    if (!editingCoupon) return;
+    try {
+      await updateCoupon(editingCoupon.id, {
+        code: editCouponForm.code.trim(),
+        description: editCouponForm.description.trim() || undefined,
+        is_active: editCouponForm.is_active,
+      });
+      setEditingCoupon(null);
+      await loadData(true);
+      alert('ההטבה עודכנה בהצלחה');
+    } catch (error: any) {
+      console.error('Error updating coupon:', error);
+      alert('שגיאה בעדכון ההטבה: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleDeleteCoupon = async (couponId: string) => {
+    if (!confirm('למחוק את ההטבה? לא ניתן לשחזר.')) return;
+    try {
+      await deleteCoupon(couponId);
+      setEditingCoupon(null);
+      await loadData(true);
+      alert('ההטבה נמחקה');
+    } catch (error: any) {
+      console.error('Error deleting coupon:', error);
+      alert('שגיאה במחיקת ההטבה: ' + (error.message || 'Unknown error'));
+    }
+  };
+
   const handleSendUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -1153,6 +1210,8 @@ export const AdminPage: React.FC = () => {
         } else if (couponForm.benefitType === 'gift_analyses') {
           discountType = 'free_analyses';
           freeAnalysesCount = couponForm.analysesCount ? parseInt(couponForm.analysesCount, 10) : 1;
+        } else if (couponForm.benefitType === 'extra_track') {
+          discountType = 'extra_track';
         } else if (couponForm.benefitType === 'registration_discount') {
           discountType = couponForm.registrationType;
           if (couponForm.registrationType === 'percentage' || couponForm.registrationType === 'fixed_amount') {
@@ -1188,23 +1247,50 @@ export const AdminPage: React.FC = () => {
 
         const sendInApp = couponForm.deliveryInApp !== false;
         const sendEmail = couponForm.deliveryEmail === true;
+        const targetAll = couponForm.targetScope === 'all';
+        const targetTier = couponForm.targetScope === 'package' && couponForm.package !== 'all'
+          ? [couponForm.package]
+          : undefined;
+        const benefitTitle = `הטבה חדשה: ${titleTrimmed}`;
+        const benefitMessage = `קיבלת הטבה חדשה.\n\nתיאור: ${couponForm.description?.trim() || titleTrimmed}\nקוד הטבה לשימוש: ${code}\n\nסוג שליחה: ${
+          sendEmail && sendInApp ? 'הודעת מנוי + מייל' : sendEmail ? 'מייל' : 'הודעת מנוי'
+        }`;
+
         if (sendInApp || sendEmail) {
           try {
-            const targetAll = couponForm.targetScope === 'all';
-            const targetTier = couponForm.targetScope === 'package' && couponForm.package !== 'all'
-              ? [couponForm.package]
-              : undefined;
-
             await createAnnouncementAsAdmin({
-              title: `הטבה חדשה: ${titleTrimmed}`,
-              message: `קיבלת הטבה חדשה.\n\nתיאור: ${couponForm.description?.trim() || titleTrimmed}\nקוד הטבה לשימוש: ${code}\n\nסוג שליחה: ${
-                sendEmail && sendInApp ? 'הודעת מנוי + מייל' : sendEmail ? 'מייל' : 'הודעת מנוי'
-              }`,
+              title: benefitTitle,
+              message: benefitMessage,
               target_all: targetAll,
               target_tier: targetTier,
             });
           } catch (announceError) {
             console.error('Error sending coupon announcement:', announceError);
+          }
+        }
+
+        if (sendEmail) {
+          try {
+            const apiBase = ((import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
+            const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/send-benefit-email` : '/api/send-benefit-email';
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: benefitTitle,
+                message: benefitMessage,
+                targetAll,
+                targetTier,
+              }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              console.error('Send benefit email error:', json);
+            } else if (json.sent !== undefined && json.sent > 0) {
+              console.log(`Benefit email sent to ${json.sent} recipients`);
+            }
+          } catch (emailErr) {
+            console.error('Error calling send-benefit-email API:', emailErr);
           }
         }
 
@@ -1556,12 +1642,13 @@ export const AdminPage: React.FC = () => {
                 <FormSelect
                   value={couponForm.benefitType}
                   onChange={(e) => setCouponForm({ ...couponForm, benefitType: e.target.value })}
-                              required
+                  required
                 >
                   <option value="free_week">שבוע חינם</option>
                   <option value="free_month">חודש חינם</option>
                   <option value="discount_percent">% הנחה</option>
-                  <option value="gift_analyses">ניתוחים מתנה</option>
+                  <option value="gift_analyses">ניתוח וידאו מתנה</option>
+                  <option value="extra_track">מסלול ניתוח נוסף חינם (נסיון/יוצרים)</option>
                   <option value="registration_discount">קופון הנחה להרשמה</option>
                 </FormSelect>
               </FormGroup>
@@ -1618,7 +1705,7 @@ export const AdminPage: React.FC = () => {
 
       {couponForm.benefitType === 'gift_analyses' && (
         <FormGroup>
-          <FormLabel>מספר ניתוחים במתנה</FormLabel>
+          <FormLabel>מספר ניתוחי וידאו במתנה</FormLabel>
           <FormSelect
             value={couponForm.analysesCount}
             onChange={(e) => setCouponForm({ ...couponForm, analysesCount: e.target.value })}
@@ -1646,7 +1733,7 @@ export const AdminPage: React.FC = () => {
             >
               <option value="percentage">אחוז הנחה</option>
               <option value="fixed_amount">סכום הנחה</option>
-              <option value="free_analyses">ניתוחים מתנה</option>
+              <option value="free_analyses">ניתוח וידאו מתנה</option>
             </FormSelect>
           </FormGroup>
 
@@ -1795,8 +1882,9 @@ export const AdminPage: React.FC = () => {
                     <tr>
                       <TableHeaderCell>קוד</TableHeaderCell>
                       <TableHeaderCell>תיאור</TableHeaderCell>
-                      <TableHeaderCell>סוג</TableHeaderCell>
+                      <TableHeaderCell>סוג ההטבה</TableHeaderCell>
                       <TableHeaderCell>נוצר בתאריך</TableHeaderCell>
+                      <TableHeaderCell>פעולות</TableHeaderCell>
                     </tr>
                   </TableHeader>
                   <tbody>
@@ -1804,12 +1892,16 @@ export const AdminPage: React.FC = () => {
                       <TableRow key={coupon.id}>
                         <TableCell>{coupon.code}</TableCell>
                         <TableCell>{coupon.description || '-'}</TableCell>
-                        <TableCell>{coupon.discount_type}</TableCell>
+                        <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
                         <TableCell>
                           {coupon.created_at
                             ? new Date(coupon.created_at).toLocaleDateString('he-IL')
                             : '-'}
                         </TableCell>
+                        <ActionsCell>
+                          <ActionButton $variant="primary" onClick={() => handleEditCoupon(coupon)}>ערוך</ActionButton>
+                          <ActionButton $variant="delete" onClick={() => handleDeleteCoupon(coupon.id)}>מחק</ActionButton>
+                        </ActionsCell>
                       </TableRow>
                     ))}
                   </tbody>
@@ -1820,11 +1912,120 @@ export const AdminPage: React.FC = () => {
         )}
 
         {activeTab === 'alerts' && activeSubTab === 'trials' && (
-          <EmptyState>תת-טאב זה עדיין בפיתוח</EmptyState>
+          <>
+            <SectionHeader>
+              <SectionTitle>הטבות והתנסויות</SectionTitle>
+              <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
+            </SectionHeader>
+            <h3 style={{ color: '#D4A043', marginBottom: '12px' }}>הטבות (קופונים)</h3>
+            {coupons.length === 0 ? (
+              <EmptyState>אין הטבות</EmptyState>
+            ) : (
+              <TableWrapper>
+                <Table>
+                  <TableHeader>
+                    <tr>
+                      <TableHeaderCell>קוד</TableHeaderCell>
+                      <TableHeaderCell>תיאור</TableHeaderCell>
+                      <TableHeaderCell>סוג ההטבה</TableHeaderCell>
+                      <TableHeaderCell>פעיל</TableHeaderCell>
+                      <TableHeaderCell>פעולות</TableHeaderCell>
+                    </tr>
+                  </TableHeader>
+                  <tbody>
+                    {coupons.map((coupon) => (
+                      <TableRow key={coupon.id}>
+                        <TableCell>{coupon.code}</TableCell>
+                        <TableCell>{coupon.description || '-'}</TableCell>
+                        <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
+                        <TableCell>{coupon.is_active ? 'כן' : 'לא'}</TableCell>
+                        <ActionsCell>
+                          <ActionButton $variant="primary" onClick={() => handleEditCoupon(coupon)}>ערוך</ActionButton>
+                          <ActionButton $variant="delete" onClick={() => handleDeleteCoupon(coupon.id)}>מחק</ActionButton>
+                        </ActionsCell>
+                      </TableRow>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrapper>
+            )}
+            <h3 style={{ color: '#D4A043', marginTop: '24px', marginBottom: '12px' }}>התנסויות (user_trials)</h3>
+            {trials.length === 0 ? (
+              <EmptyState>אין רשומות התנסות</EmptyState>
+            ) : (
+              <TableWrapper>
+                <Table>
+                  <TableHeader>
+                    <tr>
+                      <TableHeaderCell>משתמש</TableHeaderCell>
+                      <TableHeaderCell>חבילה</TableHeaderCell>
+                      <TableHeaderCell>תחילה</TableHeaderCell>
+                      <TableHeaderCell>סיום</TableHeaderCell>
+                    </tr>
+                  </TableHeader>
+                  <tbody>
+                    {trials.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell>{t.user_id}</TableCell>
+                        <TableCell>{t.tier}</TableCell>
+                        <TableCell>{t.start_date ? new Date(t.start_date).toLocaleDateString('he-IL') : '-'}</TableCell>
+                        <TableCell>{t.end_date ? new Date(t.end_date).toLocaleDateString('he-IL') : '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrapper>
+            )}
+          </>
         )}
 
         {activeTab === 'alerts' && activeSubTab === 'history' && (
-          <EmptyState>תת-טאב זה עדיין בפיתוח</EmptyState>
+          <>
+            <SectionHeader>
+              <SectionTitle>היסטוריית הטבות</SectionTitle>
+              <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
+            </SectionHeader>
+            <SearchBar
+              type="text"
+              placeholder="חפש לפי קוד או תיאור..."
+              value={historySearchQuery}
+              onChange={(e) => setHistorySearchQuery(e.target.value)}
+              style={{ marginBottom: '16px' }}
+            />
+            {coupons.filter((c) => !historySearchQuery.trim() || c.code?.toLowerCase().includes(historySearchQuery.toLowerCase()) || c.description?.toLowerCase().includes(historySearchQuery.toLowerCase())).length === 0 ? (
+              <EmptyState>אין הטבות התואמות את החיפוש</EmptyState>
+            ) : (
+              <TableWrapper>
+                <Table>
+                  <TableHeader>
+                    <tr>
+                      <TableHeaderCell>קוד</TableHeaderCell>
+                      <TableHeaderCell>תיאור</TableHeaderCell>
+                      <TableHeaderCell>סוג ההטבה</TableHeaderCell>
+                      <TableHeaderCell>נוצר בתאריך</TableHeaderCell>
+                      <TableHeaderCell>פעולות</TableHeaderCell>
+                    </tr>
+                  </TableHeader>
+                  <tbody>
+                    {coupons
+                      .filter((c) => !historySearchQuery.trim() || c.code?.toLowerCase().includes(historySearchQuery.toLowerCase()) || c.description?.toLowerCase().includes(historySearchQuery.toLowerCase()))
+                      .map((coupon) => (
+                        <TableRow key={coupon.id}>
+                          <TableCell>{coupon.code}</TableCell>
+                          <TableCell>{coupon.description || '-'}</TableCell>
+                          <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
+                          <TableCell>{coupon.created_at ? new Date(coupon.created_at).toLocaleDateString('he-IL') : '-'}</TableCell>
+                          <ActionsCell>
+                            <ActionButton $variant="primary" onClick={() => handleEditCoupon(coupon)}>ערוך</ActionButton>
+                            <ActionButton $variant="delete" onClick={() => handleDeleteCoupon(coupon.id)}>מחק</ActionButton>
+                          </ActionsCell>
+                        </TableRow>
+                      ))}
+                  </tbody>
+                </Table>
+              </TableWrapper>
+            )}
+          </>
         )}
       </ContentArea>
       
@@ -1868,6 +2069,43 @@ export const AdminPage: React.FC = () => {
               >
                 אישור
               </ConfirmButton>
+            </ModalButtons>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+
+      {/* Edit Coupon Modal */}
+      {editingCoupon && (
+        <ModalOverlay onClick={() => setEditingCoupon(null)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>עריכת הטבה</ModalTitle>
+            <FormGroup>
+              <FormLabel>קוד</FormLabel>
+              <FormInput
+                value={editCouponForm.code}
+                onChange={(e) => setEditCouponForm({ ...editCouponForm, code: e.target.value })}
+              />
+            </FormGroup>
+            <FormGroup>
+              <FormLabel>תיאור</FormLabel>
+              <FormTextarea
+                value={editCouponForm.description}
+                onChange={(e) => setEditCouponForm({ ...editCouponForm, description: e.target.value })}
+              />
+            </FormGroup>
+            <FormGroup>
+              <CheckboxLabel>
+                <Checkbox
+                  type="checkbox"
+                  checked={editCouponForm.is_active}
+                  onChange={(e) => setEditCouponForm({ ...editCouponForm, is_active: e.target.checked })}
+                />
+                פעיל
+              </CheckboxLabel>
+            </FormGroup>
+            <ModalButtons>
+              <CancelButton onClick={() => setEditingCoupon(null)}>ביטול</CancelButton>
+              <ConfirmButton onClick={handleSaveEditCoupon}>שמור</ConfirmButton>
             </ModalButtons>
           </ModalContent>
         </ModalOverlay>

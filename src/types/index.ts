@@ -114,5 +114,9 @@ export interface UserSubscription {
     lastResetDate: Date;
   };
   isActive: boolean;
+  /** Extra analysis tracks from coupons (e.g. "מסלול ניתוח נוסף חינם") – only for free/creator. */
+  bonusTracks?: number;
+  /** Free video analyses from coupons – added to effective analysis limit per period. */
+  bonusAnalysesRemaining?: number;
 }
 

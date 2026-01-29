@@ -77,6 +77,8 @@ export interface Database {
           subscription_end_date: string | null;
           subscription_status: 'active' | 'inactive' | 'cancelled' | null;
           receive_updates: boolean;
+          bonus_tracks: number | null;
+          bonus_analyses_remaining: number | null;
         };
         Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
@@ -111,7 +113,7 @@ export interface Database {
           id: string;
           code: string;
           description: string | null;
-          discount_type: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription';
+          discount_type: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription' | 'extra_track';
           discount_value: number | null;
           trial_tier: 'creator' | 'pro' | 'coach' | null;
           trial_duration_days: number | null;
