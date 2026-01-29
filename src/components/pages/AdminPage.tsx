@@ -1263,6 +1263,7 @@ export const AdminPage: React.FC = () => {
               message: benefitMessage,
               target_all: targetAll,
               target_tier: targetTier,
+              includeAllTargetUsers: true,
             });
           } catch (announceError) {
             console.error('Error sending coupon announcement:', announceError);
@@ -1810,7 +1811,7 @@ export const AdminPage: React.FC = () => {
                     שלח כהודעת מנוי בתוך המערכת
                   </CheckboxLabel>
                   <div style={{ fontSize: '0.8rem', color: '#999', marginRight: '24px' }}>
-                    הודעה תופיע בהגדרות → עדכונים רק למשתמשים שסימנו "מקבל עדכונים" בפרופיל.
+                    הודעת ההטבה תופיע בהגדרות → עדכונים לכל המשתמשים במיקוד (לפי "למי מיועדת ההטבה").
                   </div>
                   <CheckboxLabel>
                     <Checkbox

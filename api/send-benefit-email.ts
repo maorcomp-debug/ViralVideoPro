@@ -15,16 +15,17 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => map[c] || c);
 }
 
-/** Benefit email HTML – same visual style as account verification (dark theme, yellow CTA). */
+/** Benefit email HTML – RTL Hebrew, same visual style as account verification (dark theme, yellow CTA). */
 function buildBenefitEmailHtml(redemptionUrl: string): string {
   return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style type="text/css">body, .rtl-wrap { direction: rtl; text-align: right; }</style>
 </head>
-<body style="margin:0; padding:0; background:#1a1a1a; font-family: Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 24px; background: #1a1a1a; color: #fff;">
+<body style="margin:0; padding:0; background:#1a1a1a; font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+  <div class="rtl-wrap" style="max-width: 600px; margin: 0 auto; padding: 24px; background: #1a1a1a; color: #fff; direction: rtl; text-align: right;">
     <h1 style="margin: 0 0 20px 0; font-size: 1.75rem; font-weight: 700; color: #fff;">
       ברוך הבא ל־ Viraly
     </h1>
@@ -34,7 +35,7 @@ function buildBenefitEmailHtml(redemptionUrl: string): string {
     <p style="margin: 0 0 16px 0; line-height: 1.6; color: #fff;">
       כדי לממש את ההטבה, לחץ על הכפתור:
     </p>
-    <p style="margin: 0 0 24px 0; text-align: center;">
+    <p style="margin: 0 0 24px 0; text-align: right;">
       <a href="${escapeHtml(redemptionUrl)}" style="display: inline-block; background: #D4A043; color: #000; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem;">
         מימוש הטבה
       </a>
@@ -45,7 +46,7 @@ function buildBenefitEmailHtml(redemptionUrl: string): string {
     <p style="margin: 0 0 32px 0; font-size: 0.85rem; color: #999;">
       אם לא ביקשת להצטרף ל-Viraly, ניתן להתעלם מהמייל.
     </p>
-    <p style="margin: 0; font-size: 0.85rem; color: #888; text-align: center;">
+    <p style="margin: 0; font-size: 0.85rem; color: #888; text-align: right;">
       Viraly – Video Director Pro<br>
       <span style="color: #D4A043;">AI Analysis • Performance • Presence</span>
     </p>
@@ -100,8 +101,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const emails = profiles.map((p: { email?: string }) => p.email).filter(Boolean) as string[];
     const benefitLabel = (body.benefitTypeLabel || body.title || 'הטבה').trim();
-    const subject = `הטבה ו ${benefitLabel} | Viraly – Video Director Pro`;
+    const subject = `Viraly – Video Director Pro | הטבה | ${benefitLabel}`;
     const redemptionUrl = appUrl.replace(/\/$/, '');
+    const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
     const htmlBody = buildBenefitEmailHtml(redemptionUrl);
     const textBody = [
       'ברוך הבא ל־ Viraly',
@@ -126,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             Authorization: `Bearer ${resendApiKey}`,
           },
           body: JSON.stringify({
-            from: fromEmail,
+            from: fromDisplay,
             to: [to],
             subject,
             html: htmlBody,

@@ -1500,6 +1500,8 @@ export async function createAnnouncementAsAdmin(data: {
   message: string;
   target_all?: boolean;
   target_tier?: string[];
+  /** When true, all targeted users see the announcement in Settings (not only receive_updates). Use for benefits. */
+  includeAllTargetUsers?: boolean;
 }) {
   const user = await getCurrentUserWithTimeout(6000);
   if (!user) throw new Error('לא מזוהה משתמש. רענן את הדף והתחבר שוב.');
@@ -1522,7 +1524,9 @@ export async function createAnnouncementAsAdmin(data: {
     throw error;
   }
 
-  const sendResult = await sendAnnouncementToUsersWithClient(adminClient, announcement.id);
+  const sendResult = await sendAnnouncementToUsersWithClient(adminClient, announcement.id, {
+    includeAllTargetUsers: data.includeAllTargetUsers,
+  });
   return { ...announcement, sent: sendResult.sent };
 }
 
@@ -1532,7 +1536,8 @@ export async function sendAnnouncementToUsers(announcementId: string) {
 
 async function sendAnnouncementToUsersWithClient(
   client: ReturnType<typeof createClient>,
-  announcementId: string
+  announcementId: string,
+  options?: { includeAllTargetUsers?: boolean }
 ) {
   const { data: announcement, error: annError } = await client
     .from('announcements')
@@ -1544,11 +1549,14 @@ async function sendAnnouncementToUsersWithClient(
     throw new Error('Announcement not found');
   }
 
-  // Build query for target users
+  // Build query for target users (when includeAllTargetUsers, don't filter by receive_updates so everyone sees in Settings)
   let usersQuery = client
     .from('profiles')
-    .select('user_id')
-    .eq('receive_updates', true);
+    .select('user_id');
+
+  if (!options?.includeAllTargetUsers) {
+    usersQuery = usersQuery.eq('receive_updates', true);
+  }
 
   if (!announcement.target_all && announcement.target_tier && announcement.target_tier.length > 0) {
     usersQuery = usersQuery.in('subscription_tier', announcement.target_tier);
