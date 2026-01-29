@@ -808,6 +808,7 @@ export const AdminPage: React.FC = () => {
 
   // Loading state
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isCreatingCoupon, setIsCreatingCoupon] = useState(false);
   
   // Package selection modal state
   const [showPackageModal, setShowPackageModal] = useState(false);
@@ -1129,12 +1130,13 @@ export const AdminPage: React.FC = () => {
     if (e) {
       e.preventDefault();
     }
-    // ולידציה: כותרת חובה
+    if (isCreatingCoupon) return;
     const titleTrimmed = couponForm.title?.trim();
     if (!titleTrimmed) {
       alert('נא למלא כותרת להטבה.');
       return;
     }
+    setIsCreatingCoupon(true);
     try {
       // Map benefit type to discount_type + ערכים מספריים
       let discountType: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription' = 'trial_subscription';
@@ -1233,6 +1235,8 @@ export const AdminPage: React.FC = () => {
     } catch (error: any) {
       console.error('Error creating coupon:', error);
       alert('שגיאה ביצירת ההטבה: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsCreatingCoupon(false);
     }
   };
 
@@ -1547,7 +1551,7 @@ export const AdminPage: React.FC = () => {
           <>
             <SectionTitle>ניהול קופונים</SectionTitle>
             {/* הטופס אחראי על הולידציה ושמירה של השדות, הכפתור עצמו מחוץ לטופס כדי לוודא שהקליק תמיד מגיע */}
-            <form onSubmit={handleCreateCoupon}>
+            <form onSubmit={(e) => { e.preventDefault(); handleCreateCoupon(e); }}>
               <h3 style={{ color: '#D4A043', marginBottom: '20px' }}>יצירת הטבה חדשה</h3>
               <FormGroup>
                 <FormLabel>סוג ההטבה *</FormLabel>
@@ -1583,38 +1587,49 @@ export const AdminPage: React.FC = () => {
               </FormGroup>
               <FormGroup>
                 <FormLabel>מספר ימים</FormLabel>
-                <FormInput
-                              type="number"
+                <FormSelect
                   value={couponForm.days}
                   onChange={(e) => setCouponForm({ ...couponForm, days: e.target.value })}
-                />
+                >
+                  <option value="">— לא רלוונטי —</option>
+                  <option value="1">1 יום</option>
+                  <option value="3">3 ימים</option>
+                  <option value="7">7 ימים (שבוע)</option>
+                  <option value="14">14 ימים (שבועיים)</option>
+                  <option value="30">30 ימים (חודש)</option>
+                  <option value="60">60 ימים</option>
+                  <option value="90">90 ימים</option>
+                </FormSelect>
               </FormGroup>
 
       {/* שדות דינמיים בהתאם לסוג ההטבה */}
       {couponForm.benefitType === 'discount_percent' && (
         <FormGroup>
           <FormLabel>אחוז הנחה (%)</FormLabel>
-          <FormInput
-            type="number"
-            min="1"
-            max="100"
-            placeholder="לדוגמה: 20"
+          <FormSelect
             value={couponForm.percent}
             onChange={(e) => setCouponForm({ ...couponForm, percent: e.target.value })}
-          />
+          >
+            <option value="">בחר אחוז</option>
+            {[5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100].map((n) => (
+              <option key={n} value={String(n)}>{n}%</option>
+            ))}
+          </FormSelect>
         </FormGroup>
       )}
 
       {couponForm.benefitType === 'gift_analyses' && (
         <FormGroup>
           <FormLabel>מספר ניתוחים במתנה</FormLabel>
-          <FormInput
-            type="number"
-            min="1"
-            placeholder="לדוגמה: 3"
+          <FormSelect
             value={couponForm.analysesCount}
             onChange={(e) => setCouponForm({ ...couponForm, analysesCount: e.target.value })}
-          />
+          >
+            <option value="">בחר מספר</option>
+            {[1, 2, 3, 5, 10, 15, 20].map((n) => (
+              <option key={n} value={String(n)}>{n} ניתוחים</option>
+            ))}
+          </FormSelect>
         </FormGroup>
       )}
 
@@ -1640,40 +1655,45 @@ export const AdminPage: React.FC = () => {
           {couponForm.registrationType === 'percentage' && (
             <FormGroup>
               <FormLabel>אחוז הנחה להרשמה (%)</FormLabel>
-              <FormInput
-                type="number"
-                min="1"
-                max="100"
-                placeholder="לדוגמה: 15"
+              <FormSelect
                 value={couponForm.registrationValue}
                 onChange={(e) => setCouponForm({ ...couponForm, registrationValue: e.target.value })}
-              />
+              >
+                <option value="">בחר אחוז</option>
+                {[5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100].map((n) => (
+                  <option key={n} value={String(n)}>{n}%</option>
+                ))}
+              </FormSelect>
             </FormGroup>
           )}
 
           {couponForm.registrationType === 'fixed_amount' && (
             <FormGroup>
               <FormLabel>סכום הנחה להרשמה (₪)</FormLabel>
-              <FormInput
-                type="number"
-                min="1"
-                placeholder="לדוגמה: 30"
+              <FormSelect
                 value={couponForm.registrationValue}
                 onChange={(e) => setCouponForm({ ...couponForm, registrationValue: e.target.value })}
-              />
+              >
+                <option value="">בחר סכום</option>
+                {[10, 20, 30, 50, 100, 150, 200].map((n) => (
+                  <option key={n} value={String(n)}>₪{n}</option>
+                ))}
+              </FormSelect>
             </FormGroup>
           )}
 
           {couponForm.registrationType === 'free_analyses' && (
             <FormGroup>
               <FormLabel>מספר ניתוחים במתנה בהרשמה</FormLabel>
-              <FormInput
-                type="number"
-                min="1"
-                placeholder="לדוגמה: 2"
+              <FormSelect
                 value={couponForm.registrationAnalysesCount}
                 onChange={(e) => setCouponForm({ ...couponForm, registrationAnalysesCount: e.target.value })}
-              />
+              >
+                <option value="">בחר מספר</option>
+                {[1, 2, 3, 5, 10, 15, 20].map((n) => (
+                  <option key={n} value={String(n)}>{n} ניתוחים</option>
+                ))}
+              </FormSelect>
             </FormGroup>
           )}
         </>
@@ -1751,8 +1771,13 @@ export const AdminPage: React.FC = () => {
                   פעיל
                 </CheckboxLabel>
               </FormGroup>
-              <SubmitButton type="submit" style={{ marginTop: '10px' }}>
-                צור הטבה
+              <SubmitButton
+                type="button"
+                style={{ marginTop: '10px' }}
+                disabled={isCreatingCoupon}
+                onClick={() => handleCreateCoupon()}
+              >
+                {isCreatingCoupon ? 'יוצר הטבה...' : 'צור הטבה'}
               </SubmitButton>
             </form>
 
