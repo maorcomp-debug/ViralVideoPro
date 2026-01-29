@@ -1467,8 +1467,47 @@ export async function createAnnouncement(data: {
   return { ...announcement, sent: sendResult.sent };
 }
 
+/** Create announcement from admin panel (bypasses RLS). Requires authenticated user for created_by. */
+export async function createAnnouncementAsAdmin(data: {
+  title: string;
+  message: string;
+  target_all?: boolean;
+  target_tier?: string[];
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  const adminClient = getAdminClient();
+
+  const { data: announcement, error } = await adminClient
+    .from('announcements')
+    .insert({
+      title: data.title,
+      message: data.message,
+      created_by: user.id,
+      target_all: data.target_all ?? true,
+      target_tier: data.target_tier || null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating announcement (admin):', error);
+    throw error;
+  }
+
+  const sendResult = await sendAnnouncementToUsersWithClient(adminClient, announcement.id);
+  return { ...announcement, sent: sendResult.sent };
+}
+
 export async function sendAnnouncementToUsers(announcementId: string) {
-  const { data: announcement, error: annError } = await supabase
+  return sendAnnouncementToUsersWithClient(supabase, announcementId);
+}
+
+async function sendAnnouncementToUsersWithClient(
+  client: ReturnType<typeof createClient>,
+  announcementId: string
+) {
+  const { data: announcement, error: annError } = await client
     .from('announcements')
     .select('*')
     .eq('id', announcementId)
@@ -1479,12 +1518,11 @@ export async function sendAnnouncementToUsers(announcementId: string) {
   }
 
   // Build query for target users
-  let usersQuery = supabase
+  let usersQuery = client
     .from('profiles')
     .select('user_id')
     .eq('receive_updates', true);
 
-  // Filter by tier if specified
   if (!announcement.target_all && announcement.target_tier && announcement.target_tier.length > 0) {
     usersQuery = usersQuery.in('subscription_tier', announcement.target_tier);
   }
@@ -1507,7 +1545,7 @@ export async function sendAnnouncementToUsers(announcementId: string) {
     announcement_id: announcementId,
   }));
 
-  const { error: insertError } = await supabase
+  const { error: insertError } = await client
     .from('user_announcements')
     .insert(userAnnouncements);
 
@@ -1516,8 +1554,7 @@ export async function sendAnnouncementToUsers(announcementId: string) {
     throw insertError;
   }
 
-  // Update announcement sent_at
-  const { error: updateError } = await supabase
+  const { error: updateError } = await client
     .from('announcements')
     .update({ sent_at: new Date().toISOString() })
     .eq('id', announcementId);
@@ -1795,6 +1832,53 @@ export async function createCoupon(data: {
 
   if (error) {
     console.error('Error creating coupon:', error);
+    throw error;
+  }
+
+  return coupon;
+}
+
+/** Create coupon from admin panel (bypasses RLS). Requires authenticated user for created_by. */
+export async function createCouponAsAdmin(data: {
+  code: string;
+  description?: string;
+  discount_type: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription';
+  discount_value?: number;
+  free_analyses_count?: number;
+  trial_tier?: 'creator' | 'pro' | 'coach';
+  trial_duration_days?: number;
+  max_uses?: number;
+  valid_from?: string;
+  valid_until?: string;
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  const adminClient = getAdminClient();
+
+  const discountValue = data.discount_type === 'free_analyses' 
+    ? (data.free_analyses_count || data.discount_value || null)
+    : data.discount_value || null;
+
+  const { data: coupon, error } = await adminClient
+    .from('coupons')
+    .insert({
+      code: data.code.toUpperCase().trim(),
+      description: data.description || null,
+      discount_type: data.discount_type,
+      discount_value: discountValue,
+      trial_tier: data.trial_tier || null,
+      trial_duration_days: data.trial_duration_days || null,
+      max_uses: data.max_uses || null,
+      valid_from: data.valid_from || new Date().toISOString(),
+      valid_until: data.valid_until || null,
+      created_by: user.id,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating coupon (admin):', error);
     throw error;
   }
 

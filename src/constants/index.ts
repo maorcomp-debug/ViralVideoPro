@@ -64,8 +64,9 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     yearlyPrice: 990, // ~2 months free
     limits: {
       maxAnalysesPerPeriod: 30,
-      maxVideoSeconds: 5 * 60, // 5 minutes
-      maxFileBytes: 40 * 1024 * 1024, // 40MB
+      // אקסטרים – כמו שציינת: עד 3 דקות או 15MB
+      maxVideoSeconds: 3 * 60, // 3 minutes
+      maxFileBytes: 15 * 1024 * 1024, // 15MB
       maxVideoMinutesPerPeriod: 100, // 100 minutes per month
       features: {
         saveHistory: true,

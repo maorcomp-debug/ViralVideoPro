@@ -46,7 +46,8 @@ export const useFileUpload = (
     const limitText = getUploadLimitText(activeTrack, subscription || undefined);
 
     if (selectedFile.size > maxFileBytes) {
-      alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
+      const actualMb = (selectedFile.size / (1024 * 1024)).toFixed(1);
+      alert(`הקובץ גדול מדי (${actualMb}MB). מגבלה: ${limitText}.`);
       resetInput();
       return;
     }
@@ -68,7 +69,8 @@ export const useFileUpload = (
 
       videoEl.onloadedmetadata = () => {
         if (videoEl.duration > maxVideoSeconds) {
-          alert(`הסרטון חורג מהמגבלה: ${limitText}.`);
+          const durationSeconds = Math.round(videoEl.duration);
+          alert(`אורך הסרטון (${durationSeconds} שניות) חורג מהמגבלה: ${limitText}.`);
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;

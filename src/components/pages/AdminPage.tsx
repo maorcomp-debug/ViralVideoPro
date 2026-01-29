@@ -11,8 +11,10 @@ import {
   getUserUsageStats,
   getUsageForCurrentPeriod,
   createAnnouncement,
+  createAnnouncementAsAdmin,
   getAllAnnouncements,
   createCoupon,
+  createCouponAsAdmin,
   getAllCoupons,
   updateCoupon,
   deleteCoupon,
@@ -1124,9 +1126,14 @@ export const AdminPage: React.FC = () => {
   };
 
   const handleCreateCoupon = async (e?: React.FormEvent) => {
-    // תומך גם ב-submit של הטופס (אנטר) וגם בלחיצה ישירה על הכפתור
     if (e) {
       e.preventDefault();
+    }
+    // ולידציה: כותרת חובה
+    const titleTrimmed = couponForm.title?.trim();
+    if (!titleTrimmed) {
+      alert('נא למלא כותרת להטבה.');
+      return;
     }
     try {
       // Map benefit type to discount_type + ערכים מספריים
@@ -1154,15 +1161,15 @@ export const AdminPage: React.FC = () => {
         discountType = 'trial_subscription';
       }
       
-      // Generate code from title
-      const code = couponForm.title
+      const code = titleTrimmed
         .replace(/[^א-תa-zA-Z0-9]/g, '')
         .substring(0, 10)
         .toUpperCase() || 'COUPON' + Date.now().toString().slice(-6);
 
-      const coupon = await createCoupon({
+      // יצירת ההטבה דרך אדמין (עוקף RLS)
+      const coupon = await createCouponAsAdmin({
         code,
-        description: couponForm.description || couponForm.title,
+        description: couponForm.description?.trim() || titleTrimmed,
         discount_type: discountType,
         discount_value: discountValue,
         free_analyses_count: freeAnalysesCount,
@@ -1174,23 +1181,20 @@ export const AdminPage: React.FC = () => {
           : (couponForm.benefitType === 'free_week' ? 7 : couponForm.benefitType === 'free_month' ? 30 : undefined),
       });
 
-      // שליחת ההטבה לפי בחירתך (מייל / הודעות מנוי)
-      // משתמשים במנגנון הקיים של createAnnouncement כדי לשלוח הודעה מנוסחת עם קוד ההטבה
-      if (couponForm.deliveryEmail || couponForm.deliveryInApp) {
+      // שליחת ההטבה כהודעת מנוי ו/או במייל (דרך מנגנון העדכונים) – דרך אדמין
+      const sendInApp = couponForm.deliveryInApp !== false;
+      const sendEmail = couponForm.deliveryEmail === true;
+      if (sendInApp || sendEmail) {
         try {
           const targetAll = couponForm.targetScope === 'all';
           const targetTier = couponForm.targetScope === 'package' && couponForm.package !== 'all'
             ? [couponForm.package]
             : undefined;
 
-          await createAnnouncement({
-            title: `הטבה חדשה: ${couponForm.title}`,
-            message: `קיבלת הטבה חדשה.\n\nתיאור: ${couponForm.description || couponForm.title}\nקוד הטבה לשימוש: ${code}\n\nסוג שליחה: ${
-              couponForm.deliveryEmail && couponForm.deliveryInApp
-                ? 'מייל + הודעות מנוי'
-                : couponForm.deliveryEmail
-                  ? 'מייל'
-                  : 'הודעות מנוי'
+          await createAnnouncementAsAdmin({
+            title: `הטבה חדשה: ${titleTrimmed}`,
+            message: `קיבלת הטבה חדשה.\n\nתיאור: ${couponForm.description?.trim() || titleTrimmed}\nקוד הטבה לשימוש: ${code}\n\nסוג שליחה: ${
+              sendEmail && sendInApp ? 'הודעת מנוי + מייל' : sendEmail ? 'מייל' : 'הודעת מנוי'
             }`,
             target_all: targetAll,
             target_tier: targetTier,
@@ -1747,15 +1751,48 @@ export const AdminPage: React.FC = () => {
                   פעיל
                 </CheckboxLabel>
               </FormGroup>
+              <SubmitButton type="submit" style={{ marginTop: '10px' }}>
+                צור הטבה
+              </SubmitButton>
             </form>
-            {/* כפתור יצירת ההטבה – מחוץ לטופס כדי לוודא שאין שום מנגנון HTML שחוסם את הקליק */}
-            <SubmitButton
-              type="button"
-              onClick={() => handleCreateCoupon()}
-              style={{ marginTop: '10px' }}
-            >
-              צור הטבה
-            </SubmitButton>
+
+            {/* רשימת ההטבות שנוצרו – כדי לוודא שההטבה אכן נוצרת ונשמרת */}
+            <SectionHeader style={{ marginTop: '30px' }}>
+              <SectionTitle>הטבות קיימות ({coupons.length})</SectionTitle>
+              <RefreshButton onClick={() => loadData(true)}>
+                🔄 רענן
+              </RefreshButton>
+            </SectionHeader>
+            {coupons.length === 0 ? (
+              <EmptyState>עדיין לא נוצרו הטבות</EmptyState>
+            ) : (
+              <TableWrapper>
+                <Table>
+                  <TableHeader>
+                    <tr>
+                      <TableHeaderCell>קוד</TableHeaderCell>
+                      <TableHeaderCell>תיאור</TableHeaderCell>
+                      <TableHeaderCell>סוג</TableHeaderCell>
+                      <TableHeaderCell>נוצר בתאריך</TableHeaderCell>
+                    </tr>
+                  </TableHeader>
+                  <tbody>
+                    {coupons.map((coupon) => (
+                      <TableRow key={coupon.id}>
+                        <TableCell>{coupon.code}</TableCell>
+                        <TableCell>{coupon.description || '-'}</TableCell>
+                        <TableCell>{coupon.discount_type}</TableCell>
+                        <TableCell>
+                          {coupon.created_at
+                            ? new Date(coupon.created_at).toLocaleDateString('he-IL')
+                            : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrapper>
+            )}
           </>
         )}
 
