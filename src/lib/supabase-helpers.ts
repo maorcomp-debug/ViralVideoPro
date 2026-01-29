@@ -44,6 +44,33 @@ const getAdminClient = () => {
   return adminSupabaseClient;
 };
 
+/** Get current user with timeout so admin flows don't hang. */
+const getCurrentUserWithTimeout = async (ms = 6000): Promise<{ id: string } | null> => {
+  const timeout = new Promise<never>((_, rej) =>
+    setTimeout(() => rej(new Error('Session check timed out')), ms)
+  );
+  try {
+    const result = await Promise.race([supabase.auth.getUser(), timeout]) as { data: { user: { id: string } | null }; error: unknown };
+    if (result?.data?.user) return { id: result.data.user.id };
+    return null;
+  } catch {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+      const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || '';
+      const storageKey = `sb-${projectRef}-auth-token`;
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(storageKey) : null;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const user = parsed?.currentSession?.user ?? parsed?.user;
+        if (user?.id) return { id: user.id };
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+};
+
 // Helper functions for common operations
 
 export async function getCurrentUserProfile(forceRefresh = false) {
@@ -1474,8 +1501,8 @@ export async function createAnnouncementAsAdmin(data: {
   target_all?: boolean;
   target_tier?: string[];
 }) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+  const user = await getCurrentUserWithTimeout(6000);
+  if (!user) throw new Error('לא מזוהה משתמש. רענן את הדף והתחבר שוב.');
   const adminClient = getAdminClient();
 
   const { data: announcement, error } = await adminClient
@@ -1851,8 +1878,8 @@ export async function createCouponAsAdmin(data: {
   valid_from?: string;
   valid_until?: string;
 }) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+  const user = await getCurrentUserWithTimeout(6000);
+  if (!user) throw new Error('לא מזוהה משתמש. רענן את הדף והתחבר שוב.');
   const adminClient = getAdminClient();
 
   const discountValue = data.discount_type === 'free_analyses' 

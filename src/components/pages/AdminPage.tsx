@@ -1137,101 +1137,99 @@ export const AdminPage: React.FC = () => {
       return;
     }
     setIsCreatingCoupon(true);
+    const TIMEOUT_MS = 20000;
+    const timeoutPromise = new Promise<never>((_, rej) =>
+      setTimeout(() => rej(new Error('הפעולה ארכה יותר מדי. נסה לרענן את הדף.')), TIMEOUT_MS)
+    );
     try {
-      // Map benefit type to discount_type + ערכים מספריים
-      let discountType: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription' = 'trial_subscription';
-      let discountValue: number | undefined;
-      let freeAnalysesCount: number | undefined;
+      const work = (async () => {
+        let discountType: 'percentage' | 'fixed_amount' | 'free_analyses' | 'trial_subscription' = 'trial_subscription';
+        let discountValue: number | undefined;
+        let freeAnalysesCount: number | undefined;
 
-      if (couponForm.benefitType === 'discount_percent') {
-        discountType = 'percentage';
-        discountValue = couponForm.percent ? parseInt(couponForm.percent, 10) : 10;
-      } else if (couponForm.benefitType === 'gift_analyses') {
-        discountType = 'free_analyses';
-        freeAnalysesCount = couponForm.analysesCount ? parseInt(couponForm.analysesCount, 10) : 1;
-      } else if (couponForm.benefitType === 'registration_discount') {
-        discountType = couponForm.registrationType;
-        if (couponForm.registrationType === 'percentage' || couponForm.registrationType === 'fixed_amount') {
-          discountValue = couponForm.registrationValue ? parseFloat(couponForm.registrationValue) : undefined;
-        }
-        if (couponForm.registrationType === 'free_analyses') {
-          freeAnalysesCount = couponForm.registrationAnalysesCount
-            ? parseInt(couponForm.registrationAnalysesCount, 10)
-            : 1;
-        }
-      } else {
-        discountType = 'trial_subscription';
-      }
-      
-      const code = titleTrimmed
-        .replace(/[^א-תa-zA-Z0-9]/g, '')
-        .substring(0, 10)
-        .toUpperCase() || 'COUPON' + Date.now().toString().slice(-6);
-
-      // יצירת ההטבה דרך אדמין (עוקף RLS)
-      const coupon = await createCouponAsAdmin({
-        code,
-        description: couponForm.description?.trim() || titleTrimmed,
-        discount_type: discountType,
-        discount_value: discountValue,
-        free_analyses_count: freeAnalysesCount,
-        trial_tier: (couponForm.package !== 'all' && ['creator', 'pro', 'coach'].includes(couponForm.package)) 
-          ? couponForm.package as 'creator' | 'pro' | 'coach'
-          : undefined,
-        trial_duration_days: (discountType === 'trial_subscription' && couponForm.days) 
-          ? parseInt(couponForm.days) 
-          : (couponForm.benefitType === 'free_week' ? 7 : couponForm.benefitType === 'free_month' ? 30 : undefined),
-      });
-
-      // שליחת ההטבה כהודעת מנוי ו/או במייל (דרך מנגנון העדכונים) – דרך אדמין
-      const sendInApp = couponForm.deliveryInApp !== false;
-      const sendEmail = couponForm.deliveryEmail === true;
-      if (sendInApp || sendEmail) {
-        try {
-          const targetAll = couponForm.targetScope === 'all';
-          const targetTier = couponForm.targetScope === 'package' && couponForm.package !== 'all'
-            ? [couponForm.package]
-            : undefined;
-
-          await createAnnouncementAsAdmin({
-            title: `הטבה חדשה: ${titleTrimmed}`,
-            message: `קיבלת הטבה חדשה.\n\nתיאור: ${couponForm.description?.trim() || titleTrimmed}\nקוד הטבה לשימוש: ${code}\n\nסוג שליחה: ${
-              sendEmail && sendInApp ? 'הודעת מנוי + מייל' : sendEmail ? 'מייל' : 'הודעת מנוי'
-            }`,
-            target_all: targetAll,
-            target_tier: targetTier,
-          });
-
-          if (couponForm.targetScope === 'user' && couponForm.targetUserEmail) {
-            // נכון לעכשיו אין מפתח ישיר לשליחת הטבה למשתמש בודד דרך announcements,
-            // לכן ההודעה נשלחת לפי כלל/חבילה, ואת הקוד למשתמש בודד מומלץ גם לשלוח ידנית במייל.
-            console.log('Target single user email for manual followup:', couponForm.targetUserEmail);
+        if (couponForm.benefitType === 'discount_percent') {
+          discountType = 'percentage';
+          discountValue = couponForm.percent ? parseInt(couponForm.percent, 10) : 10;
+        } else if (couponForm.benefitType === 'gift_analyses') {
+          discountType = 'free_analyses';
+          freeAnalysesCount = couponForm.analysesCount ? parseInt(couponForm.analysesCount, 10) : 1;
+        } else if (couponForm.benefitType === 'registration_discount') {
+          discountType = couponForm.registrationType;
+          if (couponForm.registrationType === 'percentage' || couponForm.registrationType === 'fixed_amount') {
+            discountValue = couponForm.registrationValue ? parseFloat(couponForm.registrationValue) : undefined;
           }
-        } catch (announceError) {
-          console.error('Error sending coupon announcement:', announceError);
-          // לא נחסום את יצירת ההטבה אם השליחה נכשלה
+          if (couponForm.registrationType === 'free_analyses') {
+            freeAnalysesCount = couponForm.registrationAnalysesCount
+              ? parseInt(couponForm.registrationAnalysesCount, 10)
+              : 1;
+          }
+        } else {
+          discountType = 'trial_subscription';
         }
-      }
 
-      alert('ההטבה נוצרה בהצלחה');
-      setCouponForm({
-        benefitType: 'free_week',
-        title: '',
-        description: '',
-        days: '',
-        package: 'all',
-        active: true,
-        percent: '',
-        analysesCount: '',
-        registrationType: 'percentage',
-        registrationValue: '',
-        registrationAnalysesCount: '',
-        deliveryEmail: false,
-        deliveryInApp: true,
-        targetScope: 'all',
-        targetUserEmail: '',
-      });
-      await loadData();
+        const code = titleTrimmed
+          .replace(/[^א-תa-zA-Z0-9]/g, '')
+          .substring(0, 10)
+          .toUpperCase() || 'COUPON' + Date.now().toString().slice(-6);
+
+        const coupon = await createCouponAsAdmin({
+          code,
+          description: couponForm.description?.trim() || titleTrimmed,
+          discount_type: discountType,
+          discount_value: discountValue,
+          free_analyses_count: freeAnalysesCount,
+          trial_tier: (couponForm.package !== 'all' && ['creator', 'pro', 'coach'].includes(couponForm.package))
+            ? couponForm.package as 'creator' | 'pro' | 'coach'
+            : undefined,
+          trial_duration_days: (discountType === 'trial_subscription' && couponForm.days)
+            ? parseInt(couponForm.days)
+            : (couponForm.benefitType === 'free_week' ? 7 : couponForm.benefitType === 'free_month' ? 30 : undefined),
+        });
+
+        const sendInApp = couponForm.deliveryInApp !== false;
+        const sendEmail = couponForm.deliveryEmail === true;
+        if (sendInApp || sendEmail) {
+          try {
+            const targetAll = couponForm.targetScope === 'all';
+            const targetTier = couponForm.targetScope === 'package' && couponForm.package !== 'all'
+              ? [couponForm.package]
+              : undefined;
+
+            await createAnnouncementAsAdmin({
+              title: `הטבה חדשה: ${titleTrimmed}`,
+              message: `קיבלת הטבה חדשה.\n\nתיאור: ${couponForm.description?.trim() || titleTrimmed}\nקוד הטבה לשימוש: ${code}\n\nסוג שליחה: ${
+                sendEmail && sendInApp ? 'הודעת מנוי + מייל' : sendEmail ? 'מייל' : 'הודעת מנוי'
+              }`,
+              target_all: targetAll,
+              target_tier: targetTier,
+            });
+          } catch (announceError) {
+            console.error('Error sending coupon announcement:', announceError);
+          }
+        }
+
+        alert('ההטבה נוצרה בהצלחה');
+        setCouponForm({
+          benefitType: 'free_week',
+          title: '',
+          description: '',
+          days: '',
+          package: 'all',
+          active: true,
+          percent: '',
+          analysesCount: '',
+          registrationType: 'percentage',
+          registrationValue: '',
+          registrationAnalysesCount: '',
+          deliveryEmail: false,
+          deliveryInApp: true,
+          targetScope: 'all',
+          targetUserEmail: '',
+        });
+        await loadData();
+      })();
+
+      await Promise.race([work, timeoutPromise]);
     } catch (error: any) {
       console.error('Error creating coupon:', error);
       alert('שגיאה ביצירת ההטבה: ' + (error.message || 'Unknown error'));
