@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { updateCurrentUserProfile, getUserAnnouncements, markAnnouncementAsRead } from '../../lib/supabase-helpers';
+import { updateCurrentUserProfile, getUserAnnouncements, markAnnouncementAsRead, redeemCoupon } from '../../lib/supabase-helpers';
 import { TrackSelectionModal } from '../modals/TrackSelectionModal';
 import type { User } from '@supabase/supabase-js';
 import type { UserSubscription, SubscriptionTier, TrackId } from '../../types';
@@ -57,6 +57,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   });
   const [receiveUpdates, setReceiveUpdates] = useState(profile?.receive_updates ?? true);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [redeemingCode, setRedeemingCode] = useState<string | null>(null);
   const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
 
   useEffect(() => {
@@ -173,6 +174,39 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       loadAnnouncements();
     } catch (error) {
       console.error('Error marking as read:', error);
+    }
+  };
+
+  /** Extract coupon code from benefit announcement message (קוד הטבה לשימוש: XXX) */
+  const getCouponCodeFromMessage = (message: string | null): string | null => {
+    if (!message) return null;
+    const prefix = 'קוד הטבה לשימוש:';
+    const i = message.indexOf(prefix);
+    if (i === -1) return null;
+    const rest = message.slice(i + prefix.length).split('\n')[0].trim();
+    return rest || null;
+  };
+
+  const handleRedeemBenefit = async (item: any) => {
+    const ann = item?.announcement;
+    const code = getCouponCodeFromMessage(ann?.message);
+    if (!code || !user?.id) {
+      setMessage({ type: 'error', text: 'לא נמצא קוד הטבה בהודעה' });
+      return;
+    }
+    if (redeemingCode) return;
+    setRedeemingCode(code);
+    setMessage(null);
+    try {
+      await redeemCoupon(code, user.id);
+      setMessage({ type: 'success', text: 'ההטבה מומשה בהצלחה' });
+      if (ann?.id) await markAnnouncementAsRead(ann.id);
+      loadAnnouncements();
+      onProfileUpdate();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.message || 'לא ניתן לממש את ההטבה' });
+    } finally {
+      setRedeemingCode(null);
     }
   };
 
@@ -744,6 +778,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           )}
                         </div>
                         <p style={{ color: '#ccc', margin: '10px 0', lineHeight: '1.6' }}>{ann.message}</p>
+                        {getCouponCodeFromMessage(ann.message) && (
+                          <div style={{ marginTop: '12px' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleRedeemBenefit(item); }}
+                              disabled={!!redeemingCode}
+                              style={{
+                                background: '#D4A043',
+                                color: '#000',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                fontWeight: 700,
+                                cursor: redeemingCode ? 'not-allowed' : 'pointer',
+                                fontSize: '0.95rem',
+                              }}
+                            >
+                              {redeemingCode === getCouponCodeFromMessage(ann.message) ? 'מממש...' : 'מימוש הטבה'}
+                            </button>
+                          </div>
+                        )}
                         <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
                           {new Date(ann.created_at).toLocaleDateString('he-IL', {
                             year: 'numeric',

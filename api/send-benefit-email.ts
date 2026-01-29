@@ -4,8 +4,12 @@ import { createClient } from '@supabase/supabase-js';
 interface SendBenefitEmailRequest {
   title: string;
   message?: string;
-  /** Short label for subject line: "הטבה ו {benefitTypeLabel} | Viraly – Video Director Pro" */
+  /** סוג ההטבה (אחוז הנחה, ניתוח מתנה, קוד קופון...) */
   benefitTypeLabel?: string;
+  /** כותרת ההודעה (למשל: הטבה לנרשמים חדשים) */
+  benefitTitle?: string;
+  /** קוד הקופון – למייל עם קוד ולקישור מימוש ?redeem= */
+  couponCode?: string;
   targetAll?: boolean;
   targetTier?: string[];
 }
@@ -16,7 +20,10 @@ function escapeHtml(text: string): string {
 }
 
 /** Benefit email HTML – RTL Hebrew, same visual style as account verification (dark theme, yellow CTA). */
-function buildBenefitEmailHtml(redemptionUrl: string): string {
+function buildBenefitEmailHtml(redemptionUrl: string, couponCode?: string): string {
+  const ctaIntro = couponCode
+    ? `כדי לממש את ההטבה, העתק או הזן את קוד ההטבה (<strong>${escapeHtml(couponCode)}</strong>) ולחץ על הכפתור למימוש ההטבה.`
+    : 'כדי לממש את ההטבה, לחץ על הכפתור:';
   return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
@@ -33,7 +40,7 @@ function buildBenefitEmailHtml(redemptionUrl: string): string {
       Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
     </p>
     <p style="margin: 0 0 16px 0; line-height: 1.6; color: #fff;">
-      כדי לממש את ההטבה, לחץ על הכפתור:
+      ${ctaIntro}
     </p>
     <p style="margin: 0 0 24px 0; text-align: right;">
       <a href="${escapeHtml(redemptionUrl)}" style="display: inline-block; background: #D4A043; color: #000; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem;">
@@ -100,16 +107,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const emails = profiles.map((p: { email?: string }) => p.email).filter(Boolean) as string[];
-    const benefitLabel = (body.benefitTypeLabel || body.title || 'הטבה').trim();
-    const subject = `Viraly – Video Director Pro | הטבה | ${benefitLabel}`;
-    const redemptionUrl = appUrl.replace(/\/$/, '');
+    const benefitTypeLabel = (body.benefitTypeLabel || 'הטבה').trim();
+    const benefitTitle = (body.benefitTitle || body.title || '').trim();
+    const subject = `Viraly – Video Director Pro | ${benefitTypeLabel} | ${benefitTitle || 'הטבה'}`;
+    const baseUrl = appUrl.replace(/\/$/, '');
+    const redemptionUrl = body.couponCode
+      ? `${baseUrl}?redeem=${encodeURIComponent(body.couponCode)}`
+      : baseUrl;
     const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
-    const htmlBody = buildBenefitEmailHtml(redemptionUrl);
+    const htmlBody = buildBenefitEmailHtml(redemptionUrl, body.couponCode);
+    const ctaText = body.couponCode
+      ? `כדי לממש את ההטבה, העתק או הזן את קוד ההטבה (${body.couponCode}) ולחץ על הקישור למימוש:`
+      : 'כדי לממש את ההטבה, לחץ על הקישור:';
     const textBody = [
       'ברוך הבא ל־ Viraly',
       'Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.',
       '',
-      'כדי לממש את ההטבה, לחץ על הקישור:',
+      ctaText,
       redemptionUrl,
       '',
       'אם לא ביקשת להצטרף ל-Viraly, ניתן להתעלם מהמייל.',

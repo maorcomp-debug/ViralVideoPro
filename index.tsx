@@ -58,6 +58,7 @@ import {
   getUserVideos,
   getUserUsageStats,
   getAdminStats,
+  redeemCoupon,
 } from './src/lib/supabase-helpers';
 import type { User } from '@supabase/supabase-js';
 import type {
@@ -902,6 +903,27 @@ const App = () => {
       
     }
   }, [location.search, user, profile, navigate, location.pathname, loadUserData]);
+
+  // Redeem coupon from URL (?redeem=CODE) – from email or updates; first activation wins
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const redeemCode = searchParams.get('redeem');
+    if (!redeemCode?.trim() || !user?.id) return;
+
+    (async () => {
+      try {
+        await redeemCoupon(redeemCode.trim(), user.id);
+        alert('ההטבה מומשה בהצלחה');
+        await loadUserData(user, true);
+      } catch (err: any) {
+        alert(err?.message || 'לא ניתן לממש את ההטבה. ייתכן שכבר מומשה.');
+      }
+      const next = new URLSearchParams(location.search);
+      next.delete('redeem');
+      const q = next.toString();
+      navigate(`${location.pathname}${q ? `?${q}` : ''}`, { replace: true });
+    })();
+  }, [location.search, user?.id, navigate, location.pathname, loadUserData]);
 
   // Set activeTrack from profile when profile loads (for all tiers)
   useEffect(() => {

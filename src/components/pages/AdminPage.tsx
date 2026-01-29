@@ -758,7 +758,7 @@ const ConfirmButton = styled.button`
 type MainTab = 'overview' | 'users' | 'analyses' | 'video' | 'alerts';
 type SubTab = 'send-update' | 'coupons' | 'trials' | 'history';
 
-/** תווית בעברית לסוג ההטבה */
+/** תווית בעברית לסוג ההטבה (לפי discount_type בטבלה) */
 const getBenefitTypeLabel = (discountType: string): string => {
   const labels: Record<string, string> = {
     trial_subscription: 'ניסיון חינם',
@@ -769,6 +769,19 @@ const getBenefitTypeLabel = (discountType: string): string => {
     registration_discount: 'קופון הנחה להרשמה',
   };
   return labels[discountType] || discountType;
+};
+
+/** תווית לסוג ההטבה לפי ערך הטופס (לכותרת מייל: סוג ההטבה) */
+const getBenefitTypeLabelFromForm = (benefitType: string): string => {
+  const labels: Record<string, string> = {
+    free_week: 'ניסיון חינם',
+    free_month: 'ניסיון חינם',
+    discount_percent: 'אחוז הנחה',
+    gift_analyses: 'ניתוח וידאו מתנה',
+    extra_track: 'מסלול ניתוח נוסף חינם',
+    registration_discount: 'קופון הנחה להרשמה',
+  };
+  return labels[benefitType] || 'הטבה';
 };
 
 export const AdminPage: React.FC = () => {
@@ -803,6 +816,7 @@ export const AdminPage: React.FC = () => {
     benefitType: 'free_week',
     title: '',
     description: '',
+    customCode: '', // קוד קופון (אופציונלי – אם ריק יופעל אוטומטית מהכותרת)
     days: '',
     package: 'all',
     active: true,
@@ -911,16 +925,14 @@ export const AdminPage: React.FC = () => {
         const videosData = await getAllVideos(true); // skipAdminCheck = true
         setVideos(videosData || []);
       } else if (activeTab === 'alerts') {
-        if (activeSubTab === 'send-update') {
-          const announcementsData = await getAllAnnouncements();
-          setAnnouncements(announcementsData || []);
-        } else if (activeSubTab === 'coupons') {
-          const couponsData = await getAllCoupons();
-          setCoupons(couponsData || []);
-        } else if (activeSubTab === 'trials') {
-          const trialsData = await getAllTrials();
-          setTrials(trialsData || []);
-        }
+        const [announcementsData, couponsData, trialsData] = await Promise.all([
+          getAllAnnouncements(),
+          getAllCoupons(),
+          getAllTrials(),
+        ]);
+        setAnnouncements(announcementsData || []);
+        setCoupons(couponsData || []);
+        setTrials(trialsData || []);
       }
       
       // CRITICAL: Load ALL other data in background (non-blocking) to update tab counts
@@ -1226,10 +1238,10 @@ export const AdminPage: React.FC = () => {
           discountType = 'trial_subscription';
         }
 
-        const code = titleTrimmed
-          .replace(/[^א-תa-zA-Z0-9]/g, '')
-          .substring(0, 10)
-          .toUpperCase() || 'COUPON' + Date.now().toString().slice(-6);
+        const code = (couponForm.customCode?.trim()
+          ? couponForm.customCode.trim().replace(/\s+/g, '').toUpperCase().substring(0, 20)
+          : titleTrimmed.replace(/[^א-תa-zA-Z0-9]/g, '').substring(0, 10).toUpperCase())
+          || 'COUPON' + Date.now().toString().slice(-6);
 
         const coupon = await createCouponAsAdmin({
           code,
@@ -1280,7 +1292,9 @@ export const AdminPage: React.FC = () => {
               body: JSON.stringify({
                 title: benefitTitle,
                 message: benefitMessage,
-                benefitTypeLabel: titleTrimmed,
+                benefitTypeLabel: getBenefitTypeLabelFromForm(couponForm.benefitType),
+                benefitTitle: titleTrimmed,
+                couponCode: code,
                 targetAll,
                 targetTier,
               }),
@@ -1301,6 +1315,7 @@ export const AdminPage: React.FC = () => {
           benefitType: 'free_week',
           title: '',
           description: '',
+          customCode: '',
           days: '',
           package: 'all',
           active: true,
@@ -1314,7 +1329,7 @@ export const AdminPage: React.FC = () => {
           targetScope: 'all',
           targetUserEmail: '',
         });
-        await loadData();
+        await loadData(true);
       })();
 
       await Promise.race([work, timeoutPromise]);
@@ -1671,6 +1686,18 @@ export const AdminPage: React.FC = () => {
                           value={couponForm.description}
                           onChange={(e) => setCouponForm({ ...couponForm, description: e.target.value })}
                 />
+              </FormGroup>
+              <FormGroup>
+                <FormLabel>קוד הטבה (אופציונלי)</FormLabel>
+                <FormInput
+                  type="text"
+                  placeholder="אם ריק – יופעל אוטומטית מהכותרת. מלל או מספרים."
+                  value={couponForm.customCode}
+                  onChange={(e) => setCouponForm({ ...couponForm, customCode: e.target.value })}
+                />
+                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '4px' }}>
+                  הקוד שהמשתמש יזין בהרשמה או במימוש – יש להזין בדיוק את אותו קוד.
+                </div>
               </FormGroup>
               <FormGroup>
                 <FormLabel>מספר ימים</FormLabel>
