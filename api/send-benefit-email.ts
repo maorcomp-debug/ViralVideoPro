@@ -3,7 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 
 interface SendBenefitEmailRequest {
   title: string;
-  message: string;
+  message?: string;
+  /** Short label for subject line: "הטבה ו {benefitTypeLabel} | Viraly – Video Director Pro" */
+  benefitTypeLabel?: string;
   targetAll?: boolean;
   targetTier?: string[];
 }
@@ -13,6 +15,45 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => map[c] || c);
 }
 
+/** Benefit email HTML – same visual style as account verification (dark theme, yellow CTA). */
+function buildBenefitEmailHtml(redemptionUrl: string): string {
+  return `<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; padding:0; background:#1a1a1a; font-family: Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 24px; background: #1a1a1a; color: #fff;">
+    <h1 style="margin: 0 0 20px 0; font-size: 1.75rem; font-weight: 700; color: #fff;">
+      ברוך הבא ל־ Viraly
+    </h1>
+    <p style="margin: 0 0 24px 0; line-height: 1.6; color: #fff;">
+      Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
+    </p>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #fff;">
+      כדי לממש את ההטבה, לחץ על הכפתור:
+    </p>
+    <p style="margin: 0 0 24px 0; text-align: center;">
+      <a href="${escapeHtml(redemptionUrl)}" style="display: inline-block; background: #D4A043; color: #000; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem;">
+        מימוש הטבה
+      </a>
+    </p>
+    <p style="margin: 0 0 24px 0; font-size: 0.9rem; color: #ccc;">
+      אם הכפתור לא עובד, לחץ כאן: <a href="${escapeHtml(redemptionUrl)}" style="color: #D4A043;">פתח קישור למימוש ההטבה</a>
+    </p>
+    <p style="margin: 0 0 32px 0; font-size: 0.85rem; color: #999;">
+      אם לא ביקשת להצטרף ל-Viraly, ניתן להתעלם מהמייל.
+    </p>
+    <p style="margin: 0; font-size: 0.85rem; color: #888; text-align: center;">
+      Viraly – Video Director Pro<br>
+      <span style="color: #D4A043;">AI Analysis • Performance • Presence</span>
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
@@ -20,14 +61,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const body = req.body as SendBenefitEmailRequest;
-    if (!body.title || !body.message) {
-      return res.status(400).json({ ok: false, error: 'Missing title or message' });
+    if (!body.title) {
+      return res.status(400).json({ ok: false, error: 'Missing title' });
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.CONTACT_FROM_EMAIL || process.env.FROM_EMAIL;
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+    const appUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://viraly.co.il';
 
     if (!resendApiKey || !fromEmail) {
       console.warn('RESEND_API_KEY or FROM_EMAIL not set – skipping benefit email');
@@ -57,20 +99,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const emails = profiles.map((p: { email?: string }) => p.email).filter(Boolean) as string[];
-    const messagePlain = body.message.replace(/\n/g, '\n');
-    const htmlBody = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="he">
-        <head><meta charset="UTF-8"></head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: #D4A043; color: white; padding: 16px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="margin: 0;">${escapeHtml(body.title)}</h1>
-          </div>
-          <div style="background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; white-space: pre-wrap;">${escapeHtml(body.message)}</div>
-          <p style="margin-top: 20px; font-size: 12px; color: #666;">Viraly - Video Director Pro</p>
-        </body>
-      </html>
-    `;
+    const benefitLabel = (body.benefitTypeLabel || body.title || 'הטבה').trim();
+    const subject = `הטבה ו ${benefitLabel} | Viraly – Video Director Pro`;
+    const redemptionUrl = appUrl.replace(/\/$/, '');
+    const htmlBody = buildBenefitEmailHtml(redemptionUrl);
+    const textBody = [
+      'ברוך הבא ל־ Viraly',
+      'Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.',
+      '',
+      'כדי לממש את ההטבה, לחץ על הקישור:',
+      redemptionUrl,
+      '',
+      'אם לא ביקשת להצטרף ל-Viraly, ניתן להתעלם מהמייל.',
+      '',
+      'Viraly – Video Director Pro',
+      'AI Analysis • Performance • Presence',
+    ].join('\n');
 
     let sent = 0;
     for (const to of emails) {
@@ -84,9 +128,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           body: JSON.stringify({
             from: fromEmail,
             to: [to],
-            subject: body.title,
+            subject,
             html: htmlBody,
-            text: messagePlain,
+            text: textBody,
           }),
         });
         if (resendRes.ok) sent++;

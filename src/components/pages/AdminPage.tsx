@@ -1279,6 +1279,7 @@ export const AdminPage: React.FC = () => {
               body: JSON.stringify({
                 title: benefitTitle,
                 message: benefitMessage,
+                benefitTypeLabel: titleTrimmed,
                 targetAll,
                 targetTier,
               }),
@@ -1808,6 +1809,9 @@ export const AdminPage: React.FC = () => {
                     />
                     שלח כהודעת מנוי בתוך המערכת
                   </CheckboxLabel>
+                  <div style={{ fontSize: '0.8rem', color: '#999', marginRight: '24px' }}>
+                    הודעה תופיע בהגדרות → עדכונים רק למשתמשים שסימנו "מקבל עדכונים" בפרופיל.
+                  </div>
                   <CheckboxLabel>
                     <Checkbox
                       type="checkbox"
