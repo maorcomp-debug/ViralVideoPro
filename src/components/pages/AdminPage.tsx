@@ -18,12 +18,14 @@ import {
   getAllCoupons,
   getAllCouponsForAdmin,
   updateCoupon,
-  deleteCoupon,
+  deleteCouponAsAdmin,
   toggleCouponStatus,
   grantTrialToUsers,
   getAllTrials,
   getAllTrialsForAdmin,
   getCouponRedemptionsForAdmin,
+  deleteAllTrialsAsAdmin,
+  deleteAllRedemptionsAsAdmin,
 } from '../../lib/supabase-helpers';
 import { supabase } from '../../lib/supabase';
 import type { SubscriptionTier } from '../../types';
@@ -810,6 +812,7 @@ function buildBenefitDetailsForEmail(form: {
     ? PACKAGE_LABELS[form.package] || form.package
     : '';
   const forPackage = pkg ? ` ${pkg}` : '';
+  const forPackageRegistration = pkg ? ` ל${pkg}` : '';
   switch (form.benefitType) {
     case 'free_week':
       return `שבוע ניסיון חינם${forPackage}`;
@@ -823,12 +826,12 @@ function buildBenefitDetailsForEmail(form: {
       return `מסלול ניתוח נוסף חינם${forPackage}`;
     case 'registration_discount':
       if (form.registrationType === 'percentage' && form.registrationValue)
-        return `${form.registrationValue}% הנחה בהרשמה${forPackage}`;
+        return `${form.registrationValue}% הנחה בהרשמה${forPackageRegistration}`;
       if (form.registrationType === 'fixed_amount' && form.registrationValue)
-        return `הנחה של ${form.registrationValue} ₪ בהרשמה${forPackage}`;
+        return `הנחה של ${form.registrationValue} ₪ בהרשמה${forPackageRegistration}`;
       if (form.registrationType === 'free_analyses' && form.registrationAnalysesCount)
-        return `${form.registrationAnalysesCount} ניתוחים בחינם בהרשמה${forPackage}`;
-      return `הנחה בהרשמה${forPackage}`;
+        return `${form.registrationAnalysesCount} ניתוחים בחינם בהרשמה${forPackageRegistration}`;
+      return `הנחה בהרשמה${forPackageRegistration}`;
     default:
       return `הטבה${forPackage}`;
   }
@@ -1221,13 +1224,37 @@ export const AdminPage: React.FC = () => {
   const handleDeleteCoupon = async (couponId: string) => {
     if (!confirm('למחוק את ההטבה? לא ניתן לשחזר.')) return;
     try {
-      await deleteCoupon(couponId);
+      await deleteCouponAsAdmin(couponId);
       setEditingCoupon(null);
       await loadData(true);
       alert('ההטבה נמחקה');
     } catch (error: any) {
       console.error('Error deleting coupon:', error);
       alert('שגיאה במחיקת ההטבה: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleDeleteAllTrials = async () => {
+    if (!confirm('למחוק את כל רשומות ההתנסויות? לא ניתן לשחזר.')) return;
+    try {
+      await deleteAllTrialsAsAdmin();
+      await loadData(true);
+      alert('כל ההתנסויות נמחקו');
+    } catch (error: any) {
+      console.error('Error deleting all trials:', error);
+      alert('שגיאה במחיקת ההתנסויות: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleDeleteAllHistory = async () => {
+    if (!confirm('למחוק את כל היסטוריית המימושים (מי השתמש בכל הטבה)? לא ניתן לשחזר.')) return;
+    try {
+      await deleteAllRedemptionsAsAdmin();
+      await loadData(true);
+      alert('כל ההיסטוריה נמחקה');
+    } catch (error: any) {
+      console.error('Error deleting all redemptions:', error);
+      alert('שגיאה במחיקת ההיסטוריה: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -1374,6 +1401,11 @@ export const AdminPage: React.FC = () => {
         }
 
         alert('ההטבה נוצרה בהצלחה');
+        const packageParam = (couponForm.targetScope === 'package' && couponForm.package && couponForm.package !== 'all')
+          ? couponForm.package
+          : '';
+        const redeemQuery = `?redeem=${encodeURIComponent(code)}${packageParam ? `&package=${encodeURIComponent(packageParam)}` : ''}`;
+        navigate(`/${redeemQuery}`);
         setCouponForm({
           benefitType: 'free_week',
           title: '',
@@ -2010,7 +2042,14 @@ export const AdminPage: React.FC = () => {
           <>
             <SectionHeader>
               <SectionTitle>הטבות והתנסויות</SectionTitle>
-              <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {trials.length > 0 && (
+                  <ActionButton $variant="delete" onClick={handleDeleteAllTrials} title="מחק את כל רשומות ההתנסויות">
+                    🗑️ מחק את כל ההתנסויות
+                  </ActionButton>
+                )}
+                <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
+              </div>
             </SectionHeader>
             <h3 style={{ color: '#D4A043', marginBottom: '12px' }}>הטבות (קופונים)</h3>
             {coupons.length === 0 ? (
@@ -2078,7 +2117,14 @@ export const AdminPage: React.FC = () => {
           <>
             <SectionHeader>
               <SectionTitle>היסטוריית הטבות</SectionTitle>
-              <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {redemptions.length > 0 && (
+                  <ActionButton $variant="delete" onClick={handleDeleteAllHistory} title="מחק את כל היסטוריית המימושים">
+                    🗑️ מחק את כל ההיסטוריה
+                  </ActionButton>
+                )}
+                <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
+              </div>
             </SectionHeader>
             <p style={{ color: '#999', fontSize: '0.9rem', marginBottom: '12px' }}>
               כל ההטבות שנוצרו, כולל מימושים (מי השתמש בכל הטבה)

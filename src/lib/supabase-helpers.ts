@@ -2111,6 +2111,50 @@ export async function deleteCoupon(couponId: string) {
   return { success: true };
 }
 
+/** Admin: delete coupon and its redemptions (bypasses RLS). Deletes redemptions first to satisfy FK. */
+export async function deleteCouponAsAdmin(couponId: string) {
+  const adminClient = getAdminClient();
+  const { error: redemptionsError } = await adminClient
+    .from('coupon_redemptions')
+    .delete()
+    .eq('coupon_id', couponId);
+  if (redemptionsError) {
+    console.error('Error deleting coupon redemptions:', redemptionsError);
+    throw redemptionsError;
+  }
+  const { error } = await adminClient
+    .from('coupons')
+    .delete()
+    .eq('id', couponId);
+  if (error) {
+    console.error('Error deleting coupon:', error);
+    throw error;
+  }
+  return { success: true };
+}
+
+/** Admin: delete all user_trials (bypasses RLS). */
+export async function deleteAllTrialsAsAdmin() {
+  const adminClient = getAdminClient();
+  const { error } = await adminClient.from('user_trials').delete().neq('id', null as any);
+  if (error) {
+    console.error('Error deleting all trials:', error);
+    throw error;
+  }
+  return { success: true };
+}
+
+/** Admin: delete all coupon_redemptions – clears redemption history (bypasses RLS). */
+export async function deleteAllRedemptionsAsAdmin() {
+  const adminClient = getAdminClient();
+  const { error } = await adminClient.from('coupon_redemptions').delete().neq('id', null as any);
+  if (error) {
+    console.error('Error deleting all redemptions:', error);
+    throw error;
+  }
+  return { success: true };
+}
+
 export async function toggleCouponStatus(couponId: string, isActive: boolean) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
