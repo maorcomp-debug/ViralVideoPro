@@ -355,7 +355,7 @@ const App = () => {
   // Load user data from Supabase (with protection against duplicate calls)
   // Wrapped in useCallback to prevent recreation on every render and fix React hooks error #300
   // MUST be defined BEFORE useEffect that uses it
-  const loadUserData = useCallback(async (currentUser: User, forceRefresh = false) => {
+  const loadUserData = useCallback(async (currentUser: User, forceRefresh = false, skipSessionRefresh = false) => {
     try {
       // Only log if forceRefresh is true or if it's a significant call
       if (forceRefresh) {
@@ -371,8 +371,9 @@ const App = () => {
         return;
       }
       
-      // Force refresh auth session if requested (with timeout – can hang on F5)
-      if (forceRefresh) {
+      // Force refresh auth session if requested – SKIP when session just came from getSession (F5 on home page)
+      // refreshSession can hang when session is fresh from storage; profile load works without it
+      if (forceRefresh && !skipSessionRefresh) {
         try {
           await Promise.race([
             supabase.auth.refreshSession(),
@@ -761,7 +762,7 @@ const App = () => {
         // we must load profile/admin status so admin button shows on home page
         if (session?.user && !loadUserDataInProgressRef.current) {
           loadUserDataInProgressRef.current = true;
-          loadUserData(session.user, true)
+          loadUserData(session.user, true, true) // skipSessionRefresh – session is fresh from getSession
             .catch((err) => console.error('Error loading user data from getSession:', err))
             .finally(() => { loadUserDataInProgressRef.current = false; });
         }
