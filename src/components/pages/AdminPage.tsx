@@ -1227,12 +1227,14 @@ export const AdminPage: React.FC = () => {
   const handleDeleteCoupon = async (couponId: string) => {
     if (!confirm('למחוק את ההטבה? לא ניתן לשחזר.')) return;
     try {
+      console.log('🗑️ Deleting coupon:', couponId);
       await deleteCouponViaAdminApi(couponId);
       setEditingCoupon(null);
+      console.log('✅ Coupon deleted successfully, reloading data...');
       await loadData(true);
       alert('ההטבה נמחקה');
     } catch (error: any) {
-      console.error('Error deleting coupon:', error);
+      console.error('❌ Error deleting coupon:', error);
       alert('שגיאה במחיקת ההטבה: ' + (error.message || 'Unknown error'));
     }
   };
@@ -1240,11 +1242,13 @@ export const AdminPage: React.FC = () => {
   const handleDeleteAllTrials = async () => {
     if (!confirm('למחוק את כל רשומות ההתנסויות? לא ניתן לשחזר.')) return;
     try {
+      console.log('🗑️ Deleting all trials...');
       await deleteAllTrialsViaAdminApi();
+      console.log('✅ All trials deleted, reloading data...');
       await loadData(true);
       alert('כל ההתנסויות נמחקו');
     } catch (error: any) {
-      console.error('Error deleting all trials:', error);
+      console.error('❌ Error deleting all trials:', error);
       alert('שגיאה במחיקת ההתנסויות: ' + (error.message || 'Unknown error'));
     }
   };
@@ -1252,11 +1256,13 @@ export const AdminPage: React.FC = () => {
   const handleDeleteAllHistory = async () => {
     if (!confirm('למחוק את כל היסטוריית המימושים (מי השתמש בכל הטבה)? לא ניתן לשחזר.')) return;
     try {
+      console.log('🗑️ Deleting all redemption history...');
       await deleteAllRedemptionsViaAdminApi();
+      console.log('✅ All history deleted, reloading data...');
       await loadData(true);
       alert('כל ההיסטוריה נמחקה');
     } catch (error: any) {
-      console.error('Error deleting all redemptions:', error);
+      console.error('❌ Error deleting all redemptions:', error);
       alert('שגיאה במחיקת ההיסטוריה: ' + (error.message || 'Unknown error'));
     }
   };
@@ -1268,22 +1274,26 @@ export const AdminPage: React.FC = () => {
     }
     if (!confirm(`למחוק ${selectedTrials.size} התנסויות שנבחרו? לא ניתן לשחזר.`)) return;
     try {
+      console.log('🗑️ Deleting selected trials:', Array.from(selectedTrials));
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('לא מחובר');
       const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
       const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-trials-batch` : '/api/admin/delete-trials-batch';
+      console.log('📡 Calling API:', url);
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ trialIds: Array.from(selectedTrials) }),
       });
       const data = await res.json().catch(() => ({}));
+      console.log('📥 API response:', data);
       if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
       setSelectedTrials(new Set());
+      console.log('✅ Selected trials deleted, reloading data...');
       await loadData(true);
       alert(`${selectedTrials.size} התנסויות נמחקו`);
     } catch (error: any) {
-      console.error('Error deleting selected trials:', error);
+      console.error('❌ Error deleting selected trials:', error);
       alert('שגיאה במחיקת ההתנסויות: ' + (error.message || 'Unknown error'));
     }
   };
@@ -1295,22 +1305,26 @@ export const AdminPage: React.FC = () => {
     }
     if (!confirm(`למחוק ${selectedCoupons.size} הטבות שנבחרו? לא ניתן לשחזר.`)) return;
     try {
+      console.log('🗑️ Deleting selected coupons:', Array.from(selectedCoupons));
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('לא מחובר');
       const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
       const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-coupons-batch` : '/api/admin/delete-coupons-batch';
+      console.log('📡 Calling API:', url);
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ couponIds: Array.from(selectedCoupons) }),
       });
       const data = await res.json().catch(() => ({}));
+      console.log('📥 API response:', data);
       if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
       setSelectedCoupons(new Set());
+      console.log('✅ Selected coupons deleted, reloading data...');
       await loadData(true);
       alert(`${selectedCoupons.size} הטבות נמחקו`);
     } catch (error: any) {
-      console.error('Error deleting selected coupons:', error);
+      console.error('❌ Error deleting selected coupons:', error);
       alert('שגיאה במחיקת ההטבות: ' + (error.message || 'Unknown error'));
     }
   };
@@ -2125,33 +2139,76 @@ export const AdminPage: React.FC = () => {
             {coupons.length === 0 ? (
               <EmptyState>אין הטבות</EmptyState>
             ) : (
-              <TableWrapper>
-                <Table>
-                  <TableHeader>
-                    <tr>
-                      <TableHeaderCell>קוד</TableHeaderCell>
-                      <TableHeaderCell>תיאור</TableHeaderCell>
-                      <TableHeaderCell>סוג ההטבה</TableHeaderCell>
-                      <TableHeaderCell>פעיל</TableHeaderCell>
-                      <TableHeaderCell>פעולות</TableHeaderCell>
-                    </tr>
-                  </TableHeader>
-                  <tbody>
-                    {coupons.map((coupon) => (
-                      <TableRow key={coupon.id}>
-                        <TableCell>{coupon.code}</TableCell>
-                        <TableCell>{coupon.description || '-'}</TableCell>
-                        <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
-                        <TableCell>{coupon.is_active ? 'כן' : 'לא'}</TableCell>
-                        <ActionsCell>
-                          <ActionButton $variant="primary" onClick={() => handleEditCoupon(coupon)}>ערוך</ActionButton>
-                          <ActionButton $variant="delete" onClick={() => handleDeleteCoupon(coupon.id)}>מחק</ActionButton>
-                        </ActionsCell>
-                      </TableRow>
-                    ))}
-                  </tbody>
-                </Table>
-              </TableWrapper>
+              <>
+                {selectedCoupons.size > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <ActionButton
+                      $variant="delete"
+                      onClick={handleDeleteSelectedCoupons}
+                      title={`מחק ${selectedCoupons.size} הטבות שנבחרו`}
+                    >
+                      🗑️ מחק {selectedCoupons.size} הטבות נבחרות
+                    </ActionButton>
+                  </div>
+                )}
+                <TableWrapper>
+                  <Table>
+                    <TableHeader>
+                      <tr>
+                        <TableHeaderCell style={{ width: '40px' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedCoupons.size === coupons.length && coupons.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCoupons(new Set(coupons.map((c: any) => c.id)));
+                              } else {
+                                setSelectedCoupons(new Set());
+                              }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </TableHeaderCell>
+                        <TableHeaderCell>קוד</TableHeaderCell>
+                        <TableHeaderCell>תיאור</TableHeaderCell>
+                        <TableHeaderCell>סוג ההטבה</TableHeaderCell>
+                        <TableHeaderCell>פעיל</TableHeaderCell>
+                        <TableHeaderCell>פעולות</TableHeaderCell>
+                      </tr>
+                    </TableHeader>
+                    <tbody>
+                      {coupons.map((coupon) => (
+                        <TableRow key={coupon.id}>
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={selectedCoupons.has(coupon.id)}
+                              onChange={(e) => {
+                                const newSelected = new Set(selectedCoupons);
+                                if (e.target.checked) {
+                                  newSelected.add(coupon.id);
+                                } else {
+                                  newSelected.delete(coupon.id);
+                                }
+                                setSelectedCoupons(newSelected);
+                              }}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </TableCell>
+                          <TableCell>{coupon.code}</TableCell>
+                          <TableCell>{coupon.description || '-'}</TableCell>
+                          <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
+                          <TableCell>{coupon.is_active ? 'כן' : 'לא'}</TableCell>
+                          <ActionsCell>
+                            <ActionButton $variant="primary" onClick={() => handleEditCoupon(coupon)}>ערוך</ActionButton>
+                            <ActionButton $variant="delete" onClick={() => handleDeleteCoupon(coupon.id)}>מחק</ActionButton>
+                          </ActionsCell>
+                        </TableRow>
+                      ))}
+                    </tbody>
+                  </Table>
+                </TableWrapper>
+              </>
             )}
             <h3 style={{ color: '#D4A043', marginTop: '24px', marginBottom: '12px' }}>התנסויות (user_trials)</h3>
             {trials.length === 0 ? (
