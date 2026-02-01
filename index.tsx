@@ -2902,59 +2902,28 @@ const App = () => {
       setLoading(false);
     }, 300000); // 5 minutes max
     
-    // Start playing video immediately when analysis begins (muted and loop)
-    // CRITICAL: Video must be muted for autoplay to work in browsers
-    // User can unmute via controls after video starts playing
-    if (file?.type.startsWith('video')) {
-      setTimeout(() => {
-        if (videoRef.current) {
-          try {
-            // Ensure muted=true for autoplay compatibility (required by browser policy)
-            videoRef.current.muted = true;
-            videoRef.current.loop = true;
-            
-            if (videoRef.current.readyState >= 2) {
-              videoRef.current.play().catch((error) => {
-                console.warn('Video play failed, retrying:', error);
-                // Retry after short delay
-                setTimeout(() => {
-                  if (videoRef.current) {
-                    videoRef.current.muted = true; // Ensure still muted
-                    videoRef.current.play().catch(() => {
-                      // If still fails, continue analysis anyway - video playback is not critical
-                      console.warn('Video autoplay failed after retry - analysis will continue');
-                    });
-                  }
-                }, 500);
-              });
-            } else {
-              const onCanPlay = () => {
-                if (videoRef.current) {
-                  // Ensure muted=true for autoplay (required by browser policy)
-                  videoRef.current.muted = true;
-                  videoRef.current.loop = true;
-                  videoRef.current.play().catch(() => {
-                    // Continue analysis even if video play fails
-                    console.warn('Video play failed on canplay event - analysis will continue');
-                  });
-                  videoRef.current.removeEventListener('canplay', onCanPlay);
-                }
-              };
-              videoRef.current.addEventListener('canplay', onCanPlay);
-              if (videoRef.current.readyState === 0) {
-                videoRef.current.load();
-              }
+    // התחל ניגון הסרטון מיד בלחיצה על "אקשן!" – ללא השהייה; בלופ כל עוד הניתוח רץ
+    if (file?.type.startsWith('video') && videoRef.current) {
+      try {
+        videoRef.current.muted = true;
+        videoRef.current.loop = true;
+        if (videoRef.current.readyState >= 2) {
+          videoRef.current.play().catch(() => {});
+        } else {
+          const onCanPlay = () => {
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              videoRef.current.loop = true;
+              videoRef.current.play().catch(() => {});
+              videoRef.current.removeEventListener('canplay', onCanPlay);
             }
-            
-            // Note: When the user unmutes the video, some browsers may pause autoplay.
-            // We handle this at the <video> element level (onVolumeChange) and simply re-call play()
-            // so that the video keeps running normally even after unmuting.
-          } catch (error) {
-            // Non-critical error - continue with analysis
-            console.warn('Error setting up video playback:', error);
-          }
+          };
+          videoRef.current.addEventListener('canplay', onCanPlay);
+          if (videoRef.current.readyState === 0) videoRef.current.load();
         }
-      }, 100);
+      } catch (e) {
+        console.warn('Video play on action click:', e);
+      }
     }
     
     // Subscription check already done above - no need to check again
@@ -3397,7 +3366,10 @@ const App = () => {
         })();
       }
       
-      // Analysis completed successfully - set loading to false
+      // Analysis completed successfully - stop video loop and set loading to false
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
       if (loadingTimeout) {
         clearTimeout(loadingTimeout);
         loadingTimeout = null;
@@ -3434,6 +3406,10 @@ const App = () => {
         alert(`אירעה שגיאה בניתוח (קוד: ${code || 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
       }
     } finally {
+      // Stop video when analysis ends (success or error)
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
       // CRITICAL: Always reset loading state, even on error
       if (loadingTimeout) {
         clearTimeout(loadingTimeout);
@@ -4289,24 +4265,13 @@ const App = () => {
                   controls
                   playsInline
                   preload="auto"
-                  // מתחיל אוטומטית במצב מושתק (מותאם למדיניות דפדפנים)
-                  autoPlay
+                  // הסרטון לא מתחיל אחרי העלאה – רק בלחיצה על "אקשן!"
                   defaultMuted
-                  loop
                   style={{
                     width: '100%',
                     height: 'auto',
                     maxHeight: '100%',
                     objectFit: 'contain'
-                  }}
-                  onLoadedMetadata={(e) => {
-                    // לוודא שבהרצה הראשונה הסרטון מושתק ורץ
-                    const video = e.currentTarget;
-                    if (video && video.currentTime === 0) {
-                      video.muted = true;
-                      // ליתר ביטחון להתחיל ניגון אם הדפדפן מאפשר
-                      video.play().catch(() => {});
-                    }
                   }}
                   onVolumeChange={(e) => {
                     const video = e.currentTarget;

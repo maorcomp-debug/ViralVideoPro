@@ -1720,7 +1720,7 @@ export async function checkCouponAlreadyUsed(code: string, userId: string): Prom
       .select('id')
       .eq('coupon_id', coupon.id)
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     return !!redemption;
   } catch (error) {
