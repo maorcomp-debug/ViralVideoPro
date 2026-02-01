@@ -1227,14 +1227,12 @@ export const AdminPage: React.FC = () => {
   const handleDeleteCoupon = async (couponId: string) => {
     if (!confirm('למחוק את ההטבה? לא ניתן לשחזר.')) return;
     try {
-      console.log('🗑️ Deleting coupon:', couponId);
       await deleteCouponViaAdminApi(couponId);
       setEditingCoupon(null);
-      console.log('✅ Coupon deleted successfully, reloading data...');
       await loadData(true);
       alert('ההטבה נמחקה');
     } catch (error: any) {
-      console.error('❌ Error deleting coupon:', error);
+      console.error('Error deleting coupon:', error);
       alert('שגיאה במחיקת ההטבה: ' + (error.message || 'Unknown error'));
     }
   };
@@ -1242,13 +1240,11 @@ export const AdminPage: React.FC = () => {
   const handleDeleteAllTrials = async () => {
     if (!confirm('למחוק את כל רשומות ההתנסויות? לא ניתן לשחזר.')) return;
     try {
-      console.log('🗑️ Deleting all trials...');
       await deleteAllTrialsViaAdminApi();
-      console.log('✅ All trials deleted, reloading data...');
       await loadData(true);
       alert('כל ההתנסויות נמחקו');
     } catch (error: any) {
-      console.error('❌ Error deleting all trials:', error);
+      console.error('Error deleting all trials:', error);
       alert('שגיאה במחיקת ההתנסויות: ' + (error.message || 'Unknown error'));
     }
   };
@@ -1256,13 +1252,11 @@ export const AdminPage: React.FC = () => {
   const handleDeleteAllHistory = async () => {
     if (!confirm('למחוק את כל היסטוריית המימושים (מי השתמש בכל הטבה)? לא ניתן לשחזר.')) return;
     try {
-      console.log('🗑️ Deleting all redemption history...');
       await deleteAllRedemptionsViaAdminApi();
-      console.log('✅ All history deleted, reloading data...');
       await loadData(true);
       alert('כל ההיסטוריה נמחקה');
     } catch (error: any) {
-      console.error('❌ Error deleting all redemptions:', error);
+      console.error('Error deleting all redemptions:', error);
       alert('שגיאה במחיקת ההיסטוריה: ' + (error.message || 'Unknown error'));
     }
   };
@@ -1274,22 +1268,24 @@ export const AdminPage: React.FC = () => {
     }
     if (!confirm(`למחוק ${selectedTrials.size} התנסויות שנבחרו? לא ניתן לשחזר.`)) return;
     try {
-      console.log('🗑️ Deleting selected trials:', Array.from(selectedTrials));
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('לא מחובר');
       const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
-      const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-trials-batch` : '/api/admin/delete-trials-batch';
-      console.log('📡 Calling API:', url);
+      const base = apiBase ? apiBase.replace(/\/$/, '') : (typeof window !== 'undefined' ? window.location.origin : '');
+      const url = `${base}/api/admin/delete-trials-batch`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ trialIds: Array.from(selectedTrials) }),
       });
-      const data = await res.json().catch(() => ({}));
-      console.log('📥 API response:', data);
+      const text = await res.text();
+      const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+      if (!res.ok) {
+        console.error('❌ delete-trials-batch API error:', res.status, text);
+        throw new Error(data.error || text || `שגיאת שרת ${res.status}`);
+      }
       if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
       setSelectedTrials(new Set());
-      console.log('✅ Selected trials deleted, reloading data...');
       await loadData(true);
       alert(`${selectedTrials.size} התנסויות נמחקו`);
     } catch (error: any) {
@@ -1305,22 +1301,24 @@ export const AdminPage: React.FC = () => {
     }
     if (!confirm(`למחוק ${selectedCoupons.size} הטבות שנבחרו? לא ניתן לשחזר.`)) return;
     try {
-      console.log('🗑️ Deleting selected coupons:', Array.from(selectedCoupons));
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('לא מחובר');
       const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
-      const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-coupons-batch` : '/api/admin/delete-coupons-batch';
-      console.log('📡 Calling API:', url);
+      const base = apiBase ? apiBase.replace(/\/$/, '') : (typeof window !== 'undefined' ? window.location.origin : '');
+      const url = `${base}/api/admin/delete-coupons-batch`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ couponIds: Array.from(selectedCoupons) }),
       });
-      const data = await res.json().catch(() => ({}));
-      console.log('📥 API response:', data);
+      const text = await res.text();
+      const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+      if (!res.ok) {
+        console.error('❌ delete-coupons-batch API error:', res.status, text);
+        throw new Error(data.error || text || `שגיאת שרת ${res.status}`);
+      }
       if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
       setSelectedCoupons(new Set());
-      console.log('✅ Selected coupons deleted, reloading data...');
       await loadData(true);
       alert(`${selectedCoupons.size} הטבות נמחקו`);
     } catch (error: any) {

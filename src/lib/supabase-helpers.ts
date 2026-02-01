@@ -2155,66 +2155,73 @@ export async function deleteAllRedemptionsAsAdmin() {
   return { success: true };
 }
 
+/** Base URL for admin API – same origin so /api works after deploy. */
+function getAdminApiBase(): string {
+  const envBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
+  if (envBase) return envBase.replace(/\/$/, '');
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  return '';
+}
+
 /** Admin: delete coupon via API (works without service role key in frontend). */
 export async function deleteCouponViaAdminApi(couponId: string) {
-  console.log('🔧 deleteCouponViaAdminApi called with:', couponId);
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    console.error('❌ No session token');
-    throw new Error('לא מחובר');
-  }
-  console.log('✅ Session token found');
-  const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
-  const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-coupon` : '/api/admin/delete-coupon';
-  console.log('📡 Calling API:', url);
+  if (!session?.access_token) throw new Error('לא מחובר');
+  const base = getAdminApiBase();
+  const url = `${base}/api/admin/delete-coupon`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
     body: JSON.stringify({ couponId }),
   });
-  console.log('📥 Response status:', res.status, res.statusText);
-  const data = await res.json().catch(() => ({}));
-  console.log('📥 Response data:', data);
+  const text = await res.text();
+  const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+  if (!res.ok) {
+    console.error('❌ delete-coupon API error:', res.status, text);
+    throw new Error(data.error || text || `שגיאת שרת ${res.status}`);
+  }
   if (!data.ok) throw new Error(data.error || 'מחיקת ההטבה נכשלה');
   return data;
 }
 
 /** Admin: delete all trials via API. */
 export async function deleteAllTrialsViaAdminApi() {
-  console.log('🔧 deleteAllTrialsViaAdminApi called');
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('לא מחובר');
-  const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
-  const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-all-trials` : '/api/admin/delete-all-trials';
-  console.log('📡 Calling API:', url);
+  const base = getAdminApiBase();
+  const url = `${base}/api/admin/delete-all-trials`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
     body: JSON.stringify({}),
   });
-  console.log('📥 Response:', res.status, res.statusText);
-  const data = await res.json().catch(() => ({}));
-  console.log('📥 Data:', data);
+  const text = await res.text();
+  const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+  if (!res.ok) {
+    console.error('❌ delete-all-trials API error:', res.status, text);
+    throw new Error(data.error || text || `שגיאת שרת ${res.status}`);
+  }
   if (!data.ok) throw new Error(data.error || 'מחיקת ההתנסויות נכשלה');
   return data;
 }
 
 /** Admin: delete all redemptions (history) via API. */
 export async function deleteAllRedemptionsViaAdminApi() {
-  console.log('🔧 deleteAllRedemptionsViaAdminApi called');
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('לא מחובר');
-  const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
-  const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-all-redemptions` : '/api/admin/delete-all-redemptions';
-  console.log('📡 Calling API:', url);
+  const base = getAdminApiBase();
+  const url = `${base}/api/admin/delete-all-redemptions`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
     body: JSON.stringify({}),
   });
-  console.log('📥 Response:', res.status, res.statusText);
-  const data = await res.json().catch(() => ({}));
-  console.log('📥 Data:', data);
+  const text = await res.text();
+  const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+  if (!res.ok) {
+    console.error('❌ delete-all-redemptions API error:', res.status, text);
+    throw new Error(data.error || text || `שגיאת שרת ${res.status}`);
+  }
   if (!data.ok) throw new Error(data.error || 'מחיקת ההיסטוריה נכשלה');
   return data;
 }
