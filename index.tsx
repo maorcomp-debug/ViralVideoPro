@@ -182,7 +182,10 @@ const TRACKS = [
 const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentPath = location.pathname;
+  // Use both: React Router can briefly lag on F5 refresh – window.location is source of truth for route
+  const currentPath = typeof window !== 'undefined' && window.location.pathname
+    ? window.location.pathname
+    : location.pathname;
   
   // Authentication State
   const [user, setUser] = useState<User | null>(null);
