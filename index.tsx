@@ -3625,6 +3625,15 @@ const App = () => {
   };
   
   // Render different pages based on route (ללא useEffect בתוך תנאי!)
+  // CRITICAL: On F5 refresh at /admin, ensure we always show AdminPage – bypass React Router sync issues
+  if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
+    return (
+      <>
+        <GlobalStyle />
+        <AdminPage />
+      </>
+    );
+  }
   if (isSettingsPage) {
     // For admin users we don't מציגים את עמוד ההגדרות (הם כבר מופנים ל-/admin מה-useEffect)
     if (userIsAdmin) {
