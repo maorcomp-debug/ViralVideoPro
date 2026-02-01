@@ -260,6 +260,7 @@ const App = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const loadUserDataInProgressRef = useRef(false);
 
   // Profile & Subscription cache helpers
   const PROFILE_CACHE_KEY = 'viral_profile_cache';
@@ -370,13 +371,19 @@ const App = () => {
         return;
       }
       
-      // Force refresh auth session if requested
+      // Force refresh auth session if requested (with timeout – can hang on F5)
       if (forceRefresh) {
         try {
-          await supabase.auth.refreshSession();
+          await Promise.race([
+            supabase.auth.refreshSession(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('refreshSession timeout')), 8000)
+            ),
+          ]);
           console.log('🔄 Session refreshed');
         } catch (refreshError) {
           console.warn('Could not refresh session:', refreshError);
+          // Continue – profile can still load with current session
         }
       }
 
@@ -688,7 +695,6 @@ const App = () => {
   useEffect(() => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
-    let isLoadingUserData = false; // Flag to prevent duplicate loadUserData calls
     
     // Load cached profile & subscription immediately for instant UI (prevents email flash on refresh)
     const cachedProfile = loadProfileFromCache();
@@ -753,10 +759,11 @@ const App = () => {
         // CRITICAL: Also load user data when getSession returns with session (e.g. F5 on home page)
         // onAuthStateChange can fire INITIAL_SESSION with null first (race), then getSession returns –
         // we must load profile/admin status so admin button shows on home page
-        if (session?.user) {
-          loadUserData(session.user, true).catch((err) =>
-            console.error('Error loading user data from getSession:', err)
-          );
+        if (session?.user && !loadUserDataInProgressRef.current) {
+          loadUserDataInProgressRef.current = true;
+          loadUserData(session.user, true)
+            .catch((err) => console.error('Error loading user data from getSession:', err))
+            .finally(() => { loadUserDataInProgressRef.current = false; });
         }
       })
       .catch((error) => {
@@ -800,30 +807,25 @@ const App = () => {
       }
       
       if (session?.user) {
-        // Prevent duplicate loadUserData calls
-        if (isLoadingUserData) {
-          // Silent skip - no need to log every duplicate call
+        // Prevent duplicate loadUserData calls (shared with getSession callback)
+        if (loadUserDataInProgressRef.current) {
           return;
         }
-        
-        isLoadingUserData = true;
+        loadUserDataInProgressRef.current = true;
         try {
           // Minimal delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
-          // Reduced delay for faster login - triggers are usually instant
           if (event === 'SIGNED_IN' && window.location.pathname !== '/admin') {
             await new Promise(resolve => setTimeout(resolve, 100)); // Minimal delay for profile creation
           }
           
           // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
           const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
-          // Use the latest loadUserData from closure
           await loadUserData(session.user, shouldForceRefresh);
           console.log('✅ User data loaded from onAuthStateChange:', { event, userId: session.user.id });
         } catch (err) {
           console.error('Error loading user data in auth state change:', err);
-          // Don't block UI if user data loading fails
         } finally {
-          isLoadingUserData = false;
+          loadUserDataInProgressRef.current = false;
         }
       } else {
         // Only reset state if this is not INITIAL_SESSION (which might have null session temporarily)
