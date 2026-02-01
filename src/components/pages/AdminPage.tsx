@@ -19,6 +19,9 @@ import {
   getAllCouponsForAdmin,
   updateCoupon,
   deleteCouponViaAdminApi,
+  deleteCouponAsAdmin,
+  deleteAllTrialsAsAdmin,
+  deleteAllRedemptionsAsAdmin,
   toggleCouponStatus,
   grantTrialToUsers,
   getAllTrials,
@@ -1231,9 +1234,16 @@ export const AdminPage: React.FC = () => {
       setEditingCoupon(null);
       await loadData(true);
       alert('ההטבה נמחקה');
-    } catch (error: any) {
-      console.error('Error deleting coupon:', error);
-      alert('שגיאה במחיקת ההטבה: ' + (error.message || 'Unknown error'));
+    } catch (apiErr: any) {
+      try {
+        await deleteCouponAsAdmin(couponId);
+        setEditingCoupon(null);
+        await loadData(true);
+        alert('ההטבה נמחקה');
+      } catch (directErr: any) {
+        console.error('Error deleting coupon:', apiErr, directErr);
+        alert('שגיאה במחיקת ההטבה: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      }
     }
   };
 
@@ -1243,9 +1253,15 @@ export const AdminPage: React.FC = () => {
       await deleteAllTrialsViaAdminApi();
       await loadData(true);
       alert('כל ההתנסויות נמחקו');
-    } catch (error: any) {
-      console.error('Error deleting all trials:', error);
-      alert('שגיאה במחיקת ההתנסויות: ' + (error.message || 'Unknown error'));
+    } catch (apiErr: any) {
+      try {
+        await deleteAllTrialsAsAdmin();
+        await loadData(true);
+        alert('כל ההתנסויות נמחקו');
+      } catch (directErr: any) {
+        console.error('Error deleting all trials:', apiErr, directErr);
+        alert('שגיאה במחיקת ההתנסויות: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      }
     }
   };
 
@@ -1255,9 +1271,15 @@ export const AdminPage: React.FC = () => {
       await deleteAllRedemptionsViaAdminApi();
       await loadData(true);
       alert('כל ההיסטוריה נמחקה');
-    } catch (error: any) {
-      console.error('Error deleting all redemptions:', error);
-      alert('שגיאה במחיקת ההיסטוריה: ' + (error.message || 'Unknown error'));
+    } catch (apiErr: any) {
+      try {
+        await deleteAllRedemptionsAsAdmin();
+        await loadData(true);
+        alert('כל ההיסטוריה נמחקה');
+      } catch (directErr: any) {
+        console.error('Error deleting all redemptions:', apiErr, directErr);
+        alert('שגיאה במחיקת ההיסטוריה: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      }
     }
   };
 
@@ -1267,6 +1289,7 @@ export const AdminPage: React.FC = () => {
       return;
     }
     if (!confirm(`למחוק ${selectedTrials.size} התנסויות שנבחרו? לא ניתן לשחזר.`)) return;
+    const ids = Array.from(selectedTrials);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('לא מחובר');
@@ -1276,7 +1299,7 @@ export const AdminPage: React.FC = () => {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ trialIds: Array.from(selectedTrials) }),
+        body: JSON.stringify({ trialIds: ids }),
       });
       const text = await res.text();
       const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
@@ -1287,10 +1310,18 @@ export const AdminPage: React.FC = () => {
       if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
       setSelectedTrials(new Set());
       await loadData(true);
-      alert(`${selectedTrials.size} התנסויות נמחקו`);
-    } catch (error: any) {
-      console.error('❌ Error deleting selected trials:', error);
-      alert('שגיאה במחיקת ההתנסויות: ' + (error.message || 'Unknown error'));
+      alert(`${ids.length} התנסויות נמחקו`);
+    } catch (apiErr: any) {
+      try {
+        const { error } = await supabase.from('user_trials').delete().in('id', ids);
+        if (error) throw error;
+        setSelectedTrials(new Set());
+        await loadData(true);
+        alert(`${ids.length} התנסויות נמחקו`);
+      } catch (directErr: any) {
+        console.error('❌ Error deleting selected trials:', apiErr, directErr);
+        alert('שגיאה במחיקת ההתנסויות: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      }
     }
   };
 
@@ -1300,6 +1331,7 @@ export const AdminPage: React.FC = () => {
       return;
     }
     if (!confirm(`למחוק ${selectedCoupons.size} הטבות שנבחרו? לא ניתן לשחזר.`)) return;
+    const ids = Array.from(selectedCoupons);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('לא מחובר');
@@ -1309,7 +1341,7 @@ export const AdminPage: React.FC = () => {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ couponIds: Array.from(selectedCoupons) }),
+        body: JSON.stringify({ couponIds: ids }),
       });
       const text = await res.text();
       const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
@@ -1320,10 +1352,19 @@ export const AdminPage: React.FC = () => {
       if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
       setSelectedCoupons(new Set());
       await loadData(true);
-      alert(`${selectedCoupons.size} הטבות נמחקו`);
-    } catch (error: any) {
-      console.error('❌ Error deleting selected coupons:', error);
-      alert('שגיאה במחיקת ההטבות: ' + (error.message || 'Unknown error'));
+      alert(`${ids.length} הטבות נמחקו`);
+    } catch (apiErr: any) {
+      try {
+        for (const couponId of ids) {
+          await deleteCouponAsAdmin(couponId);
+        }
+        setSelectedCoupons(new Set());
+        await loadData(true);
+        alert(`${ids.length} הטבות נמחקו`);
+      } catch (directErr: any) {
+        console.error('❌ Error deleting selected coupons:', apiErr, directErr);
+        alert('שגיאה במחיקת ההטבות: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      }
     }
   };
 
