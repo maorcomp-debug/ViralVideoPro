@@ -2136,10 +2136,63 @@ export async function getCouponRedemptions(couponId?: string) {
       throw error;
     }
 
-    // Fetch profiles separately for each user_id
+    if (!redemptions || redemptions.length === 0) {
+      return redemptions || [];
+    }
+
+    const userIds = [...new Set(redemptions.map((r: any) => r.user_id))];
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, user_id, email, full_name')
+      .in('user_id', userIds);
+
+    if (!profilesError && profiles) {
+      const profilesMap = new Map(profiles.map((p: any) => [p.user_id, p]));
+      return redemptions.map((r: any) => ({
+        ...r,
+        profiles: profilesMap.get(r.user_id) || null,
+      }));
+    }
+
+    return redemptions || [];
+  } catch (error: any) {
+    console.error('Error in getCouponRedemptions:', error);
+    throw error;
+  }
+}
+
+/** Admin: fetch all coupon redemptions (bypasses RLS). */
+export async function getCouponRedemptionsForAdmin(couponId?: string) {
+  try {
+    const adminClient = getAdminClient();
+    let query = adminClient
+      .from('coupon_redemptions')
+      .select(`
+        *,
+        coupon:coupons!coupon_redemptions_coupon_id_fkey (
+          id,
+          code,
+          discount_type,
+          discount_value
+        )
+      `)
+      .order('applied_at', { ascending: false });
+
+    if (couponId) {
+      query = query.eq('coupon_id', couponId);
+    }
+
+    const { data: redemptions, error } = await query;
+
+    if (error) {
+      console.error('Error fetching coupon redemptions:', error);
+      throw error;
+    }
+
+    // Fetch profiles separately for each user_id (admin client bypasses RLS)
     if (redemptions && redemptions.length > 0) {
       const userIds = [...new Set(redemptions.map((r: any) => r.user_id))];
-      const { data: profiles, error: profilesError } = await supabase
+      const { data: profiles, error: profilesError } = await adminClient
         .from('profiles')
         .select('id, user_id, email, full_name')
         .in('user_id', userIds);

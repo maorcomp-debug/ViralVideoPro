@@ -14,6 +14,8 @@ interface SendBenefitEmailRequest {
   benefitDetails?: string;
   targetAll?: boolean;
   targetTier?: string[];
+  /** כשמוגדר – שולח אך ורק לכתובת זו (משתמש ספציפי, כולל לא רשום) */
+  targetUserEmail?: string;
 }
 
 function escapeHtml(text: string): string {
@@ -92,24 +94,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true, sent: 0, skipped: 'Supabase not configured' });
     }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-    let query = supabase
-      .from('profiles')
-      .select('user_id, email')
-      .eq('receive_updates', true)
-      .not('email', 'is', null);
+    let emails: string[];
 
-    if (!body.targetAll && body.targetTier && body.targetTier.length > 0) {
-      query = query.in('subscription_tier', body.targetTier);
+    if (body.targetUserEmail?.trim()) {
+      const email = body.targetUserEmail.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ ok: false, error: 'Invalid target user email' });
+      }
+      emails = [email];
+    } else {
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      let query = supabase
+        .from('profiles')
+        .select('user_id, email')
+        .eq('receive_updates', true)
+        .not('email', 'is', null);
+
+      if (!body.targetAll && body.targetTier && body.targetTier.length > 0) {
+        query = query.in('subscription_tier', body.targetTier);
+      }
+
+      const { data: profiles, error: profilesError } = await query;
+
+      if (profilesError || !profiles || profiles.length === 0) {
+        return res.status(200).json({ ok: true, sent: 0 });
+      }
+
+      emails = profiles.map((p: { email?: string }) => p.email).filter(Boolean) as string[];
     }
-
-    const { data: profiles, error: profilesError } = await query;
-
-    if (profilesError || !profiles || profiles.length === 0) {
-      return res.status(200).json({ ok: true, sent: 0 });
-    }
-
-    const emails = profiles.map((p: { email?: string }) => p.email).filter(Boolean) as string[];
     const benefitTypeLabel = (body.benefitTypeLabel || 'הטבה').trim();
     const benefitTitle = (body.benefitTitle || body.title || '').trim();
     const subject = `Viraly – Video Director Pro | ${benefitTypeLabel} | ${benefitTitle || 'הטבה'}`;

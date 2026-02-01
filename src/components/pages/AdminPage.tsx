@@ -21,6 +21,7 @@ import {
   toggleCouponStatus,
   grantTrialToUsers,
   getAllTrials,
+  getCouponRedemptionsForAdmin,
 } from '../../lib/supabase-helpers';
 import { supabase } from '../../lib/supabase';
 import type { SubscriptionTier } from '../../types';
@@ -881,6 +882,7 @@ export const AdminPage: React.FC = () => {
   const [editCouponForm, setEditCouponForm] = useState({ code: '', description: '', is_active: true });
   // History tab search
   const [historySearchQuery, setHistorySearchQuery] = useState('');
+  const [redemptions, setRedemptions] = useState<any[]>([]);
 
   const loadData = async (forceRefresh = false) => {
     // Allow force refresh even if already loading
@@ -960,14 +962,16 @@ export const AdminPage: React.FC = () => {
         const videosData = await getAllVideos(true); // skipAdminCheck = true
         setVideos(videosData || []);
       } else if (activeTab === 'alerts') {
-        const [announcementsData, couponsData, trialsData] = await Promise.all([
+        const [announcementsData, couponsData, trialsData, redemptionsData] = await Promise.all([
           getAllAnnouncements(),
           getAllCoupons(),
           getAllTrials(),
+          getCouponRedemptionsForAdmin().catch(() => []),
         ]);
         setAnnouncements(announcementsData || []);
         setCoupons(couponsData || []);
         setTrials(trialsData || []);
+        setRedemptions(redemptionsData || []);
       }
       
       // CRITICAL: Load ALL other data in background (non-blocking) to update tab counts
@@ -980,7 +984,8 @@ export const AdminPage: React.FC = () => {
         getAllVideos(true).then(data => { if (activeTab !== 'video') setVideos(data || []); }).catch(() => {}),
         getAllAnnouncements().then(data => { if (activeSubTab !== 'send-update') setAnnouncements(data || []); }).catch(() => {}),
         getAllCoupons().then(data => { if (activeSubTab !== 'coupons') setCoupons(data || []); }).catch(() => {}),
-        getAllTrials().then(data => { if (activeSubTab !== 'trials') setTrials(data || []); }).catch(() => {})
+        getAllTrials().then(data => { if (activeSubTab !== 'trials') setTrials(data || []); }).catch(() => {}),
+        getCouponRedemptionsForAdmin().then(data => setRedemptions(data || [])).catch(() => {})
       ]).catch(() => {
         // Ignore errors in background loading - main tab data already loaded
       });
@@ -1240,6 +1245,10 @@ export const AdminPage: React.FC = () => {
       alert('נא למלא כותרת להטבה.');
       return;
     }
+    if (couponForm.targetScope === 'user' && couponForm.deliveryEmail && !couponForm.targetUserEmail?.trim()) {
+      alert('נא למלא אימייל של המשתמש כשההטבה מיועדת למשתמש ספציפי ומסומנת לשליחה במייל.');
+      return;
+    }
     setIsCreatingCoupon(true);
     const TIMEOUT_MS = 45000;
     const timeoutPromise = new Promise<never>((_, rej) =>
@@ -1303,7 +1312,8 @@ export const AdminPage: React.FC = () => {
           sendEmail && sendInApp ? 'הודעת מנוי + מייל' : sendEmail ? 'מייל' : 'הודעת מנוי'
         }`;
 
-        if (sendInApp || sendEmail) {
+        const targetUser = couponForm.targetScope === 'user' && couponForm.targetUserEmail?.trim();
+        if ((sendInApp || sendEmail) && !targetUser) {
           try {
             await createAnnouncementAsAdmin({
               title: benefitTitle,
@@ -1334,6 +1344,7 @@ export const AdminPage: React.FC = () => {
                 benefitDetails,
                 targetAll,
                 targetTier,
+                targetUserEmail: targetUser ? couponForm.targetUserEmail.trim() : undefined,
               }),
             });
             const json = await res.json().catch(() => ({}));
@@ -1903,7 +1914,7 @@ export const AdminPage: React.FC = () => {
               </FormGroup>
               {couponForm.targetScope === 'user' && (
                 <FormGroup>
-                  <FormLabel>אימייל של המשתמש (לשימוש ידני / תיעוד)</FormLabel>
+                  <FormLabel>אימייל של המשתמש *</FormLabel>
                   <FormInput
                     type="email"
                     placeholder="name@example.com"
@@ -1911,7 +1922,7 @@ export const AdminPage: React.FC = () => {
                     onChange={(e) => setCouponForm({ ...couponForm, targetUserEmail: e.target.value })}
                   />
                   <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '6px' }}>
-                    כרגע ההודעה האוטומטית נשלחת לפי כללי/חבילה. את הקוד למשתמש בודד מומלץ גם לשלוח ידנית במייל.
+                    המייל ישלח ישירות לכתובת זו (גם אם המשתמש עדיין לא רשום במערכת).
                   </div>
                 </FormGroup>
               )}
@@ -2054,6 +2065,9 @@ export const AdminPage: React.FC = () => {
               <SectionTitle>היסטוריית הטבות</SectionTitle>
               <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
             </SectionHeader>
+            <p style={{ color: '#999', fontSize: '0.9rem', marginBottom: '12px' }}>
+              כל ההטבות שנוצרו, כולל מימושים (מי השתמש בכל הטבה)
+            </p>
             <SearchBar
               type="text"
               placeholder="חפש לפי קוד או תיאור..."
@@ -2072,24 +2086,38 @@ export const AdminPage: React.FC = () => {
                       <TableHeaderCell>תיאור</TableHeaderCell>
                       <TableHeaderCell>סוג ההטבה</TableHeaderCell>
                       <TableHeaderCell>נוצר בתאריך</TableHeaderCell>
+                      <TableHeaderCell>מימושים</TableHeaderCell>
                       <TableHeaderCell>פעולות</TableHeaderCell>
                     </tr>
                   </TableHeader>
                   <tbody>
                     {coupons
                       .filter((c) => !historySearchQuery.trim() || c.code?.toLowerCase().includes(historySearchQuery.toLowerCase()) || c.description?.toLowerCase().includes(historySearchQuery.toLowerCase()))
-                      .map((coupon) => (
-                        <TableRow key={coupon.id}>
-                          <TableCell>{coupon.code}</TableCell>
-                          <TableCell>{coupon.description || '-'}</TableCell>
-                          <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
-                          <TableCell>{coupon.created_at ? new Date(coupon.created_at).toLocaleDateString('he-IL') : '-'}</TableCell>
-                          <ActionsCell>
-                            <ActionButton $variant="primary" onClick={() => handleEditCoupon(coupon)}>ערוך</ActionButton>
-                            <ActionButton $variant="delete" onClick={() => handleDeleteCoupon(coupon.id)}>מחק</ActionButton>
-                          </ActionsCell>
-                        </TableRow>
-                      ))}
+                      .map((coupon) => {
+                        const couponRedemptions = redemptions.filter((r: any) => r.coupon_id === coupon.id);
+                        const redemptionText = couponRedemptions.length === 0
+                          ? '–'
+                          : couponRedemptions.length === 1
+                            ? couponRedemptions[0].profiles
+                              ? `${couponRedemptions[0].profiles.full_name || couponRedemptions[0].profiles.email || 'משתמש'} (${new Date(couponRedemptions[0].applied_at).toLocaleDateString('he-IL')})`
+                              : `משתמש (${new Date(couponRedemptions[0].applied_at).toLocaleDateString('he-IL')})`
+                            : `${couponRedemptions.length} משתמשים`;
+                        return (
+                          <TableRow key={coupon.id}>
+                            <TableCell>{coupon.code}</TableCell>
+                            <TableCell>{coupon.description || '-'}</TableCell>
+                            <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
+                            <TableCell>{coupon.created_at ? new Date(coupon.created_at).toLocaleDateString('he-IL') : '-'}</TableCell>
+                            <TableCell title={couponRedemptions.length > 1 ? couponRedemptions.map((r: any) => r.profiles ? (r.profiles.full_name || r.profiles.email) : 'משתמש').join(', ') : undefined}>
+                              {redemptionText}
+                            </TableCell>
+                            <ActionsCell>
+                              <ActionButton $variant="primary" onClick={() => handleEditCoupon(coupon)}>ערוך</ActionButton>
+                              <ActionButton $variant="delete" onClick={() => handleDeleteCoupon(coupon.id)}>מחק</ActionButton>
+                            </ActionsCell>
+                          </TableRow>
+                        );
+                      })}
                   </tbody>
                 </Table>
               </TableWrapper>
