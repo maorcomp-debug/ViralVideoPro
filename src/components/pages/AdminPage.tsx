@@ -16,11 +16,13 @@ import {
   createCoupon,
   createCouponAsAdmin,
   getAllCoupons,
+  getAllCouponsForAdmin,
   updateCoupon,
   deleteCoupon,
   toggleCouponStatus,
   grantTrialToUsers,
   getAllTrials,
+  getAllTrialsForAdmin,
   getCouponRedemptionsForAdmin,
 } from '../../lib/supabase-helpers';
 import { supabase } from '../../lib/supabase';
@@ -785,7 +787,14 @@ const getBenefitTypeLabelFromForm = (benefitType: string): string => {
   return labels[benefitType] || 'הטבה';
 };
 
-/** פירוט ההטבה למייל (אחוז הנחה, סכום, ניתוחים וכו') */
+const PACKAGE_LABELS: Record<string, string> = {
+  creator: 'חבילת היוצרים',
+  pro: 'חבילת יוצרים באקסטרים',
+  coach: 'חבילת המאמנים',
+  'coach-pro': 'חבילת המאמנים גרסת פרו',
+};
+
+/** פירוט ההטבה למייל (אחוז הנחה, סכום, ניתוחים, חבילה וכו') */
 function buildBenefitDetailsForEmail(form: {
   benefitType: string;
   percent?: string;
@@ -795,28 +804,33 @@ function buildBenefitDetailsForEmail(form: {
   registrationAnalysesCount?: string;
   days?: string;
   package?: string;
+  targetScope?: string;
 }): string {
+  const pkg = form.targetScope === 'package' && form.package && form.package !== 'all'
+    ? PACKAGE_LABELS[form.package] || form.package
+    : '';
+  const forPackage = pkg ? ` ${pkg}` : '';
   switch (form.benefitType) {
     case 'free_week':
-      return 'שבוע ניסיון חינם';
+      return `שבוע ניסיון חינם${forPackage}`;
     case 'free_month':
-      return 'חודש ניסיון חינם';
+      return `חודש ניסיון חינם${forPackage}`;
     case 'discount_percent':
-      return form.percent ? `${form.percent}% הנחה` : 'הנחה באחוזים';
+      return form.percent ? `${form.percent}% הנחה${forPackage}` : `הנחה באחוזים${forPackage}`;
     case 'gift_analyses':
-      return form.analysesCount ? `${form.analysesCount} ניתוחי וידאו בחינם` : 'ניתוחי וידאו בחינם';
+      return form.analysesCount ? `${form.analysesCount} ניתוחי וידאו בחינם${forPackage}` : `ניתוחי וידאו בחינם${forPackage}`;
     case 'extra_track':
-      return 'מסלול ניתוח נוסף חינם';
+      return `מסלול ניתוח נוסף חינם${forPackage}`;
     case 'registration_discount':
       if (form.registrationType === 'percentage' && form.registrationValue)
-        return `${form.registrationValue}% הנחה בהרשמה`;
+        return `${form.registrationValue}% הנחה בהרשמה${forPackage}`;
       if (form.registrationType === 'fixed_amount' && form.registrationValue)
-        return `הנחה של ${form.registrationValue} ₪ בהרשמה`;
+        return `הנחה של ${form.registrationValue} ₪ בהרשמה${forPackage}`;
       if (form.registrationType === 'free_analyses' && form.registrationAnalysesCount)
-        return `${form.registrationAnalysesCount} ניתוחים בחינם בהרשמה`;
-      return 'הנחה בהרשמה';
+        return `${form.registrationAnalysesCount} ניתוחים בחינם בהרשמה${forPackage}`;
+      return `הנחה בהרשמה${forPackage}`;
     default:
-      return 'הטבה';
+      return `הטבה${forPackage}`;
   }
 }
 
@@ -964,8 +978,8 @@ export const AdminPage: React.FC = () => {
       } else if (activeTab === 'alerts') {
         const [announcementsData, couponsData, trialsData, redemptionsData] = await Promise.all([
           getAllAnnouncements(),
-          getAllCoupons(),
-          getAllTrials(),
+          getAllCouponsForAdmin().catch(() => []),
+          getAllTrialsForAdmin().catch(() => []),
           getCouponRedemptionsForAdmin().catch(() => []),
         ]);
         setAnnouncements(announcementsData || []);
@@ -983,8 +997,8 @@ export const AdminPage: React.FC = () => {
         getAllAnalyses(true).then(data => { if (activeTab !== 'analyses') setAnalyses(data || []); }).catch(() => {}),
         getAllVideos(true).then(data => { if (activeTab !== 'video') setVideos(data || []); }).catch(() => {}),
         getAllAnnouncements().then(data => { if (activeSubTab !== 'send-update') setAnnouncements(data || []); }).catch(() => {}),
-        getAllCoupons().then(data => { if (activeSubTab !== 'coupons') setCoupons(data || []); }).catch(() => {}),
-        getAllTrials().then(data => { if (activeSubTab !== 'trials') setTrials(data || []); }).catch(() => {}),
+        getAllCouponsForAdmin().then(data => setCoupons(data || [])).catch(() => {}),
+        getAllTrialsForAdmin().then(data => setTrials(data || [])).catch(() => {}),
         getCouponRedemptionsForAdmin().then(data => setRedemptions(data || [])).catch(() => {})
       ]).catch(() => {
         // Ignore errors in background loading - main tab data already loaded
@@ -1342,6 +1356,7 @@ export const AdminPage: React.FC = () => {
                 benefitTitle: titleTrimmed,
                 couponCode: code,
                 benefitDetails,
+                targetPackage: couponForm.targetScope === 'package' && couponForm.package && couponForm.package !== 'all' ? couponForm.package : undefined,
                 targetAll,
                 targetTier,
                 targetUserEmail: targetUser ? couponForm.targetUserEmail.trim() : undefined,

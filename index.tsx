@@ -194,6 +194,7 @@ const App = () => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [redeemCodeFromUrl, setRedeemCodeFromUrl] = useState<string | null>(null);
+  const [redeemPackageFromUrl, setRedeemPackageFromUrl] = useState<string | null>(null);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
@@ -952,9 +953,16 @@ const App = () => {
     const redeemCode = searchParams.get('redeem');
     if (!redeemCode?.trim()) return;
     setRedeemCodeFromUrl(redeemCode.trim());
+    const pkg = searchParams.get('package');
+    if (pkg && ['creator', 'pro', 'coach', 'coach-pro'].includes(pkg)) {
+      setRedeemPackageFromUrl(pkg);
+    } else {
+      setRedeemPackageFromUrl(null);
+    }
     setShowAuthModal(true);
     const next = new URLSearchParams(location.search);
     next.delete('redeem');
+    next.delete('package');
     const q = next.toString();
     navigate(`${location.pathname}${q ? `?${q}` : ''}`, { replace: true });
   }, [loadingAuth, user, location.search, location.pathname, navigate]);
@@ -3702,9 +3710,10 @@ const App = () => {
         />
         <AuthModal
           isOpen={showAuthModal}
-          onClose={() => { setShowAuthModal(false); setRedeemCodeFromUrl(null); }}
+          onClose={() => { setShowAuthModal(false); setRedeemCodeFromUrl(null); setRedeemPackageFromUrl(null); }}
           onAuthSuccess={() => {}}
           initialRedeemCode={redeemCodeFromUrl}
+          initialPackage={redeemPackageFromUrl}
         />
       </>
     );
@@ -4765,7 +4774,8 @@ const App = () => {
       
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => { setShowAuthModal(false); setRedeemCodeFromUrl(null); }}
+        onClose={() => { setShowAuthModal(false); setRedeemCodeFromUrl(null); setRedeemPackageFromUrl(null); }}
+        initialPackage={redeemPackageFromUrl}
         onAuthSuccess={async () => {
           // NOTE: onAuthStateChange will automatically call loadUserData when SIGNED_IN event fires
           // No need to call it here to avoid duplicate calls

@@ -1880,6 +1880,26 @@ export async function getAllCoupons() {
   }
 }
 
+/** Admin: fetch all coupons (bypasses RLS). */
+export async function getAllCouponsForAdmin() {
+  try {
+    const adminClient = getAdminClient();
+    const { data, error } = await adminClient
+      .from('coupons')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching coupons (admin):', error);
+      throw error;
+    }
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getAllCouponsForAdmin:', error);
+    throw error;
+  }
+}
+
 export async function createCoupon(data: {
   code: string;
   description?: string;
@@ -2252,6 +2272,26 @@ export async function getAllTrials() {
     return data || [];
   } catch (error: any) {
     console.error('Error in getAllTrials:', error);
+    throw error;
+  }
+}
+
+/** Admin: fetch all trials (bypasses RLS). */
+export async function getAllTrialsForAdmin() {
+  try {
+    const adminClient = getAdminClient();
+    const { data, error } = await adminClient
+      .from('user_trials')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching trials (admin):', error);
+      throw error;
+    }
+    return data || [];
+  } catch (error: any) {
+    console.error('Error in getAllTrialsForAdmin:', error);
     throw error;
   }
 }

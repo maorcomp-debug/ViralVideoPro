@@ -12,6 +12,8 @@ interface SendBenefitEmailRequest {
   couponCode?: string;
   /** פירוט ההטבה למייל (אחוז הנחה, סכום, ניתוחים וכו') */
   benefitDetails?: string;
+  /** חבילה מיועדת להטבה (creator, pro, coach, coach-pro) – נוסף ל-URL ולדף ההרשמה */
+  targetPackage?: string;
   targetAll?: boolean;
   targetTier?: string[];
   /** כשמוגדר – שולח אך ורק לכתובת זו (משתמש ספציפי, כולל לא רשום) */
@@ -126,8 +128,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const benefitTitle = (body.benefitTitle || body.title || '').trim();
     const subject = `Viraly – Video Director Pro | ${benefitTypeLabel} | ${benefitTitle || 'הטבה'}`;
     const baseUrl = appUrl.replace(/\/$/, '');
-    const redemptionUrl = body.couponCode
-      ? `${baseUrl}?redeem=${encodeURIComponent(body.couponCode)}`
+    const redeemParams = new URLSearchParams();
+    if (body.couponCode) redeemParams.set('redeem', body.couponCode);
+    if (body.targetPackage && ['creator', 'pro', 'coach', 'coach-pro'].includes(body.targetPackage)) {
+      redeemParams.set('package', body.targetPackage);
+    }
+    const redemptionUrl = redeemParams.toString()
+      ? `${baseUrl}?${redeemParams.toString()}`
       : baseUrl;
     const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
     const htmlBody = buildBenefitEmailHtml(redemptionUrl, body.couponCode, body.benefitDetails);
