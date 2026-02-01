@@ -761,7 +761,7 @@ const ConfirmButton = styled.button`
 // ============================================
 
 type MainTab = 'overview' | 'users' | 'analyses' | 'video' | 'alerts';
-type SubTab = 'send-update' | 'coupons' | 'trials' | 'history';
+type SubTab = 'send-update' | 'coupons' | 'trials';
 
 /** תווית בעברית לסוג ההטבה (לפי discount_type בטבלה) */
 const getBenefitTypeLabel = (discountType: string): string => {
@@ -1226,39 +1226,41 @@ export const AdminPage: React.FC = () => {
 
   const handleDeleteCoupon = async (couponId: string) => {
     if (!confirm('למחוק את ההטבה? לא ניתן לשחזר.')) return;
-    console.log('[Admin] handleDeleteCoupon', couponId);
     try {
-      const { error: errRedemptions } = await supabase.from('coupon_redemptions').delete().eq('coupon_id', couponId);
-      if (errRedemptions) throw errRedemptions;
-      const { error } = await supabase.from('coupons').delete().eq('id', couponId);
+      await supabase.from('coupon_redemptions').delete().eq('coupon_id', couponId);
+      const { data: deleted, error } = await supabase.from('coupons').delete().eq('id', couponId).select('id');
       if (error) throw error;
+      if (!deleted || deleted.length === 0) throw new Error('RLS');
+      console.log('[Admin] delete coupon OK (direct)');
       setEditingCoupon(null);
       await loadData(true);
       alert('ההטבה נמחקה');
     } catch (directErr: any) {
-      console.warn('[Admin] direct delete failed, trying API', directErr);
+      if (directErr?.message !== 'RLS') console.warn('[Admin] direct delete failed', directErr);
       try {
         await deleteCouponViaAdminApi(couponId);
+        console.log('[Admin] delete coupon OK (API)');
         setEditingCoupon(null);
         await loadData(true);
         alert('ההטבה נמחקה');
       } catch (apiErr: any) {
         console.error('[Admin] delete coupon failed', apiErr);
-        alert('שגיאה במחיקת ההטבה: ' + (apiErr.message || directErr.message || 'Unknown error'));
+        const hint = 'ודא שהרצת את המיגרציה allow_admin_delete ב-Supabase (SQL Editor) וכי המשתמש הוא admin. אם ה-API מפורסם ב-Vercel, בדוק משתני סביבה.';
+        alert('שגיאה במחיקת ההטבה: ' + (apiErr.message || directErr.message || 'Unknown error') + '\n\n' + hint);
       }
     }
   };
 
   const handleDeleteAllTrials = async () => {
     if (!confirm('למחוק את כל רשומות ההתנסויות? לא ניתן לשחזר.')) return;
-    console.log('[Admin] handleDeleteAllTrials');
     try {
-      const { error } = await supabase.from('user_trials').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      const { data: deleted, error } = await supabase.from('user_trials').delete().neq('id', '00000000-0000-0000-0000-000000000000').select('id');
       if (error) throw error;
+      if (trials.length > 0 && (!deleted || deleted.length === 0)) throw new Error('RLS');
       await loadData(true);
       alert('כל ההתנסויות נמחקו');
     } catch (directErr: any) {
-      console.warn('[Admin] direct delete all trials failed, trying API', directErr);
+      if (directErr?.message !== 'RLS') console.warn('[Admin] direct delete all trials failed', directErr);
       try {
         await deleteAllTrialsViaAdminApi();
         await loadData(true);
@@ -1270,24 +1272,6 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDeleteAllHistory = async () => {
-    if (!confirm('למחוק את כל היסטוריית המימושים (מי השתמש בכל הטבה)? לא ניתן לשחזר.')) return;
-    try {
-      await deleteAllRedemptionsViaAdminApi();
-      await loadData(true);
-      alert('כל ההיסטוריה נמחקה');
-    } catch (apiErr: any) {
-      try {
-        await deleteAllRedemptionsAsAdmin();
-        await loadData(true);
-        alert('כל ההיסטוריה נמחקה');
-      } catch (directErr: any) {
-        console.error('Error deleting all redemptions:', apiErr, directErr);
-        alert('שגיאה במחיקת ההיסטוריה: ' + (directErr.message || apiErr.message || 'Unknown error'));
-      }
-    }
-  };
-
   const handleDeleteSelectedTrials = async () => {
     if (selectedTrials.size === 0) {
       alert('לא נבחרו התנסויות למחיקה');
@@ -1295,15 +1279,15 @@ export const AdminPage: React.FC = () => {
     }
     if (!confirm(`למחוק ${selectedTrials.size} התנסויות שנבחרו? לא ניתן לשחזר.`)) return;
     const ids = Array.from(selectedTrials);
-    console.log('[Admin] handleDeleteSelectedTrials', ids.length, ids);
     try {
-      const { error } = await supabase.from('user_trials').delete().in('id', ids);
+      const { data: deleted, error } = await supabase.from('user_trials').delete().in('id', ids).select('id');
       if (error) throw error;
+      if (!deleted || deleted.length === 0) throw new Error('RLS');
       setSelectedTrials(new Set());
       await loadData(true);
       alert(`${ids.length} התנסויות נמחקו`);
     } catch (directErr: any) {
-      console.warn('[Admin] direct trials delete failed, trying API', directErr);
+      if (directErr?.message !== 'RLS') console.warn('[Admin] direct trials delete failed', directErr);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) throw new Error('לא מחובר');
@@ -1334,19 +1318,19 @@ export const AdminPage: React.FC = () => {
     }
     if (!confirm(`למחוק ${selectedCoupons.size} הטבות שנבחרו? לא ניתן לשחזר.`)) return;
     const ids = Array.from(selectedCoupons);
-    console.log('[Admin] handleDeleteSelectedCoupons', ids.length, ids);
     try {
       for (const couponId of ids) {
-        const { error: errRedemptions } = await supabase.from('coupon_redemptions').delete().eq('coupon_id', couponId);
-        if (errRedemptions) throw errRedemptions;
-        const { error } = await supabase.from('coupons').delete().eq('id', couponId);
+        await supabase.from('coupon_redemptions').delete().eq('coupon_id', couponId);
+        const { data: deleted, error } = await supabase.from('coupons').delete().eq('id', couponId).select('id');
         if (error) throw error;
+        if (!deleted || deleted.length === 0) throw new Error('RLS');
       }
+      console.log('[Admin] delete selected coupons OK (direct)', ids.length);
       setSelectedCoupons(new Set());
       await loadData(true);
       alert(`${ids.length} הטבות נמחקו`);
     } catch (directErr: any) {
-      console.warn('[Admin] direct batch delete failed, trying API', directErr);
+      if (directErr?.message !== 'RLS') console.warn('[Admin] direct batch delete failed', directErr);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) throw new Error('לא מחובר');
@@ -1360,12 +1344,14 @@ export const AdminPage: React.FC = () => {
         const text = await res.text();
         const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
         if (!res.ok || !data.ok) throw new Error(data.error || text || `שגיאה ${res.status}`);
+        console.log('[Admin] delete selected coupons OK (API)', ids.length);
         setSelectedCoupons(new Set());
         await loadData(true);
         alert(`${ids.length} הטבות נמחקו`);
       } catch (apiErr: any) {
         console.error('[Admin] delete selected coupons failed', apiErr);
-        alert('שגיאה במחיקת ההטבות: ' + (apiErr.message || directErr.message || 'Unknown error'));
+        const hint = 'ודא שהרצת את המיגרציה allow_admin_delete ב-Supabase (SQL Editor) וכי המשתמש הוא admin. אם ה-API מפורסם ב-Vercel, בדוק משתני סביבה.';
+        alert('שגיאה במחיקת ההטבות: ' + (apiErr.message || directErr.message || 'Unknown error') + '\n\n' + hint);
       }
     }
   };
@@ -1596,10 +1582,7 @@ export const AdminPage: React.FC = () => {
             🏷️ ניהול קופונים
           </SubNavItem>
           <SubNavItem $active={activeSubTab === 'trials'} onClick={() => setActiveSubTab('trials')}>
-            ⭐ ניהול התנסויות
-          </SubNavItem>
-          <SubNavItem $active={activeSubTab === 'history'} onClick={() => setActiveSubTab('history')}>
-            📋 היסטוריה
+            📋 הטבות והתנסויות
           </SubNavItem>
         </SubNav>
       )}
@@ -2155,167 +2138,6 @@ export const AdminPage: React.FC = () => {
             <SectionHeader>
               <SectionTitle>הטבות והתנסויות</SectionTitle>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                {selectedTrials.size > 0 && (
-                  <ActionButton
-                    $variant="delete"
-                    onClick={handleDeleteSelectedTrials}
-                    title={`מחק ${selectedTrials.size} התנסויות שנבחרו`}
-                  >
-                    🗑️ מחק נבחרים ({selectedTrials.size})
-                  </ActionButton>
-                )}
-                <ActionButton
-                  $variant="delete"
-                  onClick={handleDeleteAllTrials}
-                  disabled={trials.length === 0}
-                  title={trials.length === 0 ? 'אין רשומות התנסות למחוק' : 'מחק את כל רשומות ההתנסויות'}
-                  style={{ opacity: trials.length === 0 ? 0.5 : 1 }}
-                >
-                  🗑️ מחק הכל
-                </ActionButton>
-                <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
-              </div>
-            </SectionHeader>
-            <h3 style={{ color: '#D4A043', marginBottom: '12px' }}>הטבות (קופונים)</h3>
-            {coupons.length === 0 ? (
-              <EmptyState>אין הטבות</EmptyState>
-            ) : (
-              <>
-                {selectedCoupons.size > 0 && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <ActionButton
-                      $variant="delete"
-                      onClick={handleDeleteSelectedCoupons}
-                      title={`מחק ${selectedCoupons.size} הטבות שנבחרו`}
-                    >
-                      🗑️ מחק {selectedCoupons.size} הטבות נבחרות
-                    </ActionButton>
-                  </div>
-                )}
-                <TableWrapper>
-                  <Table>
-                    <TableHeader>
-                      <tr>
-                        <TableHeaderCell style={{ width: '40px' }}>
-                          <input
-                            type="checkbox"
-                            checked={selectedCoupons.size === coupons.length && coupons.length > 0}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedCoupons(new Set(coupons.map((c: any) => c.id)));
-                              } else {
-                                setSelectedCoupons(new Set());
-                              }
-                            }}
-                            style={{ cursor: 'pointer' }}
-                          />
-                        </TableHeaderCell>
-                        <TableHeaderCell>קוד</TableHeaderCell>
-                        <TableHeaderCell>תיאור</TableHeaderCell>
-                        <TableHeaderCell>סוג ההטבה</TableHeaderCell>
-                        <TableHeaderCell>פעיל</TableHeaderCell>
-                        <TableHeaderCell>פעולות</TableHeaderCell>
-                      </tr>
-                    </TableHeader>
-                    <tbody>
-                      {coupons.map((coupon) => (
-                        <TableRow key={coupon.id}>
-                          <TableCell>
-                            <input
-                              type="checkbox"
-                              checked={selectedCoupons.has(coupon.id)}
-                              onChange={(e) => {
-                                const newSelected = new Set(selectedCoupons);
-                                if (e.target.checked) {
-                                  newSelected.add(coupon.id);
-                                } else {
-                                  newSelected.delete(coupon.id);
-                                }
-                                setSelectedCoupons(newSelected);
-                              }}
-                              style={{ cursor: 'pointer' }}
-                            />
-                          </TableCell>
-                          <TableCell>{coupon.code}</TableCell>
-                          <TableCell>{coupon.description || '-'}</TableCell>
-                          <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
-                          <TableCell>{coupon.is_active ? 'כן' : 'לא'}</TableCell>
-                          <ActionsCell>
-                            <ActionButton $variant="primary" onClick={() => handleEditCoupon(coupon)}>ערוך</ActionButton>
-                            <ActionButton $variant="delete" onClick={() => handleDeleteCoupon(coupon.id)}>מחק</ActionButton>
-                          </ActionsCell>
-                        </TableRow>
-                      ))}
-                    </tbody>
-                  </Table>
-                </TableWrapper>
-              </>
-            )}
-            <h3 style={{ color: '#D4A043', marginTop: '24px', marginBottom: '12px' }}>התנסויות (user_trials)</h3>
-            {trials.length === 0 ? (
-              <EmptyState>אין רשומות התנסות</EmptyState>
-            ) : (
-              <TableWrapper>
-                <Table>
-                  <TableHeader>
-                    <tr>
-                      <TableHeaderCell style={{ width: '40px' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedTrials.size === trials.length && trials.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedTrials(new Set(trials.map((t: any) => t.id)));
-                            } else {
-                              setSelectedTrials(new Set());
-                            }
-                          }}
-                          style={{ cursor: 'pointer' }}
-                        />
-                      </TableHeaderCell>
-                      <TableHeaderCell>משתמש</TableHeaderCell>
-                      <TableHeaderCell>חבילה</TableHeaderCell>
-                      <TableHeaderCell>תחילה</TableHeaderCell>
-                      <TableHeaderCell>סיום</TableHeaderCell>
-                    </tr>
-                  </TableHeader>
-                  <tbody>
-                    {trials.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={selectedTrials.has(t.id)}
-                            onChange={(e) => {
-                              const newSelected = new Set(selectedTrials);
-                              if (e.target.checked) {
-                                newSelected.add(t.id);
-                              } else {
-                                newSelected.delete(t.id);
-                              }
-                              setSelectedTrials(newSelected);
-                            }}
-                            style={{ cursor: 'pointer' }}
-                          />
-                        </TableCell>
-                        <TableCell>{t.user_id}</TableCell>
-                        <TableCell>{t.tier}</TableCell>
-                        <TableCell>{t.start_date ? new Date(t.start_date).toLocaleDateString('he-IL') : '-'}</TableCell>
-                        <TableCell>{t.end_date ? new Date(t.end_date).toLocaleDateString('he-IL') : '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </tbody>
-                </Table>
-              </TableWrapper>
-            )}
-          </>
-        )}
-
-        {activeTab === 'alerts' && activeSubTab === 'history' && (
-          <>
-            <SectionHeader>
-              <SectionTitle>היסטוריית הטבות</SectionTitle>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 {selectedCoupons.size > 0 && (
                   <ActionButton
                     $variant="delete"
@@ -2323,6 +2145,15 @@ export const AdminPage: React.FC = () => {
                     title={`מחק ${selectedCoupons.size} הטבות שנבחרו`}
                   >
                     🗑️ מחק נבחרים ({selectedCoupons.size})
+                  </ActionButton>
+                )}
+                {selectedTrials.size > 0 && (
+                  <ActionButton
+                    $variant="delete"
+                    onClick={handleDeleteSelectedTrials}
+                    title={`מחק ${selectedTrials.size} התנסויות שנבחרו`}
+                  >
+                    🗑️ מחק נבחרים התנסויות ({selectedTrials.size})
                   </ActionButton>
                 )}
                 <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
@@ -2412,6 +2243,63 @@ export const AdminPage: React.FC = () => {
                           </TableRow>
                         );
                       })}
+                  </tbody>
+                </Table>
+              </TableWrapper>
+            )}
+            <h3 style={{ color: '#D4A043', marginTop: '24px', marginBottom: '12px' }}>התנסויות (user_trials)</h3>
+            {trials.length === 0 ? (
+              <EmptyState>אין רשומות התנסות</EmptyState>
+            ) : (
+              <TableWrapper>
+                <Table>
+                  <TableHeader>
+                    <tr>
+                      <TableHeaderCell style={{ width: '40px' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedTrials.size === trials.length && trials.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTrials(new Set(trials.map((t: any) => t.id)));
+                            } else {
+                              setSelectedTrials(new Set());
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </TableHeaderCell>
+                      <TableHeaderCell>משתמש</TableHeaderCell>
+                      <TableHeaderCell>חבילה</TableHeaderCell>
+                      <TableHeaderCell>תחילה</TableHeaderCell>
+                      <TableHeaderCell>סיום</TableHeaderCell>
+                    </tr>
+                  </TableHeader>
+                  <tbody>
+                    {trials.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedTrials.has(t.id)}
+                            onChange={(e) => {
+                              const newSelected = new Set(selectedTrials);
+                              if (e.target.checked) {
+                                newSelected.add(t.id);
+                              } else {
+                                newSelected.delete(t.id);
+                              }
+                              setSelectedTrials(newSelected);
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </TableCell>
+                        <TableCell>{t.user_id}</TableCell>
+                        <TableCell>{t.tier}</TableCell>
+                        <TableCell>{t.start_date ? new Date(t.start_date).toLocaleDateString('he-IL') : '-'}</TableCell>
+                        <TableCell>{t.end_date ? new Date(t.end_date).toLocaleDateString('he-IL') : '-'}</TableCell>
+                      </TableRow>
+                    ))}
                   </tbody>
                 </Table>
               </TableWrapper>

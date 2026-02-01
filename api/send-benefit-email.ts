@@ -20,13 +20,27 @@ interface SendBenefitEmailRequest {
   targetUserEmail?: string;
 }
 
+const PACKAGE_LABELS: Record<string, string> = {
+  creator: 'חבילת היוצרים',
+  pro: 'חבילת יוצרים באקסטרים',
+  coach: 'חבילת המאמנים',
+  'coach-pro': 'חבילת המאמנים גרסת פרו',
+};
+
 function escapeHtml(text: string): string {
   const map: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
   return text.replace(/[&<>"']/g, (c) => map[c] || c);
 }
 
 /** Benefit email HTML – RTL Hebrew, same visual style as account verification (dark theme, yellow CTA). */
-function buildBenefitEmailHtml(redemptionUrl: string, couponCode?: string, benefitDetails?: string): string {
+function buildBenefitEmailHtml(
+  redemptionUrl: string,
+  couponCode?: string,
+  benefitDetails?: string,
+  packageLabel?: string
+): string {
+  const packageLine = packageLabel ? `הטבה בהרשמה ל${packageLabel}.` : '';
+  const benefitText = [benefitDetails, packageLine].filter(Boolean).join(' ');
   const ctaIntro = couponCode
     ? `כדי לממש את ההטבה, העתק או הזן את קוד ההטבה :  <strong>${escapeHtml(couponCode)}</strong>  ולחץ על הכפתור למימוש ההטבה.`
     : 'כדי לממש את ההטבה, לחץ על הכפתור:';
@@ -45,7 +59,7 @@ function buildBenefitEmailHtml(redemptionUrl: string, couponCode?: string, benef
     <p style="margin: 0 0 24px 0; line-height: 1.6; color: #fff;">
       Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
     </p>
-    ${benefitDetails ? `<p style="margin: 0 0 16px 0; line-height: 1.6; color: #D4A043; font-weight: 600;">${escapeHtml(benefitDetails)}</p>` : ''}
+    ${benefitText ? `<p style="margin: 0 0 16px 0; line-height: 1.6; color: #D4A043; font-weight: 600;">${escapeHtml(benefitText)}</p>` : ''}
     <p style="margin: 0 0 16px 0; line-height: 1.6; color: #fff;">
       ${ctaIntro}
     </p>
@@ -126,7 +140,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const benefitTypeLabel = (body.benefitTypeLabel || 'הטבה').trim();
     const benefitTitle = (body.benefitTitle || body.title || '').trim();
-    const subject = `Viraly – Video Director Pro | ${benefitTypeLabel} | ${benefitTitle || 'הטבה'}`;
+    const packageLabel = body.targetPackage && PACKAGE_LABELS[body.targetPackage]
+      ? PACKAGE_LABELS[body.targetPackage]
+      : undefined;
+    const subjectSuffix = packageLabel ? ` – הטבה בהרשמה ל${packageLabel}` : '';
+    const subject = `Viraly – Video Director Pro | ${benefitTypeLabel} | ${benefitTitle || 'הטבה'}${subjectSuffix}`;
     const baseUrl = appUrl.replace(/\/$/, '');
     const redeemParams = new URLSearchParams();
     if (body.couponCode) redeemParams.set('redeem', body.couponCode);
@@ -137,15 +155,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? `${baseUrl}?${redeemParams.toString()}`
       : baseUrl;
     const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
-    const htmlBody = buildBenefitEmailHtml(redemptionUrl, body.couponCode, body.benefitDetails);
+    const htmlBody = buildBenefitEmailHtml(redemptionUrl, body.couponCode, body.benefitDetails, packageLabel);
     const ctaText = body.couponCode
       ? `כדי לממש את ההטבה, העתק או הזן את קוד ההטבה :  ${body.couponCode}  ולחץ על הכפתור למימוש ההטבה.`
       : 'כדי לממש את ההטבה, לחץ על הקישור:';
+    const textBenefit = [body.benefitDetails, packageLabel ? `הטבה בהרשמה ל${packageLabel}.` : ''].filter(Boolean).join(' ');
     const textBody = [
       'ברוך הבא ל־ Viraly',
       'Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.',
       '',
-      ...(body.benefitDetails ? [body.benefitDetails, ''] : []),
+      ...(textBenefit ? [textBenefit, ''] : []),
       ctaText,
       redemptionUrl,
       '',

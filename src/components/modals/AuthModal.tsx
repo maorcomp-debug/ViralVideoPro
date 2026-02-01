@@ -216,6 +216,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [isOpen, initialRedeemCode, initialPackage]);
 
+  // When coupon is validated and has trial_tier, pre-select that package if still on free (e.g. link had no package=)
+  React.useEffect(() => {
+    if (!isOpen || !isSignUp) return;
+    if (couponValid?.valid && couponValid.coupon?.trial_tier && selectedTier === 'free') {
+      const tier = couponValid.coupon.trial_tier;
+      if (['creator', 'pro', 'coach'].includes(tier)) {
+        setSelectedTier(tier as SubscriptionTier);
+      }
+    }
+  }, [isOpen, isSignUp, couponValid?.valid, couponValid?.coupon?.trial_tier, selectedTier]);
+
   // Validate coupon code
   const handleCouponValidation = async (code: string) => {
     if (!code.trim()) {
