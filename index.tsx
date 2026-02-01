@@ -750,8 +750,14 @@ const App = () => {
         setUser(session?.user ?? null);
         setLoadingAuth(false);
         
-        // Don't load user data here - let onAuthStateChange handle it to avoid duplicates
-        // onAuthStateChange will fire immediately after getSession returns a session
+        // CRITICAL: Also load user data when getSession returns with session (e.g. F5 on home page)
+        // onAuthStateChange can fire INITIAL_SESSION with null first (race), then getSession returns –
+        // we must load profile/admin status so admin button shows on home page
+        if (session?.user) {
+          loadUserData(session.user, true).catch((err) =>
+            console.error('Error loading user data from getSession:', err)
+          );
+        }
       })
       .catch((error) => {
         if (timeoutId) clearTimeout(timeoutId);
