@@ -2155,6 +2155,54 @@ export async function deleteAllRedemptionsAsAdmin() {
   return { success: true };
 }
 
+/** Admin: delete coupon via API (works without service role key in frontend). */
+export async function deleteCouponViaAdminApi(couponId: string) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('לא מחובר');
+  const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
+  const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-coupon` : '/api/admin/delete-coupon';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ couponId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.ok) throw new Error(data.error || 'מחיקת ההטבה נכשלה');
+  return data;
+}
+
+/** Admin: delete all trials via API. */
+export async function deleteAllTrialsViaAdminApi() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('לא מחובר');
+  const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
+  const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-all-trials` : '/api/admin/delete-all-trials';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.ok) throw new Error(data.error || 'מחיקת ההתנסויות נכשלה');
+  return data;
+}
+
+/** Admin: delete all redemptions (history) via API. */
+export async function deleteAllRedemptionsViaAdminApi() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('לא מחובר');
+  const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
+  const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-all-redemptions` : '/api/admin/delete-all-redemptions';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.ok) throw new Error(data.error || 'מחיקת ההיסטוריה נכשלה');
+  return data;
+}
+
 export async function toggleCouponStatus(couponId: string, isActive: boolean) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');

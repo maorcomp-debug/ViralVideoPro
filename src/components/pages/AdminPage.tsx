@@ -18,14 +18,14 @@ import {
   getAllCoupons,
   getAllCouponsForAdmin,
   updateCoupon,
-  deleteCouponAsAdmin,
+  deleteCouponViaAdminApi,
   toggleCouponStatus,
   grantTrialToUsers,
   getAllTrials,
   getAllTrialsForAdmin,
   getCouponRedemptionsForAdmin,
-  deleteAllTrialsAsAdmin,
-  deleteAllRedemptionsAsAdmin,
+  deleteAllTrialsViaAdminApi,
+  deleteAllRedemptionsViaAdminApi,
 } from '../../lib/supabase-helpers';
 import { supabase } from '../../lib/supabase';
 import type { SubscriptionTier } from '../../types';
@@ -900,6 +900,9 @@ export const AdminPage: React.FC = () => {
   // History tab search
   const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [redemptions, setRedemptions] = useState<any[]>([]);
+  // Selection for bulk delete
+  const [selectedTrials, setSelectedTrials] = useState<Set<string>>(new Set());
+  const [selectedCoupons, setSelectedCoupons] = useState<Set<string>>(new Set());
 
   const loadData = async (forceRefresh = false) => {
     // Allow force refresh even if already loading
@@ -1224,7 +1227,7 @@ export const AdminPage: React.FC = () => {
   const handleDeleteCoupon = async (couponId: string) => {
     if (!confirm('למחוק את ההטבה? לא ניתן לשחזר.')) return;
     try {
-      await deleteCouponAsAdmin(couponId);
+      await deleteCouponViaAdminApi(couponId);
       setEditingCoupon(null);
       await loadData(true);
       alert('ההטבה נמחקה');
@@ -1237,7 +1240,7 @@ export const AdminPage: React.FC = () => {
   const handleDeleteAllTrials = async () => {
     if (!confirm('למחוק את כל רשומות ההתנסויות? לא ניתן לשחזר.')) return;
     try {
-      await deleteAllTrialsAsAdmin();
+      await deleteAllTrialsViaAdminApi();
       await loadData(true);
       alert('כל ההתנסויות נמחקו');
     } catch (error: any) {
@@ -1249,12 +1252,66 @@ export const AdminPage: React.FC = () => {
   const handleDeleteAllHistory = async () => {
     if (!confirm('למחוק את כל היסטוריית המימושים (מי השתמש בכל הטבה)? לא ניתן לשחזר.')) return;
     try {
-      await deleteAllRedemptionsAsAdmin();
+      await deleteAllRedemptionsViaAdminApi();
       await loadData(true);
       alert('כל ההיסטוריה נמחקה');
     } catch (error: any) {
       console.error('Error deleting all redemptions:', error);
       alert('שגיאה במחיקת ההיסטוריה: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleDeleteSelectedTrials = async () => {
+    if (selectedTrials.size === 0) {
+      alert('לא נבחרו התנסויות למחיקה');
+      return;
+    }
+    if (!confirm(`למחוק ${selectedTrials.size} התנסויות שנבחרו? לא ניתן לשחזר.`)) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('לא מחובר');
+      const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
+      const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-trials-batch` : '/api/admin/delete-trials-batch';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ trialIds: Array.from(selectedTrials) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
+      setSelectedTrials(new Set());
+      await loadData(true);
+      alert(`${selectedTrials.size} התנסויות נמחקו`);
+    } catch (error: any) {
+      console.error('Error deleting selected trials:', error);
+      alert('שגיאה במחיקת ההתנסויות: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleDeleteSelectedCoupons = async () => {
+    if (selectedCoupons.size === 0) {
+      alert('לא נבחרו הטבות למחיקה');
+      return;
+    }
+    if (!confirm(`למחוק ${selectedCoupons.size} הטבות שנבחרו? לא ניתן לשחזר.`)) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('לא מחובר');
+      const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
+      const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/admin/delete-coupons-batch` : '/api/admin/delete-coupons-batch';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ couponIds: Array.from(selectedCoupons) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
+      setSelectedCoupons(new Set());
+      await loadData(true);
+      alert(`${selectedCoupons.size} הטבות נמחקו`);
+    } catch (error: any) {
+      console.error('Error deleting selected coupons:', error);
+      alert('שגיאה במחיקת ההטבות: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -2042,12 +2099,25 @@ export const AdminPage: React.FC = () => {
           <>
             <SectionHeader>
               <SectionTitle>הטבות והתנסויות</SectionTitle>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {trials.length > 0 && (
-                  <ActionButton $variant="delete" onClick={handleDeleteAllTrials} title="מחק את כל רשומות ההתנסויות">
-                    🗑️ מחק את כל ההתנסויות
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {selectedTrials.size > 0 && (
+                  <ActionButton
+                    $variant="delete"
+                    onClick={handleDeleteSelectedTrials}
+                    title={`מחק ${selectedTrials.size} התנסויות שנבחרו`}
+                  >
+                    🗑️ מחק נבחרים ({selectedTrials.size})
                   </ActionButton>
                 )}
+                <ActionButton
+                  $variant="delete"
+                  onClick={handleDeleteAllTrials}
+                  disabled={trials.length === 0}
+                  title={trials.length === 0 ? 'אין רשומות התנסות למחוק' : 'מחק את כל רשומות ההתנסויות'}
+                  style={{ opacity: trials.length === 0 ? 0.5 : 1 }}
+                >
+                  🗑️ מחק הכל
+                </ActionButton>
                 <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
               </div>
             </SectionHeader>
@@ -2091,6 +2161,20 @@ export const AdminPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <tr>
+                      <TableHeaderCell style={{ width: '40px' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedTrials.size === trials.length && trials.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTrials(new Set(trials.map((t: any) => t.id)));
+                            } else {
+                              setSelectedTrials(new Set());
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </TableHeaderCell>
                       <TableHeaderCell>משתמש</TableHeaderCell>
                       <TableHeaderCell>חבילה</TableHeaderCell>
                       <TableHeaderCell>תחילה</TableHeaderCell>
@@ -2100,6 +2184,22 @@ export const AdminPage: React.FC = () => {
                   <tbody>
                     {trials.map((t) => (
                       <TableRow key={t.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedTrials.has(t.id)}
+                            onChange={(e) => {
+                              const newSelected = new Set(selectedTrials);
+                              if (e.target.checked) {
+                                newSelected.add(t.id);
+                              } else {
+                                newSelected.delete(t.id);
+                              }
+                              setSelectedTrials(newSelected);
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </TableCell>
                         <TableCell>{t.user_id}</TableCell>
                         <TableCell>{t.tier}</TableCell>
                         <TableCell>{t.start_date ? new Date(t.start_date).toLocaleDateString('he-IL') : '-'}</TableCell>
@@ -2117,12 +2217,25 @@ export const AdminPage: React.FC = () => {
           <>
             <SectionHeader>
               <SectionTitle>היסטוריית הטבות</SectionTitle>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {redemptions.length > 0 && (
-                  <ActionButton $variant="delete" onClick={handleDeleteAllHistory} title="מחק את כל היסטוריית המימושים">
-                    🗑️ מחק את כל ההיסטוריה
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {selectedCoupons.size > 0 && (
+                  <ActionButton
+                    $variant="delete"
+                    onClick={handleDeleteSelectedCoupons}
+                    title={`מחק ${selectedCoupons.size} הטבות שנבחרו`}
+                  >
+                    🗑️ מחק נבחרים ({selectedCoupons.size})
                   </ActionButton>
                 )}
+                <ActionButton
+                  $variant="delete"
+                  onClick={handleDeleteAllHistory}
+                  disabled={redemptions.length === 0}
+                  title={redemptions.length === 0 ? 'אין היסטוריית מימושים למחוק' : 'מחק את כל היסטוריית המימושים'}
+                  style={{ opacity: redemptions.length === 0 ? 0.5 : 1 }}
+                >
+                  🗑️ מחק הכל היסטוריה
+                </ActionButton>
                 <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
               </div>
             </SectionHeader>
@@ -2143,6 +2256,21 @@ export const AdminPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <tr>
+                      <TableHeaderCell style={{ width: '40px' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedCoupons.size === coupons.filter((c) => !historySearchQuery.trim() || c.code?.toLowerCase().includes(historySearchQuery.toLowerCase()) || c.description?.toLowerCase().includes(historySearchQuery.toLowerCase())).length && coupons.length > 0}
+                          onChange={(e) => {
+                            const filtered = coupons.filter((c) => !historySearchQuery.trim() || c.code?.toLowerCase().includes(historySearchQuery.toLowerCase()) || c.description?.toLowerCase().includes(historySearchQuery.toLowerCase()));
+                            if (e.target.checked) {
+                              setSelectedCoupons(new Set(filtered.map((c: any) => c.id)));
+                            } else {
+                              setSelectedCoupons(new Set());
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </TableHeaderCell>
                       <TableHeaderCell>קוד</TableHeaderCell>
                       <TableHeaderCell>תיאור</TableHeaderCell>
                       <TableHeaderCell>סוג ההטבה</TableHeaderCell>
@@ -2165,6 +2293,22 @@ export const AdminPage: React.FC = () => {
                             : `${couponRedemptions.length} משתמשים`;
                         return (
                           <TableRow key={coupon.id}>
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={selectedCoupons.has(coupon.id)}
+                                onChange={(e) => {
+                                  const newSelected = new Set(selectedCoupons);
+                                  if (e.target.checked) {
+                                    newSelected.add(coupon.id);
+                                  } else {
+                                    newSelected.delete(coupon.id);
+                                  }
+                                  setSelectedCoupons(newSelected);
+                                }}
+                                style={{ cursor: 'pointer' }}
+                              />
+                            </TableCell>
                             <TableCell>{coupon.code}</TableCell>
                             <TableCell>{coupon.description || '-'}</TableCell>
                             <TableCell>{getBenefitTypeLabel(coupon.discount_type)}</TableCell>
