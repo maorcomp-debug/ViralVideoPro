@@ -261,10 +261,12 @@ const App = () => {
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const loadUserDataInProgressRef = useRef(false);
+  const gotValidSessionFromGetSessionRef = useRef(false);
 
   // Profile & Subscription cache helpers
   const PROFILE_CACHE_KEY = 'viral_profile_cache';
   const SUBSCRIPTION_CACHE_KEY = 'viral_subscription_cache';
+  const ADMIN_STATUS_CACHE_KEY = 'viral_admin_status';
   
   const saveProfileToCache = (profileData: any) => {
     if (typeof window === 'undefined') return;
@@ -325,8 +327,30 @@ const App = () => {
     try {
       sessionStorage.removeItem(PROFILE_CACHE_KEY);
       sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
+      sessionStorage.removeItem(ADMIN_STATUS_CACHE_KEY);
     } catch (e) {
       console.warn('Failed to clear cache:', e);
+    }
+  };
+
+  const loadAdminStatusFromCache = (userId: string): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const cached = sessionStorage.getItem(ADMIN_STATUS_CACHE_KEY);
+      if (!cached) return false;
+      const { uid, admin } = JSON.parse(cached);
+      return uid === userId && admin === true;
+    } catch {
+      return false;
+    }
+  };
+
+  const saveAdminStatusToCache = (userId: string, isAdmin: boolean) => {
+    if (typeof window === 'undefined' || !isAdmin) return;
+    try {
+      sessionStorage.setItem(ADMIN_STATUS_CACHE_KEY, JSON.stringify({ uid: userId, admin: true }));
+    } catch (e) {
+      console.warn('Failed to cache admin status:', e);
     }
   };
 
@@ -511,6 +535,7 @@ const App = () => {
         console.log('🔑 Admin check for', currentUser.email, ':', adminStatus ? 'Admin' : 'User');
       }
       setUserIsAdmin(adminStatus);
+      if (adminStatus) saveAdminStatusToCache(currentUser.id, true);
       
       // If admin, trigger refresh event for admin panel
       if (adminStatus) {
@@ -756,6 +781,12 @@ const App = () => {
         // Update user state immediately if session exists
         setUser(session?.user ?? null);
         setLoadingAuth(false);
+        if (session?.user) gotValidSessionFromGetSessionRef.current = true;
+        
+        // CRITICAL: Restore admin status from cache immediately (F5 on home page – show "פאנל ניהול" button)
+        if (session?.user && loadAdminStatusFromCache(session.user.id)) {
+          setUserIsAdmin(true);
+        }
         
         // CRITICAL: Also load user data when getSession returns with session (e.g. F5 on home page)
         // onAuthStateChange can fire INITIAL_SESSION with null first (race), then getSession returns –
@@ -829,15 +860,12 @@ const App = () => {
           loadUserDataInProgressRef.current = false;
         }
       } else {
-        // Only reset state if this is not INITIAL_SESSION (which might have null session temporarily)
-        // INITIAL_SESSION with null session means user is truly logged out
-        if (event !== 'INITIAL_SESSION') {
-          // User logged out - reset all state
-          resetUserState();
-        } else {
-          // On INITIAL_SESSION with no session, user is logged out - reset state
-          resetUserState();
+        // INITIAL_SESSION with null: might be a race – getSession may return with session after.
+        // Don't reset if we already got valid session from getSession (F5 on home page).
+        if (event === 'INITIAL_SESSION' && gotValidSessionFromGetSessionRef.current) {
+          return; // getSession already set user – don't overwrite with reset
         }
+        resetUserState();
       }
     });
 
