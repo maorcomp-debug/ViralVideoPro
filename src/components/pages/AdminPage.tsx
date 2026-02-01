@@ -808,7 +808,7 @@ function buildBenefitDetailsForEmail(form: {
   package?: string;
   targetScope?: string;
 }): string {
-  const pkg = form.targetScope === 'package' && form.package && form.package !== 'all'
+  const pkg = form.package && form.package !== 'all'
     ? PACKAGE_LABELS[form.package] || form.package
     : '';
   const forPackage = pkg ? ` ${pkg}` : '';
@@ -1481,7 +1481,7 @@ export const AdminPage: React.FC = () => {
                 benefitTitle: titleTrimmed,
                 couponCode: code,
                 benefitDetails,
-                targetPackage: couponForm.targetScope === 'package' && couponForm.package && couponForm.package !== 'all' ? couponForm.package : undefined,
+                targetPackage: couponForm.package && couponForm.package !== 'all' ? couponForm.package : undefined,
                 targetAll,
                 targetTier,
                 targetUserEmail: targetUser ? couponForm.targetUserEmail.trim() : undefined,
@@ -1499,7 +1499,7 @@ export const AdminPage: React.FC = () => {
         }
 
         alert('ההטבה נוצרה בהצלחה');
-        const packageParam = (couponForm.targetScope === 'package' && couponForm.package && couponForm.package !== 'all')
+        const packageParam = couponForm.package && couponForm.package !== 'all'
           ? couponForm.package
           : '';
         const redeemQuery = `?redeem=${encodeURIComponent(code)}${packageParam ? `&package=${encodeURIComponent(packageParam)}` : ''}`;

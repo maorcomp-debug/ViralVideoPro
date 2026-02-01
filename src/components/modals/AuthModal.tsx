@@ -977,16 +977,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <div
                         style={{
                           marginTop: '8px',
-                          padding: '10px',
-                          background: 'rgba(76, 175, 80, 0.2)',
-                          borderRadius: '6px',
-                          fontSize: '0.85rem',
+                          padding: '12px',
+                          background: 'rgba(76, 175, 80, 0.25)',
+                          borderRadius: '8px',
+                          fontSize: '0.9rem',
                           color: '#4CAF50',
                           textAlign: 'right',
-                          border: '1px solid rgba(76, 175, 80, 0.3)',
+                          border: '1px solid rgba(76, 175, 80, 0.4)',
                         }}
                       >
-                        ✓ קוד קופון תקין{couponValid.coupon?.description ? `: ${couponValid.coupon.description}` : ''}
+                        <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                          ✓ קוד קופון תקין ותקף לחודש הראשון של ההרשמה
+                        </div>
+                        {couponValid.coupon?.description && (
+                          <div style={{ fontSize: '0.85rem', opacity: 0.95 }}>
+                            {couponValid.coupon.description}
+                          </div>
+                        )}
                         {(couponValid.coupon?.discount_type === 'percentage' || couponValid.coupon?.discount_type === 'fixed_amount') && (
                           <div style={{ marginTop: '6px', fontSize: '0.8rem', color: 'rgba(76, 175, 80, 0.95)' }}>
                             ההנחה תחול על התשלום הראשון בחבילה.
