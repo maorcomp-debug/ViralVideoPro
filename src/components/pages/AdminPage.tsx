@@ -19,9 +19,6 @@ import {
   getAllCouponsForAdmin,
   updateCoupon,
   deleteCouponViaAdminApi,
-  deleteCouponAsAdmin,
-  deleteAllTrialsAsAdmin,
-  deleteAllRedemptionsAsAdmin,
   toggleCouponStatus,
   grantTrialToUsers,
   getAllTrials,
@@ -1229,38 +1226,46 @@ export const AdminPage: React.FC = () => {
 
   const handleDeleteCoupon = async (couponId: string) => {
     if (!confirm('למחוק את ההטבה? לא ניתן לשחזר.')) return;
+    console.log('[Admin] handleDeleteCoupon', couponId);
     try {
-      await deleteCouponViaAdminApi(couponId);
+      const { error: errRedemptions } = await supabase.from('coupon_redemptions').delete().eq('coupon_id', couponId);
+      if (errRedemptions) throw errRedemptions;
+      const { error } = await supabase.from('coupons').delete().eq('id', couponId);
+      if (error) throw error;
       setEditingCoupon(null);
       await loadData(true);
       alert('ההטבה נמחקה');
-    } catch (apiErr: any) {
+    } catch (directErr: any) {
+      console.warn('[Admin] direct delete failed, trying API', directErr);
       try {
-        await deleteCouponAsAdmin(couponId);
+        await deleteCouponViaAdminApi(couponId);
         setEditingCoupon(null);
         await loadData(true);
         alert('ההטבה נמחקה');
-      } catch (directErr: any) {
-        console.error('Error deleting coupon:', apiErr, directErr);
-        alert('שגיאה במחיקת ההטבה: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      } catch (apiErr: any) {
+        console.error('[Admin] delete coupon failed', apiErr);
+        alert('שגיאה במחיקת ההטבה: ' + (apiErr.message || directErr.message || 'Unknown error'));
       }
     }
   };
 
   const handleDeleteAllTrials = async () => {
     if (!confirm('למחוק את כל רשומות ההתנסויות? לא ניתן לשחזר.')) return;
+    console.log('[Admin] handleDeleteAllTrials');
     try {
-      await deleteAllTrialsViaAdminApi();
+      const { error } = await supabase.from('user_trials').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
       await loadData(true);
       alert('כל ההתנסויות נמחקו');
-    } catch (apiErr: any) {
+    } catch (directErr: any) {
+      console.warn('[Admin] direct delete all trials failed, trying API', directErr);
       try {
-        await deleteAllTrialsAsAdmin();
+        await deleteAllTrialsViaAdminApi();
         await loadData(true);
         alert('כל ההתנסויות נמחקו');
-      } catch (directErr: any) {
-        console.error('Error deleting all trials:', apiErr, directErr);
-        alert('שגיאה במחיקת ההתנסויות: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      } catch (apiErr: any) {
+        console.error('[Admin] delete all trials failed', apiErr);
+        alert('שגיאה במחיקת ההתנסויות: ' + (apiErr.message || directErr.message || 'Unknown error'));
       }
     }
   };
@@ -1290,37 +1295,34 @@ export const AdminPage: React.FC = () => {
     }
     if (!confirm(`למחוק ${selectedTrials.size} התנסויות שנבחרו? לא ניתן לשחזר.`)) return;
     const ids = Array.from(selectedTrials);
+    console.log('[Admin] handleDeleteSelectedTrials', ids.length, ids);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('לא מחובר');
-      const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
-      const base = apiBase ? apiBase.replace(/\/$/, '') : (typeof window !== 'undefined' ? window.location.origin : '');
-      const url = `${base}/api/admin/delete-trials-batch`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ trialIds: ids }),
-      });
-      const text = await res.text();
-      const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
-      if (!res.ok) {
-        console.error('❌ delete-trials-batch API error:', res.status, text);
-        throw new Error(data.error || text || `שגיאת שרת ${res.status}`);
-      }
-      if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
+      const { error } = await supabase.from('user_trials').delete().in('id', ids);
+      if (error) throw error;
       setSelectedTrials(new Set());
       await loadData(true);
       alert(`${ids.length} התנסויות נמחקו`);
-    } catch (apiErr: any) {
+    } catch (directErr: any) {
+      console.warn('[Admin] direct trials delete failed, trying API', directErr);
       try {
-        const { error } = await supabase.from('user_trials').delete().in('id', ids);
-        if (error) throw error;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error('לא מחובר');
+        const base = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || (typeof window !== 'undefined' ? window.location.origin : '');
+        const url = `${base.replace(/\/$/, '')}/api/admin/delete-trials-batch`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ trialIds: ids }),
+        });
+        const text = await res.text();
+        const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+        if (!res.ok || !data.ok) throw new Error(data.error || text || `שגיאה ${res.status}`);
         setSelectedTrials(new Set());
         await loadData(true);
         alert(`${ids.length} התנסויות נמחקו`);
-      } catch (directErr: any) {
-        console.error('❌ Error deleting selected trials:', apiErr, directErr);
-        alert('שגיאה במחיקת ההתנסויות: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      } catch (apiErr: any) {
+        console.error('[Admin] delete selected trials failed', apiErr);
+        alert('שגיאה במחיקת ההתנסויות: ' + (apiErr.message || directErr.message || 'Unknown error'));
       }
     }
   };
@@ -1332,38 +1334,38 @@ export const AdminPage: React.FC = () => {
     }
     if (!confirm(`למחוק ${selectedCoupons.size} הטבות שנבחרו? לא ניתן לשחזר.`)) return;
     const ids = Array.from(selectedCoupons);
+    console.log('[Admin] handleDeleteSelectedCoupons', ids.length, ids);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('לא מחובר');
-      const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || '';
-      const base = apiBase ? apiBase.replace(/\/$/, '') : (typeof window !== 'undefined' ? window.location.origin : '');
-      const url = `${base}/api/admin/delete-coupons-batch`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ couponIds: ids }),
-      });
-      const text = await res.text();
-      const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
-      if (!res.ok) {
-        console.error('❌ delete-coupons-batch API error:', res.status, text);
-        throw new Error(data.error || text || `שגיאת שרת ${res.status}`);
+      for (const couponId of ids) {
+        const { error: errRedemptions } = await supabase.from('coupon_redemptions').delete().eq('coupon_id', couponId);
+        if (errRedemptions) throw errRedemptions;
+        const { error } = await supabase.from('coupons').delete().eq('id', couponId);
+        if (error) throw error;
       }
-      if (!data.ok) throw new Error(data.error || 'מחיקה נכשלה');
       setSelectedCoupons(new Set());
       await loadData(true);
       alert(`${ids.length} הטבות נמחקו`);
-    } catch (apiErr: any) {
+    } catch (directErr: any) {
+      console.warn('[Admin] direct batch delete failed, trying API', directErr);
       try {
-        for (const couponId of ids) {
-          await deleteCouponAsAdmin(couponId);
-        }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error('לא מחובר');
+        const base = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || (typeof window !== 'undefined' ? window.location.origin : '');
+        const url = `${base.replace(/\/$/, '')}/api/admin/delete-coupons-batch`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ couponIds: ids }),
+        });
+        const text = await res.text();
+        const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+        if (!res.ok || !data.ok) throw new Error(data.error || text || `שגיאה ${res.status}`);
         setSelectedCoupons(new Set());
         await loadData(true);
         alert(`${ids.length} הטבות נמחקו`);
-      } catch (directErr: any) {
-        console.error('❌ Error deleting selected coupons:', apiErr, directErr);
-        alert('שגיאה במחיקת ההטבות: ' + (directErr.message || apiErr.message || 'Unknown error'));
+      } catch (apiErr: any) {
+        console.error('[Admin] delete selected coupons failed', apiErr);
+        alert('שגיאה במחיקת ההטבות: ' + (apiErr.message || directErr.message || 'Unknown error'));
       }
     }
   };
@@ -2323,15 +2325,6 @@ export const AdminPage: React.FC = () => {
                     🗑️ מחק נבחרים ({selectedCoupons.size})
                   </ActionButton>
                 )}
-                <ActionButton
-                  $variant="delete"
-                  onClick={handleDeleteAllHistory}
-                  disabled={redemptions.length === 0}
-                  title={redemptions.length === 0 ? 'אין היסטוריית מימושים למחוק' : 'מחק את כל היסטוריית המימושים'}
-                  style={{ opacity: redemptions.length === 0 ? 0.5 : 1 }}
-                >
-                  🗑️ מחק הכל היסטוריה
-                </ActionButton>
                 <RefreshButton onClick={() => loadData(true)}>🔄 רענן</RefreshButton>
               </div>
             </SectionHeader>
