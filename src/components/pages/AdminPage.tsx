@@ -1499,11 +1499,7 @@ export const AdminPage: React.FC = () => {
         }
 
         alert('ההטבה נוצרה בהצלחה');
-        const packageParam = couponForm.package && couponForm.package !== 'all'
-          ? couponForm.package
-          : '';
-        const redeemQuery = `?redeem=${encodeURIComponent(code)}${packageParam ? `&package=${encodeURIComponent(packageParam)}` : ''}`;
-        navigate(`/${redeemQuery}`);
+        // Do not redirect to /?redeem=... – benefit is delivered only where configured (email and/or in-app updates)
         setCouponForm({
           benefitType: 'free_week',
           title: '',
