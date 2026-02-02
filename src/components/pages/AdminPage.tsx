@@ -11,7 +11,6 @@ import {
   getUserUsageStats,
   getUsageForCurrentPeriod,
   createAnnouncement,
-  createAnnouncementAsAdmin,
   getAllAnnouncements,
   createCoupon,
   createCouponAsAdmin,
@@ -1452,17 +1451,30 @@ export const AdminPage: React.FC = () => {
         }`;
 
         const targetUser = couponForm.targetScope === 'user' && couponForm.targetUserEmail?.trim();
-        if ((sendInApp || sendEmail) && !targetUser) {
+        if (sendInApp && !targetUser) {
           try {
-            await createAnnouncementAsAdmin({
-              title: benefitTitle,
-              message: benefitMessage,
-              target_all: targetAll,
-              target_tier: targetTier,
-              includeAllTargetUsers: true,
+            const { data: { session } } = await supabase.auth.getSession();
+            const apiBase = ((import.meta as any).env?.VITE_API_URL as string)?.trim() || (typeof window !== 'undefined' ? window.location.origin : '');
+            const url = `${apiBase.replace(/\/$/, '')}/api/send-announcement-in-app`;
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+              body: JSON.stringify({
+                title: benefitTitle,
+                message: benefitMessage,
+                target_all: targetAll,
+                target_tier: targetTier ?? undefined,
+                includeAllTargetUsers: true,
+              }),
             });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              console.error('Send announcement in-app error:', json);
+            } else if (json.sent !== undefined && json.sent > 0) {
+              console.log(`Announcement delivered in-app to ${json.sent} users`);
+            }
           } catch (announceError) {
-            console.error('Error sending coupon announcement:', announceError);
+            console.error('Error sending coupon announcement in-app:', announceError);
           }
         }
 
