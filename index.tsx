@@ -1341,9 +1341,9 @@ const App = () => {
         effectiveSubscription.isActive = profileIsActive;
       }
 
-      const plan = SUBSCRIPTION_PLANS[effectiveTier];
-      if (!plan) {
-        console.error('❌ Invalid tier:', effectiveTier);
+      const plan = SUBSCRIPTION_PLANS[effectiveTier as SubscriptionTier];
+      if (!plan || !plan.limits) {
+        console.error('❌ Invalid tier or missing plan limits:', effectiveTier);
         return { allowed: false, message: 'חבילה לא תקינה. נא ליצור קשר עם התמיכה.' };
       }
     
@@ -2843,38 +2843,27 @@ const App = () => {
       return;
     }
     
-    // CRITICAL: Check subscription limits FIRST, before starting analysis
-    // This must happen BEFORE setLoading(true) to prevent analysis from starting
-    let limitCheck;
-    try {
-      const checkPromise = checkSubscriptionLimits();
-      const timeoutPromise = new Promise<{ allowed: boolean; message?: string }>((resolve) => {
-        setTimeout(() => {
-          // Timeout - block analysis to prevent unauthorized usage
-          resolve({ 
-            allowed: false, 
-            message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
-          });
-        }, 5000); // 5 second timeout
-      });
-      
-      limitCheck = await Promise.race([checkPromise, timeoutPromise]);
-    } catch (error) {
-      console.error('❌ Error checking subscription limits:', error);
-      // Block analysis on error to prevent unauthorized usage
-      limitCheck = { 
-        allowed: false, 
-        message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
-      };
+    // Admin: skip subscription check (avoids "שגיאה בבדיקת המנוי" when session/refresh times out)
+    const SUBSCRIPTION_CHECK_ERROR = 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.';
+    let limitCheck: { allowed: boolean; message?: string };
+    if (userIsAdmin) {
+      limitCheck = { allowed: true };
+    } else {
+      try {
+        limitCheck = await checkSubscriptionLimits();
+      } catch (error) {
+        console.error('❌ Error checking subscription limits:', error);
+        limitCheck = { allowed: false, message: SUBSCRIPTION_CHECK_ERROR };
+      }
     }
     
-    // If subscription check failed, block analysis immediately
     if (!limitCheck || !limitCheck.allowed) {
-      if (limitCheck?.message) {
-        alert(limitCheck.message);
+      if (limitCheck?.message) alert(limitCheck.message);
+      // Only open upgrade modal for real limit/expiry messages, not for technical subscription-check error
+      if (limitCheck?.message && limitCheck.message !== SUBSCRIPTION_CHECK_ERROR) {
+        setShowSubscriptionModal(true);
       }
-      setShowSubscriptionModal(true);
-      return; // Exit early - don't start analysis
+      return;
     }
     
     // Check if current track is available for user's subscription
@@ -3395,15 +3384,17 @@ const App = () => {
         stack: error?.stack
       });
       
-      const code = error?.error?.code || error?.status;
+      const code = error?.error?.code ?? error?.status ?? (typeof error?.code === 'number' ? error.code : undefined);
       if (code === 429) {
         alert("חרגת ממכסת הקריאות למודל Gemini בחשבון גוגל. יש להמתין לחידוש המכסה או לשדרג חבילה.");
       } else if (code === 503) {
         alert("המודל של Gemini כרגע עמוס (503). נסה שוב בעוד כמה דקות.");
+      } else if (code === 500 || code === 502 || code === 504) {
+        alert("שגיאה זמנית בשרת הניתוח (Google). נסה שוב בעוד רגע.");
       } else if (code === 400) {
         alert("בקשה לא תקינה למודל. ייתכן שהקובץ גדול מדי או שיש בעיה בפורמט.");
       } else {
-        alert(`אירעה שגיאה בניתוח (קוד: ${code || 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
+        alert(`אירעה שגיאה בניתוח (קוד: ${code ?? 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
       }
     } finally {
       // Stop video when analysis ends (success or error)
