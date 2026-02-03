@@ -3701,10 +3701,25 @@ const App = () => {
         />
         <AuthModal
           isOpen={showAuthModal}
-          onClose={() => { setShowAuthModal(false); setRedeemCodeFromUrl(null); setRedeemPackageFromUrl(null); }}
-          onAuthSuccess={() => {}}
-          initialRedeemCode={redeemCodeFromUrl}
+          onClose={() => {
+            setShowAuthModal(false);
+            setAuthModalMode('initial');
+            setAuthModalUpgradePackage(null);
+            setRedeemCodeFromUrl(null);
+            setRedeemPackageFromUrl(null);
+          }}
+          mode={authModalMode}
+          initialPackageForUpgrade={authModalUpgradePackage ?? redeemPackageFromUrl}
           initialPackage={redeemPackageFromUrl}
+          initialRedeemCode={redeemCodeFromUrl}
+          currentUser={user ?? null}
+          onAuthSuccess={() => {}}
+          onUpgradeComplete={(tier) => {
+            setShowAuthModal(false);
+            setAuthModalMode('initial');
+            setAuthModalUpgradePackage(null);
+            handleSelectPlan(tier, 'monthly');
+          }}
         />
       </>
     );
