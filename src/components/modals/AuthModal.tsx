@@ -161,22 +161,36 @@ const TRACK_OPTIONS: { id: TrackId; label: string }[] = [
   { id: 'influencers', label: 'משפיענים ומותגים' },
 ];
 
+export type AuthModalMode = 'initial' | 'upgrade';
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuthSuccess: () => void;
+  /** הרשמה ראשונית (אימייל+סיסמה+תחום בלבד) או טופס שדרוג (שם+טלפון+חבילה+תחום ליוצרים) */
+  mode?: AuthModalMode;
+  /** בעת שדרוג – חבילה שנבחרה (creator, pro, coach, coach-pro); משמש גם מ־?redeem= */
+  initialPackageForUpgrade?: string | null;
+  /** משתמש מחובר – נדרש במצב שדרוג לעדכון פרופיל */
+  currentUser?: { id: string; email?: string } | null;
   /** כשנפתח מהקישור "מימוש ההטבה" במייל – מציג הרשמה עם שדה קופון מופעל וממולא */
   initialRedeemCode?: string | null;
-  /** חבילה מיועדת להטבה (creator, pro, coach, coach-pro) – נבחרת מראש */
+  /** @deprecated use initialPackageForUpgrade for upgrade; still used for redeem package from URL */
   initialPackage?: string | null;
+  /** לאחר שליחת טופס שדרוג – לפתוח תשלום וכו' */
+  onUpgradeComplete?: (tier: SubscriptionTier) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onAuthSuccess,
+  mode: modeProp,
+  initialPackageForUpgrade,
+  currentUser,
   initialRedeemCode,
   initialPackage,
+  onUpgradeComplete,
 }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -192,17 +206,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [testPackageTier, setTestPackageTier] = useState<SubscriptionTier>('free');
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [passwordResetSent, setPasswordResetSent] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('free');
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('creator');
   const [selectedTrack, setSelectedTrack] = useState<TrackId | ''>('');
-  
-  // Check if current email is test account
-  const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
 
+  const mode: AuthModalMode = modeProp ?? 'initial';
+  const isUpgradeMode = mode === 'upgrade';
+
+  const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
   const tierRequiresTrack = (tier: SubscriptionTier) => tier === 'free' || tier === 'creator';
+
+  // When opened in upgrade mode, pre-select package from prop
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (isUpgradeMode && initialPackageForUpgrade && ['creator', 'pro', 'coach', 'coach-pro'].includes(initialPackageForUpgrade)) {
+      setSelectedTier(initialPackageForUpgrade as SubscriptionTier);
+    }
+  }, [isOpen, isUpgradeMode, initialPackageForUpgrade]);
 
   // When opened from "Redeem Offer" link (?redeem=CODE), switch to registration with coupon field on and pre-filled
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isUpgradeMode) return;
     if (initialRedeemCode?.trim()) {
       const code = initialRedeemCode.trim().toUpperCase();
       setIsSignUp(true);
@@ -211,10 +234,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setCouponValid(null);
       validateCoupon(code).then((validation) => setCouponValid(validation)).catch(() => setCouponValid({ valid: false, error: 'שגיאה בבדיקת קוד הקופון' }));
     }
-    if (initialPackage && ['creator', 'pro', 'coach', 'coach-pro'].includes(initialPackage)) {
-      setSelectedTier(initialPackage as SubscriptionTier);
+    const pkg = initialPackageForUpgrade ?? initialPackage;
+    if (pkg && ['creator', 'pro', 'coach', 'coach-pro'].includes(pkg)) {
+      setSelectedTier(pkg as SubscriptionTier);
     }
-  }, [isOpen, initialRedeemCode, initialPackage]);
+  }, [isOpen, isUpgradeMode, initialRedeemCode, initialPackage, initialPackageForUpgrade]);
 
   // When coupon is validated and has trial_tier, pre-select that package if still on free (e.g. link had no package=)
   React.useEffect(() => {
@@ -278,96 +302,122 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Prevent double submission
-    if (loading) {
-      return;
-    }
-    
+    if (loading) return;
     setError(null);
     setLoading(true);
 
     try {
+      if (isUpgradeMode) {
+        const trimmedFullName = fullName.trim();
+        const nameWords = trimmedFullName.split(/\s+/).filter(word => word.length > 0);
+        if (!trimmedFullName || trimmedFullName.length < 3) {
+          setError('אנא הזן שם מלא (שם פרטי ומשפחה)');
+          setLoading(false);
+          return;
+        }
+        if (nameWords.length < 2) {
+          setError('אנא הזן שם מלא הכולל שם פרטי ושם משפחה');
+          setLoading(false);
+          return;
+        }
+        const cleanPhone = phone.trim().replace(/\D/g, '');
+        if (!cleanPhone || cleanPhone.length < 9) {
+          setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
+          setLoading(false);
+          return;
+        }
+        if (selectedTier === 'creator' && !selectedTrack) {
+          setError('נא לבחור תחום ניתוח');
+          setLoading(false);
+          return;
+        }
+        if (!currentUser?.id) {
+          setError('נדרשת כניסה לחשבון לפני שדרוג');
+          setLoading(false);
+          return;
+        }
+        await updateCurrentUserProfile({
+          full_name: trimmedFullName,
+          phone: cleanPhone,
+          subscription_tier: selectedTier,
+          subscription_status: 'active',
+          ...(selectedTier === 'creator' && selectedTrack ? { selected_primary_track: selectedTrack } : {}),
+        });
+        onUpgradeComplete?.(selectedTier);
+        onAuthSuccess();
+        onClose();
+        setLoading(false);
+        return;
+      }
+
       if (isSignUp) {
-          // Validate full name (must contain first name and last name - at least 2 words)
-          const trimmedFullName = fullName.trim();
-          const nameWords = trimmedFullName.split(/\s+/).filter(word => word.length > 0);
-          
-          if (!trimmedFullName || trimmedFullName.length < 3) {
-            setError('אנא הזן שם מלא (שם פרטי ומשפחה)');
-            setLoading(false);
-            return;
-          }
-          
-          if (nameWords.length < 2) {
-            setError('אנא הזן שם מלא הכולל שם פרטי ושם משפחה');
-            setLoading(false);
-            return;
+          if (mode === 'initial') {
+            if (!selectedTrack) {
+              setError('נא לבחור תחום ניתוח התחלתי');
+              setLoading(false);
+              return;
+            }
+          } else {
+            const trimmedFullName = fullName.trim();
+            const nameWords = trimmedFullName.split(/\s+/).filter(word => word.length > 0);
+            if (!trimmedFullName || trimmedFullName.length < 3) {
+              setError('אנא הזן שם מלא (שם פרטי ומשפחה)');
+              setLoading(false);
+              return;
+            }
+            if (nameWords.length < 2) {
+              setError('אנא הזן שם מלא הכולל שם פרטי ושם משפחה');
+              setLoading(false);
+              return;
+            }
+            const cleanPhone = phone.trim().replace(/\D/g, '');
+            if (!cleanPhone || cleanPhone.length < 9) {
+              setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
+              setLoading(false);
+              return;
+            }
+            if (tierRequiresTrack(selectedTier) && !selectedTrack) {
+              setError('נא לבחור תחום ניתוח התחלתי');
+              setLoading(false);
+              return;
+            }
           }
 
-          // Validate phone format (basic validation - Israeli phone number)
-          const phoneRegex = /^0[2-9]\d{7,8}$/;
-          const cleanPhone = phone.trim().replace(/\D/g, ''); // Remove non-digits
-          
-          if (!cleanPhone || cleanPhone.length < 9) {
-            setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
-            setLoading(false);
-            return;
-          }
-
-          // Require track selection עבור ניסיון / יוצרים
-          if (tierRequiresTrack(selectedTier) && !selectedTrack) {
-            setError('נא לבחור תחום ניתוח התחלתי');
-            setLoading(false);
-            return;
-          }
-
-        // For test account email, skip uniqueness checks (allow multiple registrations)
         if (!isTestAccount) {
-          // Check uniqueness in parallel for better performance
-          const [emailExists, phoneExists] = await Promise.all([
-            checkEmailExists(email.trim()),
-            checkPhoneExists(cleanPhone)
-          ]);
-          
+          const emailExists = await checkEmailExists(email.trim());
           if (emailExists) {
             setError('כתובת האימייל כבר רשומה במערכת. נסה להתחבר במקום או השתמש באימייל אחר.');
             setLoading(false);
             return;
           }
-
-          if (phoneExists) {
-            setError('מספר הטלפון כבר רשום במערכת. נסה להתחבר במקום או השתמש במספר טלפון אחר.');
-            setLoading(false);
-            return;
+          if (mode !== 'initial') {
+            const cleanPhoneForCheck = phone.trim().replace(/\D/g, '');
+            const phoneExists = await checkPhoneExists(cleanPhoneForCheck);
+            if (phoneExists) {
+              setError('מספר הטלפון כבר רשום במערכת. נסה להתחבר במקום או השתמש במספר טלפון אחר.');
+              setLoading(false);
+              return;
+            }
           }
         }
 
         const redirectUrl = window.location.origin;
-        console.log('🔐 Attempting sign up...');
-        console.log('Email:', email.trim());
-        console.log('Phone:', cleanPhone);
-        console.log('Is test account:', isTestAccount);
-        console.log('Test package tier:', isTestAccount ? testPackageTier : 'N/A');
-        console.log('Redirect URL:', redirectUrl);
-        console.log('Current location:', window.location.href);
-        
-        // For test accounts, set full_name to package name
-        let displayName = fullName.trim();
-        if (isTestAccount) {
-          displayName = `חבילת ${SUBSCRIPTION_PLANS[testPackageTier].name}`;
-        }
-        
+        const effectiveTier = mode === 'initial' ? 'free' : selectedTier;
+        const effectiveTrack = selectedTrack || undefined;
+        const cleanPhoneForSignUp = mode === 'initial' ? '' : phone.trim().replace(/\D/g, '');
+        let displayName = mode === 'initial' ? (email.trim() || 'משתמש') : fullName.trim();
+        if (isTestAccount) displayName = `חבילת ${SUBSCRIPTION_PLANS[testPackageTier].name}`;
+
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
             data: {
               full_name: displayName,
-              phone: cleanPhone,
-              test_package_tier: isTestAccount ? testPackageTier : undefined, // Store package tier for test accounts
-              signup_tier: selectedTier,
-              signup_primary_track: selectedTrack || undefined,
+              phone: cleanPhoneForSignUp,
+              test_package_tier: isTestAccount ? testPackageTier : undefined,
+              signup_tier: effectiveTier,
+              signup_primary_track: effectiveTrack,
             },
             emailRedirectTo: redirectUrl,
           },
@@ -462,8 +512,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             // DO NOT change this delay - it's needed for trigger to complete
             await new Promise(resolve => setTimeout(resolve, 200));
             console.log('✅ Profile created by trigger with metadata:', {
-              tier: selectedTier,
-              track: selectedTrack,
+              tier: effectiveTier,
+              track: effectiveTrack,
             });
           }
 
@@ -521,7 +571,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }
           
           // Profile update complete - call onAuthSuccess immediately (like login)
-          console.log('✅ Registration completed. User logged in with selected package:', selectedTier);
+          console.log('✅ Registration completed. User logged in with selected package:', effectiveTier);
           
           alert('נרשמת בהצלחה!');
           
@@ -597,11 +647,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       >
         <AuthCloseButton onClick={onClose}>×</AuthCloseButton>
         <AuthModalHeader>
-          <h2>{showPasswordReset ? 'איפוס סיסמה' : (isSignUp ? 'הרשמה' : 'כניסה')}</h2>
+          <h2>
+            {showPasswordReset ? 'איפוס סיסמה' : isUpgradeMode ? 'שדרוג חבילה' : (isSignUp ? 'הרשמה' : 'כניסה')}
+          </h2>
           <p>
             {showPasswordReset 
               ? 'נשלח לך אימייל עם קישור לאיפוס הסיסמה' 
-              : (isSignUp ? 'צור חשבון חדש' : 'היכנס לחשבון שלך')
+              : isUpgradeMode 
+                ? 'השלם את הפרטים לשדרוג החבילה' 
+                : (isSignUp ? 'צור חשבון חדש (אימייל, סיסמה ותחום ניתוח)' : 'היכנס לחשבון שלך')
             }
           </p>
         </AuthModalHeader>
@@ -686,9 +740,178 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </form>
         ) : (
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {isSignUp && (
+          {isUpgradeMode && (
             <>
-              {isTestAccount ? (
+              <div>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                  שם מלא (פרטי ומשפחה) *
+                </label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  placeholder="לדוגמה: יוסי כהן"
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'rtl',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                  מספר טלפון *
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0501234567"
+                  required
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'ltr',
+                    textAlign: 'left',
+                  }}
+                />
+                <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
+                  מספר טלפון ישראלי (10 ספרות)
+                </div>
+              </div>
+              <div>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                  בחירת חבילה *
+                </label>
+                <PackageSelect
+                  value={selectedTier}
+                  onChange={(e) => {
+                    const tier = e.target.value as SubscriptionTier;
+                    setSelectedTier(tier);
+                    if (tier !== 'creator') setSelectedTrack('');
+                  }}
+                >
+                  <option value="creator">יוצרים</option>
+                  <option value="pro">יוצרים באקסטרים</option>
+                  <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
+                  <option value="coach-pro">מאמנים פרו</option>
+                </PackageSelect>
+              </div>
+              {selectedTier === 'creator' && (
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                    בחירת תחום ניתוח *
+                  </label>
+                  <PackageSelect
+                    value={selectedTrack || ''}
+                    onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
+                  >
+                    <option value="">-- בחר תחום ניתוח --</option>
+                    <option value="actors">שחקנים ואודישנים</option>
+                    <option value="musicians">זמרים ומוזיקאים</option>
+                    <option value="creators">יוצרי תוכן וכוכבי רשת</option>
+                    <option value="influencers">משפיענים ומותגים</option>
+                  </PackageSelect>
+                </div>
+              )}
+            </>
+          )}
+
+          {isSignUp && !isUpgradeMode && (
+            <>
+              {mode === 'initial' ? (
+                <>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>אימייל *</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      style={{
+                        width: '100%',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgba(212, 160, 67, 0.3)',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        color: '#fff',
+                        fontSize: '1rem',
+                        direction: 'ltr',
+                        textAlign: 'left',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>סיסמה *</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgba(212, 160, 67, 0.3)',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        color: '#fff',
+                        fontSize: '1rem',
+                        direction: 'ltr',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                      בחר תחום ניתוח התחלתי *
+                    </label>
+                    <PackageSelect
+                      value={selectedTrack || ''}
+                      onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
+                    >
+                      <option value="">-- בחר תחום ניתוח --</option>
+                      <option value="actors">שחקנים ואודישנים</option>
+                      <option value="musicians">זמרים ומוזיקאים</option>
+                      <option value="creators">יוצרי תוכן וכוכבי רשת</option>
+                      <option value="influencers">משפיענים ומותגים</option>
+                    </PackageSelect>
+                  </div>
+                  {initialRedeemCode?.trim() && (
+                    <div style={{ background: 'rgba(212, 160, 67, 0.05)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.2)' }}>
+                      <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px' }}>קוד קופון (אופציונלי)</label>
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => { setCouponCode(e.target.value.toUpperCase().trim()); if (e.target.value.trim().length >= 3) handleCouponValidation(e.target.value.trim()); }}
+                        placeholder="הכנס קוד קופון"
+                        style={{
+                          width: '100%',
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: '1px solid rgba(212, 160, 67, 0.3)',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          color: '#fff',
+                          fontSize: '1rem',
+                          direction: 'ltr',
+                          textAlign: 'center',
+                        }}
+                      />
+                      {couponValid?.valid && <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#4CAF50' }}>✓ קוד קופון תקין</div>}
+                    </div>
+                  )}
+                </>
+              ) : isTestAccount ? (
                 <div>
                   <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
                     בחר חבילה לבדיקה
@@ -767,70 +990,60 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </>
           )}
 
-          <div>
-            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-              אימייל
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                // Reset package tier when email changes (if not test account)
-                if (e.target.value.trim().toLowerCase() !== TEST_ACCOUNT_EMAIL.toLowerCase()) {
-                  setTestPackageTier('free');
-                }
-              }}
-              required
-              style={{
-                width: '100%',
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(212, 160, 67, 0.3)',
-                borderRadius: '8px',
-                padding: '12px',
-                color: '#fff',
-                fontSize: '1rem',
-                direction: 'ltr',
-                textAlign: 'left',
-              }}
-            />
-            {isTestAccount && (
-              <div style={{ 
-                marginTop: '5px', 
-                fontSize: '0.85rem', 
-                color: '#D4A043',
-                textAlign: 'right',
-                fontStyle: 'italic'
-              }}>
-                📧 מייל בדיקות - ניתן לרישום מרובה עם חבילות שונות
+          {!isUpgradeMode && (!isSignUp || mode !== 'initial') && (
+            <>
+              <div>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>אימייל</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (e.target.value.trim().toLowerCase() !== TEST_ACCOUNT_EMAIL.toLowerCase()) setTestPackageTier('free');
+                  }}
+                  required
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'ltr',
+                    textAlign: 'left',
+                  }}
+                />
+                {isTestAccount && (
+                  <div style={{ marginTop: '5px', fontSize: '0.85rem', color: '#D4A043', textAlign: 'right', fontStyle: 'italic' }}>
+                    📧 מייל בדיקות - ניתן לרישום מרובה עם חבילות שונות
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+              <div>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>סיסמה</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    direction: 'ltr',
+                  }}
+                />
+              </div>
+            </>
+          )}
 
-          <div>
-            <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-              סיסמה
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              style={{
-                width: '100%',
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(212, 160, 67, 0.3)',
-                borderRadius: '8px',
-                padding: '12px',
-                color: '#fff',
-                fontSize: '1rem',
-                direction: 'ltr',
-              }}
-            />
-          </div>
-
-          {/* Package selection for new users */}
+          {/* Package selection for new users (legacy / redeem only) */}
           {isSignUp && !isTestAccount && (
             <>
               <div>
@@ -1033,16 +1246,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             type="submit"
             disabled={loading}
             onClick={(e) => {
-              // Prevent double submission if form is already submitting
-              if (loading) {
-                e.preventDefault();
-                return;
-              }
+              if (loading) { e.preventDefault(); return; }
             }}
           >
-            {loading ? (isSignUp ? 'נרשם...' : 'מתחבר...') : (isSignUp ? 'הרשמה' : 'כניסה')}
+            {loading
+              ? (isUpgradeMode ? 'שומר...' : (isSignUp ? 'נרשם...' : 'מתחבר...'))
+              : (isUpgradeMode ? 'שדרג חבילה' : (isSignUp ? 'הרשמה' : 'כניסה'))}
           </AuthButton>
 
+          {!isUpgradeMode && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
             <button
               type="button"
@@ -1081,6 +1293,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             )}
           </div>
+          )}
         </form>
         )}
       </AuthModalContent>

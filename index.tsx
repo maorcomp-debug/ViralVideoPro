@@ -193,6 +193,8 @@ const App = () => {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'initial' | 'upgrade'>('initial');
+  const [authModalUpgradePackage, setAuthModalUpgradePackage] = useState<string | null>(null);
   const [redeemCodeFromUrl, setRedeemCodeFromUrl] = useState<string | null>(null);
   const [redeemPackageFromUrl, setRedeemPackageFromUrl] = useState<string | null>(null);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
@@ -959,6 +961,7 @@ const App = () => {
     } else {
       setRedeemPackageFromUrl(null);
     }
+    setAuthModalMode('initial');
     setShowAuthModal(true);
     const next = new URLSearchParams(location.search);
     next.delete('redeem');
@@ -1069,6 +1072,7 @@ const App = () => {
     
     if (!user) {
       alert('יש להיכנס למערכת תחילה');
+      setAuthModalMode('initial');
       setShowAuthModal(true);
       setShowSubscriptionModal(false);
       return;
@@ -2839,6 +2843,7 @@ const App = () => {
     // Check if user is logged in
     if (!user) {
       alert('עליך להרשם תחילה כדי לבצע ניתוח.');
+      setAuthModalMode('initial');
       setShowAuthModal(true);
       return;
     }
@@ -3897,6 +3902,7 @@ const App = () => {
                   e.preventDefault();
                   e.stopPropagation();
                   if (!loggingOut && !loadingAuth) {
+                    setAuthModalMode('initial');
                     setShowAuthModal(true);
                   }
                 }}
@@ -4749,15 +4755,25 @@ const App = () => {
       
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => { setShowAuthModal(false); setRedeemCodeFromUrl(null); setRedeemPackageFromUrl(null); }}
-        initialPackage={redeemPackageFromUrl}
-        onAuthSuccess={async () => {
-          // NOTE: onAuthStateChange will automatically call loadUserData when SIGNED_IN event fires
-          // No need to call it here to avoid duplicate calls
-          // The onAuthStateChange handler already handles loading user data with forceRefresh=true for SIGNED_IN events
-          console.log('✅ Auth success - onAuthStateChange will handle user data loading');
+        onClose={() => {
+          setShowAuthModal(false);
+          setAuthModalMode('initial');
+          setAuthModalUpgradePackage(null);
+          setRedeemCodeFromUrl(null);
+          setRedeemPackageFromUrl(null);
         }}
+        mode={authModalMode}
+        initialPackageForUpgrade={authModalUpgradePackage ?? redeemPackageFromUrl}
+        initialPackage={redeemPackageFromUrl}
         initialRedeemCode={redeemCodeFromUrl}
+        currentUser={user ?? null}
+        onAuthSuccess={() => {}}
+        onUpgradeComplete={(tier) => {
+          setShowAuthModal(false);
+          setAuthModalMode('initial');
+          setAuthModalUpgradePackage(null);
+          handleSelectPlan(tier, 'monthly');
+        }}
       />
       
       <PackageSelectionModal
@@ -4767,22 +4783,21 @@ const App = () => {
         }}
         onSelect={async (tier) => {
           setPendingSubscriptionTier(tier);
-          
-          // Check if this is a paid tier - if so, initiate payment
           const isPaidTier = tier !== 'free';
-          if (isPaidTier) {
-            // For paid tiers, call handleSelectPlan to initiate payment
-            // handleSelectPlan will close the modal after opening payment modal
-            try {
-              await handleSelectPlan(tier, 'monthly');
-            } catch (error: any) {
-              console.error('Error in handleSelectPlan:', error);
-              // If payment fails, keep modal open so user can try again
-            }
-            return; // Exit - payment flow will handle the rest
+          if (isPaidTier && user) {
+            setAuthModalMode('upgrade');
+            setAuthModalUpgradePackage(tier);
+            setShowPackageSelectionModal(false);
+            setShowAuthModal(true);
+            return;
           }
-          
-          // For free tier only - close modal and show track selection
+          if (isPaidTier && !user) {
+            setShowPackageSelectionModal(false);
+            setShowAuthModal(true);
+            setAuthModalMode('initial');
+            setAuthModalUpgradePackage(null);
+            return;
+          }
           setShowPackageSelectionModal(false);
           if (tier === 'free') {
             if (!hasShownTrackModal) {

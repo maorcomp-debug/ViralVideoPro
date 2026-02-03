@@ -1235,13 +1235,21 @@ export async function updateCurrentUserProfile(updates: {
   selected_tracks?: string[];
   selected_primary_track?: string;
   receive_updates?: boolean;
+  subscription_tier?: string;
+  subscription_status?: string;
 }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
+  const finalUpdates = { ...updates };
+  if (updates.subscription_tier !== undefined) {
+    (finalUpdates as any).subscription_start_date = new Date().toISOString();
+    if (updates.subscription_status === undefined) (finalUpdates as any).subscription_status = 'active';
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .update(updates)
+    .update(finalUpdates)
     .eq('user_id', user.id);
 
   if (error) {
