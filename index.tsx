@@ -451,6 +451,22 @@ const App = () => {
         console.warn('User changed or logged out during loadUserData');
         return;
       }
+
+      // Fallback for initial signup: if DB trigger didn't copy signup_primary_track to profile, sync from user_metadata
+      // (ensures "אקשן!" works right after registration with the new initial form)
+      const meta = currentUser.user_metadata || {};
+      if (userProfile && (!userProfile.selected_primary_track || !userProfile.subscription_tier) && (meta.signup_primary_track || meta.signup_tier)) {
+        try {
+          await updateCurrentUserProfile({
+            ...(meta.signup_primary_track ? { selected_primary_track: meta.signup_primary_track } : {}),
+            ...(meta.signup_tier ? { subscription_tier: meta.signup_tier } : {}),
+          });
+          const updated = await getCurrentUserProfile(true);
+          if (updated) userProfile = updated;
+        } catch (e) {
+          console.warn('Fallback sync signup metadata to profile failed:', e);
+        }
+      }
       
       // IMPORTANT: Always set profile, even if null (to prevent stale data)
       // But don't set to null if we're in the middle of an upgrade flow
