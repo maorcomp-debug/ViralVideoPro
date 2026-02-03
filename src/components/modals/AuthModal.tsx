@@ -961,6 +961,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                 </div>
               )}
+              {/* טלפון ובחירת חבילה רק בהרשמה מלאה (לא במצב initial) */}
               {mode !== 'initial' && (
                 <div>
                   <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
