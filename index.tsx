@@ -3130,14 +3130,33 @@ const App = () => {
          }
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: { parts },
-        config: { 
-          systemInstruction,
-          responseMimeType: "application/json"
+      const maxRetries = 2;
+      let lastError: any;
+      let response: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts },
+            config: { 
+              systemInstruction,
+              responseMimeType: "application/json"
+            }
+          });
+          lastError = null;
+          break;
+        } catch (err: any) {
+          lastError = err;
+          const code = err?.error?.code ?? err?.status ?? err?.code;
+          const isRetryable = code === 500 || code === 502 || code === 503 || code === 504;
+          if (isRetryable && attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+            continue;
+          }
+          throw err;
         }
-      });
+      }
+      if (lastError || !response) throw lastError || new Error('No response');
 
       // Reduced logging
 
