@@ -961,32 +961,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                 </div>
               )}
-              <div>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                  מספר טלפון <span style={{ color: '#ff6b6b' }}>*</span>
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="0501234567"
-                  required
-                  style={{
-                    width: '100%',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(212, 160, 67, 0.3)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#fff',
-                    fontSize: '1rem',
-                    direction: 'ltr',
-                    textAlign: 'left',
-                  }}
-                />
-                <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
-                  מספר טלפון ישראלי (10 ספרות)
+              {mode !== 'initial' && (
+                <div>
+                  <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                    מספר טלפון <span style={{ color: '#ff6b6b' }}>*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0501234567"
+                    required
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(212, 160, 67, 0.3)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      color: '#fff',
+                      fontSize: '1rem',
+                      direction: 'ltr',
+                      textAlign: 'left',
+                    }}
+                  />
+                  <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
+                    מספר טלפון ישראלי (10 ספרות)
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 
@@ -1043,8 +1045,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </>
           )}
 
-          {/* Package selection for new users (legacy / redeem only) */}
-          {isSignUp && !isTestAccount && (
+          {/* Package selection for new users (legacy / redeem only – not in initial signup) */}
+          {isSignUp && !isTestAccount && mode !== 'initial' && (
             <>
               <div>
                 <label
