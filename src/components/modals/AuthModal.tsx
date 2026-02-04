@@ -348,6 +348,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 phone: cleanPhone,
                 subscription_tier: selectedTier,
                 subscription_status: 'active',
+                // בשדרוג ליוצרים לא מעדכנים תחום – נשאר מה שנבחר בחינם; תחום נוסף בהגדרות
               },
               currentUser.id
             ),
