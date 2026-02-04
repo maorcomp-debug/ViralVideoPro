@@ -641,9 +641,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       case 'experts':
         return tier === 'free' ? '3 מומחים' : 'כל המומחים (8)';
       case 'tracks':
-        if (tier === 'free') return 'תחום/מסלול אחד';
-        if (tier === 'creator') return '2 תחומי ניתוח';
-        if (tier === 'coach' || tier === 'coach-pro') return 'תחום מאמנים';
+        if (tier === 'free') return 'תחום ניתוח 1 לבחירה';
+        if (tier === 'creator') return '2 תחומי ניתוח לבחירה';
         return 'כל התחומים (4)';
       case 'trainees':
         if (tier === 'coach' || tier === 'coach-pro') {

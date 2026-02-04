@@ -166,14 +166,13 @@ export function getPlanAccess(subscription: UserSubscription | null): PlanAccess
 function getMaxTracksForTier(tier: SubscriptionTier): number {
   switch (tier) {
     case 'free':
-      return 1; // Only one track
+      return 1; // נסיון: תחום ניתוח 1 לבחירה
     case 'creator':
-      return 1; // Only one track (but can be selected from available)
+      return 2; // יוצרים: 2 תחומי ניתוח לבחירה
     case 'pro':
-      return 4; // All tracks
     case 'coach':
     case 'coach-pro':
-      return 4; // All tracks
+      return 4; // שאר החבילות: כל התחומים (4)
     default:
       return 1;
   }
@@ -199,7 +198,7 @@ export function isTrackAvailableForTier(
     return trackId === selectedPrimaryTrack;
   }
 
-  // Creator tier: up to 1 track from selected_tracks array
+  // Creator tier: up to 2 tracks from selected_tracks array
   if (tier === 'creator') {
     return selectedTracks?.includes(trackId) ?? false;
   }

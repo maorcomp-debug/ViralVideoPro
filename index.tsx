@@ -816,11 +816,17 @@ const App = () => {
             .finally(() => { loadUserDataInProgressRef.current = false; });
         }
       })
-      .catch((error) => {
+      .catch(async (error) => {
         if (timeoutId) clearTimeout(timeoutId);
         console.error('❌ Error in getSession promise:', error);
         if (mounted) {
           setLoadingAuth(false);
+          const msg = error?.message ?? '';
+          if (msg.includes('Refresh Token') || msg.includes('refresh_token') || msg.includes('Invalid')) {
+            await supabase.auth.signOut();
+            setUser(null);
+            resetUserState();
+          }
         }
       });
 
@@ -873,11 +879,8 @@ const App = () => {
           loadUserDataInProgressRef.current = false;
         }
       } else {
-        // INITIAL_SESSION with null: might be a race – getSession may return with session after.
-        // Don't reset if we already got valid session from getSession (F5 on home page).
-        if (event === 'INITIAL_SESSION' && gotValidSessionFromGetSessionRef.current) {
-          return; // getSession already set user – don't overwrite with reset
-        }
+        // Session is null (signed out or invalid refresh token). Always reset so we don't show stale "logged in" state.
+        // When refresh token is invalid, Supabase emits SIGNED_OUT then INITIAL_SESSION null – we must clear user.
         resetUserState();
       }
     });
