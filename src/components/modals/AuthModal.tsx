@@ -342,12 +342,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const upgradeTimeoutMs = 15000;
         try {
           await Promise.race([
-            updateCurrentUserProfile({
-              full_name: trimmedFullName,
-              phone: cleanPhone,
-              subscription_tier: selectedTier,
-              subscription_status: 'active',
-            }),
+            updateCurrentUserProfile(
+              {
+                full_name: trimmedFullName,
+                phone: cleanPhone,
+                subscription_tier: selectedTier,
+                subscription_status: 'active',
+              },
+              currentUser.id
+            ),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('UPGRADE_TIMEOUT')), upgradeTimeoutMs)
             ),

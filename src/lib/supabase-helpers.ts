@@ -1237,9 +1237,9 @@ export async function updateCurrentUserProfile(updates: {
   receive_updates?: boolean;
   subscription_tier?: string;
   subscription_status?: string;
-}) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+}, knownUserId?: string) {
+  const userId = knownUserId ?? (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) throw new Error('User not authenticated');
 
   const finalUpdates = { ...updates };
   if (updates.subscription_tier !== undefined) {
@@ -1252,7 +1252,7 @@ export async function updateCurrentUserProfile(updates: {
     const { data: profileRow } = await supabase
       .from('profiles')
       .select('selected_primary_track, selected_tracks')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
     const primary = (profileRow as { selected_primary_track?: string } | null)?.selected_primary_track;
     const existing = (profileRow as { selected_tracks?: string[] } | null)?.selected_tracks;
@@ -1264,7 +1264,7 @@ export async function updateCurrentUserProfile(updates: {
   const { error } = await supabase
     .from('profiles')
     .update(finalUpdates)
-    .eq('user_id', user.id);
+    .eq('user_id', userId);
 
   if (error) {
     console.error('Error updating current user profile:', error);
