@@ -486,9 +486,23 @@ const App = () => {
         // Status: WORKING - DO NOT TOUCH
         // VERSION: 2.3 - Profile created by trigger with metadata - complete immediately
         
-        setProfile(userProfile);
+        // Creator (and other multi-track tiers): if cache has more selected_tracks than server
+        // (e.g. user added track and refreshed before DB write completed), keep cache's list
+        // so the additional track doesn't disappear on refresh
+        let profileToSet = userProfile;
+        const tier = userProfile?.subscription_tier;
+        const canHaveMultipleTracks = tier === 'creator' || tier === 'pro' || tier === 'coach' || tier === 'coach-pro';
+        if (canHaveMultipleTracks && userProfile) {
+          const cached = loadProfileFromCache();
+          const serverCount = (userProfile.selected_tracks && userProfile.selected_tracks.length) || 0;
+          const cachedCount = (cached?.selected_tracks && cached.selected_tracks.length) || 0;
+          if (cachedCount > serverCount && cached?.selected_tracks?.length) {
+            profileToSet = { ...userProfile, selected_tracks: cached.selected_tracks };
+          }
+        }
+        setProfile(profileToSet);
         // Cache profile for instant load on refresh
-        saveProfileToCache(userProfile);
+        saveProfileToCache(profileToSet);
         // Only log profile load if forceRefresh (to reduce console noise)
         if (forceRefresh) {
           console.log('✅ Profile loaded successfully:', {
@@ -3706,7 +3720,11 @@ const App = () => {
           }}
           onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
           onProfileTracksUpdated={(trackIds) => {
-            setProfile((prev) => (prev ? { ...prev, selected_tracks: trackIds } : null));
+            setProfile((prev) => {
+              const next = prev ? { ...prev, selected_tracks: trackIds } : null;
+              if (next) saveProfileToCache(next);
+              return next;
+            });
           }}
         />
         <SubscriptionModal

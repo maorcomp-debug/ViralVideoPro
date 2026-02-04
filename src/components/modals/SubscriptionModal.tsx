@@ -549,6 +549,20 @@ const TableCell = styled.div`
   }
 `;
 
+const TIER_ORDER: Record<SubscriptionTier, number> = {
+  'free': 0,
+  'creator': 1,
+  'pro': 2,
+  'coach': 3,
+  'coach-pro': 4,
+};
+
+/** שדרוג אפשרי רק לחבילה גבוהה מהנוכחית; חבילה נוכחית או נמוכה יותר – לא לחיץ */
+function canUpgradeTo(planTier: SubscriptionTier, currentTier: SubscriptionTier | undefined): boolean {
+  if (!currentTier || currentTier === 'free') return planTier !== 'free';
+  return TIER_ORDER[planTier] > TIER_ORDER[currentTier];
+}
+
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -720,6 +734,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               ].map((plan) => {
                 const planData = SUBSCRIPTION_PLANS[plan.tier];
                 const isCurrentTier = plan.tier === currentSubscription?.tier;
+                const currentTier = currentSubscription?.tier;
+                const allowUpgrade = canUpgradeTo(plan.tier, currentTier);
                 return (
                   <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
                     {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
@@ -742,7 +758,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                         {planData.limits.features.comparison ? 'השוואת סרטונים' : 'השוואת סרטונים'}
                       </li>
                     </PackageFeatures>
-                    {!isCurrentTier && plan.tier !== 'free' && currentSubscription && (
+                    {allowUpgrade && !isCurrentTier && plan.tier !== 'free' && currentSubscription && (
                       <div style={{
                         padding: '8px 12px',
                         margin: '10px 0',
@@ -761,13 +777,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       onClick={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (!isCurrentTier && !processingTier) {
+                        if (allowUpgrade && !processingTier) {
                           await handleSelectPlan(plan.tier);
                         }
                       }}
-                      disabled={isCurrentTier || processingTier !== null}
+                      disabled={!allowUpgrade || processingTier !== null}
                     >
-                      {processingTier === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : plan.tier === 'free' ? 'התחל חינם' : 'שדרג עכשיו'}
+                      {processingTier === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : !allowUpgrade ? 'לא זמין' : plan.tier === 'free' ? 'התחל חינם' : 'שדרג עכשיו'}
                     </PackageButton>
                   </PackageCard>
                 );
@@ -850,6 +866,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               ).map((plan) => {
                 const planData = SUBSCRIPTION_PLANS[plan.tier];
                 const isCurrentTier = plan.tier === currentSubscription?.tier;
+                const currentTier = currentSubscription?.tier;
+                const allowUpgrade = canUpgradeTo(plan.tier, currentTier);
                 return (
                   <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
                     {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
@@ -884,7 +902,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                         </>
                       )}
                     </PackageFeatures>
-                    {!isCurrentTier && currentSubscription && (
+                    {allowUpgrade && !isCurrentTier && currentSubscription && (
                       <div style={{
                         padding: '8px 12px',
                         margin: '10px 0',
@@ -903,13 +921,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       onClick={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (!isCurrentTier && !processingTier) {
+                        if (allowUpgrade && !processingTier) {
                           await handleSelectPlan(plan.tier);
                         }
                       }}
-                      disabled={isCurrentTier || processingTier !== null}
+                      disabled={!allowUpgrade || processingTier !== null}
                     >
-                      {processingTier === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : 'שדרג עכשיו'}
+                      {processingTier === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : !allowUpgrade ? 'לא זמין' : 'שדרג עכשיו'}
                     </PackageButton>
                   </PackageCard>
                 );
