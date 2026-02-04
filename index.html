@@ -24,6 +24,17 @@
       ::-webkit-scrollbar-track { background: #0f0f0f; }
       ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #D4A043; }
+      /* Initial load: show logo until React mounts (reduces "Loading application" flash on desktop) */
+      #root {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+      }
+      #root .load-logo { max-width: 280px; width: 100%; height: auto; }
+      #root .load-text { color: rgba(212,160,67,0.9); font-size: 0.95rem; margin-top: 12px; }
     </style>
   <script type="importmap">
 {
@@ -42,7 +53,10 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body>
-    <div id="root">Loading application...</div>
+    <div id="root">
+      <img class="load-logo" src="/Logo.png" alt="Viraly" />
+      <div class="load-text">טוען...</div>
+    </div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
