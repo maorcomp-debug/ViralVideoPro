@@ -759,7 +759,7 @@ const ConfirmButton = styled.button`
 // MAIN COMPONENT
 // ============================================
 
-type MainTab = 'overview' | 'users' | 'analyses' | 'video' | 'alerts';
+type MainTab = 'overview' | 'users' | 'subscribers' | 'analyses' | 'video' | 'alerts';
 type SubTab = 'send-update' | 'coupons' | 'trials';
 
 /** תווית בעברית לסוג ההטבה (לפי discount_type בטבלה) */
@@ -924,7 +924,7 @@ export const AdminPage: React.FC = () => {
       if (activeTab === 'overview') {
         const statsData = await getAdminStats(true); // skipAdminCheck = true
         setStats(statsData);
-      } else if (activeTab === 'users') {
+      } else if (activeTab === 'users' || activeTab === 'subscribers') {
         const usersData = await getAllUsers(true); // skipAdminCheck = true
         if (usersData) {
           setUsers(usersData);
@@ -998,7 +998,7 @@ export const AdminPage: React.FC = () => {
       // Skip admin checks for speed - we're already in AdminPage
       Promise.all([
         getAdminStats(true).then(data => { if (activeTab !== 'overview') setStats(data); }).catch(() => {}),
-        getAllUsers(true).then(data => { if (data && activeTab !== 'users') setUsers(data); }).catch(() => {}),
+        getAllUsers(true).then(data => { if (data && activeTab !== 'users' && activeTab !== 'subscribers') setUsers(data); }).catch(() => {}),
         getAllAnalyses(true).then(data => { if (activeTab !== 'analyses') setAnalyses(data || []); }).catch(() => {}),
         getAllVideos(true).then(data => { if (activeTab !== 'video') setVideos(data || []); }).catch(() => {}),
         getAllAnnouncements().then(data => { if (activeSubTab !== 'send-update') setAnnouncements(data || []); }).catch(() => {}),
@@ -1570,6 +1570,9 @@ export const AdminPage: React.FC = () => {
         <NavItem $active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
           <span>👥</span> משתמשים ({users.length})
         </NavItem>
+        <NavItem $active={activeTab === 'subscribers'} onClick={() => setActiveTab('subscribers')}>
+          <span>📋</span> מנויים ({users.length})
+        </NavItem>
         <NavItem $active={activeTab === 'analyses'} onClick={() => setActiveTab('analyses')}>
           <span>📄</span> ניתוחים ({analyses.length})
         </NavItem>
@@ -1623,6 +1626,74 @@ export const AdminPage: React.FC = () => {
               <SectionTitle>פילוח לפי דרגות מנוי</SectionTitle>
               {/* Tier distribution will be added here */}
             </div>
+          </>
+        )}
+
+        {activeTab === 'subscribers' && (
+          <>
+            <StatsGrid>
+              <StatCard>
+                <StatValue>{users.length}</StatValue>
+                <StatLabel>סה"כ מנויים רשומים</StatLabel>
+                <StatSubLabel>כל המשתמשים במערכת</StatSubLabel>
+              </StatCard>
+              <StatCard>
+                <StatValue>{users.filter((u: any) => u.subscription_tier && u.subscription_tier !== 'free').length}</StatValue>
+                <StatLabel>סה"כ מנויים בתשלום</StatLabel>
+                <StatSubLabel>חבילות יוצרים / מאמנים</StatSubLabel>
+              </StatCard>
+            </StatsGrid>
+            <SectionHeader>
+              <SectionTitle>פרטי מנויים רשומים</SectionTitle>
+              <RefreshButton onClick={() => loadData(true)}>
+                🔄 רענן
+              </RefreshButton>
+            </SectionHeader>
+            <TableWrapper>
+              <Table>
+                <TableHeader>
+                  <tr>
+                    <TableHeaderCell>שם</TableHeaderCell>
+                    <TableHeaderCell>אימייל</TableHeaderCell>
+                    <TableHeaderCell>טלפון</TableHeaderCell>
+                    <TableHeaderCell>סוג</TableHeaderCell>
+                    <TableHeaderCell>חבילה</TableHeaderCell>
+                    <TableHeaderCell>שימוש (ניתוחים)</TableHeaderCell>
+                    <TableHeaderCell>תאריך הרשמה</TableHeaderCell>
+                  </tr>
+                </TableHeader>
+                <tbody>
+                  {users.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} style={{ textAlign: 'center', padding: '40px' }}>
+                        אין מנויים להצגה. לחץ רענן.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    users.map((user: any) => {
+                      const tier = user.subscription_tier || 'free';
+                      const isPaid = tier !== 'free';
+                      const plan = SUBSCRIPTION_PLANS[tier as SubscriptionTier];
+                      const usage = userUsageMap[user.user_id] || { analysesUsed: 0, maxAnalyses: 0 };
+                      const usageText = plan?.limits?.maxAnalysesPerPeriod === -1
+                        ? `${usage.analysesUsed} (ללא הגבלה)`
+                        : `${usage.analysesUsed} / ${usage.maxAnalyses}`;
+                      return (
+                        <TableRow key={user.user_id || user.id}>
+                          <TableCell>{(user.full_name || '-').trim() || '-'}</TableCell>
+                          <TableCell>{user.email || '-'}</TableCell>
+                          <TableCell>{(user.phone || '-').trim() || '-'}</TableCell>
+                          <TableCell>{isPaid ? 'תשלום' : 'חינם'}</TableCell>
+                          <TableCell>{SUBSCRIPTION_PLANS[tier]?.name || tier}</TableCell>
+                          <TableCell>{usageText}</TableCell>
+                          <TableCell>{user.created_at ? new Date(user.created_at).toLocaleDateString('he-IL') : '-'}</TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </tbody>
+              </Table>
+            </TableWrapper>
           </>
         )}
 
