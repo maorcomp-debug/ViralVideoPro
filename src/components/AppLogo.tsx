@@ -6,9 +6,7 @@ export const AppLogo = () => {
     <LogoContainer>
       <StyledLogoImg 
         src="/Logo.png" 
-        alt="Logo"
-        fetchPriority="high"
-        decoding="async"
+        alt="Logo" 
       />
     </LogoContainer>
   );

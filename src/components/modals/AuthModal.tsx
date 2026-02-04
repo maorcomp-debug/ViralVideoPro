@@ -110,32 +110,24 @@ const AuthCloseButton = styled.button`
   }
 `;
 
-const PackageSelect = styled.select<{ $trackSelect?: boolean }>`
+const PackageSelect = styled.select`
   width: 100%;
   background: rgba(30, 30, 30, 0.95) !important;
   border: 1px solid rgba(212, 160, 67, 0.3);
   border-radius: 8px;
   padding: 12px;
-  color: ${(p) => (p.$trackSelect ? '#D4A043' : '#fff')};
+  color: #fff;
   font-size: 1rem;
-  font-weight: ${(p) => (p.$trackSelect ? 700 : 400)};
   direction: rtl;
   text-align: center;
   text-align-last: center;
   cursor: pointer;
   appearance: none;
-  -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23D4A043' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: left 12px center;
   padding-left: 40px;
   transition: all 0.3s;
-
-  @media (max-width: 768px) {
-    font-size: 1rem;
-    font-weight: ${(p) => (p.$trackSelect ? 700 : 400)};
-    min-height: 48px;
-  }
 
   &:hover {
     border-color: rgba(212, 160, 67, 0.5);
@@ -150,19 +142,11 @@ const PackageSelect = styled.select<{ $trackSelect?: boolean }>`
 
   option {
     background: rgba(30, 30, 30, 0.95);
-    color: #D4A043;
+    color: #fff;
     padding: 10px;
     direction: rtl;
     text-align: center;
-    font-weight: 700;
-    font-size: 1rem;
-  }
-
-  @media (max-width: 768px) {
-    option {
-      font-weight: 700;
-      font-size: 1rem;
-    }
+    font-weight: 600;
   }
 
   option:hover {
@@ -171,8 +155,6 @@ const PackageSelect = styled.select<{ $trackSelect?: boolean }>`
 
   option:checked {
     background: rgba(212, 160, 67, 0.3);
-    color: #D4A043;
-    font-weight: 700;
   }
 `;
 
@@ -847,9 +829,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     בחר תחום ניתוח *
                   </label>
                   <PackageSelect
-                    $trackSelect
                     value={selectedTrack || ''}
                     onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
+                    style={{ color: '#D4A043', fontWeight: 600, textAlign: 'center' }}
                   >
                     <option value="">בחר תחום ניתוח</option>
                     <option value="actors">שחקנים ואודישנים</option>
@@ -922,9 +904,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       בחר תחום ניתוח *
                     </label>
                     <PackageSelect
-                      $trackSelect
                       value={selectedTrack || ''}
                       onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
+                      style={{ color: '#D4A043', fontWeight: 600, textAlign: 'center' }}
                     >
                       <option value="">בחר תחום ניתוח</option>
                       <option value="actors">שחקנים ואודישנים</option>
