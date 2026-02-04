@@ -1220,7 +1220,11 @@ const App = () => {
       setShowSubscriptionModal(false);
       setShowPackageSelectionModal(false);
 
-      alert(`החבילה עודכנה בהצלחה ל-${SUBSCRIPTION_PLANS[tier]?.name || tier}`);
+      const baseMsg = `החבילה עודכנה בהצלחה ל-${SUBSCRIPTION_PLANS[tier]?.name || tier}`;
+      const extraMsg = (tier === 'creator')
+        ? '\n\nמחכה לך תחום ניתוח נוסף לבחירה בהגדרות המנוי.'
+        : '';
+      alert(`${baseMsg}${extraMsg}`);
       
     } catch (error: any) {
       console.error('❌ Error in handleSelectPlan:', error);
@@ -2852,8 +2856,20 @@ const App = () => {
     }
     
     // Validate inputs
-    if ((!prompt.trim() && !file) || selectedExperts.length < 3) {
+    if (!prompt.trim() && !file) {
+      alert('נא להעלות סרטון או להזין טקסט לפני לחיצה על אקשן.');
       return;
+    }
+    if (selectedExperts.length < 3) {
+      // Auto-fill defaults to avoid "button does nothing" (can happen right after login/track sync).
+      const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
+      const defaults = (EXPERTS_BY_TRACK[trackToUse] || []).slice(0, 3).map(e => e.title);
+      if (defaults.length < 3) {
+        alert('נא לבחור לפחות 3 מומחים לפני התחלת הניתוח.');
+        return;
+      }
+      setSelectedExperts(defaults);
+      // Continue with defaults for this run (expertPanel is computed later as well).
     }
     
     // Check if user is logged in
@@ -2951,7 +2967,23 @@ const App = () => {
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const expertPanel = selectedExperts.join(', ');
+      // Safety: if experts state is temporarily empty/partial (race after login/track sync),
+      // still run with default experts for the current track so "אקשן!" always starts.
+      const trackForExperts = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
+      const expertsForRun = (selectedExperts.length >= 3
+        ? selectedExperts
+        : (EXPERTS_BY_TRACK[trackForExperts] || []).slice(0, 3).map(e => e.title)
+      );
+      if (expertsForRun.length < 3) {
+        alert('שגיאה: לא נמצאו מספיק מומחים לניתוח. נסה לבחור תחום אחר או לרענן.');
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          loadingTimeout = null;
+        }
+        setLoading(false);
+        return;
+      }
+      const expertPanel = expertsForRun.join(', ');
 
       let extraContext = '';
       if (isImprovementMode && previousResult) {
@@ -4816,9 +4848,16 @@ const App = () => {
           setPendingSubscriptionTier(tier);
           const isPaidTier = tier !== 'free';
           if (isPaidTier && user) {
+            setShowPackageSelectionModal(false);
+            // If user already provided upgrade details previously (name + phone), skip upgrade form.
+            // Go straight to payment/upgrade flow.
+            const hasUpgradeDetails = !!profile?.full_name?.trim?.() && !!profile?.phone?.trim?.();
+            if (hasUpgradeDetails) {
+              handleSelectPlan(tier, 'monthly');
+              return;
+            }
             setAuthModalMode('upgrade');
             setAuthModalUpgradePackage(tier);
-            setShowPackageSelectionModal(false);
             setShowAuthModal(true);
             return;
           }

@@ -661,7 +661,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         {activeTab === 'updates' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Show option to add additional track if user has creator tier and only one track */}
-            {subscription?.tier === 'creator' && profile?.selected_tracks && profile.selected_tracks.length === 1 && (
+            {subscription?.tier === 'creator' && (
+              (() => {
+                const existing = (profile?.selected_tracks && profile.selected_tracks.length > 0)
+                  ? profile.selected_tracks
+                  : (profile?.selected_primary_track ? [profile.selected_primary_track] : []);
+                return existing.length === 1;
+              })()
+            ) && (
               <div style={{
                 padding: '20px',
                 background: 'linear-gradient(135deg, rgba(212, 160, 67, 0.2), rgba(212, 160, 67, 0.1))',
@@ -822,7 +829,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         isOpen={showTrackSelectionModal}
         onClose={() => setShowTrackSelectionModal(false)}
         subscriptionTier={subscription?.tier || profile?.subscription_tier || 'creator'}
-        existingTracks={profile?.selected_tracks || []}
+        existingTracks={(profile?.selected_tracks && profile.selected_tracks.length > 0)
+          ? profile.selected_tracks
+          : (profile?.selected_primary_track ? [profile.selected_primary_track] : [])
+        }
         mode="add"
         onSelect={async (trackIds) => {
           try {

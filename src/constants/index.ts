@@ -15,7 +15,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     limits: {
       maxAnalysesPerPeriod: 1, // 1 analysis total
       maxVideoSeconds: 60, // 1 minute
-      maxFileBytes: 10 * 1024 * 1024, // 10MB
+      maxFileBytes: 20 * 1024 * 1024, // 20MB
       maxVideoMinutesPerPeriod: 0, // No monthly limit for free tier (only per video limit)
       features: {
         saveHistory: false,
@@ -40,7 +40,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     limits: {
       maxAnalysesPerPeriod: 10,
       maxVideoSeconds: 3 * 60, // 3 minutes
-      maxFileBytes: 15 * 1024 * 1024, // 15MB
+      maxFileBytes: 30 * 1024 * 1024, // 30MB
       maxVideoMinutesPerPeriod: 30, // 30 minutes per month
       features: {
         saveHistory: true,
@@ -66,7 +66,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
       maxAnalysesPerPeriod: 30,
       // אקסטרים – כמו שציינת: עד 3 דקות או 15MB
       maxVideoSeconds: 3 * 60, // 3 minutes
-      maxFileBytes: 15 * 1024 * 1024, // 15MB
+      maxFileBytes: 40 * 1024 * 1024, // 40MB
       maxVideoMinutesPerPeriod: 100, // 100 minutes per month
       features: {
         saveHistory: true,
@@ -207,7 +207,7 @@ export const getMaxFileBytes = (track: TrackId, subscription?: UserSubscription)
   if (subscription) {
     return SUBSCRIPTION_PLANS[subscription.tier].limits.maxFileBytes;
   }
-  return track === 'coach' ? 40 * 1024 * 1024 : 10 * 1024 * 1024; // Default: 40MB for coach, 10MB for others
+  return track === 'coach' ? 40 * 1024 * 1024 : 20 * 1024 * 1024; // Default: 40MB for coach, 20MB for others
 };
 
 export const getUploadLimitText = (track: TrackId, subscription?: UserSubscription): string => {
@@ -225,7 +225,7 @@ export const getUploadLimitText = (track: TrackId, subscription?: UserSubscripti
   if (track === 'coach') {
     return 'עד 5 דקות או 40MB';
   }
-  // For free tier: 60 seconds (1 minute) or 10MB
-  return 'עד דקה או 10MB';
+  // For free tier: 60 seconds (1 minute) or 20MB
+  return 'עד דקה או 20MB';
 };
 

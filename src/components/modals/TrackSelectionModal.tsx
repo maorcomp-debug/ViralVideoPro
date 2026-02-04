@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { supabase } from '../../lib/supabase';
-import { updateCurrentUserProfile } from '../../lib/supabase-helpers';
 import { fadeIn } from '../../styles/globalStyles';
 import { ModalCloseBtn } from '../../styles/modal';
 import type { TrackId, SubscriptionTier } from '../../types';
@@ -358,29 +356,17 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
 
     try {
       console.log('💾 Saving track selection:', { selectedTracks, existingTracks, mode });
-      
-      // Update user profile with selected tracks
-      const primaryTrack = selectedTracks[0];
-      const updateResult = await updateCurrentUserProfile({
-        selected_primary_track: primaryTrack,
-        selected_tracks: selectedTracks,
-      });
-      
-      console.log('✅ Track selection saved successfully:', updateResult);
-
-      // Reset loading state first
-      setLoading(false);
 
       // Call onSelect callback with all selected tracks
-      onSelect(selectedTracks);
+      await Promise.resolve(onSelect(selectedTracks));
       
       // Close modal after callback
       onClose();
     } catch (err: any) {
       console.error('❌ Error saving track selection:', err);
       setError(err.message || 'שגיאה בשמירת הבחירה. נסה שוב.');
-      setLoading(false); // Reset loading on error
     }
+    setLoading(false);
   };
 
   if (!isOpen) return null;
