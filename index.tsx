@@ -3705,6 +3705,9 @@ const App = () => {
             }
           }}
           onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
+          onProfileTracksUpdated={(trackIds) => {
+            setProfile((prev) => (prev ? { ...prev, selected_tracks: trackIds } : null));
+          }}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}

@@ -15,6 +15,8 @@ interface SettingsPageProps {
   usage: { analysesUsed: number; minutesUsed: number; periodStart: Date; periodEnd: Date } | null;
   onProfileUpdate: () => void;
   onOpenSubscriptionModal: () => void;
+  /** עדכון אופטימי של selected_tracks ב-state (ממשק מתעדכן מיד, שמירה ל-DB ברקע) */
+  onProfileTracksUpdated?: (trackIds: string[]) => void;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -23,7 +25,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   subscription,
   usage,
   onProfileUpdate,
-  onOpenSubscriptionModal
+  onOpenSubscriptionModal,
+  onProfileTracksUpdated,
 }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -835,14 +838,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         }
         mode="add"
         onSelect={async (trackIds) => {
+          const previousTracks = (profile?.selected_tracks && profile.selected_tracks.length > 0)
+            ? profile.selected_tracks
+            : (profile?.selected_primary_track ? [profile.selected_primary_track] : []);
+          onProfileTracksUpdated?.(trackIds);
           setShowTrackSelectionModal(false);
           setMessage({ type: 'success', text: 'תחום הניתוח נוסף בהצלחה!' });
           setTimeout(() => setMessage(null), 3000);
-          Promise.resolve()
-            .then(() => updateCurrentUserProfile({ selected_tracks: trackIds }))
+          updateCurrentUserProfile({ selected_tracks: trackIds })
             .then(() => onProfileUpdate())
             .catch((error: any) => {
               console.error('Error adding track:', error);
+              onProfileTracksUpdated?.(previousTracks);
               setMessage({ type: 'error', text: error.message || 'שגיאה בהוספת התחום. נסה שוב.' });
             });
         }}
