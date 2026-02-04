@@ -330,11 +330,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setLoading(false);
           return;
         }
-        if (selectedTier === 'creator' && !selectedTrack) {
-          setError('נא לבחור תחום ניתוח');
-          setLoading(false);
-          return;
-        }
+        // בשדרוג ליוצרים – התחום כבר נבחר בחינם; תחום נוסף ייבחר בהגדרות
         if (!currentUser?.id) {
           setError('נדרשת כניסה לחשבון לפני שדרוג');
           setLoading(false);
@@ -345,7 +341,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           phone: cleanPhone,
           subscription_tier: selectedTier,
           subscription_status: 'active',
-          ...(selectedTier === 'creator' && selectedTrack ? { selected_primary_track: selectedTrack } : {}),
+          // בשדרוג ליוצרים לא מעדכנים תחום – נשאר מה שנבחר בחינם; תחום נוסף בהגדרות
         });
         onUpgradeComplete?.(selectedTier);
         onAuthSuccess();
@@ -812,35 +808,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <option value="coach-pro">מאמנים פרו</option>
                 </PackageSelect>
               </div>
-              {selectedTier === 'creator' && (
-                <div>
-                  <label
-                    style={{
-                      color: '#D4A043',
-                      fontSize: '0.95rem',
-                      textAlign: 'right',
-                      display: 'block',
-                      marginBottom: '5px',
-                      fontWeight: 700,
-                      letterSpacing: '0.03em',
-                      textShadow: '0 0 10px rgba(212, 160, 67, 0.6)',
-                    }}
-                  >
-                    בחר תחום ניתוח *
-                  </label>
-                  <PackageSelect
-                    value={selectedTrack || ''}
-                    onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
-                    style={{ color: '#D4A043', fontWeight: 600, textAlign: 'center' }}
-                  >
-                    <option value="">בחר תחום ניתוח</option>
-                    <option value="actors">שחקנים ואודישנים</option>
-                    <option value="musicians">זמרים ומוזיקאים</option>
-                    <option value="creators">יוצרי תוכן וכוכבי רשת</option>
-                    <option value="influencers">משפיענים ומותגים</option>
-                  </PackageSelect>
-                </div>
-              )}
+              {/* בשדרוג לחבילת יוצרים לא מציגים בחירת תחום – התחום כבר נבחר בחינם; תחום נוסף ייבחר בהגדרות */}
             </>
           )}
 

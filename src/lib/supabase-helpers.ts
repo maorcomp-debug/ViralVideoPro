@@ -1247,6 +1247,20 @@ export async function updateCurrentUserProfile(updates: {
     if (updates.subscription_status === undefined) (finalUpdates as any).subscription_status = 'active';
   }
 
+  // שדרוג ליוצרים: אם לא נשלח selected_tracks, לאתחל מתחום הנסיון (selected_primary_track) – תחום נוסף ייבחר בהגדרות
+  if (updates.subscription_tier === 'creator' && updates.selected_tracks === undefined) {
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('selected_primary_track, selected_tracks')
+      .eq('user_id', user.id)
+      .single();
+    const primary = (profileRow as { selected_primary_track?: string } | null)?.selected_primary_track;
+    const existing = (profileRow as { selected_tracks?: string[] } | null)?.selected_tracks;
+    if (primary && (!existing || existing.length === 0)) {
+      (finalUpdates as any).selected_tracks = [primary];
+    }
+  }
+
   const { error } = await supabase
     .from('profiles')
     .update(finalUpdates)
