@@ -405,7 +405,7 @@ const App = () => {
           await Promise.race([
             supabase.auth.refreshSession(),
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('refreshSession timeout')), 8000)
+              setTimeout(() => reject(new Error('refreshSession timeout')), 4000)
             ),
           ]);
           console.log('🔄 Session refreshed');
@@ -423,8 +423,8 @@ const App = () => {
       
       while (!userProfile && retryCount < maxRetries) {
         console.log(`[loadUserData] Profile not found, retrying... (${retryCount + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // 1s, 2s, 3s delays
-        userProfile = await getCurrentUserProfile(true); // Force refresh on retry
+        await new Promise(resolve => setTimeout(resolve, 300 + retryCount * 200)); // 300ms, 500ms, 700ms – faster UX
+        userProfile = await getCurrentUserProfile(true);
         retryCount++;
       }
       
@@ -779,10 +779,9 @@ const App = () => {
     // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
     timeoutId = setTimeout(() => {
       if (mounted) {
-        // Silently allow UI to render - onAuthStateChange will handle session when ready
         setLoadingAuth(false);
       }
-    }, 5000); // 5 second timeout (reduced for better UX)
+    }, 2000); // 2s max – unblock UI quickly for better UX
     
     // Check initial session (only once on mount)
     // This is non-blocking - if it takes too long, timeout will unblock the UI
@@ -864,11 +863,6 @@ const App = () => {
         }
         loadUserDataInProgressRef.current = true;
         try {
-          // Minimal delay for trigger to complete (only for sign-in/sign-up, not for page refresh)
-          if (event === 'SIGNED_IN' && window.location.pathname !== '/admin') {
-            await new Promise(resolve => setTimeout(resolve, 100)); // Minimal delay for profile creation
-          }
-          
           // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
           const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
           await loadUserData(session.user, shouldForceRefresh);
@@ -3888,7 +3882,7 @@ const App = () => {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      window.location.href = '/admin';
+                      navigate('/admin');
                     }}
                     style={{
                       background: 'transparent',

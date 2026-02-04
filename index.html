@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preload" href="/Logo.png" as="image" />
     <title>Viraly - Video Director Pro</title>
     <link rel="icon" type="image/png" href="/Logo.png" />
-    <link rel="preload" href="/Logo.png" as="image" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&family=Frank+Ruhl+Libre:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -24,6 +24,8 @@
       ::-webkit-scrollbar-track { background: #0f0f0f; }
       ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #D4A043; }
+      /* Hide initial placeholder until React mounts – no visible "Loading application" in corner */
+      #root .init-placeholder { color: transparent; font-size: 0; }
     </style>
   <script type="importmap">
 {
@@ -42,7 +44,7 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body>
-    <div id="root">Loading application...</div>
+    <div id="root"><span class="init-placeholder">Loading application...</span></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
