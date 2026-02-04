@@ -2850,14 +2850,19 @@ const App = () => {
   };
 
   const handleGenerate = async () => {
-    // CRITICAL: Prevent double-clicks and ensure button is not disabled
+    // CRITICAL: Prevent double-clicks
     if (loading) {
       return;
     }
+
+    // Turn on loading *מייד* בלחיצה – עוד לפני כל הבדיקות האסינכרוניות,
+    // כדי שהמשתמש יראה שהאקשן התחיל לעבוד ללא השהייה.
+    setLoading(true);
     
     // Validate inputs
     if (!prompt.trim() && !file) {
       alert('נא להעלות סרטון או להזין טקסט לפני לחיצה על אקשן.');
+      setLoading(false);
       return;
     }
     if (selectedExperts.length < 3) {
@@ -2866,6 +2871,7 @@ const App = () => {
       const defaults = (EXPERTS_BY_TRACK[trackToUse] || []).slice(0, 3).map(e => e.title);
       if (defaults.length < 3) {
         alert('נא לבחור לפחות 3 מומחים לפני התחלת הניתוח.');
+        setLoading(false);
         return;
       }
       setSelectedExperts(defaults);
@@ -2877,6 +2883,7 @@ const App = () => {
       alert('עליך להרשם תחילה כדי לבצע ניתוח.');
       setAuthModalMode('initial');
       setShowAuthModal(true);
+      setLoading(false);
       return;
     }
     
@@ -2900,6 +2907,7 @@ const App = () => {
       if (limitCheck?.message && limitCheck.message !== SUBSCRIPTION_CHECK_ERROR) {
         setShowSubscriptionModal(true);
       }
+      setLoading(false);
       return;
     }
     
@@ -2908,6 +2916,7 @@ const App = () => {
     if (!trackAvailable) {
       alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
       setShowSubscriptionModal(true);
+      setLoading(false);
       return;
     }
     
@@ -2915,12 +2924,9 @@ const App = () => {
     if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
       alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
       setShowSubscriptionModal(true);
+      setLoading(false);
       return;
     }
-    
-    // Set loading IMMEDIATELY for better UX - user sees response right away
-    // Only set loading AFTER all checks pass
-    setLoading(true);
     
     // CRITICAL: Add safety timeout to ensure loading is reset if something goes wrong
     let loadingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
