@@ -339,13 +339,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setLoading(false);
           return;
         }
-        await updateCurrentUserProfile({
-          full_name: trimmedFullName,
-          phone: cleanPhone,
-          subscription_tier: selectedTier,
-          subscription_status: 'active',
-          // בשדרוג ליוצרים לא מעדכנים תחום – נשאר מה שנבחר בחינם; תחום נוסף בהגדרות
-        });
+        const upgradeTimeoutMs = 15000;
+        try {
+          await Promise.race([
+            updateCurrentUserProfile({
+              full_name: trimmedFullName,
+              phone: cleanPhone,
+              subscription_tier: selectedTier,
+              subscription_status: 'active',
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('UPGRADE_TIMEOUT')), upgradeTimeoutMs)
+            ),
+          ]);
+        } catch (err: any) {
+          if (err?.message === 'UPGRADE_TIMEOUT') {
+            setError('הפעולה לוקחת זמן. נסה לרענן את הדף ולשדרג שוב.');
+          } else {
+            setError(err?.message || 'שגיאה בעדכון. נסה שוב.');
+          }
+          setLoading(false);
+          return;
+        }
         onUpgradeComplete?.(selectedTier);
         onAuthSuccess();
         onClose();

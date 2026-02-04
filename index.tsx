@@ -3724,6 +3724,8 @@ const App = () => {
             setAuthModalUpgradePackage(null);
             setRedeemCodeFromUrl(null);
             setRedeemPackageFromUrl(null);
+            updatingSubscriptionRef.current = false;
+            setIsUpdatingSubscription(false);
           }}
           mode={authModalMode}
           initialPackageForUpgrade={authModalUpgradePackage ?? redeemPackageFromUrl}
@@ -4793,6 +4795,8 @@ const App = () => {
           setAuthModalUpgradePackage(null);
           setRedeemCodeFromUrl(null);
           setRedeemPackageFromUrl(null);
+          updatingSubscriptionRef.current = false;
+          setIsUpdatingSubscription(false);
         }}
         mode={authModalMode}
         initialPackageForUpgrade={authModalUpgradePackage ?? redeemPackageFromUrl}
