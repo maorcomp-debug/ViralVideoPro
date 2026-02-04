@@ -810,18 +810,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
               {selectedTier === 'creator' && (
                 <div>
-                  <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                    בחירת תחום ניתוח *
+                  <label
+                    style={{
+                      color: '#D4A043',
+                      fontSize: '0.95rem',
+                      textAlign: 'right',
+                      display: 'block',
+                      marginBottom: '5px',
+                      fontWeight: 700,
+                      letterSpacing: '0.03em',
+                      textShadow: '0 0 10px rgba(212, 160, 67, 0.6)',
+                    }}
+                  >
+                    בחר את זירת הניתוח הראשית שלך *
                   </label>
                   <PackageSelect
                     value={selectedTrack || ''}
                     onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
                   >
-                    <option value="">-- בחר תחום ניתוח --</option>
-                    <option value="actors">שחקנים ואודישנים</option>
-                    <option value="musicians">זמרים ומוזיקאים</option>
-                    <option value="creators">יוצרי תוכן וכוכבי רשת</option>
-                    <option value="influencers">משפיענים ומותגים</option>
+                    <option value="">-- בחר זירת ניתוח יוקרתית --</option>
+                    <option value="actors">זירת ניתוח לשחקנים ואודישנים</option>
+                    <option value="musicians">זירת ניתוח לזמרים ומוזיקאים</option>
+                    <option value="creators">זירת ניתוח ליוצרי תוכן וכוכבי רשת</option>
+                    <option value="influencers">זירת ניתוח למשפיענים ומותגים</option>
                   </PackageSelect>
                 </div>
               )}
@@ -873,18 +884,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                      בחר תחום ניתוח התחלתי *
+                    <label
+                      style={{
+                        color: '#D4A043',
+                        fontSize: '0.95rem',
+                        textAlign: 'right',
+                        display: 'block',
+                        marginBottom: '5px',
+                        fontWeight: 700,
+                        letterSpacing: '0.03em',
+                        textShadow: '0 0 10px rgba(212, 160, 67, 0.6)',
+                      }}
+                    >
+                      בחר את זירת הניתוח ההתחלתית שלך *
                     </label>
                     <PackageSelect
                       value={selectedTrack || ''}
                       onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
                     >
-                      <option value="">-- בחר תחום ניתוח --</option>
-                      <option value="actors">שחקנים ואודישנים</option>
-                      <option value="musicians">זמרים ומוזיקאים</option>
-                      <option value="creators">יוצרי תוכן וכוכבי רשת</option>
-                      <option value="influencers">משפיענים ומותגים</option>
+                      <option value="">-- בחר זירת ניתוח יוקרתית --</option>
+                      <option value="actors">זירת ניתוח לשחקנים ואודישנים</option>
+                      <option value="musicians">זירת ניתוח לזמרים ומוזיקאים</option>
+                      <option value="creators">זירת ניתוח ליוצרי תוכן וכוכבי רשת</option>
+                      <option value="influencers">זירת ניתוח למשפיענים ומותגים</option>
                     </PackageSelect>
                   </div>
                   {initialRedeemCode?.trim() && (

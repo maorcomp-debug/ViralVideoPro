@@ -156,12 +156,9 @@ export const useUserData = ({
           userTier,
           profileStatus: profileStatusCheck,
         });
-        if (needsTrackSelection && userTier === 'creator' && userProfile) {
-          console.warn('⚠️ Paid subscription user (creator) without tracks - showing UpgradeBenefitsModal to select tracks');
-          setUpgradeFromTier('free');
-          setUpgradeToTier('creator');
-          setShowUpgradeBenefitsModal(true);
-        } else if (needsTrackSelection) {
+        // Do NOT auto-open track selection for creator: upgrade free→creator keeps the free track,
+        // and the second track is chosen optionally in Settings.
+        if (needsTrackSelection && userTier !== 'creator') {
           console.warn('⚠️ Paid subscription user without tracks - tracks should be set automatically after payment');
         }
       } else if (userProfile && needsTrackSelection && currentUser && !subscription && isFreeTier) {
