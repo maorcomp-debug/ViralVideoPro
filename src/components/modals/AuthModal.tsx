@@ -219,11 +219,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
   const tierRequiresTrack = (tier: SubscriptionTier) => tier === 'free' || tier === 'creator';
 
-  // When opened in upgrade mode, pre-select package from prop
+  // When opened in upgrade mode: pre-select package and ensure only upgrade form shows (no registration fields)
   React.useEffect(() => {
     if (!isOpen) return;
-    if (isUpgradeMode && initialPackageForUpgrade && ['creator', 'pro', 'coach', 'coach-pro'].includes(initialPackageForUpgrade)) {
-      setSelectedTier(initialPackageForUpgrade as SubscriptionTier);
+    if (isUpgradeMode) {
+      setIsSignUp(false); // prevent registration block from showing
+      if (initialPackageForUpgrade && ['creator', 'pro', 'coach', 'coach-pro'].includes(initialPackageForUpgrade)) {
+        setSelectedTier(initialPackageForUpgrade as SubscriptionTier);
+      }
     }
   }, [isOpen, isUpgradeMode, initialPackageForUpgrade]);
 
@@ -1045,8 +1048,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </>
           )}
 
-          {/* Package selection for new users (legacy / redeem only – not in initial signup) */}
-          {isSignUp && !isTestAccount && mode !== 'initial' && (
+          {/* Package selection for new users (legacy / redeem only) – never in upgrade mode */}
+          {isSignUp && !isTestAccount && mode !== 'initial' && !isUpgradeMode && (
             <>
               <div>
                 <label
