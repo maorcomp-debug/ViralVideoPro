@@ -119,6 +119,8 @@ const PackageSelect = styled.select`
   color: #fff;
   font-size: 1rem;
   direction: rtl;
+  text-align: center;
+  text-align-last: center;
   cursor: pointer;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23D4A043' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
@@ -143,6 +145,8 @@ const PackageSelect = styled.select`
     color: #fff;
     padding: 10px;
     direction: rtl;
+    text-align: center;
+    font-weight: 600;
   }
 
   option:hover {
@@ -822,14 +826,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       textShadow: '0 0 10px rgba(212, 160, 67, 0.6)',
                     }}
                   >
-                    בחירת תחום ניתוח *
+                    בחר תחום ניתוח *
                   </label>
                   <PackageSelect
                     value={selectedTrack || ''}
                     onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
-                    style={{ color: '#D4A043', fontWeight: 600 }}
+                    style={{ color: '#D4A043', fontWeight: 600, textAlign: 'center' }}
                   >
-                    <option value="">-- בחר תחום ניתוח --</option>
+                    <option value="">בחר תחום ניתוח</option>
                     <option value="actors">שחקנים ואודישנים</option>
                     <option value="musicians">זמרים ומוזיקאים</option>
                     <option value="creators">יוצרי תוכן וכוכבי רשת</option>
@@ -897,14 +901,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         textShadow: '0 0 10px rgba(212, 160, 67, 0.6)',
                       }}
                     >
-                      בחר תחום ניתוח התחלתי *
+                      בחר תחום ניתוח *
                     </label>
                     <PackageSelect
                       value={selectedTrack || ''}
                       onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
-                      style={{ color: '#D4A043', fontWeight: 600 }}
+                      style={{ color: '#D4A043', fontWeight: 600, textAlign: 'center' }}
                     >
-                      <option value="">-- בחר תחום ניתוח --</option>
+                      <option value="">בחר תחום ניתוח</option>
                       <option value="actors">שחקנים ואודישנים</option>
                       <option value="musicians">זמרים ומוזיקאים</option>
                       <option value="creators">יוצרי תוכן וכוכבי רשת</option>
