@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import type { SubscriptionTier, BillingPeriod, TrackId, UserSubscription } from '../../types';
 import { SUBSCRIPTION_PLANS } from '../../constants';
@@ -574,7 +574,19 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   });
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showContactForm, setShowContactForm] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingTier, setProcessingTier] = useState<SubscriptionTier | null>(null);
+
+  // Reset processing when modal closes so it never stays stuck
+  useEffect(() => {
+    if (!isOpen) setProcessingTier(null);
+  }, [isOpen]);
+
+  // Safety: if processing takes too long (e.g. network hang), reset so user can retry
+  useEffect(() => {
+    if (!processingTier) return;
+    const t = setTimeout(() => setProcessingTier(null), 15000);
+    return () => clearTimeout(t);
+  }, [processingTier]);
 
   // Conditional return after all hooks
   if (!isOpen) return null;
@@ -584,25 +596,21 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   };
 
   const handleSelectPlan = async (tier: SubscriptionTier) => {
-    if (isProcessing) {
+    if (processingTier) {
       console.warn('⚠️ SubscriptionModal: Already processing, ignoring duplicate call');
       return;
     }
     
     console.log('🎯 SubscriptionModal: handleSelectPlan called', { tier, period: selectedPeriods[tier] });
-    setIsProcessing(true);
+    setProcessingTier(tier);
     
     try {
-      // Call parent's onSelectPlan - this should handle payment initiation
       await onSelectPlan(tier, selectedPeriods[tier]);
     } catch (error) {
       console.error('❌ Error in SubscriptionModal handleSelectPlan:', error);
       throw error;
     } finally {
-      // Reset after a delay to allow parent to process
-      setTimeout(() => {
-        setIsProcessing(false);
-      }, 1000);
+      setTimeout(() => setProcessingTier(null), 400);
     }
   };
 
@@ -753,13 +761,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       onClick={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (!isCurrentTier && !isProcessing) {
+                        if (!isCurrentTier && !processingTier) {
                           await handleSelectPlan(plan.tier);
                         }
                       }}
-                      disabled={isCurrentTier || isProcessing}
+                      disabled={isCurrentTier || processingTier !== null}
                     >
-                      {isProcessing ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : plan.tier === 'free' ? 'התחל חינם' : 'שדרג עכשיו'}
+                      {processingTier === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : plan.tier === 'free' ? 'התחל חינם' : 'שדרג עכשיו'}
                     </PackageButton>
                   </PackageCard>
                 );
@@ -892,14 +900,16 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       </div>
                     )}
                     <PackageButton
-                      onClick={async () => {
-                        if (!isCurrentTier) {
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!isCurrentTier && !processingTier) {
                           await handleSelectPlan(plan.tier);
                         }
                       }}
-                      disabled={isCurrentTier}
+                      disabled={isCurrentTier || processingTier !== null}
                     >
-                      {isCurrentTier ? 'חבילה פעילה' : 'שדרג עכשיו'}
+                      {processingTier === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : 'שדרג עכשיו'}
                     </PackageButton>
                   </PackageCard>
                 );
