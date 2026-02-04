@@ -1441,15 +1441,16 @@ const App = () => {
         currentUsage = null;
       }
       
-      // If usage check failed but subscription is still valid, allow analysis
-      // Usage will be counted when analysis is saved
-      if (!currentUsage) {
-        // Only allow if subscription is still valid (checked above)
+      // If usage check failed: for paid tiers allow (usage counted on save); for FREE tier must still check total count
+      let analysesUsed = 0;
+      let minutesUsed = 0;
+      if (currentUsage) {
+        analysesUsed = currentUsage.analysesUsed;
+        minutesUsed = currentUsage.minutesUsed || 0;
+      } else if (effectiveTier !== 'free') {
         return { allowed: true };
       }
-
-      const analysesUsed = currentUsage.analysesUsed;
-      const minutesUsed = currentUsage.minutesUsed || 0;
+      // For free tier with null currentUsage we continue to the free-tier block and check total count from DB
       const analysesLimit = plan.limits.maxAnalysesPerPeriod;
       const minutesLimit = plan.limits.maxVideoMinutesPerPeriod;
 
@@ -1485,20 +1486,18 @@ const App = () => {
             if (!error && count !== null && count !== undefined) {
               totalAnalysesCount = count;
             } else {
-              // If count fails, use current month count as fallback
-              totalAnalysesCount = analysesUsed;
+              // If count fails, assume limit reached so we block (show message) – safe default for free tier
+              totalAnalysesCount = analysesLimit;
             }
           } else {
-            totalAnalysesCount = analysesUsed;
+            totalAnalysesCount = analysesLimit;
           }
         } catch (error) {
           console.error('❌ Error counting analyses for free tier:', error);
-          // If count fails, use current month count as fallback
-          totalAnalysesCount = analysesUsed;
+          totalAnalysesCount = analysesLimit;
         }
         
-        // CRITICAL: Block if user has already used their free analysis
-        // analysesLimit for free tier is 1, so if totalAnalysesCount >= 1, block
+        // CRITICAL: Block if user has already used their free analysis – show message, do not run analysis
         if (totalAnalysesCount >= analysesLimit) {
           return { 
             allowed: false, 
