@@ -4,9 +4,11 @@ import { LogoContainer, StyledLogoImg } from '../styles/indexStyles';
 export const AppLogo = () => {
   return (
     <LogoContainer>
-      <StyledLogoImg 
-        src="/Logo.png" 
-        alt="Logo" 
+      <StyledLogoImg
+        src="/Logo.png"
+        alt="Logo"
+        decoding="async"
+        fetchPriority="high"
       />
     </LogoContainer>
   );

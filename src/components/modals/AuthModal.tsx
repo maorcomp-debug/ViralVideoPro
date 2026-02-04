@@ -590,24 +590,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         });
 
         if (signInError) {
-          console.error('Sign in error:', signInError);
-          console.error('Error code:', signInError.status);
-          
-          let errorMessage = signInError.message;
-          
-          if (signInError.status === 401) {
-            if (signInError.message.includes('Invalid login credentials') || 
-                signInError.message.includes('invalid')) {
-              errorMessage = 'אימייל או סיסמה שגויים. נסה שוב.';
-            } else {
-              errorMessage = 'שגיאת הרשאה. בדוק את האימייל והסיסמה.';
-            }
-          } else if (signInError.message.includes('Email not confirmed')) {
+          let errorMessage: string;
+          const isInvalidCredentials =
+            signInError.status === 400 ||
+            signInError.status === 401 ||
+            (signInError.message && (
+              signInError.message.includes('Invalid login credentials') ||
+              signInError.message.toLowerCase().includes('invalid')
+            ));
+
+          if (isInvalidCredentials) {
+            errorMessage = 'עליך להירשם תחילה.';
+          } else if (signInError.message?.includes('Email not confirmed')) {
             errorMessage = 'נא לאשר את האימייל שלך לפני הכניסה. בדוק את תיבת הדואר.';
-          } else if (signInError.message.includes('email')) {
+          } else if (signInError.message?.includes('email')) {
             errorMessage = 'כתובת האימייל לא תקינה.';
+          } else {
+            errorMessage = 'אירעה שגיאה. נסה שוב.';
           }
-          
           throw new Error(errorMessage);
         }
 
@@ -620,8 +620,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      console.error('Auth error:', err);
-      setError(err.message || 'אירעה שגיאה. נסה שוב.');
+      const msg = err?.message || 'אירעה שגיאה. נסה שוב.';
+      if (msg !== 'עליך להירשם תחילה.') {
+        console.error('Auth error:', err);
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }

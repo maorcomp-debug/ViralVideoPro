@@ -405,12 +405,10 @@ const App = () => {
           await Promise.race([
             supabase.auth.refreshSession(),
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('refreshSession timeout')), 4000)
+              setTimeout(() => reject(new Error('refreshSession timeout')), 2500)
             ),
           ]);
-          console.log('🔄 Session refreshed');
         } catch (refreshError) {
-          console.warn('Could not refresh session:', refreshError);
           // Continue – profile can still load with current session
         }
       }
@@ -778,10 +776,8 @@ const App = () => {
     // Try to get session quickly, but don't block UI if it takes too long
     // Set a timeout to ensure loadingAuth is always set to false, even if getSession hangs
     timeoutId = setTimeout(() => {
-      if (mounted) {
-        setLoadingAuth(false);
-      }
-    }, 2000); // 2s max – unblock UI quickly for better UX
+      if (mounted) setLoadingAuth(false);
+    }, 1500); // 1.5s max – unblock UI quickly
     
     // Check initial session (only once on mount)
     // This is non-blocking - if it takes too long, timeout will unblock the UI
@@ -1150,78 +1146,46 @@ const App = () => {
         throw new Error('לא נמצא פרופיל לעדכון. בדוק הרשאות או נסה שוב.');
       }
 
-      console.log('✅ Profile updated successfully:', updateData);
-      
-      // Verify the update was applied
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('profiles')
-        .select('subscription_tier, subscription_period, subscription_status')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (verifyError) {
-        console.error('⚠️ Error verifying update:', verifyError);
-      } else {
-        console.log('✅ Verified profile update:', verifyData);
-        if (verifyData.subscription_tier !== tier) {
-          console.error('❌ Update verification failed - tier mismatch:', { expected: tier, actual: verifyData.subscription_tier });
-          throw new Error('העדכון לא הצליח - החבילה לא עודכנה במסד הנתונים');
-        }
-      }
-
-      // Immediately update local state to reflect the change
-      console.log('🔄 Updating local state immediately...');
-      
-      // Update profile state immediately
+      // Update local state immediately so UI reflects change without waiting for reload
       if (profile) {
-        const updatedProfile = {
+        setProfile({
           ...profile,
           subscription_tier: tier,
           subscription_period: period,
           subscription_status: 'active',
           updated_at: new Date().toISOString(),
-        };
-        setProfile(updatedProfile);
-        console.log('✅ Profile state updated locally:', updatedProfile);
+        });
       }
-      
-      // Update subscription state immediately
       const subscriptionPlanData = SUBSCRIPTION_PLANS[tier];
       if (subscriptionPlanData) {
-        const newSubscription: UserSubscription = {
+        setSubscription({
           tier,
           billingPeriod: period,
           startDate: new Date(),
-          endDate: period === 'monthly' 
+          endDate: period === 'monthly'
             ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
           usage: {
-            analysesUsed: usage?.analysesUsed || 0, // Preserve existing usage count
+            analysesUsed: usage?.analysesUsed || 0,
             lastResetDate: usage?.periodStart || new Date(),
           },
           isActive: true,
-        };
-        setSubscription(newSubscription);
-        console.log('✅ Subscription state updated locally:', newSubscription);
+        });
       }
 
-      // IMMEDIATELY reload user data to sync with database (no delay - instant update)
-      if (user) {
-        console.log('🔄 Reloading user data IMMEDIATELY from database...');
-        // AWAIT to ensure subscription is reloaded correctly - no delay needed
-        await loadUserData(user, true);
-        console.log('✅ User data synced IMMEDIATELY from database');
-      }
-
-      // Close modals immediately
+      // Close modals and show success immediately – user returns to app without waiting
       setShowSubscriptionModal(false);
       setShowPackageSelectionModal(false);
-
       const baseMsg = `החבילה עודכנה בהצלחה ל-${SUBSCRIPTION_PLANS[tier]?.name || tier}`;
       const extraMsg = (tier === 'creator')
         ? '\n\nמחכה לך תחום ניתוח נוסף לבחירה בהגדרות המנוי.'
         : '';
       alert(`${baseMsg}${extraMsg}`);
+
+      // Sync from DB in background so data stays correct (no blocking)
+      if (user) {
+        loadUserData(user, true).catch((err) => console.warn('Background refresh after upgrade:', err));
+      }
       
     } catch (error: any) {
       console.error('❌ Error in handleSelectPlan:', error);
@@ -3642,8 +3606,8 @@ const App = () => {
       // Sign out from Supabase WITH timeout (prevent hanging)
       console.log('🔄 Signing out from Supabase...');
       const signOutPromise = supabase.auth.signOut();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('SignOut timeout after 3s')), 3000)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SignOut timeout')), 2000)
       );
       
       try {
@@ -3722,10 +3686,9 @@ const App = () => {
           profile={profile}
           subscription={subscription}
           usage={usage}
-          onProfileUpdate={async (forceUsageRefresh = false) => {
+          onProfileUpdate={() => {
             if (user) {
-              // Always force refresh to ensure subscription data is up-to-date
-              await loadUserData(user, true);
+              loadUserData(user, true).catch((e) => console.warn('Background profile refresh:', e));
             }
           }}
           onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}

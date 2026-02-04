@@ -354,19 +354,21 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
     setLoading(true);
     setError(null);
 
+    const timeoutMs = 12000;
     try {
-      console.log('💾 Saving track selection:', { selectedTracks, existingTracks, mode });
-
-      // Call onSelect callback with all selected tracks
-      await Promise.resolve(onSelect(selectedTracks));
-      
-      // Close modal after callback
+      await Promise.race([
+        Promise.resolve(onSelect(selectedTracks)),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('פעולה לוקחת יותר מדי זמן. נסה שוב.')), timeoutMs)
+        ),
+      ]);
       onClose();
     } catch (err: any) {
       console.error('❌ Error saving track selection:', err);
       setError(err.message || 'שגיאה בשמירת הבחירה. נסה שוב.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (!isOpen) return null;
