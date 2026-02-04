@@ -1075,6 +1075,19 @@ const App = () => {
     return tierOrder[currentIndex + 1];
   };
 
+  // When user selects a plan in SubscriptionModal: if free→paid, open details form first; else run upgrade
+  const onSelectPlanFromSubscriptionModal = (tier: SubscriptionTier, period: BillingPeriod) => {
+    const isFreeToPaid = subscription?.tier === 'free' && tier !== 'free' && ['creator', 'pro', 'coach', 'coach-pro'].includes(tier);
+    if (isFreeToPaid && user) {
+      setShowSubscriptionModal(false);
+      setAuthModalUpgradePackage(tier);
+      setAuthModalMode('upgrade');
+      setShowAuthModal(true);
+      return;
+    }
+    handleSelectPlan(tier, period);
+  };
+
   // Subscription Management Functions
   const handleSelectPlan = async (tier: SubscriptionTier, period: BillingPeriod) => {
     console.log('🔔 handleSelectPlan called:', { tier, period, user: user?.email, isUpdatingSubscription });
@@ -3697,7 +3710,7 @@ const App = () => {
           isOpen={showSubscriptionModal}
           onClose={() => setShowSubscriptionModal(false)}
           currentSubscription={subscription}
-          onSelectPlan={handleSelectPlan}
+          onSelectPlan={onSelectPlanFromSubscriptionModal}
           activeTrack={activeTrack}
         />
         <AuthModal
@@ -4630,7 +4643,7 @@ const App = () => {
         isOpen={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
         currentSubscription={subscription}
-        onSelectPlan={handleSelectPlan}
+        onSelectPlan={onSelectPlanFromSubscriptionModal}
         activeTrack={activeTrack}
       />
       
