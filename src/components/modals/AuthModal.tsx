@@ -822,17 +822,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       textShadow: '0 0 10px rgba(212, 160, 67, 0.6)',
                     }}
                   >
-                    בחר את זירת הניתוח הראשית שלך *
+                    בחירת תחום ניתוח *
                   </label>
                   <PackageSelect
                     value={selectedTrack || ''}
                     onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
+                    style={{ color: '#D4A043', fontWeight: 600 }}
                   >
-                    <option value="">-- בחר זירת ניתוח יוקרתית --</option>
-                    <option value="actors">זירת ניתוח לשחקנים ואודישנים</option>
-                    <option value="musicians">זירת ניתוח לזמרים ומוזיקאים</option>
-                    <option value="creators">זירת ניתוח ליוצרי תוכן וכוכבי רשת</option>
-                    <option value="influencers">זירת ניתוח למשפיענים ומותגים</option>
+                    <option value="">-- בחר תחום ניתוח --</option>
+                    <option value="actors">שחקנים ואודישנים</option>
+                    <option value="musicians">זמרים ומוזיקאים</option>
+                    <option value="creators">יוצרי תוכן וכוכבי רשת</option>
+                    <option value="influencers">משפיענים ומותגים</option>
                   </PackageSelect>
                 </div>
               )}
@@ -896,17 +897,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         textShadow: '0 0 10px rgba(212, 160, 67, 0.6)',
                       }}
                     >
-                      בחר את זירת הניתוח ההתחלתית שלך *
+                      בחר תחום ניתוח התחלתי *
                     </label>
                     <PackageSelect
                       value={selectedTrack || ''}
                       onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
+                      style={{ color: '#D4A043', fontWeight: 600 }}
                     >
-                      <option value="">-- בחר זירת ניתוח יוקרתית --</option>
-                      <option value="actors">זירת ניתוח לשחקנים ואודישנים</option>
-                      <option value="musicians">זירת ניתוח לזמרים ומוזיקאים</option>
-                      <option value="creators">זירת ניתוח ליוצרי תוכן וכוכבי רשת</option>
-                      <option value="influencers">זירת ניתוח למשפיענים ומותגים</option>
+                      <option value="">-- בחר תחום ניתוח --</option>
+                      <option value="actors">שחקנים ואודישנים</option>
+                      <option value="musicians">זמרים ומוזיקאים</option>
+                      <option value="creators">יוצרי תוכן וכוכבי רשת</option>
+                      <option value="influencers">משפיענים ומותגים</option>
                     </PackageSelect>
                   </div>
                   {initialRedeemCode?.trim() && (
