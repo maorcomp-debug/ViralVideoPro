@@ -835,18 +835,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         }
         mode="add"
         onSelect={async (trackIds) => {
-          try {
-            await updateCurrentUserProfile({
-              selected_tracks: trackIds,
+          setShowTrackSelectionModal(false);
+          setMessage({ type: 'success', text: 'תחום הניתוח נוסף בהצלחה!' });
+          setTimeout(() => setMessage(null), 3000);
+          Promise.resolve()
+            .then(() => updateCurrentUserProfile({ selected_tracks: trackIds }))
+            .then(() => onProfileUpdate())
+            .catch((error: any) => {
+              console.error('Error adding track:', error);
+              setMessage({ type: 'error', text: error.message || 'שגיאה בהוספת התחום. נסה שוב.' });
             });
-            setMessage({ type: 'success', text: 'תחום הניתוח נוסף בהצלחה!' });
-            setShowTrackSelectionModal(false);
-            onProfileUpdate();
-            setTimeout(() => setMessage(null), 3000);
-          } catch (error: any) {
-            console.error('Error adding track:', error);
-            setMessage({ type: 'error', text: error.message || 'שגיאה בהוספת התחום' });
-          }
         }}
       />
     </AppContainer>
