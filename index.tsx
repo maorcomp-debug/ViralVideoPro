@@ -2848,55 +2848,39 @@ const App = () => {
       return;
     }
 
-    // Turn on loading *מייד* בלחיצה – עוד לפני כל הבדיקות האסינכרוניות,
-    // כדי שהמשתמש יראה שהאקשן התחיל לעבוד ללא השהייה.
-    setLoading(true);
-    
-    // Validate inputs
+    // Validate inputs (no loading yet – so we never show "צוות המומחים צופה" when blocking)
     if (!prompt.trim() && !file) {
       alert('נא להעלות סרטון או להזין טקסט לפני לחיצה על אקשן.');
-      setLoading(false);
       return;
     }
     if (selectedExperts.length < 3) {
-      // Auto-fill defaults to avoid "button does nothing" (can happen right after login/track sync).
       const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
       const defaults = (EXPERTS_BY_TRACK[trackToUse] || []).slice(0, 3).map(e => e.title);
       if (defaults.length < 3) {
         alert('נא לבחור לפחות 3 מומחים לפני התחלת הניתוח.');
-        setLoading(false);
         return;
       }
       setSelectedExperts(defaults);
-      // Continue with defaults for this run (expertPanel is computed later as well).
     }
 
-    // התחל ניגון הסרטון מיד בלחיצה על "אקשן!" – לפני כל await,
-    // כדי שמובייל יתייחס לכך כאינטראקציה ישירה של המשתמש.
-    if (file?.type.startsWith('video') && videoRef.current) {
-      try {
-        const video = videoRef.current;
-        video.muted = true;
-        video.loop = true;
-        // אם הווידאו כבר מוכן לניגון
-        if (video.readyState >= 2) {
-          void video.play();
-        }
-      } catch (e) {
-        console.warn('Video play on action click (pre-await):', e);
-      }
-    }
-    
     // Check if user is logged in
     if (!user) {
       alert('עליך להרשם תחילה כדי לבצע ניתוח.');
       setAuthModalMode('initial');
       setShowAuthModal(true);
-      setLoading(false);
       return;
     }
-    
-    // Admin: skip subscription check (avoids "שגיאה בבדיקת המנוי" when session/refresh times out)
+
+    // Quick path: free tier – if we already have 1 analysis in state, block immediately (no loading, no API)
+    const effectiveTier = subscription?.tier || profile?.subscription_tier || 'free';
+    const freeUsage = usage?.analysesUsed ?? subscription?.usage?.analysesUsed ?? 0;
+    if (effectiveTier === 'free' && freeUsage >= 1) {
+      alert('סיימת את ניתוח הטעימה החינמי. כדי להמשיך לנתח ולהנות מאפשרויות מתקדמות נוספות, מומלץ לשדרג חבילה.');
+      setShowSubscriptionModal(true);
+      return;
+    }
+
+    // Full limit check (for paid tiers and when free usage not yet in state)
     const SUBSCRIPTION_CHECK_ERROR = 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.';
     let limitCheck: { allowed: boolean; message?: string };
     if (userIsAdmin) {
@@ -2909,34 +2893,46 @@ const App = () => {
         limitCheck = { allowed: false, message: SUBSCRIPTION_CHECK_ERROR };
       }
     }
-    
+
     if (!limitCheck || !limitCheck.allowed) {
       if (limitCheck?.message) alert(limitCheck.message);
-      // Only open upgrade modal for real limit/expiry messages, not for technical subscription-check error
       if (limitCheck?.message && limitCheck.message !== SUBSCRIPTION_CHECK_ERROR) {
         setShowSubscriptionModal(true);
       }
-      setLoading(false);
       return;
     }
-    
+
     // Check if current track is available for user's subscription
     const trackAvailable = isTrackAvailable(activeTrack);
     if (!trackAvailable) {
       alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
       setShowSubscriptionModal(true);
-      setLoading(false);
       return;
     }
-    
-    // Check feature access for coach track - must have premium subscription
+
     if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
       alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
       setShowSubscriptionModal(true);
-      setLoading(false);
       return;
     }
-    
+
+    // Only now show loading – we're about to run the analysis
+    setLoading(true);
+
+    // התחל ניגון הסרטון מיד אחרי שהתחלנו טעינה
+    if (file?.type.startsWith('video') && videoRef.current) {
+      try {
+        const video = videoRef.current;
+        video.muted = true;
+        video.loop = true;
+        if (video.readyState >= 2) {
+          void video.play();
+        }
+      } catch (e) {
+        console.warn('Video play on action click (pre-await):', e);
+      }
+    }
+
     // CRITICAL: Add safety timeout to ensure loading is reset if something goes wrong
     let loadingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
       console.warn('⚠️ Loading timeout - resetting loading state');
