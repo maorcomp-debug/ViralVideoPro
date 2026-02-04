@@ -2877,6 +2877,22 @@ const App = () => {
       setSelectedExperts(defaults);
       // Continue with defaults for this run (expertPanel is computed later as well).
     }
+
+    // התחל ניגון הסרטון מיד בלחיצה על "אקשן!" – לפני כל await,
+    // כדי שמובייל יתייחס לכך כאינטראקציה ישירה של המשתמש.
+    if (file?.type.startsWith('video') && videoRef.current) {
+      try {
+        const video = videoRef.current;
+        video.muted = true;
+        video.loop = true;
+        // אם הווידאו כבר מוכן לניגון
+        if (video.readyState >= 2) {
+          void video.play();
+        }
+      } catch (e) {
+        console.warn('Video play on action click (pre-await):', e);
+      }
+    }
     
     // Check if user is logged in
     if (!user) {
@@ -2933,30 +2949,6 @@ const App = () => {
       console.warn('⚠️ Loading timeout - resetting loading state');
       setLoading(false);
     }, 300000); // 5 minutes max
-    
-    // התחל ניגון הסרטון מיד בלחיצה על "אקשן!" – ללא השהייה; בלופ כל עוד הניתוח רץ
-    if (file?.type.startsWith('video') && videoRef.current) {
-      try {
-        videoRef.current.muted = true;
-        videoRef.current.loop = true;
-        if (videoRef.current.readyState >= 2) {
-          videoRef.current.play().catch(() => {});
-        } else {
-          const onCanPlay = () => {
-            if (videoRef.current) {
-              videoRef.current.muted = true;
-              videoRef.current.loop = true;
-              videoRef.current.play().catch(() => {});
-              videoRef.current.removeEventListener('canplay', onCanPlay);
-            }
-          };
-          videoRef.current.addEventListener('canplay', onCanPlay);
-          if (videoRef.current.readyState === 0) videoRef.current.load();
-        }
-      } catch (e) {
-        console.warn('Video play on action click:', e);
-      }
-    }
     
     // Subscription check already done above - no need to check again
     
