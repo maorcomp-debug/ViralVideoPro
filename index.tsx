@@ -1151,13 +1151,15 @@ const App = () => {
       
       console.log('✅ Plan found in database:', { id: planData.id, name: planData.name, price: planData.monthly_price });
       
+      const nowIso = new Date().toISOString();
       const { data: updateData, error: updateError } = await supabase
         .from('profiles')
         .update({
           subscription_tier: tier,
           subscription_period: period,
           subscription_status: 'active',
-          updated_at: new Date().toISOString(),
+          subscription_start_date: nowIso,
+          updated_at: nowIso,
         })
         .eq('user_id', user.id)
         .select();
@@ -1172,6 +1174,7 @@ const App = () => {
         console.error('❌ No rows updated - check RLS policies or user permissions');
         throw new Error('לא נמצא פרופיל לעדכון. בדוק הרשאות או נסה שוב.');
       }
+      console.log('✅ Profile updated in DB:', { tier, rows: updateData?.length });
 
       // Update local state immediately so UI reflects change without waiting for reload
       if (profile) {

@@ -567,31 +567,35 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               textAlign: 'right',
             }}>
               <h3 style={{ color: '#D4A043', margin: '0 0 10px 0' }}>סטטוס מנוי נוכחי</h3>
-              <div style={{ margin: '5px 0', color: '#ccc', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div style={{ margin: '5px 0', color: '#ccc', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <p style={{ margin: 0 }}>
-                  **חבילה:** {subscription ? getTierDisplayName(subscription.tier) : getTierDisplayName(profile?.subscription_tier || 'free')}
+                  <span style={{ color: '#D4A043', fontWeight: 700 }}>חבילה:</span>{' '}
+                  {subscription ? getTierDisplayName(subscription.tier) : getTierDisplayName(profile?.subscription_tier || 'free')}
                 </p>
-                {/* Important message removed - auto logout already handles profile refresh */}
-              </div>
-              <p style={{ margin: '5px 0', color: '#ccc' }}>
-                **סטטוס:** {subscription?.isActive ? 'פעיל' : 'לא פעיל'}
-              </p>
+                <p style={{ margin: 0 }}>
+                  <span style={{ color: '#D4A043', fontWeight: 700 }}>סטטוס:</span>{' '}
+                  {subscription?.isActive ? 'פעיל' : 'לא פעיל'}
+                </p>
               {subscription?.tier !== 'free' && (
                 <>
-                  <p style={{ margin: '5px 0', color: '#ccc' }}>
-                    **תקופת חיוב:** {subscription?.billingPeriod === 'monthly' ? 'חודשי' : 'שנתי'}
+                  <p style={{ margin: 0 }}>
+                    <span style={{ color: '#D4A043', fontWeight: 700 }}>תקופת חיוב:</span>{' '}
+                    {subscription?.billingPeriod === 'monthly' ? 'חודשי' : 'שנתי'}
                   </p>
-                  <p style={{ margin: '5px 0', color: '#ccc' }}>
-                    **תאריך סיום:** {subscription?.endDate ? (subscription.endDate instanceof Date ? subscription.endDate.toLocaleDateString('he-IL') : new Date(subscription.endDate).toLocaleDateString('he-IL')) : 'לא ידוע'}
+                  <p style={{ margin: 0 }}>
+                    <span style={{ color: '#D4A043', fontWeight: 700 }}>תאריך חידוש החבילה:</span>{' '}
+                    {subscription?.endDate ? (subscription.endDate instanceof Date ? subscription.endDate.toLocaleDateString('he-IL') : new Date(subscription.endDate).toLocaleDateString('he-IL')) : 'לא ידוע'}
                   </p>
                 </>
               )}
+              </div>
               {usage && (() => {
                 // If subscription is not loaded yet, show usage without limits
                 if (!subscription) {
                   return (
                     <p style={{ margin: '5px 0', color: '#ccc' }}>
-                      **ניתוחים שבוצעו החודש:** {usage.analysesUsed}
+                      <span style={{ color: '#D4A043', fontWeight: 700 }}>ניתוחים שבוצעו החודש:</span>{' '}
+                      {usage.analysesUsed}
                     </p>
                   );
                 }
@@ -605,17 +609,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <>
                     {!isCoachTier && maxAnalyses !== -1 && (
                       <p style={{ margin: '5px 0', color: '#ccc' }}>
-                        **ניתוחים שבוצעו החודש:** {usage.analysesUsed} מתוך {maxAnalyses}
+                        <span style={{ color: '#D4A043', fontWeight: 700 }}>ניתוחים שבוצעו החודש:</span>{' '}
+                        {usage.analysesUsed} מתוך {maxAnalyses}
                       </p>
                     )}
                     {maxMinutes !== -1 && maxMinutes > 0 && (
                       <p style={{ margin: '5px 0', color: '#ccc' }}>
-                        **דקות ניתוח שבוצעו החודש:** {usage.minutesUsed || 0} מתוך {maxMinutes}
+                        <span style={{ color: '#D4A043', fontWeight: 700 }}>דקות ניתוח שבוצעו החודש:</span>{' '}
+                        {usage.minutesUsed || 0} מתוך {maxMinutes}
                       </p>
                     )}
                     {isCoachTier && maxMinutes !== -1 && (
                       <p style={{ margin: '5px 0', color: '#ccc', fontSize: '0.9rem' }}>
-                        *כמות ניתוחים: ללא הגבלה (מוגבל בדקות בלבד)
+                        כמות ניתוחים: ללא הגבלה (מוגבל בדקות בלבד)
                       </p>
                     )}
                     {profile?.subscription_start_date && new Date(profile.subscription_start_date) > new Date(new Date().getFullYear(), new Date().getMonth(), 1) && (
