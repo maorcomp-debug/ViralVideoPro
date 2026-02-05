@@ -265,6 +265,9 @@ const App = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const loadUserDataInProgressRef = useRef(false);
   const gotValidSessionFromGetSessionRef = useRef(false);
+  const lastLoadUserDataUserIdRef = useRef<string | null>(null);
+  const lastLoadUserDataTimeRef = useRef<number>(0);
+  const AUTH_LOAD_THROTTLE_MS = 15000;
 
   // Profile & Subscription cache helpers
   const PROFILE_CACHE_KEY = 'viral_profile_cache';
@@ -367,7 +370,9 @@ const App = () => {
     setHasShownPackageModal(false);
     setHasShownTrackModal(false);
     setUserIsAdmin(false);
-    clearProfileCache(); // Clear cached profile on logout
+    clearProfileCache();
+    lastLoadUserDataUserIdRef.current = null;
+    lastLoadUserDataTimeRef.current = 0;
   };
 
   // Auto-save subscription to cache whenever it changes
@@ -861,24 +866,22 @@ const App = () => {
       }
       
       if (session?.user) {
-        // Prevent duplicate loadUserData calls (shared with getSession callback)
-        if (loadUserDataInProgressRef.current) {
-          return;
-        }
+        if (loadUserDataInProgressRef.current) return;
+        // Throttle: avoid repeated loadUserData when Supabase re-emits SIGNED_IN every few seconds
+        const now = Date.now();
+        if (lastLoadUserDataUserIdRef.current === session.user.id && now - lastLoadUserDataTimeRef.current < AUTH_LOAD_THROTTLE_MS) return;
         loadUserDataInProgressRef.current = true;
+        lastLoadUserDataUserIdRef.current = session.user.id;
+        lastLoadUserDataTimeRef.current = now;
         const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
-        // Defer so Supabase client has a tick to apply session – avoids request hanging after F5
         const runLoad = () => {
           loadUserData(session!.user, shouldForceRefresh, true)
             .then(() => console.log('✅ User data loaded from onAuthStateChange:', { event, userId: session!.user.id }))
             .catch((err) => console.error('Error loading user data in auth state change:', err))
             .finally(() => { loadUserDataInProgressRef.current = false; });
         };
-        if (shouldForceRefresh) {
-          setTimeout(runLoad, 0);
-        } else {
-          runLoad();
-        }
+        if (shouldForceRefresh) setTimeout(runLoad, 0);
+        else runLoad();
       } else {
         // Session is null (signed out or invalid refresh token). Always reset so we don't show stale "logged in" state.
         // When refresh token is invalid, Supabase emits SIGNED_OUT then INITIAL_SESSION null – we must clear user.

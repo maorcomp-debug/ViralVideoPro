@@ -287,8 +287,8 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
   // Determine max tracks allowed based on subscription tier
   const maxTracks = subscriptionTier === 'free' ? 1 : subscriptionTier === 'creator' ? 2 : 4;
   
-  // If in 'add' mode, calculate how many more tracks can be added
-  const remainingSlots = mode === 'add' ? maxTracks - existingTracks.length : maxTracks;
+  // If in 'add' mode, calculate how many more tracks can be added (never negative)
+  const remainingSlots = mode === 'add' ? Math.max(0, maxTracks - existingTracks.length) : maxTracks;
 
   const handleSelectTrack = (trackId: TrackId) => {
     setError(null);

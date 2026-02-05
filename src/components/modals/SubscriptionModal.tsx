@@ -735,7 +735,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 const planData = SUBSCRIPTION_PLANS[plan.tier];
                 const isCurrentTier = plan.tier === currentSubscription?.tier;
                 const currentTier = currentSubscription?.tier;
-                const allowUpgrade = canUpgradeTo(plan.tier, currentTier);
+                // Never allow "upgrade" to free or to a lower tier (שדרוג אחורה)
+                const allowUpgrade = plan.tier === 'free' ? false : canUpgradeTo(plan.tier, currentTier);
                 return (
                   <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
                     {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}

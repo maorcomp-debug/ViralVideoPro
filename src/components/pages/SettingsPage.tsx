@@ -584,7 +584,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   </p>
                   <p style={{ margin: 0 }}>
                     <span style={{ color: '#D4A043', fontWeight: 700 }}>תאריך חידוש החבילה:</span>{' '}
-                    {subscription?.endDate ? (subscription.endDate instanceof Date ? subscription.endDate.toLocaleDateString('he-IL') : new Date(subscription.endDate).toLocaleDateString('he-IL')) : 'לא ידוע'}
+                    {(() => {
+                      const start = profile?.subscription_start_date ? new Date(profile.subscription_start_date) : (subscription?.startDate ? (subscription.startDate instanceof Date ? subscription.startDate : new Date(subscription.startDate)) : null);
+                      if (!start) return subscription?.endDate ? (subscription.endDate instanceof Date ? subscription.endDate.toLocaleDateString('he-IL') : new Date(subscription.endDate).toLocaleDateString('he-IL')) : 'לא ידוע';
+                      const renewal = new Date(start);
+                      renewal.setMonth(renewal.getMonth() + (subscription?.billingPeriod === 'yearly' ? 12 : 1));
+                      return renewal.toLocaleDateString('he-IL');
+                    })()}
                   </p>
                 </>
               )}
