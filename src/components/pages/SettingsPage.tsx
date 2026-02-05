@@ -585,24 +585,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <p style={{ margin: 0 }}>
                     <span style={{ color: '#D4A043', fontWeight: 700 }}>תאריך חידוש החבילה:</span>{' '}
                     {(() => {
-                      // אם יש endDate מהמנוי (Supabase/ספק התשלום) – זו נקודת האמת לחידוש
-                      if (subscription?.endDate) {
-                        const end = subscription.endDate instanceof Date
-                          ? subscription.endDate
-                          : new Date(subscription.endDate);
-                        return end.toLocaleDateString('he-IL');
-                      }
-                      // אחרת, חישוב חודש/שנה קדימה מתאריך הפעלת החבילה
+                      // תמיד מחשבים את חידוש החבילה כחודש/שנה קדימה מתאריך הפעלת החבילה (subscription_start_date)
+                      // כך שאם הפעלת ב־5.2.2027 → חידוש ב־5.3.2027
                       const start = profile?.subscription_start_date
                         ? new Date(profile.subscription_start_date)
-                        : (subscription?.startDate
-                          ? (subscription.startDate instanceof Date ? subscription.startDate : new Date(subscription.startDate))
-                          : null);
+                        : null;
                       if (!start) {
                         return 'לא ידוע';
                       }
                       const renewal = new Date(start);
-                      renewal.setMonth(renewal.getMonth() + (subscription?.billingPeriod === 'yearly' ? 12 : 1));
+                      if (subscription?.billingPeriod === 'yearly') {
+                        renewal.setFullYear(renewal.getFullYear() + 1);
+                      } else {
+                        renewal.setMonth(renewal.getMonth() + 1);
+                      }
                       return renewal.toLocaleDateString('he-IL');
                     })()}
                   </p>
