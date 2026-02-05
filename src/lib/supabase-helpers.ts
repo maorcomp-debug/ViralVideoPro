@@ -73,14 +73,10 @@ const getCurrentUserWithTimeout = async (ms = 6000): Promise<{ id: string } | nu
 
 // Helper functions for common operations
 
-export async function getCurrentUserProfile(forceRefresh = false) {
+export async function getCurrentUserProfile(forceRefresh = false, knownUserId?: string) {
   try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) {
-      console.error('❌ getCurrentUserProfile: Error getting user:', userError);
-      return null;
-    }
-    if (!user) {
+    const userId = knownUserId ?? (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) {
       console.warn('⚠️ getCurrentUserProfile: No user found');
       return null;
     }
@@ -89,7 +85,7 @@ export async function getCurrentUserProfile(forceRefresh = false) {
     let query = supabase
       .from('profiles')
       .select('*')
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
     
     // Add timestamp to force fresh fetch (Supabase doesn't cache by default, but this ensures fresh data)
     if (forceRefresh) {
@@ -104,7 +100,7 @@ export async function getCurrentUserProfile(forceRefresh = false) {
     }
 
     if (!data) {
-      console.warn('⚠️ getCurrentUserProfile: Profile not found for user:', user.id);
+      console.warn('⚠️ getCurrentUserProfile: Profile not found for user:', userId);
       return null;
     }
 

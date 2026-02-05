@@ -390,16 +390,9 @@ const App = () => {
       }
       setIsLoadingProfile(true);
       
-      // Verify user is still authenticated before loading data
-      const { data: { user: verifiedUser } } = await supabase.auth.getUser();
-      if (!verifiedUser || verifiedUser.id !== currentUser.id) {
-        console.warn('User changed or logged out during loadUserData');
-        setIsLoadingProfile(false);
-        return;
-      }
-      
-      // Force refresh auth session if requested – SKIP when session just came from getSession (F5 on home page)
-      // refreshSession can hang when session is fresh from storage; profile load works without it
+      // Do NOT call supabase.auth.getUser() here – after F5 it can hang and block the whole flow.
+      // We already have currentUser from getSession/onAuthStateChange; load profile by ID directly.
+      // Skip refreshSession on auth events (SIGNED_IN/INITIAL_SESSION) – it can hang on fresh load.
       if (forceRefresh && !skipSessionRefresh) {
         try {
           await Promise.race([
@@ -413,16 +406,15 @@ const App = () => {
         }
       }
 
-      // Load profile (force fresh fetch if forceRefresh is true)
-      // Add retry logic if profile not found (especially after signup)
-      let userProfile = await getCurrentUserProfile(forceRefresh);
+      // Load profile by userId (avoids getUser() inside helper – prevents hang after F5)
+      let userProfile = await getCurrentUserProfile(forceRefresh, currentUser.id);
       let retryCount = 0;
       const maxRetries = 3;
       
       while (!userProfile && retryCount < maxRetries) {
         console.log(`[loadUserData] Profile not found, retrying... (${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 300 + retryCount * 200)); // 300ms, 500ms, 700ms – faster UX
-        userProfile = await getCurrentUserProfile(true);
+        userProfile = await getCurrentUserProfile(true, currentUser.id);
         retryCount++;
       }
       
@@ -443,12 +435,7 @@ const App = () => {
         });
       }
       
-      // Verify user is still authenticated after profile load
-      const { data: { user: verifiedUser2 } } = await supabase.auth.getUser();
-      if (!verifiedUser2 || verifiedUser2.id !== currentUser.id) {
-        console.warn('User changed or logged out during loadUserData');
-        return;
-      }
+      // Do not call getUser() again here – can hang after F5; we already have currentUser
 
       // Fallback for initial signup: if DB trigger didn't copy signup_primary_track to profile, sync from user_metadata
       // (ensures "אקשן!" works right after registration with the new initial form)
@@ -459,7 +446,7 @@ const App = () => {
             ...(meta.signup_primary_track ? { selected_primary_track: meta.signup_primary_track } : {}),
             ...(meta.signup_tier ? { subscription_tier: meta.signup_tier } : {}),
           });
-          const updated = await getCurrentUserProfile(true);
+          const updated = await getCurrentUserProfile(true, currentUser.id);
           if (updated) userProfile = updated;
         } catch (e) {
           console.warn('Fallback sync signup metadata to profile failed:', e);
@@ -881,7 +868,8 @@ const App = () => {
         try {
           // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
           const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
-          await loadUserData(session.user, shouldForceRefresh);
+          // Skip refreshSession on auth events – after F5 it can hang; we load profile by userId and avoid getUser()
+          await loadUserData(session.user, shouldForceRefresh, true);
           console.log('✅ User data loaded from onAuthStateChange:', { event, userId: session.user.id });
         } catch (err) {
           console.error('Error loading user data in auth state change:', err);
@@ -3538,7 +3526,7 @@ const App = () => {
     const loadProfileIfMissing = async () => {
       setIsLoadingProfile(true);
       try {
-        const userProfile = await getCurrentUserProfile(true);
+        const userProfile = await getCurrentUserProfile(true, user.id);
         if (userProfile) {
           setProfile(userProfile);
           saveProfileToCache(userProfile); // Cache for next refresh
