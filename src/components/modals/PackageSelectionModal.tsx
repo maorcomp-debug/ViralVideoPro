@@ -320,6 +320,24 @@ const TableCell = styled.div`
   }
 `;
 
+// --- Tier ordering helper (למניעת "שדרוג אחורה") ---
+const TIER_ORDER: Record<SubscriptionTier, number> = {
+  free: 0,
+  creator: 1,
+  pro: 2,
+  coach: 3,
+  'coach-pro': 4,
+};
+
+/** שדרוג אפשרי רק לחבילה גבוהה מהנוכחית; חבילה נוכחית או נמוכה יותר – לא לחיץ */
+function canUpgradeTo(targetTier: SubscriptionTier, currentTier?: SubscriptionTier): boolean {
+  if (!currentTier || currentTier === 'free') {
+    // משתמש חדש או חינמי – יכול לבחור רק חבילה בתשלום (לא חזרה לחינמית)
+    return targetTier !== 'free';
+  }
+  return TIER_ORDER[targetTier] > TIER_ORDER[currentTier];
+}
+
 interface PackageSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -351,8 +369,8 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
       return;
     }
     
-    // Don't allow selecting current tier
-    if (tier === currentTier) {
+    // Don't allow selecting current tier או "שדרוג אחורה"
+    if (tier === currentTier || !canUpgradeTo(tier, currentTier)) {
       return;
     }
     
@@ -464,6 +482,8 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
           {plans.map((plan) => {
             const planData = SUBSCRIPTION_PLANS[plan.tier];
             const isCurrentTier = plan.tier === currentTier;
+            // Never allow "upgrade" to free or to a lower tier (שדרוג אחורה)
+            const allowUpgrade = canUpgradeTo(plan.tier, currentTier);
             return (
               <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
                 {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
@@ -501,7 +521,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                     {planData.limits.features.comparison ? 'השוואת סרטונים' : 'השוואת סרטונים'}
                   </li>
                 </PackageFeatures>
-                {!isCurrentTier && plan.tier !== 'free' && currentTier && (
+                {!isCurrentTier && plan.tier !== 'free' && currentTier && allowUpgrade && (
                   <div style={{
                     padding: '8px 12px',
                     margin: '10px 0',
@@ -518,9 +538,17 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                 )}
                 <PackageButton
                   onClick={(e) => handlePackageSelect(plan.tier, e)}
-                  disabled={loading !== null || isCurrentTier}
+                  disabled={loading !== null || isCurrentTier || !allowUpgrade}
                 >
-                  {loading === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : 'הרשמה לחבילה זו'}
+                  {loading === plan.tier
+                    ? 'מעבד...'
+                    : isCurrentTier
+                    ? 'חבילה פעילה'
+                    : !allowUpgrade
+                    ? 'לא זמין'
+                    : plan.tier === 'free'
+                    ? 'התחל חינם'
+                    : 'הרשמה לחבילה זו'}
                 </PackageButton>
               </PackageCard>
             );
