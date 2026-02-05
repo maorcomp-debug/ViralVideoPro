@@ -508,8 +508,8 @@ const App = () => {
         }
       }
 
-      // Load subscription first to check if user has paid subscription
-      const subData = await getCurrentSubscription();
+      // Load subscription by userId (avoids getUser() – prevents hang after F5)
+      const subData = await getCurrentSubscription(currentUser.id);
       const hasSubscriptionRecord = subData && subData.status === 'active' && subData.plans && (subData.plans as any).tier !== 'free';
       
       // Also check profile subscription status - sometimes profile is updated before subscription record exists
@@ -804,13 +804,14 @@ const App = () => {
         }
         
         // CRITICAL: Also load user data when getSession returns with session (e.g. F5 on home page)
-        // onAuthStateChange can fire INITIAL_SESSION with null first (race), then getSession returns –
-        // we must load profile/admin status so admin button shows on home page
+        // Defer one tick so Supabase client is ready – avoids profile/subscription requests hanging
         if (session?.user && !loadUserDataInProgressRef.current) {
           loadUserDataInProgressRef.current = true;
-          loadUserData(session.user, true, true) // skipSessionRefresh – session is fresh from getSession
-            .catch((err) => console.error('Error loading user data from getSession:', err))
-            .finally(() => { loadUserDataInProgressRef.current = false; });
+          setTimeout(() => {
+            loadUserData(session.user, true, true)
+              .catch((err) => console.error('Error loading user data from getSession:', err))
+              .finally(() => { loadUserDataInProgressRef.current = false; });
+          }, 0);
         }
       })
       .catch(async (error) => {
@@ -865,16 +866,18 @@ const App = () => {
           return;
         }
         loadUserDataInProgressRef.current = true;
-        try {
-          // Force refresh after signup/signin or INITIAL_SESSION (page refresh) to ensure latest profile data is loaded
-          const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
-          // Skip refreshSession on auth events – after F5 it can hang; we load profile by userId and avoid getUser()
-          await loadUserData(session.user, shouldForceRefresh, true);
-          console.log('✅ User data loaded from onAuthStateChange:', { event, userId: session.user.id });
-        } catch (err) {
-          console.error('Error loading user data in auth state change:', err);
-        } finally {
-          loadUserDataInProgressRef.current = false;
+        const shouldForceRefresh = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION';
+        // Defer so Supabase client has a tick to apply session – avoids request hanging after F5
+        const runLoad = () => {
+          loadUserData(session!.user, shouldForceRefresh, true)
+            .then(() => console.log('✅ User data loaded from onAuthStateChange:', { event, userId: session!.user.id }))
+            .catch((err) => console.error('Error loading user data in auth state change:', err))
+            .finally(() => { loadUserDataInProgressRef.current = false; });
+        };
+        if (shouldForceRefresh) {
+          setTimeout(runLoad, 0);
+        } else {
+          runLoad();
         }
       } else {
         // Session is null (signed out or invalid refresh token). Always reset so we don't show stale "logged in" state.
@@ -3544,6 +3547,12 @@ const App = () => {
     loadProfileIfMissing();
   }, [user, profile, isLoadingProfile]);
 
+  // On entering Settings: auto-refresh profile and subscription (same as clicking "ריענון")
+  useEffect(() => {
+    if (!user || !isSettingsPage) return;
+    loadUserData(user, true, true).catch((e) => console.warn('Settings auto-refresh:', e));
+  }, [isSettingsPage, user?.id, loadUserData]);
+
   // Ensure usage is always loaded after refresh, especially on SettingsPage
   // Don't wait for subscription - load usage independently to prevent disappearing
   useEffect(() => {
@@ -4710,8 +4719,8 @@ const App = () => {
                 await new Promise(resolve => setTimeout(resolve, 300));
                 
                 // Get fresh data directly from DB (more reliable than state)
-                const newSub = await getCurrentSubscription();
-                const newProfile = await getCurrentUserProfile();
+                const newSub = await getCurrentSubscription(currentUser.id);
+                const newProfile = await getCurrentUserProfile(true, currentUser.id);
                 const detectedTier = newSub?.plans?.tier || (newProfile?.subscription_status === 'active' ? newProfile?.subscription_tier : null) || currentTier;
                 
                 // Update state directly if tier changed

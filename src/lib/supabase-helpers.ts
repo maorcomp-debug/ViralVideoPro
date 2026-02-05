@@ -151,16 +151,16 @@ export async function checkPhoneExists(phone: string): Promise<boolean> {
   }
 }
 
-export async function getCurrentSubscription() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+export async function getCurrentSubscription(knownUserId?: string) {
+  const userId = knownUserId ?? (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return null;
 
   try {
     // First, get the subscription
     const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
