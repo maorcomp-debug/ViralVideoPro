@@ -219,10 +219,10 @@ export default async function handler(
     const isSuccess = statusCode === 0;
 
     // RULE: מעבר לחבילה חדשה מתבצע רק לאחר קבלת תשלום בהצלחה – לא בלחיצה על שדרוג.
-    // We only upgrade when the payment provider explicitly confirms payment (transaction id + success).
-    const hasTransactionId = !!(params.ordernumber || params.transactionInternalNumber);
-    if (isSuccess && !hasTransactionId) {
-      console.warn('⚠️ No transaction id from payment provider – payment not confirmed, not updating subscription');
+    // Require transactionInternalNumber (actual transaction id from provider); ordernumber alone is not enough.
+    const hasRealTransactionId = !!(params.transactionInternalNumber);
+    if (isSuccess && !hasRealTransactionId) {
+      console.warn('⚠️ No transactionInternalNumber from payment provider – payment not confirmed, not updating subscription');
       return res.status(200).json({
         ok: false,
         success: false,

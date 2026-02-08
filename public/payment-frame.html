@@ -4,25 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payment</title>
-  <style>
-    html, body { margin: 0; height: 100%; direction: ltr; }
-    #pay { display: block; width: 100%; height: 100%; border: 0; }
-  </style>
-</head>
-<body>
-  <iframe id="pay" title="Payment form"></iframe>
   <script>
     (function() {
       var p = new URLSearchParams(window.location.search);
       var url = p.get('url');
       if (url) {
         try {
-          document.getElementById('pay').src = decodeURIComponent(url);
+          var decoded = decodeURIComponent(url);
+          window.location.replace(decoded);
         } catch (e) {
-          console.error('Payment frame url error', e);
+          console.error('Payment redirect error', e);
         }
       }
     })();
   </script>
+</head>
+<body style="margin:0;direction:ltr;">
+  <p>Redirecting to payment…</p>
 </body>
 </html>

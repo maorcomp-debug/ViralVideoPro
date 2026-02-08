@@ -84,7 +84,13 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Load payment URL directly in iframe. Do NOT use payment-frame.html – it causes blank page on mobile.
+  // Desktop: load via LTR redirect (payment-frame) to help cursor in "שם בעל הכרטיס". Mobile: direct URL to avoid blank page.
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const iframeSrc =
+    !isMobile && paymentUrl
+      ? `${window.location.origin}/payment-frame.html?url=${encodeURIComponent(paymentUrl)}`
+      : paymentUrl;
+
   return (
     <ModalOverlay
       onClick={(e) => e.stopPropagation()}
@@ -100,7 +106,7 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
         <IframeWrapper dir="ltr">
           <iframe
             ref={iframeRef}
-            src={paymentUrl}
+            src={iframeSrc}
             dir="ltr"
             style={{
               position: 'absolute',

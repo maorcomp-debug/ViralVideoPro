@@ -92,7 +92,9 @@ export const OrderReceivedPage: React.FC = () => {
         const orderReference = searchParams.get('order_reference') || 
           searchParams.get('ordernumber') || 
           searchParams.get('transactionInternalNumber');
-        const statusCode = parseInt(searchParams.get('statusCode') || '0', 10);
+        // Do NOT default statusCode to 0 – only treat as success when provider explicitly sends statusCode=0
+        const statusCodeParam = searchParams.get('statusCode');
+        const statusCode = (statusCodeParam !== null && statusCodeParam !== '') ? parseInt(statusCodeParam, 10) : NaN;
         const uniqId = searchParams.get('uniqId');
         const token = searchParams.get('token');
         const last4Digits = searchParams.get('Last4Digits');
@@ -107,55 +109,39 @@ export const OrderReceivedPage: React.FC = () => {
           return;
         }
 
-        // Check if payment was successful (statusCode 0 = success)
+        // Only treat as success when provider explicitly sends statusCode=0 (never when missing)
         const isSuccess = statusCode === 0;
 
         if (!isSuccess) {
           setStatus('error');
           setMessage('התשלום נכשל');
-          setError(`קוד שגיאה: ${statusCode}`);
+          setError(Number.isNaN(statusCode) ? 'לא התקבל אישור תשלום מהמערכת' : `קוד שגיאה: ${statusCode}`);
           return;
         }
 
-        // CRITICAL: If payment was successful (statusCode === 0), set a maximum timeout
-        // After 15 seconds, always show success and redirect, even if API hasn't responded
-        // This prevents the page from getting stuck forever
+        // Timeout: if callback doesn't respond in 15s, redirect without telling parent "payment_success".
+        // We must NOT send payment_success unless the callback actually confirmed payment.
         const maxWaitTimeout = setTimeout(() => {
-          console.warn('⚠️ Maximum wait time reached (15s), showing success and redirecting...');
+          console.warn('⚠️ Callback did not respond in 15s – redirecting without payment_success');
           setStatus('success');
-          setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
-          
-          // Redirect based on context
+          setMessage('מעבדים את הבקשה. אם ביצעת תשלום, המנוי יעודכן בהקדם.');
           if (window.parent && window.parent !== window) {
-            // Iframe - send message and try to redirect parent
-            window.parent.postMessage({
-              type: 'payment_success',
-              oldTier: 'free',
-              newTier: 'creator',
-            }, '*');
             setTimeout(() => {
               try {
-                const timestamp = Date.now();
-                window.parent.location.replace(`/?_t=${timestamp}`);
+                window.parent.location.replace(`/?_t=${Date.now()}`);
               } catch (e) {
-                console.log('Cannot redirect parent, using postMessage only');
+                console.log('Cannot redirect parent');
               }
             }, 500);
           } else if (window.opener && !window.opener.closed) {
-            // Popup - redirect opener and close
             setTimeout(() => {
-              const timestamp = new Date().getTime();
-              window.opener.location.replace(`/?_t=${timestamp}`);
+              window.opener.location.replace(`/?_t=${Date.now()}`);
               window.close();
             }, 1000);
           } else {
-            // Main window - redirect
-            setTimeout(() => {
-              const timestamp = new Date().getTime();
-              window.location.replace(`/?_t=${timestamp}`);
-            }, 1000);
+            setTimeout(() => window.location.replace(`/?_t=${Date.now()}`), 1000);
           }
-        }, 15000); // 15 seconds maximum wait
+        }, 15000);
 
         // Get current user
         const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -193,20 +179,10 @@ export const OrderReceivedPage: React.FC = () => {
             clearTimeout(fetchTimeoutId);
             if (fetchError.name === 'AbortError') {
               console.error('❌ Callback API timeout after 10 seconds');
-              // If payment was successful, clear maxWaitTimeout and show success immediately
               clearTimeout(maxWaitTimeout);
-              if (statusCode === 0) {
-                setStatus('success');
-                setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
-                setTimeout(() => {
-                  const timestamp = new Date().getTime();
-                  window.location.replace(`/?_t=${timestamp}`);
-                }, 1000);
-                return;
-              } else {
-                clearTimeout(maxWaitTimeout);
-                throw new Error('Connection timeout - please check your internet connection');
-              }
+              setStatus('error');
+              setError('חיבור לשרת א timed out. אם ביצעת תשלום – המנוי יעודכן. אחרת נסה שוב.');
+              return;
             }
             throw fetchError;
           }
