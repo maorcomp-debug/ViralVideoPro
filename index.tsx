@@ -2503,18 +2503,21 @@ const App = () => {
     const buildAnalysisHTML = () => {
       let html = '';
 
-      // Hook (Golden Tip)
+      // Hook (Golden Tip) – קטע ראשון, בלי העברה לדף
       if (result.hook) {
+        html += `<div class="pdf-section">`;
         html += `
           <div style="background: #fff9e6; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-right: 4px solid #b8862e; page-break-inside: avoid; break-inside: avoid;">
             <h3 style="color: #b8862e; margin: 0 0 10px 0; font-size: 1.2rem;">✨ טיפ זהב של הפאנל</h3>
             <p style="margin: 0; font-size: 1.1rem; font-weight: 600; line-height: 1.6;">"${result.hook}"</p>
           </div>
         `;
+        html += '</div>';
       }
 
-      // Expert Analysis
+      // Expert Analysis – התחל תמיד בדף חדש כדי שקטע לא ייחתך
       if (result.expertAnalysis && result.expertAnalysis.length > 0) {
+        html += '<div class="pdf-section pdf-section-new-page">';
         html += '<h3 class="section-title" style="page-break-after: avoid; break-after: avoid;">ניתוח פאנל המומחים</h3>';
         html += '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 25px;">';
         
@@ -2538,10 +2541,12 @@ const App = () => {
         });
         
         html += '</div>';
+        html += '</div>';
       }
 
-      // Committee Summary
+      // Committee Summary – דף חדש
       if (result.committee) {
+        html += '<div class="pdf-section pdf-section-new-page">';
         html += '<h3 class="section-title">סיכום ועדת המומחים</h3>';
         html += '<div class="card" style="margin-bottom: 20px; page-break-inside: avoid;">';
         html += `<p style="margin: 0; line-height: 1.7; font-size: 1.05rem;">${result.committee.summary}</p>`;
@@ -2585,15 +2590,18 @@ const App = () => {
             </div>
           `;
         }
+        html += '</div>';
       }
 
-      // Final Score
+      // Final Score – דף חדש
+      html += '<div class="pdf-section pdf-section-new-page">';
       html += `
         <div data-pdf="final-score">
           <span class="number">${averageScore}</span>
           <span class="label">ציון ויראליות משוקלל</span>
         </div>
       `;
+      html += '</div>';
 
       return html;
     };
@@ -2663,6 +2671,15 @@ const App = () => {
       }
       .export-wrapper > * + * {
         margin-top: 18px;
+      }
+      /* כל קטע/פרק נשאר בדף שלם; קטעים 2 ואילך מתחילים בדף חדש */
+      .pdf-section {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .pdf-section-new-page {
+        page-break-before: always;
+        break-before: page;
       }
       .section-title {
         margin: 18px 0 10px;
@@ -2871,6 +2888,9 @@ const App = () => {
       return;
     }
 
+    // הצגת טעינה מיידית עם הלחיצה (לפני כל await)
+    setLoading(true);
+
     // Full limit check (for paid tiers and when free usage not yet in state)
     const SUBSCRIPTION_CHECK_ERROR = 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.';
     let limitCheck: { allowed: boolean; message?: string };
@@ -2886,6 +2906,7 @@ const App = () => {
     }
 
     if (!limitCheck || !limitCheck.allowed) {
+      setLoading(false);
       if (limitCheck?.message) alert(limitCheck.message);
       if (limitCheck?.message && limitCheck.message !== SUBSCRIPTION_CHECK_ERROR) {
         setShowSubscriptionModal(true);
@@ -2896,19 +2917,18 @@ const App = () => {
     // Check if current track is available for user's subscription
     const trackAvailable = isTrackAvailable(activeTrack);
     if (!trackAvailable) {
+      setLoading(false);
       alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
       setShowSubscriptionModal(true);
       return;
     }
 
     if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
+      setLoading(false);
       alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
       setShowSubscriptionModal(true);
       return;
     }
-
-    // Only now show loading – we're about to run the analysis
-    setLoading(true);
 
     // התחל ניגון הסרטון מיד אחרי שהתחלנו טעינה
     if (file?.type.startsWith('video') && videoRef.current) {
@@ -4331,26 +4351,30 @@ const App = () => {
               <RemoveFileBtn onClick={handleRemoveFile}>✕</RemoveFileBtn>
               {file?.type.startsWith('video') ? (
                 <video
+                  key={previewUrl}
                   ref={videoRef}
                   src={previewUrl}
                   controls
                   playsInline
                   preload="auto"
-                  // הסרטון לא מתחיל אחרי העלאה – רק בלחיצה על "אקשן!"
-                  defaultMuted
+                  muted
                   style={{
                     width: '100%',
                     height: 'auto',
                     maxHeight: '100%',
                     objectFit: 'contain'
                   }}
+                  onLoadedData={() => {
+                    const v = videoRef.current;
+                    if (v && file?.type.startsWith('video')) {
+                      v.muted = true;
+                      v.play().catch(() => {});
+                    }
+                  }}
                   onVolumeChange={(e) => {
                     const video = e.currentTarget;
-                    // אם המשתמש ביטל השתקה, לשמור על הסרטון בריצה
                     if (!video.muted && video.paused) {
-                      video.play().catch(() => {
-                        // במידה והדפדפן חוסם, המשתמש יוכל ללחוץ Play ידנית
-                      });
+                      video.play().catch(() => {});
                     }
                   }}
                 />
