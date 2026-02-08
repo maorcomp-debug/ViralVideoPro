@@ -197,7 +197,7 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
     setMessage(null);
     const base = typeof window !== 'undefined' ? window.location.origin : '';
     getAuthHeaders()
-      .then((headers) => fetch(`${base}/api/subscription/status`, { credentials: 'include', headers }))
+      .then((headers) => fetch(`${base}/api/subscription`, { credentials: 'include', headers }))
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data && typeof data.subscription_status === 'string') setApiStatus(data);
@@ -216,10 +216,11 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
     const base = typeof window !== 'undefined' ? window.location.origin : '';
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${base}/api/subscription/${action}`, {
+      const res = await fetch(`${base}/api/subscription`, {
         method: 'POST',
         credentials: 'include',
         headers,
+        body: JSON.stringify({ action }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

@@ -1,41 +1,31 @@
-# API מנוי – השהה / ביטול / חידוש
+# API מנוי – endpoint אחד
+
+כל לוגיקת המנוי מרוכזת ב-**`api/subscription.ts`** (פונקציה אחת ב-Vercel).
 
 ## הרצת מיגרציה
 
-הרץ את המיגרציה ב-Supabase (Dashboard → SQL Editor או `supabase db push`):
+הרץ את המיגרציה ב-Supabase:
 
-```
-supabase/migrations/20260208120000_subscription_management_schema.sql
-```
-
-אחרי ההרצה יופיעו הטבלה `subscription_events` והעמודות החדשות בטבלת `subscriptions`.
+`supabase/migrations/20260208120000_subscription_management_schema.sql`
 
 ## משתני סביבה (Vercel)
 
 - `SUPABASE_URL` / `VITE_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `VITE_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` (לאימות משתמש ב-status/pause/cancel/resume)
-- אופציונלי: `TAKBULL_API_KEY`, `TAKBULL_API_SECRET` – לעצירה/חידוש חיוב מחזורי בתקבול (אם ה-API תומך)
-- אופציונלי: `CRON_SECRET` או `SUBSCRIPTION_CRON_SECRET` – לאבטחת קריאה ל-downgrade-expired
+- `VITE_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY`
+- אופציונלי: `TAKBULL_API_KEY`, `TAKBULL_API_SECRET`
+- אופציונלי: `CRON_SECRET` או `SUBSCRIPTION_CRON_SECRET` – ל־downgrade-expired
 
-## Endpoints
+## שימוש
 
-- **GET /api/subscription/status** – סטטוס מנוי נוכחי (דורש `Authorization: Bearer <session_access_token>`)
-- **POST /api/subscription/pause** – השהיית מנוי
-- **POST /api/subscription/cancel** – ביטול מנוי
-- **POST /api/subscription/resume** – חידוש מנוי (ממושהה)
-- **POST /api/subscription/downgrade-expired** – Cron: הורדה ל-Free (דורש CRON_SECRET)
+- **GET /api/subscription** – סטטוס מנוי (דורש `Authorization: Bearer <session_access_token>`).
+- **POST /api/subscription** עם body `{ "action": "pause" }` או `"cancel"` או `"resume"` – השהה/ביטול/חידוש (דורש Authorization).
+- **POST /api/subscription** עם body `{ "action": "downgrade-expired" }` – Cron הורדה ל-Free (דורש CRON_SECRET ב־Authorization או ב־body/query כ־secret).
 
-## Cron – הורדה אוטומטית ל-Free
+## Cron
 
-הפער את `POST /api/subscription/downgrade-expired` פעם ביום (או פעם בשעה), עם אבטחה:
-
-- ב-Vercel: הוסף ב-`vercel.json` cron job שקורא ל-URL עם `Authorization: Bearer <CRON_SECRET>`.
-- או שירות חיצוני (cron-job.org וכו') ש-POST ל-URL עם header או body `secret: CRON_SECRET`.
+הפעל פעם ביום (או בשעה) קריאה ל־`POST /api/subscription` עם body `{ "action": "downgrade-expired", "secret": "<CRON_SECRET>" }` או header `Authorization: Bearer <CRON_SECRET>`.
 
 ## מיילים
 
-נכון לעכשיו הפעולות (השהה/ביטול/חידוש/הורדה ל-Free) מעדכנות רק DB. לשליחת מיילים:
-
-- ב-`api/subscription/pause.ts`, `cancel.ts`, `resume.ts` – להוסיף קריאה ל-Resend (בדומה ל-`send-benefit-email`) עם תבנית בעברית.
-- ב-`api/subscription/downgrade-expired.ts` – לשלוח מייל "המנוי הסתיים והועברת לחבילה החינמית".
+ניתן להוסיף שליחת מייל (Resend) בתוך `api/subscription.ts` אחרי כל פעולה (השהה/ביטול/חידוש/הורדה ל-Free).
