@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { updateCurrentUserProfile, getUserAnnouncements, markAnnouncementAsRead, redeemCoupon } from '../../lib/supabase-helpers';
 import { TrackSelectionModal } from '../modals/TrackSelectionModal';
+import { ManageSubscriptionChoiceModal } from '../modals/ManageSubscriptionChoiceModal';
 import type { User } from '@supabase/supabase-js';
 import type { UserSubscription, SubscriptionTier, TrackId } from '../../types';
 import { SUBSCRIPTION_PLANS } from '../../constants';
@@ -15,6 +16,8 @@ interface SettingsPageProps {
   usage: { analysesUsed: number; minutesUsed: number; periodStart: Date; periodEnd: Date } | null;
   onProfileUpdate: () => void;
   onOpenSubscriptionModal: () => void;
+  /** פתיחת מסך מנוי וחיוב (השהה / ביטול / חידוש) */
+  onOpenSubscriptionBillingModal?: () => void;
   /** עדכון אופטימי של selected_tracks ב-state (ממשק מתעדכן מיד, שמירה ל-DB ברקע) */
   onProfileTracksUpdated?: (trackIds: string[]) => void;
 }
@@ -26,6 +29,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   usage,
   onProfileUpdate,
   onOpenSubscriptionModal,
+  onOpenSubscriptionBillingModal,
   onProfileTracksUpdated,
 }) => {
   const navigate = useNavigate();
@@ -62,6 +66,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [redeemingCode, setRedeemingCode] = useState<string | null>(null);
   const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
+  const [showManageSubscriptionChoice, setShowManageSubscriptionChoice] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -659,12 +664,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               })()}
             </div>
             <button
-              onClick={() => {
-                navigate('/');
-                setTimeout(() => {
-                  onOpenSubscriptionModal();
-                }, 100);
-              }}
+              onClick={() => setShowManageSubscriptionChoice(true)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -679,6 +679,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             >
               ניהול מנוי / שדרוג
             </button>
+            <ManageSubscriptionChoiceModal
+              isOpen={showManageSubscriptionChoice}
+              onClose={() => setShowManageSubscriptionChoice(false)}
+              onSelectPackages={() => {
+                navigate('/');
+                setTimeout(() => onOpenSubscriptionModal(), 100);
+              }}
+              onSelectBilling={() => {
+                if (onOpenSubscriptionBillingModal) onOpenSubscriptionBillingModal();
+              }}
+            />
           </div>
         )}
 

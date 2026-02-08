@@ -7,6 +7,7 @@ import { SettingsPage } from './src/components/pages/SettingsPage';
 import { AdminPage } from './src/components/pages/AdminPage';
 import { OrderReceivedPage } from './src/components/pages/OrderReceivedPage';
 import { SubscriptionModal } from './src/components/modals/SubscriptionModal';
+import { SubscriptionBillingModal } from './src/components/modals/SubscriptionBillingModal';
 import { UpgradeBenefitsModal } from './src/components/modals/UpgradeBenefitsModal';
 import { AuthModal } from './src/components/modals/AuthModal';
 import { CapabilitiesModal } from './src/components/modals/CapabilitiesModal';
@@ -247,6 +248,7 @@ const App = () => {
   const [showCoachGuide, setShowCoachGuide] = useState(false);
   const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
   const [showPackageSelectionModal, setShowPackageSelectionModal] = useState(false);
+  const [showSubscriptionBillingModal, setShowSubscriptionBillingModal] = useState(false);
   const [pendingSubscriptionTier, setPendingSubscriptionTier] = useState<SubscriptionTier | null>(null);
   const [showTakbullPayment, setShowTakbullPayment] = useState(false);
   const [takbullPaymentUrl, setTakbullPaymentUrl] = useState<string>('');
@@ -3733,6 +3735,7 @@ const App = () => {
             }
           }}
           onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
+          onOpenSubscriptionBillingModal={() => setShowSubscriptionBillingModal(true)}
           onProfileTracksUpdated={(trackIds) => {
             setProfile((prev) => {
               const next = prev ? { ...prev, selected_tracks: trackIds } : null;
@@ -3747,6 +3750,18 @@ const App = () => {
           currentSubscription={subscription}
           onSelectPlan={onSelectPlanFromSubscriptionModal}
           activeTrack={activeTrack}
+        />
+        <SubscriptionBillingModal
+          isOpen={showSubscriptionBillingModal}
+          onClose={() => setShowSubscriptionBillingModal(false)}
+          onUpgrade={() => {
+            setShowSubscriptionBillingModal(false);
+            setShowSubscriptionModal(true);
+          }}
+          subscription={subscription}
+          profile={profile}
+          usage={usage ? { analysesUsed: usage.analysesUsed, minutesUsed: usage.minutesUsed, periodEnd: usage.periodEnd } : null}
+          onRefresh={() => user && loadUserData(user, true).catch((e) => console.warn('Refresh after billing action:', e))}
         />
         <AuthModal
           isOpen={showAuthModal}
