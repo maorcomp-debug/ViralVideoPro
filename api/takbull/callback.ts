@@ -218,28 +218,11 @@ export default async function handler(
     const statusCode = parseInt(params.statusCode || '0', 10);
     const isSuccess = statusCode === 0;
 
-    // SECURITY: Only upgrade subscription when we have a real transaction id from the payment provider.
+    // RULE: מעבר לחבילה חדשה מתבצע רק לאחר קבלת תשלום בהצלחה – לא בלחיצה על שדרוג.
+    // We only upgrade when the payment provider explicitly confirms payment (transaction id + success).
     const hasTransactionId = !!(params.ordernumber || params.transactionInternalNumber);
     if (isSuccess && !hasTransactionId) {
-      console.warn('⚠️ Callback with statusCode=0 but no ordernumber/transactionInternalNumber – not updating subscription');
-      return res.status(200).json({
-        ok: false,
-        success: false,
-        needsRetry: true,
-        message: 'התשלום לא אושר אצלנו. המנוי נשאר ללא שינוי. אנא בצע תשלום מחדש.',
-      });
-    }
-
-    // SECURITY: Do not apply payment if the order was just created (e.g. user clicked upgrade, got blank/redirect, callback ran within seconds).
-    // Real payment takes at least ~60 seconds. Prevents upgrade without actual payment on mobile.
-    const orderCreatedAt = order.created_at ? new Date(order.created_at).getTime() : 0;
-    const minPaymentSeconds = 55;
-    if (isSuccess && orderCreatedAt && Date.now() - orderCreatedAt < minPaymentSeconds * 1000) {
-      console.warn('⚠️ Callback ran too soon after order creation – refusing to update subscription (possible no payment)', {
-        orderId: order.id,
-        createdAt: order.created_at,
-        elapsedSeconds: Math.round((Date.now() - orderCreatedAt) / 1000),
-      });
+      console.warn('⚠️ No transaction id from payment provider – payment not confirmed, not updating subscription');
       return res.status(200).json({
         ok: false,
         success: false,
@@ -295,7 +278,8 @@ export default async function handler(
           console.log('📊 New subscription tier:', order.subscription_tier);
         }
 
-    // If payment successful, process subscription
+    // If payment successful, process subscription.
+    // RULE: Only this callback updates paid tier; init-order / button click never upgrade the package.
     if (isSuccess) {
       try {
         // Get plan details

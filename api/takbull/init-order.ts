@@ -13,6 +13,8 @@ interface InitOrderRequest {
   planId?: string;
 }
 
+// RULE: This API only creates an order and returns the payment URL. It does NOT update profile or subscription.
+// מעבר לחבילה חדשה מתבצע רק לאחר קבלת תשלום בהצלחה (callback) – לא בלחיצה על שדרוג.
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
