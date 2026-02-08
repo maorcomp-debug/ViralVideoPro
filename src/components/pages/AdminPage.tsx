@@ -1068,8 +1068,8 @@ export const AdminPage: React.FC = () => {
     if (!confirm('האם אתה בטוח שברצונך למחוק את המשתמש?')) return;
 
     try {
-      // Delete user directly using admin client (skipAdminCheck = true for speed)
-      await deleteUser(userId, true);
+      // Delete user via API (server uses service role; correct delete order avoids 409/500)
+      await deleteUser(userId, false);
       // Clear cache and reload immediately - no delays
       clearAdminCache();
       await loadData(true); // Force refresh to get fresh data

@@ -33,19 +33,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'delete-user') {
       const { userId } = req.body;
       if (!userId) return res.status(400).json({ ok: false, error: 'Missing userId in request body' });
-      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-      if (deleteError) {
-        console.error('Error deleting user:', deleteError);
-        return res.status(500).json({ ok: false, error: `Failed to delete user: ${deleteError.message}` });
-      }
-      await supabaseAdmin.from('subscriptions').delete().eq('user_id', userId);
+      // Order matters: delete children before parents (takbull_orders reference subscriptions)
       await supabaseAdmin.from('takbull_orders').delete().eq('user_id', userId);
+      await supabaseAdmin.from('subscriptions').delete().eq('user_id', userId);
+      await supabaseAdmin.from('subscription_events').delete().eq('user_id', userId);
+      await supabaseAdmin.from('usage').delete().eq('user_id', userId);
       await supabaseAdmin.from('analyses').delete().eq('user_id', userId);
       await supabaseAdmin.from('videos').delete().eq('user_id', userId);
       await supabaseAdmin.from('trainees').delete().eq('coach_id', userId);
       await supabaseAdmin.from('coupon_redemptions').delete().eq('user_id', userId);
       await supabaseAdmin.from('user_trials').delete().eq('user_id', userId);
       await supabaseAdmin.from('user_announcements').delete().eq('user_id', userId);
+      await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (deleteError) {
+        console.error('Error deleting user from auth:', deleteError);
+        return res.status(500).json({ ok: false, error: `Failed to delete user: ${deleteError.message}` });
+      }
       return res.status(200).json({ ok: true, message: 'User deleted successfully' });
     }
 

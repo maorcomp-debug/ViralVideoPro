@@ -35,6 +35,74 @@ async function logEvent(admin: SupabaseClient, user_id: string, event_type: stri
   }
 }
 
+const SUBSCRIPTION_EMAIL_SUBJECTS: Record<string, string> = {
+  pause: 'השהיית מנוי | Viraly – Video Director Pro',
+  cancel: 'ביטול מנוי | Viraly – Video Director Pro',
+  resume: 'חידוש מנוי | Viraly – Video Director Pro',
+};
+
+const SUBSCRIPTION_EMAIL_CONFIRM_LINE: Record<string, string> = {
+  pause: 'אנו מאשרים כי ביקשת להשהות את המנוי.',
+  cancel: 'אנו מאשרים כי ביקשת לבטל את המנוי.',
+  resume: 'אנו מאשרים כי ביקשת לחדש את המנוי.',
+};
+
+function escapeHtml(s: string): string {
+  const m: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return s.replace(/[&<>"']/g, (c) => m[c] || c);
+}
+
+function buildSubscriptionActionEmailHtml(confirmLine: string): string {
+  return `<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style type="text/css">body, .rtl-wrap { direction: rtl; text-align: right; }</style>
+</head>
+<body style="margin:0; padding:0; background:#1a1a1a; font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+  <div class="rtl-wrap" style="max-width: 600px; margin: 0 auto; padding: 24px; background: #1a1a1a; color: #fff; direction: rtl; text-align: right;">
+    <h1 style="margin: 0 0 20px 0; font-size: 1.75rem; font-weight: 700; color: #fff;">
+      ברוך הבא ל־ Viraly
+    </h1>
+    <p style="margin: 0 0 24px 0; line-height: 1.6; color: #fff;">
+      Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
+    </p>
+    <p style="margin: 0 0 32px 0; line-height: 1.6; color: #fff;">
+      ${escapeHtml(confirmLine)}
+    </p>
+    <p style="margin: 0; font-size: 0.85rem; color: #888; text-align: right;">
+      Viraly – Video Director Pro<br>
+      <span style="color: #D4A043;">AI Analysis • Performance • Presence</span>
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
+async function sendSubscriptionActionEmail(toEmail: string, action: 'pause' | 'cancel' | 'resume'): Promise<void> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.CONTACT_FROM_EMAIL || process.env.FROM_EMAIL;
+  if (!resendApiKey || !fromEmail) {
+    console.warn('RESEND_API_KEY or FROM_EMAIL not set – skipping subscription action email');
+    return;
+  }
+  const subject = SUBSCRIPTION_EMAIL_SUBJECTS[action] || `${action} | Viraly – Video Director Pro`;
+  const confirmLine = SUBSCRIPTION_EMAIL_CONFIRM_LINE[action] || 'אנו מאשרים כי ביקשת לבצע שינוי במנוי.';
+  const html = buildSubscriptionActionEmailHtml(confirmLine);
+  const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendApiKey}` },
+      body: JSON.stringify({ from: fromDisplay, to: [toEmail], subject, html }),
+    });
+    if (!res.ok) console.warn('Resend subscription email failed:', await res.text());
+  } catch (e) {
+    console.warn('Resend subscription email error:', e);
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -163,6 +231,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await logEvent(admin, user.id, 'pause', { subscription_id: sub.id });
         const { data: profile } = await admin.from('profiles').select('user_id').eq('user_id', user.id).single();
         if (profile) await admin.from('profiles').update({ subscription_status: 'inactive', updated_at: now }).eq('user_id', user.id);
+        const { data: profileEmail } = await admin.from('profiles').select('email').eq('user_id', user.id).single();
+        if ((profileEmail as any)?.email) await sendSubscriptionActionEmail((profileEmail as any).email, 'pause');
         return res.status(200).json({ ok: true });
       }
 
@@ -192,6 +262,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } as any).eq('id', sub.id);
         await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id });
         await admin.from('profiles').update({ subscription_status: 'cancelled', updated_at: now }).eq('user_id', user.id);
+        const { data: profileEmailCancel } = await admin.from('profiles').select('email').eq('user_id', user.id).single();
+        if ((profileEmailCancel as any)?.email) await sendSubscriptionActionEmail((profileEmailCancel as any).email, 'cancel');
         return res.status(200).json({ ok: true });
       }
 
@@ -221,6 +293,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } as any).eq('id', sub.id);
         await logEvent(admin, user.id, 'resume', { subscription_id: sub.id });
         await admin.from('profiles').update({ subscription_status: 'active', updated_at: now }).eq('user_id', user.id);
+        const { data: profileEmailResume } = await admin.from('profiles').select('email').eq('user_id', user.id).single();
+        if ((profileEmailResume as any)?.email) await sendSubscriptionActionEmail((profileEmailResume as any).email, 'resume');
         return res.status(200).json({ ok: true });
       }
     } catch (e) {

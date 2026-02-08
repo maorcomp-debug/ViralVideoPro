@@ -1273,28 +1273,23 @@ export async function deleteUser(userId: string, skipAdminCheck = false) {
     // If skipAdminCheck is true, use admin client directly (faster, no API call needed)
     if (skipAdminCheck) {
       const adminClient = getAdminClient();
-      
-      // Delete related data first (in case cascade doesn't work)
-      await adminClient.from('subscriptions').delete().eq('user_id', userId);
+      // Order matters: delete children before parents (takbull_orders reference subscriptions)
       await adminClient.from('takbull_orders').delete().eq('user_id', userId);
+      await adminClient.from('subscriptions').delete().eq('user_id', userId);
+      await adminClient.from('subscription_events').delete().eq('user_id', userId);
+      await adminClient.from('usage').delete().eq('user_id', userId);
       await adminClient.from('analyses').delete().eq('user_id', userId);
       await adminClient.from('videos').delete().eq('user_id', userId);
       await adminClient.from('trainees').delete().eq('coach_id', userId);
       await adminClient.from('coupon_redemptions').delete().eq('user_id', userId);
       await adminClient.from('user_trials').delete().eq('user_id', userId);
       await adminClient.from('user_announcements').delete().eq('user_id', userId);
-      
-      // Delete profile
       await adminClient.from('profiles').delete().eq('user_id', userId);
-      
-      // Delete user from auth.users (requires admin client)
       const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
-      
       if (deleteError) {
         console.error('❌ Error deleting user from auth:', deleteError);
         throw new Error(`Failed to delete user: ${deleteError.message}`);
       }
-      
       return { ok: true, message: 'User deleted successfully' };
     }
     
