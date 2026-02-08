@@ -2744,7 +2744,7 @@ const App = () => {
       .pdf-recommendation-card p { margin: 0; line-height: 1.7; font-size: 1.05rem; color: #2b2b2b; font-weight: 500; }
       .pdf-recommendation-card { margin-bottom: 20px; }
       .pdf-recommendation-card h4 { margin: 0 0 12px 0; font-size: 1.15rem; font-weight: 700; }
-      /* כותרת קטע: מותר להשאיר בדף הקודם כדי למלא דף 1 (טיפ זהב + כותרת פאנל) */
+      /* כותרת קטע: נשארת עם התוכן הקודם (דף 1 = טיפ זהב + כותרת פאנל), תוכן הקטע יכול להתחיל בדף הבא */
       .section-title {
         margin: 18px 0 10px;
         padding: 8px 12px;
@@ -2753,6 +2753,8 @@ const App = () => {
         border-radius: 8px;
         color: #b0751f;
         font-weight: 800;
+        page-break-before: avoid;
+        break-before: avoid;
         page-break-after: auto;
         break-after: auto;
       }
