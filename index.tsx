@@ -4357,19 +4357,12 @@ const App = () => {
                   controls
                   playsInline
                   preload="auto"
-                  muted
+                  defaultMuted
                   style={{
                     width: '100%',
                     height: 'auto',
                     maxHeight: '100%',
                     objectFit: 'contain'
-                  }}
-                  onLoadedData={() => {
-                    const v = videoRef.current;
-                    if (v && file?.type.startsWith('video')) {
-                      v.muted = true;
-                      v.play().catch(() => {});
-                    }
                   }}
                   onVolumeChange={(e) => {
                     const video = e.currentTarget;
