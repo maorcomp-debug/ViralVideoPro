@@ -1,7 +1,7 @@
 /**
- * מקור יחיד למייל אימות הרשמה – נשלח רק מכאן (Resend), בעיצוב Viraly (כפתור צהוב "כניסה לחשבון").
- * לא להשתמש במייל אימות אחר. כדי שלא יישלחו שני מיילים – כבה ב-Supabase את שליחת מייל האימות
- * המובנית (Authentication → Providers → Email או Auth Hook). ראה api/README_EMAIL.md.
+ * מקור יחיד למייל אימות הרשמה – נשלח רק מכאן (Resend), בעיצוב Viraly.
+ * כלל: בעת רישום לאפליקציה מתקבל מייל אימות אחד למייל (1 לחשבון).
+ * כבה ב-Supabase את שליחת מייל האימות המובנית (Auth Hook Send Email). ראה api/README_EMAIL.md.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
@@ -52,19 +52,6 @@ function buildConfirmationEmailHtml(buttonUrl: string, fallbackUrl?: string): st
 </html>`;
 }
 
-const IDEMPOTENCY_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
-const lastSentByEmail: Record<string, number> = {};
-
-function shouldSkipDuplicate(email: string): boolean {
-  const now = Date.now();
-  const sent = lastSentByEmail[email];
-  if (sent && now - sent < IDEMPOTENCY_WINDOW_MS) return true;
-  Object.keys(lastSentByEmail).forEach((key) => {
-    if (now - (lastSentByEmail[key] || 0) > IDEMPOTENCY_WINDOW_MS) delete lastSentByEmail[key];
-  });
-  return false;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' });
@@ -73,9 +60,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ ok: false, error: 'Invalid email' });
-    }
-    if (shouldSkipDuplicate(email)) {
-      return res.status(200).json({ ok: true });
     }
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -92,6 +76,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = createClient(supabaseUrl, serviceKey);
     const redirectTo = typeof req.body?.redirectTo === 'string' ? req.body.redirectTo : (req.headers.origin || '');
+
+    // Single email per signup: only one instance may send (DB-backed idempotency across serverless invocations).
+    const { data: claimed, error: claimError } = await supabase.rpc('claim_confirmation_email_send', { p_email: email });
+    if (claimError) {
+      console.warn('claim_confirmation_email_send failed:', claimError.message);
+      return res.status(500).json({ ok: false, error: 'Server configuration error' });
+    }
+    if (!claimed) {
+      return res.status(200).json({ ok: true });
+    }
 
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
@@ -126,7 +120,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ ok: false, error: 'Failed to send email' });
     }
 
-    lastSentByEmail[email] = Date.now();
     return res.status(200).json({ ok: true });
   } catch (e: any) {
     console.error('send-confirmation-email error:', e);

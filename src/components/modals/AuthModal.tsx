@@ -523,14 +523,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
-          // אימות מייל: שולחים רק מייל אחד (פעם אחת) – עיצוב Viraly ממורכז. מניעת שליחה כפולה.
+          // מייל אימות: מקור יחיד – נשלח רק מכאן (api/send-confirmation-email). בעת רישום מתקבל מייל אימות אחד למייל.
           const session = data.session;
           const needsEmailConfirmation = !session && !data.user.email_confirmed_at;
           if (needsEmailConfirmation) {
             setLoading(false);
             const base = typeof window !== 'undefined' ? window.location.origin : '';
             if (!verificationEmailSentRef.current) {
-              verificationEmailSentRef.current = true;
+              verificationEmailSentRef.current = true; // שליחה אחת בלבד גם אם הבלוק יופעל שוב
               fetch(`${base}/api/send-confirmation-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
