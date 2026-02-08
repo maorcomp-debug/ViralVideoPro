@@ -2529,9 +2529,9 @@ const App = () => {
         html += '</div>';
       }
 
-      // Expert Analysis – התחל תמיד בדף חדש כדי שקטע לא ייחתך
+      // Expert Analysis – זורם אחרי טיפ הזהב (דף 1 מלא), בלי דף ריק
       if (result.expertAnalysis && result.expertAnalysis.length > 0) {
-        html += '<div class="pdf-section pdf-section-new-page">';
+        html += '<div class="pdf-section">';
         html += '<h3 class="section-title" style="page-break-after: avoid; break-after: avoid;">ניתוח פאנל המומחים</h3>';
         html += '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 25px;">';
         
@@ -2546,7 +2546,7 @@ const App = () => {
                 <strong class="subtle-label" style="display: block; margin-bottom: 8px;">זווית מקצועית:</strong>
                 <p style="margin: 0; line-height: 1.7; orphans: 3; widows: 3;">${expert.insight}</p>
               </div>
-              <div style="page-break-inside: avoid; break-inside: avoid;">
+              <div class="pdf-tips-block" style="page-break-inside: avoid; break-inside: avoid;">
                 <strong class="subtle-label" style="display: block; margin-bottom: 8px;">טיפים לשיפור:</strong>
                 <p style="margin: 0; line-height: 1.7; font-weight: 500; orphans: 3; widows: 3;">${expert.tips}</p>
               </div>
@@ -2558,9 +2558,9 @@ const App = () => {
         html += '</div>';
       }
 
-      // Committee Summary – דף חדש
+      // Committee Summary – זורם אחרי הפאנל (מלא דפים, בלי דף ריק)
       if (result.committee) {
-        html += '<div class="pdf-section pdf-section-new-page">';
+        html += '<div class="pdf-section">';
         html += '<h3 class="section-title">סיכום ועדת המומחים</h3>';
         html += '<div class="card" style="margin-bottom: 20px; page-break-inside: avoid;">';
         html += `<p style="margin: 0; line-height: 1.7; font-size: 1.05rem;">${result.committee.summary}</p>`;
@@ -2699,6 +2699,11 @@ const App = () => {
       .pdf-keep-with-previous {
         page-break-before: avoid;
         break-before: avoid;
+      }
+      /* כותרת + פירוט טיפים לא נחתכים – נשארים ביחד */
+      .pdf-tips-block {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       .section-title {
         margin: 18px 0 10px;
@@ -2870,9 +2875,19 @@ const App = () => {
   };
 
   const handleGenerate = async () => {
-    // CRITICAL: Prevent double-clicks
-    if (loading) {
-      return;
+    if (loading) return;
+
+    // וידאו מתחיל מיד באותו צעד עם הלחיצה (לפני כל בדיקה) – בלי השהייה
+    if (file?.type.startsWith('video') && videoRef.current) {
+      try {
+        const video = videoRef.current;
+        video.muted = true;
+        video.loop = true;
+        video.currentTime = 0;
+        video.play().catch(() => {
+          video.addEventListener('canplay', () => video.play().catch(() => {}), { once: true });
+        });
+      } catch (_) {}
     }
 
     // Validate inputs (no loading yet – so we never show "צוות המומחים צופה" when blocking)
@@ -2947,21 +2962,6 @@ const App = () => {
       alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
       setShowSubscriptionModal(true);
       return;
-    }
-
-    // התחל ניגון הסרטון מיד עם לחיצת אקשן – בלי load() כדי שלא תהיה השהייה
-    if (file?.type.startsWith('video') && videoRef.current) {
-      try {
-        const video = videoRef.current;
-        video.muted = true;
-        video.loop = true;
-        video.currentTime = 0;
-        video.play().catch(() => {
-          video.addEventListener('canplay', () => video.play().catch(() => {}), { once: true });
-        });
-      } catch (e) {
-        console.warn('Video play on action click (pre-await):', e);
-      }
     }
 
     // CRITICAL: Add safety timeout to ensure loading is reset if something goes wrong
