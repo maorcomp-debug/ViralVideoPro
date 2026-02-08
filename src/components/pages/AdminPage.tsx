@@ -1291,11 +1291,11 @@ export const AdminPage: React.FC = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) throw new Error('לא מחובר');
         const base = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || (typeof window !== 'undefined' ? window.location.origin : '');
-        const url = `${base.replace(/\/$/, '')}/api/admin/delete-trials-batch`;
+        const url = `${base.replace(/\/$/, '')}/api/admin`;
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ trialIds: ids }),
+          body: JSON.stringify({ action: 'delete-trials-batch', trialIds: ids }),
         });
         const text = await res.text();
         const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
@@ -1334,11 +1334,11 @@ export const AdminPage: React.FC = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) throw new Error('לא מחובר');
         const base = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL as string)?.trim() || (typeof window !== 'undefined' ? window.location.origin : '');
-        const url = `${base.replace(/\/$/, '')}/api/admin/delete-coupons-batch`;
+        const url = `${base.replace(/\/$/, '')}/api/admin`;
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ couponIds: ids }),
+          body: JSON.stringify({ action: 'delete-coupons-batch', couponIds: ids }),
         });
         const text = await res.text();
         const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();

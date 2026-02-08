@@ -1306,13 +1306,13 @@ export async function deleteUser(userId: string, skipAdminCheck = false) {
     }
 
     // Call the API route to delete the user (which will delete from auth.users)
-    const response = await fetch('/api/admin/delete-user', {
+    const response = await fetch('/api/admin', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ action: 'delete-user', userId }),
     });
 
     const result = await response.json();
@@ -2186,11 +2186,11 @@ export async function deleteCouponViaAdminApi(couponId: string) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('לא מחובר');
   const base = getAdminApiBase();
-  const url = `${base}/api/admin/delete-coupon`;
+  const url = `${base}/api/admin`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({ couponId }),
+    body: JSON.stringify({ action: 'delete-coupon', couponId }),
   });
   const text = await res.text();
   const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
@@ -2207,11 +2207,11 @@ export async function deleteAllTrialsViaAdminApi() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('לא מחובר');
   const base = getAdminApiBase();
-  const url = `${base}/api/admin/delete-all-trials`;
+  const url = `${base}/api/admin`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ action: 'delete-all-trials' }),
   });
   const text = await res.text();
   const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
@@ -2228,11 +2228,11 @@ export async function deleteAllRedemptionsViaAdminApi() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('לא מחובר');
   const base = getAdminApiBase();
-  const url = `${base}/api/admin/delete-all-redemptions`;
+  const url = `${base}/api/admin`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ action: 'delete-all-redemptions' }),
   });
   const text = await res.text();
   const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
