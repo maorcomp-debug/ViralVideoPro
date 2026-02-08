@@ -249,7 +249,6 @@ const App = () => {
   const [showPackageSelectionModal, setShowPackageSelectionModal] = useState(false);
   const [pendingSubscriptionTier, setPendingSubscriptionTier] = useState<SubscriptionTier | null>(null);
   const [showTakbullPayment, setShowTakbullPayment] = useState(false);
-  const [showMobilePaymentNotice, setShowMobilePaymentNotice] = useState(false);
   const [takbullPaymentUrl, setTakbullPaymentUrl] = useState<string>('');
   const [takbullOrderReference, setTakbullOrderReference] = useState<string>('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -1152,13 +1151,7 @@ const App = () => {
         setTakbullPaymentUrl(data.paymentUrl);
         setTakbullOrderReference(data.orderReference || '');
         setShowSubscriptionModal(false);
-        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-        if (isMobile) {
-          window.open(data.paymentUrl, '_blank', 'noopener,noreferrer');
-          setShowMobilePaymentNotice(true);
-        } else {
-          setShowTakbullPayment(true);
-        }
+        setShowTakbullPayment(true);
       } catch (err: any) {
         console.error('❌ TAKBUK init-order error:', err);
         alert(err.message || 'אירעה שגיאה בפתיחת עמוד התשלום. נסה שוב.');
@@ -4688,32 +4681,6 @@ const App = () => {
         activeTrack={activeTrack}
       />
       
-      {showMobilePaymentNotice && (
-        <ModalOverlay onClick={() => setShowMobilePaymentNotice(false)}>
-          <ModalContent onClick={(e: React.MouseEvent) => e.stopPropagation()} style={{ maxWidth: 360, padding: 24 }}>
-            <ModalTitle style={{ marginBottom: 12 }}>חלון התשלום נפתח</ModalTitle>
-            <p style={{ color: '#e0e0e0', marginBottom: 20, fontSize: 15 }}>
-              לאחר התשלום תחזור אוטומטית לדף זה. אם החלון נחסם – אפשר לפתוח שוב מקישור השדרוג.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowMobilePaymentNotice(false)}
-              style={{
-                background: 'linear-gradient(135deg, #D4A043 0%, #bf953f 100%)',
-                color: '#000',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: 8,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              הבנתי
-            </button>
-          </ModalContent>
-        </ModalOverlay>
-      )}
-
       <TakbullPaymentModal
         isOpen={showTakbullPayment}
         onClose={() => {
