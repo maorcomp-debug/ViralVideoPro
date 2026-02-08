@@ -521,14 +521,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           const session = data.session;
           const needsEmailConfirmation = !session && !data.user.email_confirmed_at;
           if (needsEmailConfirmation) {
-            console.log('📧 Email confirmation required – sending confirmation email via Resend');
+            console.log('📧 Email confirmation required – user must click link in email');
             setLoading(false);
-            const base = typeof window !== 'undefined' ? window.location.origin : '';
-            fetch(`${base}/api/send-confirmation-email`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: data.user.email, redirectTo: base }),
-            }).then((r) => r.json()).then((d) => { if (!d.ok) console.warn('Confirmation email API:', d.error); }).catch((e) => console.warn('Confirmation email request failed:', e));
             alert('נרשמת בהצלחה!\n\nנשלח אליך אימייל לאימות. לחץ על הקישור באימייל כדי להפעיל את החשבון ואז היכנס למערכת.');
             onClose();
             return;

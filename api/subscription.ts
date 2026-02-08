@@ -62,22 +62,29 @@ function buildSubscriptionActionEmailHtml(confirmLine: string): string {
 </head>
 <body style="margin:0; padding:0; background:#1a1a1a; font-family: Arial, sans-serif; direction: rtl; text-align: right;">
   <div class="rtl-wrap" style="max-width: 600px; margin: 0 auto; padding: 24px; background: #1a1a1a; color: #fff; direction: rtl; text-align: right;">
-    <h1 style="margin: 0 0 20px 0; font-size: 1.75rem; font-weight: 700; color: #fff;">
-      ברוך הבא ל־ Viraly
-    </h1>
     <p style="margin: 0 0 24px 0; line-height: 1.6; color: #fff;">
-      Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
+      ברוך הבא ל־Viraly Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
     </p>
     <p style="margin: 0 0 32px 0; line-height: 1.6; color: #fff;">
       ${escapeHtml(confirmLine)}
     </p>
     <p style="margin: 0; font-size: 0.85rem; color: #888; text-align: right;">
-      Viraly – Video Director Pro<br>
-      <span style="color: #D4A043;">AI Analysis • Performance • Presence</span>
+      Viraly – Video Director Pro
     </p>
   </div>
 </body>
 </html>`;
+}
+
+async function getEmailForUser(admin: SupabaseClient, userId: string): Promise<string | null> {
+  const { data: profile } = await admin.from('profiles').select('email').eq('user_id', userId).maybeSingle();
+  const email = (profile as any)?.email;
+  if (email && typeof email === 'string') return email;
+  try {
+    const { data: authUser } = await admin.auth.admin.getUserById(userId);
+    if ((authUser?.user as any)?.email) return (authUser!.user as any).email;
+  } catch (_) {}
+  return null;
 }
 
 async function sendSubscriptionActionEmail(toEmail: string, action: 'pause' | 'cancel' | 'resume'): Promise<void> {
@@ -231,8 +238,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await logEvent(admin, user.id, 'pause', { subscription_id: sub.id });
         const { data: profile } = await admin.from('profiles').select('user_id').eq('user_id', user.id).single();
         if (profile) await admin.from('profiles').update({ subscription_status: 'inactive', updated_at: now }).eq('user_id', user.id);
-        const { data: profileEmail } = await admin.from('profiles').select('email').eq('user_id', user.id).single();
-        if ((profileEmail as any)?.email) await sendSubscriptionActionEmail((profileEmail as any).email, 'pause');
+        const email = await getEmailForUser(admin, user.id);
+        if (email) await sendSubscriptionActionEmail(email, 'pause');
         return res.status(200).json({ ok: true });
       }
 
@@ -262,8 +269,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } as any).eq('id', sub.id);
         await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id });
         await admin.from('profiles').update({ subscription_status: 'cancelled', updated_at: now }).eq('user_id', user.id);
-        const { data: profileEmailCancel } = await admin.from('profiles').select('email').eq('user_id', user.id).single();
-        if ((profileEmailCancel as any)?.email) await sendSubscriptionActionEmail((profileEmailCancel as any).email, 'cancel');
+        const emailCancel = await getEmailForUser(admin, user.id);
+        if (emailCancel) await sendSubscriptionActionEmail(emailCancel, 'cancel');
         return res.status(200).json({ ok: true });
       }
 
@@ -293,8 +300,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } as any).eq('id', sub.id);
         await logEvent(admin, user.id, 'resume', { subscription_id: sub.id });
         await admin.from('profiles').update({ subscription_status: 'active', updated_at: now }).eq('user_id', user.id);
-        const { data: profileEmailResume } = await admin.from('profiles').select('email').eq('user_id', user.id).single();
-        if ((profileEmailResume as any)?.email) await sendSubscriptionActionEmail((profileEmailResume as any).email, 'resume');
+        const emailResume = await getEmailForUser(admin, user.id);
+        if (emailResume) await sendSubscriptionActionEmail(emailResume, 'resume');
         return res.status(200).json({ ok: true });
       }
     } catch (e) {
