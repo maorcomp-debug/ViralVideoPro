@@ -84,6 +84,12 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
 
   if (!isOpen) return null;
 
+  // טעינה דרך דף ביניים LTR כדי לנסות לתקן סמן בהקלדת שם מלא (משמאל לימין)
+  const iframeSrc =
+    typeof window !== 'undefined' && paymentUrl
+      ? `${window.location.origin}/payment-frame.html?url=${encodeURIComponent(paymentUrl)}`
+      : paymentUrl;
+
   return (
     <ModalOverlay
       onClick={(e) => e.stopPropagation()}
@@ -99,7 +105,8 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
         <IframeWrapper dir="ltr">
           <iframe
             ref={iframeRef}
-            src={paymentUrl}
+            src={iframeSrc}
+            dir="ltr"
             style={{
               position: 'absolute',
               top: 0,

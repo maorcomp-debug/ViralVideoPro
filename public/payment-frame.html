@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redirecting to payment</title>
+</head>
+<body>
+  <p>Redirecting...</p>
+  <script>
+    (function() {
+      var p = new URLSearchParams(window.location.search);
+      var url = p.get('url');
+      if (url) window.location.replace(decodeURIComponent(url));
+    })();
+  </script>
+</body>
+</html>
