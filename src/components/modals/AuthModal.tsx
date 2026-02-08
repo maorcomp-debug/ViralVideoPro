@@ -517,6 +517,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
+          // אימות מייל: אם Supabase דורש Confirm mail – אין session עד שלחיצה על הקישור. לא מנסים signIn.
+          const session = data.session;
+          const needsEmailConfirmation = !session && !data.user.email_confirmed_at;
+          if (needsEmailConfirmation) {
+            console.log('📧 Email confirmation required – user must click link in email');
+            setLoading(false);
+            alert('נרשמת בהצלחה!\n\nנשלח אליך אימייל לאימות. לחץ על הקישור באימייל כדי להפעיל את החשבון ואז היכנס למערכת.');
+            onClose();
+            return;
+          }
+
           // ⚠️⚠️⚠️ CRITICAL - DO NOT MODIFY THIS SECTION ⚠️⚠️⚠️
           // 
           // This section was FIXED after many efforts to solve signup race condition.
@@ -568,33 +579,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
           }
 
-          // Email confirmation: if Supabase requires it, session is null until user clicks link in email
-          let session = data.session;
-          if (!session && data.user) {
-            const needsEmailConfirmation = !data.user.email_confirmed_at;
-            if (needsEmailConfirmation) {
-              // Confirm mail is enabled in Supabase – do not sign in; ask user to confirm email
-              console.log('📧 Email confirmation required – user must click link in email');
-              setLoading(false);
-              alert('נרשמת בהצלחה!\n\nנשלח אליך אימייל לאימות. לחץ על הקישור באימייל כדי להפעיל את החשבון ואז היכנס למערכת.');
-              onClose();
-              return;
-            }
-            // Session null but email already confirmed (edge case) – try sign in
+          // כאן יש session (כי אם היה דורש אימות מייל – כבר יצאנו למעלה)
+          let finalSession = data.session;
+          if (!finalSession && data.user?.email_confirmed_at) {
             try {
-              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              const { data: signInData } = await supabase.auth.signInWithPassword({
                 email: email.trim(),
                 password,
               });
-              if (!signInError && signInData?.session) session = signInData.session;
+              if (signInData?.session) finalSession = signInData.session;
             } catch (_) {}
           }
-          
-          // Profile update complete – call onAuthSuccess (user has session)
-          console.log('✅ Registration completed. User logged in with selected package:', effectiveTier);
-          alert('נרשמת בהצלחה!');
-          onAuthSuccess();
-          onClose();
+          if (finalSession) {
+            console.log('✅ Registration completed. User logged in with selected package:', effectiveTier);
+            alert('נרשמת בהצלחה!');
+            onAuthSuccess();
+            onClose();
+          }
         } else {
           console.error('❌ User creation failed - no user data returned');
           throw new Error('לא ניתן ליצור משתמש. נסה שוב.');
