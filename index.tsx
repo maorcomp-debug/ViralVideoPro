@@ -2697,13 +2697,16 @@ const App = () => {
         page-break-before: avoid;
         break-before: avoid;
       }
-      /* כרטיס מומחה: כותרת (תפקיד) + זווית מקצועית + טיפים לשיפור – יחידה אחת, לא מפצלים בין עמודים */
+      /* ברירת מחדל: למלא עמודים – גלישה בין מקטעים. מקטע שלם = יחידה לוגית (כותרת+תוכן) לא נחתכת. */
+      /* כרטיס מומחה: מותר לשבור בין זווית מקצועית לטיפים כדי למלא עמודים; אסור לשבור בתוך מקטע. */
       .pdf-expert-card {
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
+        page-break-inside: auto;
+        break-inside: auto;
       }
       .pdf-expert-card .card {
         margin-bottom: 14px;
+        page-break-inside: auto;
+        break-inside: auto;
       }
       .pdf-expert-role {
         color: #b8862e !important;
@@ -2716,7 +2719,7 @@ const App = () => {
         page-break-after: avoid !important;
         break-after: avoid !important;
       }
-      /* זווית מקצועית – כותרת + פסקה ביחד, לא לחתוך באמצע */
+      /* זווית מקצועית – מקטע שלם: כותרת + פסקה ביחד, לא לחתוך באמצע */
       .pdf-professional-block {
         margin-bottom: 15px !important;
         page-break-inside: avoid !important;
@@ -2724,17 +2727,17 @@ const App = () => {
       }
       .pdf-professional-block .subtle-label { display: block; margin-bottom: 8px; }
       .pdf-professional-block p { margin: 0; line-height: 1.7; orphans: 3; widows: 3; }
-      /* טיפים לשיפור – כל המקטע עם הכותרת עובר לדף הבא אם לא נכנס, בלי חיתוך */
+      /* טיפים לשיפור – מקטע שלם: כותרת + תוכן ביחד, לא לחתוך באמצע */
       .pdf-tips-block {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .pdf-tips-block .subtle-label { display: block; margin-bottom: 8px; }
       .pdf-tips-block p { margin: 0; line-height: 1.7; font-weight: 500; orphans: 3; widows: 3; }
-      /* טיפים מנצחים + הצעות לשיפור + ציון – ביחד כדי שהדף האחרון לא יהיה ריק */
+      /* בלוק סיום: גלישה מותרת כדי למלא עמודים; בעמוד האחרון הדפדפן ישאף מעבר הגיוני. */
       .pdf-final-block {
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
+        page-break-inside: auto;
+        break-inside: auto;
       }
       .pdf-committee-summary-card { margin-bottom: 20px; }
       .pdf-committee-summary-card p,
