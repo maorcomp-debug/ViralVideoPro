@@ -213,16 +213,32 @@ export default async function handler(
       userId: order.user_id,
       subscriptionTier: order.subscription_tier,
       billingPeriod: order.billing_period,
+      order_status: order.order_status,
     });
+
+    // Idempotency: if order was already completed (e.g. duplicate callback or replay), do NOT update profile again.
+    if (order.order_status === 'completed') {
+      console.log('⚠️ Order already completed – skipping profile update (idempotency)');
+      return res.status(200).json({
+        ok: true,
+        success: true,
+        alreadyProcessed: true,
+        message: 'Order already processed',
+      });
+    }
 
     const statusCode = parseInt(params.statusCode || '0', 10);
     const isSuccess = statusCode === 0;
 
     // RULE: מעבר לחבילה חדשה מתבצע רק לאחר קבלת תשלום בהצלחה – לא בלחיצה על שדרוג.
-    // Require transactionInternalNumber (actual transaction id from provider); ordernumber alone is not enough.
+    // Require transactionInternalNumber AND proof that a card was used (Last4Digits or token) – prevents upgrade on redirect-without-payment (e.g. mobile).
     const hasRealTransactionId = !!(params.transactionInternalNumber);
-    if (isSuccess && !hasRealTransactionId) {
-      console.warn('⚠️ No transactionInternalNumber from payment provider – payment not confirmed, not updating subscription');
+    const hasCardProof = !!(params.Last4Digits || params.token);
+    if (isSuccess && (!hasRealTransactionId || !hasCardProof)) {
+      console.warn('⚠️ Payment not confirmed (missing transactionInternalNumber or card proof) – not updating subscription', {
+        hasRealTransactionId,
+        hasCardProof: !!params.Last4Digits || !!params.token,
+      });
       return res.status(200).json({
         ok: false,
         success: false,
