@@ -382,6 +382,20 @@ const App = () => {
     }
   }, [subscription]);
 
+  // תצוגה מקדימה: מאלצים טעינת הווידאו כשמועלה קובץ (מחשב + מובייל) כדי שהמסגרת תמיד תציג פריים
+  useEffect(() => {
+    if (!previewUrl || !file?.type.startsWith('video')) return;
+    const t = setTimeout(() => {
+      const video = videoRef.current;
+      if (video && video.src) {
+        try {
+          video.load();
+        } catch (_) {}
+      }
+    }, 100);
+    return () => clearTimeout(t);
+  }, [previewUrl, file]);
+
   // Admin state is managed by loadUserData - no fast-path needed here
 
   // Load user data from Supabase (with protection against duplicate calls)
@@ -2930,14 +2944,20 @@ const App = () => {
       return;
     }
 
-    // התחל ניגון הסרטון מיד אחרי שהתחלנו טעינה
+    // התחל ניגון הסרטון מיד עם לחיצת אקשן (מחשב + מובייל) עד סיום הניתוח
     if (file?.type.startsWith('video') && videoRef.current) {
       try {
         const video = videoRef.current;
         video.muted = true;
         video.loop = true;
+        const playWhenReady = () => {
+          video.play().catch(() => {});
+        };
         if (video.readyState >= 2) {
-          void video.play();
+          playWhenReady();
+        } else {
+          video.addEventListener('canplay', playWhenReady, { once: true });
+          video.load();
         }
       } catch (e) {
         console.warn('Video play on action click (pre-await):', e);
