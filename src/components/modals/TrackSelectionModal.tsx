@@ -54,6 +54,13 @@ const ModalOverlay = styled.div<{ $isOpen: boolean }>`
   justify-content: center;
   padding: 20px;
   overflow-y: auto;
+
+  @media (max-width: 600px) {
+    padding: 8px;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
 `;
 
 const ModalContent = styled.div`
@@ -68,8 +75,17 @@ const ModalContent = styled.div`
   position: relative;
 
   @media (max-width: 768px) {
-    padding: 30px 20px;
+    padding: 24px 20px;
     border-radius: 15px;
+  }
+
+  @media (max-width: 600px) {
+    max-height: calc(100vh - 16px);
+    padding: 12px 10px 14px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 `;
 
@@ -90,6 +106,12 @@ const ModalHeader = styled.div`
     margin: 0;
     line-height: 1.6;
   }
+
+  @media (max-width: 600px) {
+    margin-bottom: 8px;
+    h2 { font-size: 1.2rem; margin: 0 0 6px 0; }
+    p { font-size: 0.8rem; line-height: 1.4; }
+  }
 `;
 
 const TracksGrid = styled.div`
@@ -101,6 +123,15 @@ const TracksGrid = styled.div`
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
     gap: 15px;
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 `;
 
@@ -127,6 +158,12 @@ const TrackCard = styled.div<{ $selected: boolean; $disabled?: boolean }>`
   ${props => props.$selected && `
     box-shadow: 0 0 20px rgba(212, 160, 67, 0.4);
   `}
+
+  @media (max-width: 600px) {
+    padding: 10px 8px;
+    border-radius: 10px;
+    border-width: 1.5px;
+  }
 `;
 
 const TrackIcon = styled.div`
@@ -141,6 +178,11 @@ const TrackIcon = styled.div`
     width: 48px;
     height: 48px;
   }
+
+  @media (max-width: 600px) {
+    margin-bottom: 6px;
+    svg { width: 32px; height: 32px; }
+  }
 `;
 
 const TrackName = styled.h3`
@@ -149,6 +191,12 @@ const TrackName = styled.h3`
   margin: 0 0 10px 0;
   text-align: center;
   font-weight: 700;
+
+  @media (max-width: 600px) {
+    font-size: 0.85rem;
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+  }
 `;
 
 const TrackDescription = styled.p`
@@ -157,6 +205,15 @@ const TrackDescription = styled.p`
   line-height: 1.5;
   margin: 0;
   text-align: center;
+
+  @media (max-width: 600px) {
+    font-size: 0.7rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 `;
 
 const SelectedBadge = styled.div`
@@ -169,6 +226,13 @@ const SelectedBadge = styled.div`
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 700;
+
+  @media (max-width: 600px) {
+    top: 6px;
+    left: 6px;
+    padding: 3px 8px;
+    font-size: 0.65rem;
+  }
 `;
 
 const SubmitButton = styled.button`
@@ -184,6 +248,7 @@ const SubmitButton = styled.button`
   transition: all 0.3s;
   text-transform: uppercase;
   letter-spacing: 1px;
+  flex-shrink: 0;
 
   &:hover:not(:disabled) {
     transform: translateY(-2px);
@@ -194,6 +259,12 @@ const SubmitButton = styled.button`
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  @media (max-width: 600px) {
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    border-radius: 8px;
   }
 `;
 
@@ -207,6 +278,30 @@ const InfoMessage = styled.div`
   color: #D4A043;
   font-size: 0.9rem;
   line-height: 1.6;
+
+  @media (max-width: 600px) {
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+`;
+
+const ErrorMessage = styled.div`
+  color: #ff6b6b;
+  text-align: center;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  padding: 10px;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  flex-shrink: 0;
+  @media (max-width: 600px) {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
 `;
 
 interface TrackSelectionModalProps {
@@ -434,20 +529,7 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
           })}
         </TracksGrid>
 
-        {error && (
-          <div style={{ 
-            color: '#ff6b6b', 
-            textAlign: 'center', 
-            fontSize: '0.9rem',
-            marginBottom: '20px',
-            padding: '10px',
-            background: 'rgba(255, 107, 107, 0.1)',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 107, 107, 0.3)'
-          }}>
-            {error}
-          </div>
-        )}
+        {error && <ErrorMessage>{error}</ErrorMessage>}
 
         <SubmitButton
           onClick={handleSubmit}

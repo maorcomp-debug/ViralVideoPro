@@ -922,18 +922,11 @@ const App = () => {
     const toTier = searchParams.get('to') as SubscriptionTier | null;
     
     if (upgradeParam === 'success' && fromTier && toTier) {
-      // Set the tiers immediately
       setUpgradeFromTier(fromTier);
       setUpgradeToTier(toTier);
-      
-      // Set flag in localStorage to show logout message for ALL upgrades
-      // This ensures users know they need to re-login for the upgrade to take effect
-      // IMPORTANT: This includes coach->coach-pro upgrades
-      const isCoachToCoachPro = fromTier === 'coach' && toTier === 'coach-pro';
-      if ((fromTier !== toTier || isCoachToCoachPro) && typeof window !== 'undefined') {
-        localStorage.setItem('pending_package_upgrade', 'true');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('pending_package_upgrade');
       }
-      
       // Always show modal if upgrade param is present (even if tiers match - might be a refresh)
       // But only if we have valid tier info
       if (fromTier && toTier) {
@@ -4693,8 +4686,6 @@ const App = () => {
         onClose={() => {
           setShowTakbullPayment(false);
           setIsProcessingPayment(false);
-          // Only reload if payment wasn't successful (onSuccess handles successful payments)
-          // This is just a cleanup - don't reload unnecessarily
         }}
         paymentUrl={takbullPaymentUrl}
         orderReference={takbullOrderReference}
