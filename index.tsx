@@ -2683,10 +2683,10 @@ const App = () => {
       .export-wrapper > * + * {
         margin-top: 18px;
       }
-      /* כל קטע/פרק נשאר בדף שלם; קטעים 2 ואילך מתחילים בדף חדש */
+      /* עדיפות: דפים מלאים מהראשון לאחרון (עדיפות פחותה לעמוד האחרון). גלישת תוכן חופשית בין קטעים; מקטעים לוגיים נשארים שלמים. */
       .pdf-section {
-        page-break-inside: avoid;
-        break-inside: avoid;
+        page-break-inside: auto;
+        break-inside: auto;
       }
       .pdf-section-new-page {
         page-break-before: always;
