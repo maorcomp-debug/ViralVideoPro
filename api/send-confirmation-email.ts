@@ -1,7 +1,6 @@
 /**
- * מקור יחיד למייל אימות הרשמה – נשלח רק מכאן (Resend), בעיצוב Viraly.
- * כלל: בעת רישום לאפליקציה מתקבל מייל אימות אחד למייל (1 לחשבון).
- * כבה ב-Supabase את שליחת מייל האימות המובנית (Auth Hook Send Email). ראה api/README_EMAIL.md.
+ * מייל אימות הרשמה נשלח רק מ-Supabase (מקור יחיד). האפליקציה אינה קוראת ל-API זה בהרשמה.
+ * הקובץ נשאר לצורך שימוש עתידי או קישורים ידניים.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
@@ -76,16 +75,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = createClient(supabaseUrl, serviceKey);
     const redirectTo = typeof req.body?.redirectTo === 'string' ? req.body.redirectTo : (req.headers.origin || '');
-
-    // Single email per signup: only one instance may send (DB-backed idempotency across serverless invocations).
-    const { data: claimed, error: claimError } = await supabase.rpc('claim_confirmation_email_send', { p_email: email });
-    if (claimError) {
-      console.warn('claim_confirmation_email_send failed:', claimError.message);
-      return res.status(500).json({ ok: false, error: 'Server configuration error' });
-    }
-    if (!claimed) {
-      return res.status(200).json({ ok: true });
-    }
 
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',

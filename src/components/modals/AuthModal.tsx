@@ -212,18 +212,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [passwordResetSent, setPasswordResetSent] = useState(false);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('creator');
   const [selectedTrack, setSelectedTrack] = useState<TrackId | ''>('');
-  const verificationEmailSentRef = useRef(false);
 
   const mode: AuthModalMode = modeProp ?? 'initial';
   const isUpgradeMode = mode === 'upgrade';
 
   const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
   const tierRequiresTrack = (tier: SubscriptionTier) => tier === 'free' || tier === 'creator';
-
-  // איפוס ref למייל אימות כשהמודל נסגר – כדי שבהרשמה הבאה יישלח שוב
-  React.useEffect(() => {
-    if (!isOpen) verificationEmailSentRef.current = false;
-  }, [isOpen]);
 
   // When opened in upgrade mode: pre-select package and ensure only upgrade form shows (no registration fields)
   React.useEffect(() => {
@@ -523,20 +517,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
-          // מייל אימות: מקור יחיד – נשלח רק מכאן (api/send-confirmation-email). בעת רישום מתקבל מייל אימות אחד למייל.
+          // מקור יחיד למייל אימות: Supabase. הפעלה/כיבוי אימות מייל רק ב-Dashboard (Authentication → Providers → Email).
           const session = data.session;
           const needsEmailConfirmation = !session && !data.user.email_confirmed_at;
           if (needsEmailConfirmation) {
             setLoading(false);
-            const base = typeof window !== 'undefined' ? window.location.origin : '';
-            if (!verificationEmailSentRef.current) {
-              verificationEmailSentRef.current = true; // שליחה אחת בלבד גם אם הבלוק יופעל שוב
-              fetch(`${base}/api/send-confirmation-email`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: data.user.email, redirectTo: base }),
-              }).then((r) => r.json()).then((d) => { if (!d.ok) console.warn('Confirmation email API:', d.error); }).catch((e) => console.warn('Confirmation email request failed:', e));
-            }
             alert('נרשמת בהצלחה!\n\nנשלח אליך אימייל לאימות. לחץ על הקישור באימייל כדי להפעיל את החשבון ואז היכנס למערכת.');
             onClose();
             return;
