@@ -517,11 +517,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
-          // אימות מייל: שולחים מייל אימות דרך Resend (אישור חשבון) ואז מציגים הודעה למשתמש.
+          // אימות מייל: מקור יחיד – שולחים רק מייל אחד דרך Resend (עיצוב Viraly). לא להשתמש במייל אימות אחר.
           const session = data.session;
           const needsEmailConfirmation = !session && !data.user.email_confirmed_at;
           if (needsEmailConfirmation) {
-            console.log('📧 Email confirmation required – sending confirmation email via Resend');
+            console.log('📧 Sending single verification email via Resend (Viraly design)');
             setLoading(false);
             const base = typeof window !== 'undefined' ? window.location.origin : '';
             fetch(`${base}/api/send-confirmation-email`, {

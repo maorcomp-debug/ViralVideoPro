@@ -1,6 +1,7 @@
 /**
- * שולח מייל אימות הרשמה דרך Resend (בפורמט "אישור חשבון" – כפתור כניסה, קישור אימות).
- * גרסה מקורית שעבדה – קישור Supabase (action_link) שמאמת ומפנה ישירות לאפליקציה עם session.
+ * מקור יחיד למייל אימות הרשמה – נשלח רק מכאן (Resend), בעיצוב Viraly (כפתור צהוב "כניסה לחשבון").
+ * לא להשתמש במייל אימות אחר. כדי שלא יישלחו שני מיילים – כבה ב-Supabase את שליחת מייל האימות
+ * המובנית (Authentication → Providers → Email או Auth Hook). ראה api/README_EMAIL.md.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
