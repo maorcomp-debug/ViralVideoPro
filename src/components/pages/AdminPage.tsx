@@ -4,7 +4,8 @@ import styled from 'styled-components';
 import { 
   getAllUsers, 
   updateUserProfile, 
-  deleteUser, 
+  deleteUser,
+  deleteUserByEmail,
   getAllAnalyses,
   getAllVideos,
   getAdminStats,
@@ -902,6 +903,8 @@ export const AdminPage: React.FC = () => {
   // Selection for bulk delete
   const [selectedTrials, setSelectedTrials] = useState<Set<string>>(new Set());
   const [selectedCoupons, setSelectedCoupons] = useState<Set<string>>(new Set());
+  const [deleteByEmailValue, setDeleteByEmailValue] = useState('');
+  const [isDeletingByEmail, setIsDeletingByEmail] = useState(false);
 
   const loadData = async (forceRefresh = false) => {
     // Allow force refresh even if already loading
@@ -1080,6 +1083,30 @@ export const AdminPage: React.FC = () => {
       // Reload data even on error to ensure UI is in sync
       clearAdminCache();
       loadData(true).catch(() => {});
+    }
+  };
+
+  const handleDeleteByEmail = async () => {
+    const email = deleteByEmailValue.trim();
+    if (!email) {
+      alert('הזן אימייל');
+      return;
+    }
+    if (!confirm(`למחוק משתמש עם אימייל ${email}? (גם מ-Supabase Auth)`)) return;
+    setIsDeletingByEmail(true);
+    try {
+      await deleteUserByEmail(email);
+      setDeleteByEmailValue('');
+      clearAdminCache();
+      await loadData(true);
+      alert('המשתמש נמחק בהצלחה');
+    } catch (error: any) {
+      console.error('Error deleting user by email:', error);
+      alert('שגיאה במחיקת המשתמש: ' + (error.message || 'Unknown error'));
+      clearAdminCache();
+      loadData(true).catch(() => {});
+    } finally {
+      setIsDeletingByEmail(false);
     }
   };
 
@@ -1705,6 +1732,19 @@ export const AdminPage: React.FC = () => {
                 🔄 רענן
               </RefreshButton>
             </SectionHeader>
+            <FiltersRow style={{ marginBottom: 12, alignItems: 'center', gap: 8 }}>
+              <span style={{ color: '#999' }}>מחק משתמש לפי אימייל (גם בלי פרופיל):</span>
+              <SearchBar
+                type="email"
+                placeholder="אימייל למחיקה"
+                value={deleteByEmailValue}
+                onChange={(e) => setDeleteByEmailValue(e.target.value)}
+                style={{ maxWidth: 260 }}
+              />
+              <ActionButton $variant="delete" onClick={handleDeleteByEmail} disabled={isDeletingByEmail || !deleteByEmailValue.trim()}>
+                {isDeletingByEmail ? '...' : 'מחק לפי אימייל'}
+              </ActionButton>
+            </FiltersRow>
             <SearchBar
                 type="text"
                 placeholder="חפש לפי אימייל או שם..."

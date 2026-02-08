@@ -30,10 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const auth = await requireAdmin(req, supabaseAdmin);
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
 
-    if (action === 'delete-user') {
-      const { userId } = req.body;
-      if (!userId) return res.status(400).json({ ok: false, error: 'Missing userId in request body' });
-      // Order matters: delete children before parents (takbull_orders reference subscriptions)
+    async function deleteUserById(userId: string) {
       await supabaseAdmin.from('takbull_orders').delete().eq('user_id', userId);
       await supabaseAdmin.from('subscriptions').delete().eq('user_id', userId);
       await supabaseAdmin.from('subscription_events').delete().eq('user_id', userId);
@@ -46,11 +43,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await supabaseAdmin.from('user_announcements').delete().eq('user_id', userId);
       await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-      if (deleteError) {
-        console.error('Error deleting user from auth:', deleteError);
-        return res.status(500).json({ ok: false, error: `Failed to delete user: ${deleteError.message}` });
+      if (deleteError) throw new Error(deleteError.message);
+    }
+
+    if (action === 'delete-user') {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ ok: false, error: 'Missing userId in request body' });
+      try {
+        await deleteUserById(userId);
+        return res.status(200).json({ ok: true, message: 'User deleted successfully' });
+      } catch (e: any) {
+        console.error('Error deleting user:', e);
+        return res.status(500).json({ ok: false, error: `Failed to delete user: ${e.message}` });
       }
-      return res.status(200).json({ ok: true, message: 'User deleted successfully' });
+    }
+
+    if (action === 'delete-user-by-email') {
+      const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+      if (!email) return res.status(400).json({ ok: false, error: 'Missing email in request body' });
+      const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers(1000);
+      if (listError) return res.status(500).json({ ok: false, error: listError.message });
+      const target = (users || []).find((u: any) => (u.email || '').toLowerCase() === email);
+      if (!target) return res.status(404).json({ ok: false, error: 'User not found with this email' });
+      try {
+        await deleteUserById(target.id);
+        return res.status(200).json({ ok: true, message: 'User deleted successfully' });
+      } catch (e: any) {
+        console.error('Error deleting user by email:', e);
+        return res.status(500).json({ ok: false, error: `Failed to delete user: ${e.message}` });
+      }
     }
 
     if (action === 'delete-coupon') {

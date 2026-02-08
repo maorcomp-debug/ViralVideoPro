@@ -1323,6 +1323,28 @@ export async function deleteUser(userId: string, skipAdminCheck = false) {
   }
 }
 
+/** Delete user by email (works for users without profile, e.g. only in auth). Calls API with action delete-user-by-email. */
+export async function deleteUserByEmail(email: string) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Not authenticated');
+    const response = await fetch('/api/admin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action: 'delete-user-by-email', email: email.trim().toLowerCase() }),
+    });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.error || 'Failed to delete user');
+    return result;
+  } catch (error: any) {
+    console.error('❌ Error in deleteUserByEmail:', error);
+    throw error;
+  }
+}
+
 export async function createUser(email: string, password: string, profileData: {
   full_name?: string;
   subscription_tier?: string;
