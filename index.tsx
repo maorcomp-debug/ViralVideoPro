@@ -2532,7 +2532,7 @@ const App = () => {
       // Expert Analysis – זורם אחרי טיפ הזהב (דף 1 מלא), בלי דף ריק
       if (result.expertAnalysis && result.expertAnalysis.length > 0) {
         html += '<div class="pdf-section">';
-        html += '<h3 class="section-title" style="page-break-after: avoid; break-after: avoid;">ניתוח פאנל המומחים</h3>';
+        html += '<h3 class="section-title">ניתוח פאנל המומחים</h3>';
         html += '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 25px;">';
         
         result.expertAnalysis.forEach((expert) => {
@@ -2744,6 +2744,7 @@ const App = () => {
       .pdf-recommendation-card p { margin: 0; line-height: 1.7; font-size: 1.05rem; color: #2b2b2b; font-weight: 500; }
       .pdf-recommendation-card { margin-bottom: 20px; }
       .pdf-recommendation-card h4 { margin: 0 0 12px 0; font-size: 1.15rem; font-weight: 700; }
+      /* כותרת קטע: מותר להשאיר בדף הקודם כדי למלא דף 1 (טיפ זהב + כותרת פאנל) */
       .section-title {
         margin: 18px 0 10px;
         padding: 8px 12px;
@@ -2752,8 +2753,8 @@ const App = () => {
         border-radius: 8px;
         color: #b0751f;
         font-weight: 800;
-        page-break-after: avoid;
-        break-after: avoid;
+        page-break-after: auto;
+        break-after: auto;
       }
       .card {
         border: 1px solid #e6e6e6;
