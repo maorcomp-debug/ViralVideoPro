@@ -37,6 +37,8 @@ const IframeWrapper = styled.div`
   position: relative;
   background: #0a0a0a;
   border-top: 1px solid rgba(212, 160, 67, 0.2);
+  direction: ltr;
+  text-align: left;
 `;
 
 interface TakbullPaymentModalProps {
@@ -94,7 +96,7 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
           </ModalTitle>
           <ModalCloseBtn onClick={onClose}>×</ModalCloseBtn>
         </ModalHeader>
-        <IframeWrapper>
+        <IframeWrapper dir="ltr">
           <iframe
             ref={iframeRef}
             src={paymentUrl}

@@ -13,13 +13,17 @@ export const Title = styled.h1`
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 2px 10px rgba(212, 160, 67, 0.3));
-  
+  white-space: nowrap;
   @media (max-width: 768px) {
     font-size: 2.5rem;
   }
   @media (max-width: 480px) {
     font-size: 2rem;
     letter-spacing: 1px;
+  }
+  @media (max-width: 380px) {
+    white-space: normal;
+    font-size: 1.75rem;
   }
 `;
 
