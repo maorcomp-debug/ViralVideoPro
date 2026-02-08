@@ -94,12 +94,11 @@ export const useAuth = (): UseAuthReturn => {
     }
   }, [loggingOut, resetUserState]);
 
-  // Initialize Supabase Auth
+  // Initialize Supabase Auth: כניסה מקישור אימייל – Supabase redirect (כפתור) או token_hash (קישור גיבוי)
   useEffect(() => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
 
-    // אם הגענו מקישור אימייל אימות – להמיר token_hash ל־session ואז לנקות את ה־URL
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const tokenHash = params?.get('token_hash');
     const otpType = params?.get('type');
@@ -133,14 +132,13 @@ export const useAuth = (): UseAuthReturn => {
       setLoadingAuth(false);
     };
 
-    // Faster timeout for better UX
     timeoutId = setTimeout(() => {
       if (mounted) setLoadingAuth(false);
     }, 5000);
 
-    initAuth().catch((error) => {
+    initAuth().catch((err) => {
       if (timeoutId) clearTimeout(timeoutId);
-      console.error('❌ Error in initAuth:', error);
+      console.error('❌ Error in initAuth:', err);
       if (mounted) setLoadingAuth(false);
     });
 
