@@ -2607,8 +2607,8 @@ const App = () => {
         html += '</div>';
       }
 
-      // Final Score – דף חדש
-      html += '<div class="pdf-section pdf-section-new-page">';
+      // ציון סופי – באותו דף אחרי הוועדה (בלי דף חדש) כדי למנוע דף ריק עם רק ציון
+      html += '<div class="pdf-section pdf-keep-with-previous">';
       html += `
         <div data-pdf="final-score">
           <span class="number">${averageScore}</span>
@@ -2694,6 +2694,11 @@ const App = () => {
       .pdf-section-new-page {
         page-break-before: always;
         break-before: page;
+      }
+      /* ציון סופי נשאר עם התוכן הקודם – מונע דף ריק עם רק משפט/מספר */
+      .pdf-keep-with-previous {
+        page-break-before: avoid;
+        break-before: avoid;
       }
       .section-title {
         margin: 18px 0 10px;
@@ -2944,21 +2949,16 @@ const App = () => {
       return;
     }
 
-    // התחל ניגון הסרטון מיד עם לחיצת אקשן (מחשב + מובייל) עד סיום הניתוח
+    // התחל ניגון הסרטון מיד עם לחיצת אקשן – בלי load() כדי שלא תהיה השהייה
     if (file?.type.startsWith('video') && videoRef.current) {
       try {
         const video = videoRef.current;
         video.muted = true;
         video.loop = true;
-        const playWhenReady = () => {
-          video.play().catch(() => {});
-        };
-        if (video.readyState >= 2) {
-          playWhenReady();
-        } else {
-          video.addEventListener('canplay', playWhenReady, { once: true });
-          video.load();
-        }
+        video.currentTime = 0;
+        video.play().catch(() => {
+          video.addEventListener('canplay', () => video.play().catch(() => {}), { once: true });
+        });
       } catch (e) {
         console.warn('Video play on action click (pre-await):', e);
       }
