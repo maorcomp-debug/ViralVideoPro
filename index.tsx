@@ -2537,18 +2537,17 @@ const App = () => {
         
         result.expertAnalysis.forEach((expert) => {
           html += `
-            <div class="card" style="page-break-inside: avoid; break-inside: avoid;">
-              <h4 style="color: #b8862e; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e6e6e6; display: flex; justify-content: space-between; align-items: center; page-break-after: avoid; break-after: avoid;">
-                ${expert.role}
-                <span class="score-badge">${expert.score}</span>
-              </h4>
-              <div style="margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
-                <strong class="subtle-label" style="display: block; margin-bottom: 8px;">זווית מקצועית:</strong>
-                <p style="margin: 0; line-height: 1.7; orphans: 3; widows: 3;">${expert.insight}</p>
-              </div>
-              <div class="pdf-tips-block" style="page-break-inside: avoid; break-inside: avoid;">
-                <strong class="subtle-label" style="display: block; margin-bottom: 8px;">טיפים לשיפור:</strong>
-                <p style="margin: 0; line-height: 1.7; font-weight: 500; orphans: 3; widows: 3;">${expert.tips}</p>
+            <div class="pdf-expert-card">
+              <div class="card">
+                <h4 class="pdf-expert-role">${expert.role}<span class="score-badge">${expert.score}</span></h4>
+                <div class="pdf-professional-block">
+                  <strong class="subtle-label">זווית מקצועית:</strong>
+                  <p>${expert.insight}</p>
+                </div>
+                <div class="pdf-tips-block">
+                  <strong class="subtle-label">טיפים לשיפור:</strong>
+                  <p>${expert.tips}</p>
+                </div>
               </div>
             </div>
           `;
@@ -2562,14 +2561,15 @@ const App = () => {
       if (result.committee) {
         html += '<div class="pdf-section">';
         html += '<h3 class="section-title">סיכום ועדת המומחים</h3>';
-        html += '<div class="card" style="margin-bottom: 20px; page-break-inside: avoid;">';
-        html += `<p style="margin: 0; line-height: 1.7; font-size: 1.05rem;">${result.committee.summary}</p>`;
+        html += '<div class="card pdf-committee-summary-card">';
+        html += `<p>${result.committee.summary}</p>`;
         html += '</div>';
 
-        // Committee Tips (Final Tips)
+        // בלוק סיום: טיפים מנצחים + הצעות לשיפור + ציון – נשארים יחד כדי למנוע דף אחרון ריק
+        html += '<div class="pdf-final-block">';
         if (result.committee.finalTips && result.committee.finalTips.length > 0) {
           html += `
-            <div data-pdf="committee-tips" style="page-break-inside: avoid;">
+            <div data-pdf="committee-tips">
               <h5>טיפים מנצחים לעתיד:</h5>
               <ul>
                 ${result.committee.finalTips.map(tip => `<li>${tip}</li>`).join('')}
@@ -2577,8 +2577,6 @@ const App = () => {
             </div>
           `;
         }
-        
-        // Take Recommendation
         if (result.takeRecommendation) {
           const recText = result.takeRecommendation.toLowerCase();
           const hasRetake = recText.includes('טייק נוסף') || 
@@ -2594,28 +2592,27 @@ const App = () => {
           );
           const recommendationColor = isReady ? '#4CAF50' : '#FF9800';
           html += `
-            <div class="card" style="margin-bottom: 20px; page-break-inside: avoid; border-right: 4px solid ${recommendationColor}; background: ${isReady ? '#f1f8f4' : '#fff8f0'};">
-              <h4 style="color: ${recommendationColor}; margin: 0 0 12px 0; font-size: 1.15rem; font-weight: 700;">
+            <div class="card pdf-recommendation-card" style="border-right: 4px solid ${recommendationColor}; background: ${isReady ? '#f1f8f4' : '#fff8f0'};">
+              <h4 style="color: ${recommendationColor};">
                 ${isReady ? '✅ מוכן להגשה!' : '💡 הצעות לשיפור:'}
               </h4>
-              <p style="margin: 0; line-height: 1.7; font-size: 1.05rem; color: #2b2b2b; font-weight: 500;">
-                ${result.takeRecommendation}
-              </p>
+              <p>${result.takeRecommendation}</p>
             </div>
           `;
         }
+        html += `
+          <div data-pdf="final-score">
+            <span class="number">${averageScore}</span>
+            <span class="label">ציון ויראליות משוקלל</span>
+          </div>
+        `;
         html += '</div>';
+        html += '</div>';
+      } else {
+        html += '<div class="pdf-section"><div class="pdf-final-block">';
+        html += `<div data-pdf="final-score"><span class="number">${averageScore}</span><span class="label">ציון ויראליות משוקלל</span></div>`;
+        html += '</div></div>';
       }
-
-      // ציון סופי – באותו דף אחרי הוועדה (בלי דף חדש) כדי למנוע דף ריק עם רק ציון
-      html += '<div class="pdf-section pdf-keep-with-previous">';
-      html += `
-        <div data-pdf="final-score">
-          <span class="number">${averageScore}</span>
-          <span class="label">ציון ויראליות משוקלל</span>
-        </div>
-      `;
-      html += '</div>';
 
       return html;
     };
@@ -2700,11 +2697,50 @@ const App = () => {
         page-break-before: avoid;
         break-before: avoid;
       }
-      /* כותרת + פירוט טיפים לא נחתכים – נשארים ביחד */
+      /* כרטיס מומחה: כותרת (תפקיד) + זווית מקצועית + טיפים לשיפור – יחידה אחת, לא מפצלים בין עמודים */
+      .pdf-expert-card {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .pdf-expert-card .card {
+        margin-bottom: 14px;
+      }
+      .pdf-expert-role {
+        color: #b8862e !important;
+        margin: 0 0 15px 0 !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #e6e6e6 !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      /* זווית מקצועית – כותרת + פסקה ביחד, לא לחתוך באמצע */
+      .pdf-professional-block {
+        margin-bottom: 15px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .pdf-professional-block .subtle-label { display: block; margin-bottom: 8px; }
+      .pdf-professional-block p { margin: 0; line-height: 1.7; orphans: 3; widows: 3; }
+      /* טיפים לשיפור – כל המקטע עם הכותרת עובר לדף הבא אם לא נכנס, בלי חיתוך */
       .pdf-tips-block {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
+      .pdf-tips-block .subtle-label { display: block; margin-bottom: 8px; }
+      .pdf-tips-block p { margin: 0; line-height: 1.7; font-weight: 500; orphans: 3; widows: 3; }
+      /* טיפים מנצחים + הצעות לשיפור + ציון – ביחד כדי שהדף האחרון לא יהיה ריק */
+      .pdf-final-block {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .pdf-committee-summary-card { margin-bottom: 20px; }
+      .pdf-committee-summary-card p,
+      .pdf-recommendation-card p { margin: 0; line-height: 1.7; font-size: 1.05rem; color: #2b2b2b; font-weight: 500; }
+      .pdf-recommendation-card { margin-bottom: 20px; }
+      .pdf-recommendation-card h4 { margin: 0 0 12px 0; font-size: 1.15rem; font-weight: 700; }
       .section-title {
         margin: 18px 0 10px;
         padding: 8px 12px;
