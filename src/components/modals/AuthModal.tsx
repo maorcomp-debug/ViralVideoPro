@@ -568,38 +568,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
           }
 
-          // Email confirmation is DISABLED in this environment - login user immediately after signup
-          // If signUp didn't create a session (common when email confirmation is disabled), sign in immediately
+          // Email confirmation: if Supabase requires it, session is null until user clicks link in email
           let session = data.session;
           if (!session && data.user) {
-            console.log('🔄 No session after signup, signing in automatically...');
+            const needsEmailConfirmation = !data.user.email_confirmed_at;
+            if (needsEmailConfirmation) {
+              // Confirm mail is enabled in Supabase – do not sign in; ask user to confirm email
+              console.log('📧 Email confirmation required – user must click link in email');
+              setLoading(false);
+              alert('נרשמת בהצלחה!\n\nנשלח אליך אימייל לאימות. לחץ על הקישור באימייל כדי להפעיל את החשבון ואז היכנס למערכת.');
+              onClose();
+              return;
+            }
+            // Session null but email already confirmed (edge case) – try sign in
             try {
               const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
                 email: email.trim(),
                 password,
               });
-              
-              if (signInError) {
-                console.error('Error signing in after signup:', signInError);
-                // Continue anyway - user might still be logged in
-              } else if (signInData.session) {
-                session = signInData.session;
-                console.log('✅ Successfully signed in after signup');
-              }
-            } catch (signInErr) {
-              console.error('Exception during auto sign-in after signup:', signInErr);
-              // Continue anyway
-            }
+              if (!signInError && signInData?.session) session = signInData.session;
+            } catch (_) {}
           }
           
-          // Profile update complete - call onAuthSuccess immediately (like login)
+          // Profile update complete – call onAuthSuccess (user has session)
           console.log('✅ Registration completed. User logged in with selected package:', effectiveTier);
-          
           alert('נרשמת בהצלחה!');
-          
-          // Call onAuthSuccess to reload user data with updated profile
           onAuthSuccess();
-          
           onClose();
         } else {
           console.error('❌ User creation failed - no user data returned');

@@ -1135,108 +1135,41 @@ const App = () => {
     updatingSubscriptionRef.current = true;
     setIsUpdatingSubscription(true);
 
-    // Direct upgrade without payment (temporarily - for testing)
-    // Update subscription directly for all tiers
-    try {
-      console.log('🔄 Updating subscription directly (no payment)...');
-      console.log('🔍 Updating to tier:', tier, 'period:', period);
-      
-      // Update profile subscription tier directly
-      console.log('📝 Attempting to update profile:', { userId: user.id, tier, period });
-      
-      // First, get the plan from Supabase to ensure it exists
-      const { data: planData, error: planError } = await supabase
-        .from('plans')
-        .select('*')
-        .eq('tier', tier)
-        .eq('is_active', true)
-        .single();
-      
-      if (planError || !planData) {
-        console.error('❌ Plan not found in database:', { tier, planError });
-        throw new Error(`חבילה לא נמצאה במסד הנתונים: ${tier}. אנא ודא שהמיגרציה 020 רצה.`);
-      }
-      
-      console.log('✅ Plan found in database:', { id: planData.id, name: planData.name, price: planData.monthly_price });
-      
-      const nowIso = new Date().toISOString();
-      const { data: updateData, error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          subscription_tier: tier,
-          subscription_period: period,
-          subscription_status: 'active',
-          subscription_start_date: nowIso,
-          updated_at: nowIso,
-        })
-        .eq('user_id', user.id)
-        .select();
+    const isPaidTier = tier !== 'free' && ['creator', 'pro', 'coach', 'coach-pro'].includes(tier);
 
-      if (updateError) {
-        console.error('❌ Error updating profile:', updateError);
-        console.error('❌ Error details:', JSON.stringify(updateError, null, 2));
-        throw new Error(`שגיאה בעדכון החבילה: ${updateError.message}`);
-      }
-
-      if (!updateData || updateData.length === 0) {
-        console.error('❌ No rows updated - check RLS policies or user permissions');
-        throw new Error('לא נמצא פרופיל לעדכון. בדוק הרשאות או נסה שוב.');
-      }
-      console.log('✅ Profile updated in DB:', { tier, rows: updateData?.length });
-
-      // Update local state immediately so UI reflects change without waiting for reload
-      if (profile) {
-        setProfile({
-          ...profile,
-          subscription_tier: tier,
-          subscription_period: period,
-          subscription_status: 'active',
-          updated_at: new Date().toISOString(),
+    if (isPaidTier) {
+      // Paid tier: redirect to TAKBUK payment flow
+      try {
+        const res = await fetch('/api/takbull/init-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            subscriptionTier: tier,
+            billingPeriod: period,
+          }),
         });
+        const data = await res.json();
+        if (!data.ok || !data.paymentUrl) {
+          throw new Error(data.error || 'לא ניתן לאתחל תשלום. נסה שוב.');
+        }
+        setUpgradeFromTier(subscription?.tier || 'free');
+        setUpgradeToTier(tier);
+        setTakbullPaymentUrl(data.paymentUrl);
+        setTakbullOrderReference(data.orderReference || '');
+        setShowSubscriptionModal(false);
+        setShowTakbullPayment(true);
+      } catch (err: any) {
+        console.error('❌ TAKBUK init-order error:', err);
+        alert(err.message || 'אירעה שגיאה בפתיחת עמוד התשלום. נסה שוב.');
+      } finally {
+        updatingSubscriptionRef.current = false;
+        setIsUpdatingSubscription(false);
       }
-      const subscriptionPlanData = SUBSCRIPTION_PLANS[tier];
-      if (subscriptionPlanData) {
-        setSubscription({
-          tier,
-          billingPeriod: period,
-          startDate: new Date(),
-          endDate: period === 'monthly'
-            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-            : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          usage: {
-            analysesUsed: usage?.analysesUsed || 0,
-            lastResetDate: usage?.periodStart || new Date(),
-          },
-          isActive: true,
-        });
-      }
-
-      // Close modals and show success immediately – user returns to app without waiting
-      setShowSubscriptionModal(false);
-      setShowPackageSelectionModal(false);
-      const baseMsg = `החבילה עודכנה בהצלחה ל-${SUBSCRIPTION_PLANS[tier]?.name || tier}`;
-      const extraMsg = (tier === 'creator')
-        ? '\n\nמחכה לך תחום ניתוח נוסף לבחירה בהגדרות המנוי.'
-        : '';
-      alert(`${baseMsg}${extraMsg}`);
-
-      // Sync from DB in background so data stays correct (no blocking)
-      if (user) {
-        loadUserData(user, true).catch((err) => console.warn('Background refresh after upgrade:', err));
-      }
-      
-    } catch (error: any) {
-      console.error('❌ Error in handleSelectPlan:', error);
-      alert(error.message || 'אירעה שגיאה בעדכון החבילה. נסה שוב.');
-    } finally {
-      console.log('🔄 Resetting isUpdatingSubscription flag');
-      updatingSubscriptionRef.current = false;
-      setIsUpdatingSubscription(false);
+      return;
     }
-    
-    return;
 
-    // Only for FREE tier - update directly without payment
+    // FREE tier only - update directly without payment
     try {
       console.log('🆓 Free tier selected, updating directly...');
       
@@ -1318,6 +1251,9 @@ const App = () => {
     } catch (error: any) {
       console.error('Error saving subscription (free tier):', error);
       alert('אירעה שגיאה בשמירת המנוי. נסה שוב.');
+    } finally {
+      updatingSubscriptionRef.current = false;
+      setIsUpdatingSubscription(false);
     }
   };
 
