@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
@@ -212,12 +212,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [passwordResetSent, setPasswordResetSent] = useState(false);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('creator');
   const [selectedTrack, setSelectedTrack] = useState<TrackId | ''>('');
+  const verificationEmailSentRef = useRef(false);
 
   const mode: AuthModalMode = modeProp ?? 'initial';
   const isUpgradeMode = mode === 'upgrade';
 
   const isTestAccount = email.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
   const tierRequiresTrack = (tier: SubscriptionTier) => tier === 'free' || tier === 'creator';
+
+  // איפוס ref למייל אימות כשהמודל נסגר – כדי שבהרשמה הבאה יישלח שוב
+  React.useEffect(() => {
+    if (!isOpen) verificationEmailSentRef.current = false;
+  }, [isOpen]);
 
   // When opened in upgrade mode: pre-select package and ensure only upgrade form shows (no registration fields)
   React.useEffect(() => {
@@ -517,18 +523,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             created_at: data.user.created_at
           });
 
-          // אימות מייל: מקור יחיד – שולחים רק מייל אחד דרך Resend (עיצוב Viraly). לא להשתמש במייל אימות אחר.
+          // אימות מייל: שולחים רק מייל אחד (פעם אחת) – עיצוב Viraly ממורכז. מניעת שליחה כפולה.
           const session = data.session;
           const needsEmailConfirmation = !session && !data.user.email_confirmed_at;
           if (needsEmailConfirmation) {
-            console.log('📧 Sending single verification email via Resend (Viraly design)');
             setLoading(false);
             const base = typeof window !== 'undefined' ? window.location.origin : '';
-            fetch(`${base}/api/send-confirmation-email`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: data.user.email, redirectTo: base }),
-            }).then((r) => r.json()).then((d) => { if (!d.ok) console.warn('Confirmation email API:', d.error); }).catch((e) => console.warn('Confirmation email request failed:', e));
+            if (!verificationEmailSentRef.current) {
+              verificationEmailSentRef.current = true;
+              fetch(`${base}/api/send-confirmation-email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: data.user.email, redirectTo: base }),
+              }).then((r) => r.json()).then((d) => { if (!d.ok) console.warn('Confirmation email API:', d.error); }).catch((e) => console.warn('Confirmation email request failed:', e));
+            }
             alert('נרשמת בהצלחה!\n\nנשלח אליך אימייל לאימות. לחץ על הקישור באימייל כדי להפעיל את החשבון ואז היכנס למערכת.');
             onClose();
             return;
