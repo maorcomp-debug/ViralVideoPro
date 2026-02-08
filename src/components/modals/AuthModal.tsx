@@ -339,6 +339,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setLoading(false);
           return;
         }
+        // RULE: Do NOT update subscription_tier or subscription_status here – only after successful payment (callback).
+        // Update only name and phone for the payment step; the package stays free until payment is confirmed.
         const upgradeTimeoutMs = 15000;
         try {
           await Promise.race([
@@ -346,9 +348,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {
                 full_name: trimmedFullName,
                 phone: cleanPhone,
-                subscription_tier: selectedTier,
-                subscription_status: 'active',
-                // בשדרוג ליוצרים לא מעדכנים תחום – נשאר מה שנבחר בחינם; תחום נוסף בהגדרות
+                // Do not set subscription_tier / subscription_status – only callback after payment may upgrade.
               },
               currentUser.id
             ),
