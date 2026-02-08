@@ -244,6 +244,13 @@ export const OrderReceivedPage: React.FC = () => {
           // Clear the maxWaitTimeout since API responded
           clearTimeout(maxWaitTimeout);
           
+          if (result.needsRetry) {
+            clearTimeout(maxWaitTimeout);
+            setStatus('error');
+            setMessage('התשלום לא אושר');
+            setError(result.message || 'המנוי נשאר ללא שינוי. אנא בצע תשלום מחדש.');
+            return;
+          }
           if (result.ok && result.success) {
             setStatus('success');
             setMessage('תשלומך התקבל בהצלחה! המנוי שלך עודכן.');
@@ -373,11 +380,11 @@ export const OrderReceivedPage: React.FC = () => {
         {status === 'error' && (
           <>
             <StatusIcon success={false}>❌</StatusIcon>
-            <Title>שגיאה בעיבוד התשלום</Title>
+            <Title>{error && error.includes('תשלום מחדש') ? 'התשלום לא אושר' : 'שגיאה בעיבוד התשלום'}</Title>
             <Message>{message || 'אירעה שגיאה בעיבוד התשלום'}</Message>
             {error && <ErrorMessage>{error}</ErrorMessage>}
             <Button onClick={() => navigate('/')}>
-              חזרה לדף הבית
+              {error && error.includes('תשלום מחדש') ? 'חזרה לביצוע תשלום מחדש' : 'חזרה לדף הבית'}
             </Button>
           </>
         )}

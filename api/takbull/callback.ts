@@ -70,8 +70,10 @@ export default async function handler(
 
     // Find order by order_reference, ordernumber, or transactionInternalNumber
     // Note: Takbull returns ordernumber which is different from our order_reference
-    let order;
-    let orderError;
+    let order: any = undefined;
+    let orderError: any = undefined;
+    /** If true, order was found only by "recent pending" fallback - never update subscription/profile in that case */
+    let foundByFallback = false;
 
     console.log('🔍 Searching for order with params:', {
       order_reference: params.order_reference,
@@ -148,7 +150,8 @@ export default async function handler(
     }
 
     // If still not found, try to find by searching recent pending orders
-    // This is a fallback when Takbull ordernumber doesn't match our order_reference
+    // SECURITY: This fallback is for display only. We must NEVER update subscription/profile
+    // when the order was found only by fallback (no matching reference from payment provider).
     if (!order) {
       console.log('⚠️ Order not found by any direct method, trying fallback search...');
       console.log('🔍 Searching for recent pending orders (within last 2 hours)...');
@@ -164,9 +167,9 @@ export default async function handler(
       
       if (result.data && result.data.length > 0) {
         console.log(`🔍 Found ${result.data.length} recent pending orders`);
-        // Take the most recent one
         order = result.data[0];
-        console.log('✅ Using most recent pending order as fallback:', {
+        foundByFallback = true;
+        console.log('✅ Using most recent pending order as fallback (subscription will NOT be updated):', {
           orderId: order.id,
           orderReference: order.order_reference,
           createdAt: order.created_at,
@@ -189,6 +192,18 @@ export default async function handler(
       return res.status(404).json({ 
         ok: false, 
         error: `Order not found. Searched by: order_reference=${params.order_reference}, ordernumber=${params.ordernumber}, transactionInternalNumber=${params.transactionInternalNumber}, uniqId=${params.uniqId}` 
+      });
+    }
+
+    // SECURITY: Never apply payment or update profile when order was found only by fallback.
+    // Return friendly response so the user can retry payment (subscription stays as-is).
+    if (foundByFallback) {
+      console.warn('⚠️ Callback invoked but order was found only by fallback – not updating subscription, asking user to retry');
+      return res.status(200).json({
+        ok: false,
+        success: false,
+        needsRetry: true,
+        message: 'התשלום לא אושר אצלנו. המנוי נשאר ללא שינוי. אנא בצע תשלום מחדש.',
       });
     }
 
