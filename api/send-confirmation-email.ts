@@ -24,7 +24,7 @@ function buildConfirmationEmailHtml(confirmUrl: string): string {
       ברוך הבא ל־ Viraly
     </h1>
     <p style="margin: 0 0 24px 0; line-height: 1.6; color: #fff;">
-      Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
+      אתה רגע לפני כניסה ל־Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
     </p>
     <p style="margin: 0 0 16px 0; line-height: 1.6; color: #fff;">
       כדי לאשר את החשבון ולהתחיל, לחץ על הכפתור:
@@ -80,17 +80,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       options: redirectTo ? { redirectTo } : undefined,
     });
 
-    const actionLink = linkData && ((linkData as any).properties?.action_link ?? (linkData as any).action_link);
-    if (linkError || !actionLink) {
-      console.warn('generateLink failed:', linkError?.message || 'no action_link');
+    const props = linkData && (linkData as any).properties;
+    const hashedToken = props?.hashed_token;
+    const verificationType = props?.verification_type || 'magiclink';
+    if (linkError || !hashedToken) {
+      console.warn('generateLink failed:', linkError?.message || 'no hashed_token');
       return res.status(400).json({ ok: false, error: 'Could not generate confirmation link' });
     }
-    if (!actionLink) {
-      return res.status(500).json({ ok: false, error: 'Missing confirmation link' });
-    }
+
+    const baseUrl = (redirectTo || '').replace(/\/$/, '');
+    const confirmUrl = `${baseUrl}?token_hash=${encodeURIComponent(hashedToken)}&type=${encodeURIComponent(verificationType)}`;
 
     const subject = 'אישור חשבון | Viraly - Video Director Pro';
-    const html = buildConfirmationEmailHtml(actionLink);
+    const html = buildConfirmationEmailHtml(confirmUrl);
     const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
 
     const resendRes = await fetch('https://api.resend.com/emails', {

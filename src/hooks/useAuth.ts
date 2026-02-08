@@ -98,37 +98,51 @@ export const useAuth = (): UseAuthReturn => {
   useEffect(() => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
-    
+
+    // אם הגענו מקישור אימייל אימות – להמיר token_hash ל־session ואז לנקות את ה־URL
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const tokenHash = params?.get('token_hash');
+    const otpType = params?.get('type');
+
+    const initAuth = async () => {
+      if (tokenHash && otpType && typeof window !== 'undefined') {
+        try {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: otpType as 'magiclink' | 'email' | 'signup' | 'recovery',
+          });
+          if (!error) {
+            const cleanPath = window.location.pathname || '/';
+            const hash = window.location.hash || '';
+            window.history.replaceState({}, '', cleanPath + hash);
+          }
+        } catch (e) {
+          console.warn('verifyOtp from email link failed:', e);
+        }
+      }
+
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (timeoutId) clearTimeout(timeoutId);
+      if (!mounted) return;
+      if (error) {
+        console.error('❌ Error getting session:', error);
+        setLoadingAuth(false);
+        return;
+      }
+      setUser(session?.user ?? null);
+      setLoadingAuth(false);
+    };
+
     // Faster timeout for better UX
     timeoutId = setTimeout(() => {
-      if (mounted) {
-        setLoadingAuth(false);
-      }
-    }, 5000); // 5 second timeout (reduced from 8)
-    
-    // Check initial session
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        if (timeoutId) clearTimeout(timeoutId);
-        if (!mounted) return;
-        
-        if (error) {
-          console.error('❌ Error getting session:', error);
-          setLoadingAuth(false);
-          return;
-        }
-        
-        // Update user state immediately if session exists
-        setUser(session?.user ?? null);
-        setLoadingAuth(false);
-      })
-      .catch((error) => {
-        if (timeoutId) clearTimeout(timeoutId);
-        console.error('❌ Error in getSession promise:', error);
-        if (mounted) {
-          setLoadingAuth(false);
-        }
-      });
+      if (mounted) setLoadingAuth(false);
+    }, 5000);
+
+    initAuth().catch((error) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      console.error('❌ Error in initAuth:', error);
+      if (mounted) setLoadingAuth(false);
+    });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
