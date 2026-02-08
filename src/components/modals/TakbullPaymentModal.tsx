@@ -84,6 +84,13 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Load payment in LTR wrapper so cursor aligns correctly in "שם בעל הכרטיס" (cardholder name).
+  // Embed via payment-frame.html (inner iframe) instead of redirect to avoid white screen on mobile.
+  const iframeSrc =
+    typeof window !== 'undefined' && paymentUrl
+      ? `${window.location.origin}/payment-frame.html?url=${encodeURIComponent(paymentUrl)}`
+      : paymentUrl;
+
   return (
     <ModalOverlay
       onClick={(e) => e.stopPropagation()}
@@ -99,7 +106,7 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
         <IframeWrapper dir="ltr">
           <iframe
             ref={iframeRef}
-            src={paymentUrl}
+            src={iframeSrc}
             dir="ltr"
             style={{
               position: 'absolute',

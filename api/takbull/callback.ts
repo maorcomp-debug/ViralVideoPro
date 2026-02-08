@@ -218,6 +218,19 @@ export default async function handler(
     const statusCode = parseInt(params.statusCode || '0', 10);
     const isSuccess = statusCode === 0;
 
+    // SECURITY: Only upgrade subscription when we have a real transaction id from the payment provider.
+    // Without ordernumber or transactionInternalNumber we do not apply payment (prevents upgrade without confirmed payment).
+    const hasTransactionId = !!(params.ordernumber || params.transactionInternalNumber);
+    if (isSuccess && !hasTransactionId) {
+      console.warn('⚠️ Callback with statusCode=0 but no ordernumber/transactionInternalNumber – not updating subscription');
+      return res.status(200).json({
+        ok: false,
+        success: false,
+        needsRetry: true,
+        message: 'התשלום לא אושר אצלנו. המנוי נשאר ללא שינוי. אנא בצע תשלום מחדש.',
+      });
+    }
+
     // Update order with transaction details
     const updateData: any = {
       transaction_internal_number: params.transactionInternalNumber,
