@@ -1264,6 +1264,9 @@ const App = () => {
       
       if (profile) {
         profileTier = (profile.subscription_tier as SubscriptionTier) || 'free';
+        // NOTE: profile_status משקף את מצב החיוב (חדש/השהה/בוטל),
+        // אבל מבחינת גישה לניתוחים אנחנו רוצים לאפשר שימוש עד סוף התקופה/המכסה.
+        // לכן לא נחסום רק על סמך subscription_status, אלא רק לפי תאריך סיום/מכסה.
         profileIsActive = profile.subscription_status === 'active';
         
         if (profile.subscription_end_date) {
@@ -1309,14 +1312,8 @@ const App = () => {
       // For free tier, also check endDate if it exists (trial period)
       if (effectiveTier !== 'free' || effectiveSubscription.endDate) {
         try {
-          // Check isActive flag first (for all paid tiers)
-          if (effectiveTier !== 'free' && !effectiveSubscription.isActive) {
-            return { 
-              allowed: false, 
-              message: 'המנוי שלך לא פעיל. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
-            };
-          }
-          
+          // במקום לחסום לפי isActive (שמשקף השהייה/ביטול), נאפשר שימוש
+          // כל עוד התקופה/המכסה בתוקף, ונבדוק רק פקיעת תוקף לפי endDate.
           // Check endDate if it exists (for all tiers including free/trial)
           if (effectiveSubscription.endDate) {
             const endDate = effectiveSubscription.endDate instanceof Date 
@@ -1329,7 +1326,7 @@ const App = () => {
               if (now > endDate) {
                 return { 
                   allowed: false, 
-                  message: 'המנוי שלך פג תוקף. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
+                  message: 'המנוי שלך פג תוקף (הסתיימה תקופת החיוב). כדי להמשיך לנתח, יש לחדש או לשדרג את החבילה.' 
                 };
               }
             }
@@ -1351,7 +1348,7 @@ const App = () => {
               // Subscription expired according to profile - block analysis
               return { 
                 allowed: false, 
-                message: 'המנוי שלך פג תוקף. כדי להמשיך לנתח, אנא שדרג חבילה מבין החבילות המוצעות.' 
+                message: 'המנוי שלך פג תוקף (על פי נתוני הפרופיל). כדי להמשיך לנתח, יש לחדש או לשדרג את החבילה.' 
               };
             }
           }

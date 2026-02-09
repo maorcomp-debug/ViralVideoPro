@@ -856,6 +856,8 @@ export const AdminPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  // Subscribers tab filter: all registered vs paid only
+  const [subscriberFilter, setSubscriberFilter] = useState<'all' | 'paid'>('all');
   
   // Form states
   const [updateForm, setUpdateForm] = useState({
@@ -905,6 +907,16 @@ export const AdminPage: React.FC = () => {
   const [selectedCoupons, setSelectedCoupons] = useState<Set<string>>(new Set());
   const [deleteByEmailValue, setDeleteByEmailValue] = useState('');
   const [isDeletingByEmail, setIsDeletingByEmail] = useState(false);
+
+  // Derived subscriber subsets
+  const paidUsers = users.filter(
+    (u: any) => u.subscription_tier && u.subscription_tier !== 'free'
+  );
+  const subscriberUsers = subscriberFilter === 'paid' ? paidUsers : users;
+
+  const handleSubscriberStatClick = (filter: 'all' | 'paid') => {
+    setSubscriberFilter((prev) => (prev === filter ? 'all' : filter));
+  };
 
   const loadData = async (forceRefresh = false) => {
     // Allow force refresh even if already loading
@@ -1659,13 +1671,33 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'subscribers' && (
           <>
             <StatsGrid>
-              <StatCard>
+              <StatCard
+                onClick={() => handleSubscriberStatClick('all')}
+                style={{
+                  cursor: 'pointer',
+                  borderColor: subscriberFilter === 'all' ? '#ffffff' : '#D4A043',
+                  boxShadow:
+                    subscriberFilter === 'all'
+                      ? '0 0 0 1px #ffffff'
+                      : 'none',
+                }}
+              >
                 <StatValue>{users.length}</StatValue>
                 <StatLabel>סה"כ מנויים רשומים</StatLabel>
                 <StatSubLabel>כל המשתמשים במערכת</StatSubLabel>
               </StatCard>
-              <StatCard>
-                <StatValue>{users.filter((u: any) => u.subscription_tier && u.subscription_tier !== 'free').length}</StatValue>
+              <StatCard
+                onClick={() => handleSubscriberStatClick('paid')}
+                style={{
+                  cursor: 'pointer',
+                  borderColor: subscriberFilter === 'paid' ? '#ffffff' : '#D4A043',
+                  boxShadow:
+                    subscriberFilter === 'paid'
+                      ? '0 0 0 1px #ffffff'
+                      : 'none',
+                }}
+              >
+                <StatValue>{paidUsers.length}</StatValue>
                 <StatLabel>סה"כ מנויים בתשלום</StatLabel>
                 <StatSubLabel>חבילות יוצרים / מאמנים</StatSubLabel>
               </StatCard>
@@ -1691,14 +1723,14 @@ export const AdminPage: React.FC = () => {
                   </tr>
                 </TableHeader>
                 <tbody>
-                  {users.length === 0 ? (
+                  {subscriberUsers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} style={{ textAlign: 'center', padding: '40px' }}>
                         אין מנויים להצגה. לחץ רענן.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    users.map((user: any) => {
+                    subscriberUsers.map((user: any) => {
                       const tier = user.subscription_tier || 'free';
                       const isPaid = tier !== 'free';
                       const plan = SUBSCRIPTION_PLANS[tier as SubscriptionTier];

@@ -93,7 +93,7 @@ export const useSubscription = (
         // Paid tiers: check within subscription period
         return { 
           allowed: false, 
-          message: `סיימת את הניתוחים בתקופת המנוי. יתאפס בתקופת החיוב הבאה או שדרג לחבילה גבוהה יותר` 
+          message: `סיימת את הניתוחים בתקופת המנוי (המכסה נוצלה במלואה). הניהול יתאפס בתקופת החיוב הבאה או שניתן לשדרג לחבילה גבוהה יותר.` 
         };
       }
     }
