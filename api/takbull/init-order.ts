@@ -80,29 +80,29 @@ export default async function handler(
     // Initialize Supabase client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get plan details
+    // Get plan details (include name for Takbull product display)
     let planId = body.planId;
     if (!planId) {
-      const { data: plan, error: planError } = await supabase
+      const { data: planRow, error: planError } = await supabase
         .from('plans')
-        .select('id, monthly_price, yearly_price')
+        .select('id, name, monthly_price, yearly_price')
         .eq('tier', body.subscriptionTier)
         .eq('is_active', true)
         .single();
 
-      if (planError || !plan) {
+      if (planError || !planRow) {
         return res.status(400).json({ 
           ok: false, 
           error: 'Plan not found' 
         });
       }
-      planId = plan.id;
+      planId = planRow.id;
     }
 
-    // Calculate amount based on billing period
+    // Calculate amount based on billing period (fetch plan with name for product display)
     const { data: plan, error: planFetchError } = await supabase
       .from('plans')
-      .select('monthly_price, yearly_price')
+      .select('id, name, monthly_price, yearly_price')
       .eq('id', planId)
       .single();
 
@@ -118,12 +118,16 @@ export default async function handler(
       ? plan.monthly_price 
       : plan.yearly_price;
 
-    // Apply pending registration coupon discount (percentage or fixed_amount)
-    const { data: profile } = await supabase
+    // Fetch profile for discount and for Takbull customer data (name, email, phone)
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('pending_payment_discount_type, pending_payment_discount_value')
+      .select('full_name, email, phone, pending_payment_discount_type, pending_payment_discount_value')
       .eq('user_id', body.userId)
       .maybeSingle();
+
+    if (profileError) {
+      console.error('❌ Error fetching profile:', profileError);
+    }
 
     const discountType = (profile as any)?.pending_payment_discount_type;
     const discountValue = (profile as any)?.pending_payment_discount_value;
@@ -174,12 +178,30 @@ export default async function handler(
       });
     }
 
+    // Product display name for Takbull (from plan or tier fallback)
+    const productName = (plan as any)?.name || `Viraly Pro - ${body.subscriptionTier}`;
+    const customerName = (profile as any)?.full_name?.trim() || '';
+    const customerEmail = (profile as any)?.email || '';
+    const customerPhone = (profile as any)?.phone?.trim() || '';
+
     // Prepare request to Takbull API
     // Try multiple authentication methods as different APIs use different formats
     const takbullPayload: any = {
       DealType: 4, // Subscription
+      Interval:1,
       OrderReference: orderReference,
-      Amount: amount,
+      OrderTotalSum: amount,
+      Products: [
+        {
+          ProductName: productName,
+          Price: amount,
+        },
+      ],
+      Customer: {
+        CustomerFullName: customerName,
+        Email: customerEmail,
+        PhoneNumber: customerPhone,
+      },
       RedirectAddress: redirectUrl,
       Currency: 'ILS',
       Language: 'he',
@@ -190,10 +212,10 @@ export default async function handler(
     if (body.billingPeriod === 'yearly') {
       // For yearly subscriptions, you might need to handle differently
       // Check Takbull API docs for recurring payment setup
-      takbullPayload.Recurring = true;
+      takbullPayload.RecuringInterval = 4;
       takbullPayload.NumberOfPayments = 12; // 12 monthly payments
     } else {
-      takbullPayload.Recurring = true;
+      takbullPayload.RecuringInterval = 5;
       takbullPayload.NumberOfPayments = 1;
     }
 
