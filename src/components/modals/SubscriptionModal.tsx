@@ -689,6 +689,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   const faqItems = [
     {
+      question: 'האם השירות מתאים גם למתחילים?',
+      answer: 'כן. האפליקציה מתאימה ליוצרים בכל רמה, גם ללא נסיון קודם.',
+    },
+    {
       question: 'האם אני יכול לבטל את המנוי בכל עת?',
       answer: 'כן, אתה יכול לבטל את המנוי בכל עת. המנוי יישאר פעיל עד סוף תקופת החיוב הנוכחית.',
     },
@@ -701,12 +705,16 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       answer: 'לא, כל החבילות הן חודשיות ללא התחייבות. אתה משלם רק על מה שאתה משתמש.',
     },
     {
+      question: 'מה קורה אחרי ביטול או השהיית המנוי?',
+      answer: 'לאחר ביטול או השהייה, הגישה נשארת פעילה עד סוף תקופת החיוב ולא מתבצע חיוב נוסף.',
+    },
+    {
       question: 'איך עובד ניתוח הווידאו?',
-      answer: 'פשוט מעלים את הסרטון או התמונה, מוסיפים הקשר אם רוצים, וה-AI שלנו מנתח את התוכן עם 8 מומחים וירטואליים: במאי, מלהק, תסריטאי, מאמן משחק, צלם, עורך סאונד, סטייליסט ומפיק.',
+      answer: 'פשוט מעלים סרטון, מוסיפים הקשר אם רוצים, וה-AI שלנו מנתח את התוכן עם 8 מומחים וירטואליים בהתאם למסלול הניתוח שלך.',
     },
     {
       question: 'האם אפשר לקבל החזר כספי?',
-      answer: 'יש לנו מדיניות החזר של 7 ימים, אם אתה לא מרוצה, פנה אלינו ונחזיר לך את החלק היחסי של הכסף.',
+      answer: 'לא. החיוב הוא עבור תקופת שימוש שכבר התחילה ולכן לא ניתנים החזרים.',
     },
   ];
 
@@ -998,7 +1006,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           </>
         )}
 
-        {/* 7-Day Refund Policy */}
+        {/* No-commitment CTA */}
         <div style={{ 
           background: 'rgba(212, 160, 67, 0.1)', 
           padding: '30px', 
@@ -1008,15 +1016,11 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           border: '1px solid rgba(212, 160, 67, 0.3)'
         }}>
           <h3 style={{ color: '#D4A043', fontSize: '2rem', margin: '0 0 15px 0', fontFamily: "'Frank Ruhl Libre', serif" }}>
-            אחריות 7 ימים
+            אנחנו בטוחים שתאהב את השירות
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <p style={{ color: '#fff', fontSize: '1.1rem', margin: 0, lineHeight: '1.6' }}>
-              לא מרוצה? אנחנו מחזירים לך את הכסף בלי שאלות
-            </p>
-            <p style={{ color: '#D4A043', fontSize: '1.3rem', margin: 0, lineHeight: '1.6', fontWeight: 700 }}>
-              אנחנו בטוחים שתאהב את השירות
-            </p>
+          <div style={{ color: '#D4A043', fontSize: '1.3rem', lineHeight: '1.6', fontWeight: 700 }}>
+            <p style={{ margin: '0 0 6px 0' }}>ולכן אין התחייבות</p>
+            <p style={{ margin: 0 }}>מבטלים בלחיצה אחת!</p>
           </div>
         </div>
 
@@ -1087,7 +1091,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             margin: '0 0 20px 0',
             fontFamily: "'Frank Ruhl Libre', serif"
           }}>
-            שאלות נוספות או צורך בביטול?
+            יש לך שאלות נוספות או צורך בתמיכה?
           </h3>
           {!showContactForm ? (
             <>

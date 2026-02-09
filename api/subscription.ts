@@ -42,8 +42,8 @@ const SUBSCRIPTION_EMAIL_SUBJECTS: Record<string, string> = {
 };
 
 const SUBSCRIPTION_EMAIL_CONFIRM_LINE: Record<string, string> = {
-  pause: 'אנו מאשרים כי ביקשת להשהות את המנוי.',
-  cancel: 'אנו מאשרים כי ביקשת לבטל את המנוי.',
+  pause: 'אנו מאשרים כי ביקשת להשהות את המנוי. ההשהייה תיכנס לתוקף בסיום התקופה.',
+  cancel: 'אנו מאשרים כי ביקשת לבטל את המנוי. הביטול ייכנס לתוקף בסיום התקופה.',
   resume: 'אנו מאשרים כי ביקשת לחדש את המנוי.',
 };
 

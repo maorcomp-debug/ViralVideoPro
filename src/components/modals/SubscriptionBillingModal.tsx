@@ -261,7 +261,7 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
     const periodEndStr = periodEnd ? formatDate(periodEnd) : 'סיום המכסה';
     setConfirmDialog({
       title: 'להשהות את המנוי?',
-      body: `לא תחויב שוב. תוכל להמשיך להשתמש בחבילה עד ${periodEndStr} או עד סיום המכסה, המוקדם מביניהם.`,
+      body: `ההשהייה תיכנס לתוקף בסיום התקופה. לא תחויב שוב, ותוכל להמשיך להשתמש בחבילה עד ${periodEndStr} או עד סיום המכסה, המוקדם מביניהם.`,
       confirmLabel: 'כן, השהה',
       onConfirm: () => {
         setConfirmDialog(null);
@@ -273,7 +273,7 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
     const periodEndStr = periodEnd ? formatDate(periodEnd) : 'סיום המכסה';
     setConfirmDialog({
       title: 'לבטל את המנוי?',
-      body: `לא תחויב שוב. תוכל להמשיך להשתמש בחבילה עד ${periodEndStr} או עד סיום המכסה, המוקדם מביניהם.`,
+      body: `הביטול ייכנס לתוקף בסיום התקופה. לא תחויב שוב, ותוכל להמשיך להשתמש בחבילה עד ${periodEndStr} או עד סיום המכסה, המוקדם מביניהם.`,
       confirmLabel: 'כן, בטל מנוי',
       onConfirm: () => {
         setConfirmDialog(null);
