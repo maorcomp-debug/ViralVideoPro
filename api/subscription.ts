@@ -237,7 +237,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } as any).eq('id', sub.id);
         await logEvent(admin, user.id, 'pause', { subscription_id: sub.id });
         const { data: profile } = await admin.from('profiles').select('user_id').eq('user_id', user.id).single();
-        if (profile) await admin.from('profiles').update({ subscription_status: 'inactive', updated_at: now }).eq('user_id', user.id);
+        // חשוב: בפרופיל נשמור סטטוס "paused" כדי לשקף למנהל שמדובר במנוי מושהה (לא "לא פעיל")
+        if (profile) await admin.from('profiles').update({ subscription_status: 'paused', updated_at: now }).eq('user_id', user.id);
         const email = await getEmailForUser(admin, user.id);
         if (email) await sendSubscriptionActionEmail(email, 'pause');
         return res.status(200).json({ ok: true });
