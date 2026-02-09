@@ -1685,6 +1685,7 @@ export const AdminPage: React.FC = () => {
                     <TableHeaderCell>טלפון</TableHeaderCell>
                     <TableHeaderCell>סוג</TableHeaderCell>
                     <TableHeaderCell>חבילה</TableHeaderCell>
+                    <TableHeaderCell>סטטוס מנוי</TableHeaderCell>
                     <TableHeaderCell>שימוש (ניתוחים)</TableHeaderCell>
                     <TableHeaderCell>תאריך הרשמה</TableHeaderCell>
                   </tr>
@@ -1692,7 +1693,7 @@ export const AdminPage: React.FC = () => {
                 <tbody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} style={{ textAlign: 'center', padding: '40px' }}>
+                      <TableCell colSpan={8} style={{ textAlign: 'center', padding: '40px' }}>
                         אין מנויים להצגה. לחץ רענן.
                       </TableCell>
                     </TableRow>
@@ -1705,6 +1706,15 @@ export const AdminPage: React.FC = () => {
                       const usageText = plan?.limits?.maxAnalysesPerPeriod === -1
                         ? `${usage.analysesUsed} (ללא הגבלה)`
                         : `${usage.analysesUsed} / ${usage.maxAnalyses}`;
+                      const statusMap: Record<string, string> = {
+                        active: 'פעיל',
+                        paused: 'מושהה',
+                        canceled: 'בוטל',
+                        cancelled: 'בוטל',
+                        expired: 'פג תוקף',
+                        inactive: 'לא פעיל',
+                      };
+                      const statusLabel = statusMap[(user.subscription_status || '').toLowerCase()] || (user.subscription_status || '—');
                       return (
                         <TableRow key={user.user_id || user.id}>
                           <TableCell>{(user.full_name || '-').trim() || '-'}</TableCell>
@@ -1712,6 +1722,7 @@ export const AdminPage: React.FC = () => {
                           <TableCell>{(user.phone || '-').trim() || '-'}</TableCell>
                           <TableCell>{isPaid ? 'תשלום' : 'חינם'}</TableCell>
                           <TableCell>{SUBSCRIPTION_PLANS[tier]?.name || tier}</TableCell>
+                          <TableCell>{statusLabel}</TableCell>
                           <TableCell>{usageText}</TableCell>
                           <TableCell>{user.created_at ? new Date(user.created_at).toLocaleDateString('he-IL') : '-'}</TableCell>
                         </TableRow>
