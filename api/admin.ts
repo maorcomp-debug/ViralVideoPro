@@ -41,6 +41,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await supabaseAdmin.from('coupon_redemptions').delete().eq('user_id', userId);
       await supabaseAdmin.from('user_trials').delete().eq('user_id', userId);
       await supabaseAdmin.from('user_announcements').delete().eq('user_id', userId);
+      const { data: annIds } = await supabaseAdmin.from('announcements').select('id').eq('created_by', userId);
+      if (annIds?.length) {
+        await supabaseAdmin.from('user_announcements').delete().in('announcement_id', annIds.map((a: any) => a.id));
+        await supabaseAdmin.from('announcements').delete().eq('created_by', userId);
+      }
+      const { data: coupIds } = await supabaseAdmin.from('coupons').select('id').eq('created_by', userId);
+      if (coupIds?.length) {
+        await supabaseAdmin.from('coupon_redemptions').delete().in('coupon_id', coupIds.map((c: any) => c.id));
+        await supabaseAdmin.from('coupons').delete().eq('created_by', userId);
+      }
       await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
       if (deleteError) throw new Error(deleteError.message);

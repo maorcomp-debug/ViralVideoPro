@@ -6,6 +6,7 @@ import { GlobalStyle, fadeIn, shimmer, pulse, glowReady, breathingHigh } from '.
 import { SettingsPage } from './src/components/pages/SettingsPage';
 import { AdminPage } from './src/components/pages/AdminPage';
 import { OrderReceivedPage } from './src/components/pages/OrderReceivedPage';
+import { PaymentRedirectPage } from './src/components/pages/PaymentRedirectPage';
 import { SubscriptionModal } from './src/components/modals/SubscriptionModal';
 import { SubscriptionBillingModal } from './src/components/modals/SubscriptionBillingModal';
 import { UpgradeBenefitsModal } from './src/components/modals/UpgradeBenefitsModal';
@@ -1150,10 +1151,11 @@ const App = () => {
         }
         setUpgradeFromTier(subscription?.tier || 'free');
         setUpgradeToTier(tier);
-        setTakbullPaymentUrl(data.paymentUrl);
-        setTakbullOrderReference(data.orderReference || '');
         setShowSubscriptionModal(false);
-        setShowTakbullPayment(true);
+        navigate(
+          '/payment-redirect?url=' + encodeURIComponent(data.paymentUrl) +
+          '&ref=' + encodeURIComponent(data.orderReference || '')
+        );
       } catch (err: any) {
         console.error('❌ TAKBUK init-order error:', err);
         alert(err.message || 'אירעה שגיאה בפתיחת עמוד התשלום. נסה שוב.');
@@ -5017,6 +5019,7 @@ const AppRouter = () => {
         <Route path="/analysis/:analysisId?" element={<App />} />
         <Route path="/creator" element={<App />} />
         <Route path="/order-received" element={<OrderReceivedPage />} />
+        <Route path="/payment-redirect" element={<PaymentRedirectPage />} />
       </Routes>
     </BrowserRouter>
   );
