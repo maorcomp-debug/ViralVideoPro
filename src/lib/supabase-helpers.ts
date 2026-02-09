@@ -677,7 +677,7 @@ export async function getAllUsers(skipAdminCheck = false) {
     // Skip all session/admin checks and go straight to admin client for maximum speed
     if (skipAdminCheck) {
       const adminClient = getAdminClient();
-      const { data, error } = await adminClient
+      const { data: profilesData, error } = await adminClient
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
@@ -687,7 +687,55 @@ export async function getAllUsers(skipAdminCheck = false) {
         return [];
       }
       
-      return data || [];
+      if (!profilesData || profilesData.length === 0) {
+        return [];
+      }
+      
+      // Fetch latest subscription status and end_date for each user from subscriptions table
+      // This ensures we show the most up-to-date status (paused/canceled/active) and can check if still valid
+      const userIds = profilesData.map((p: any) => p.user_id).filter(Boolean);
+      if (userIds.length > 0) {
+        const { data: subscriptionsData } = await adminClient
+          .from('subscriptions')
+          .select('user_id, subscription_status, end_date, current_period_end')
+          .in('user_id', userIds)
+          .order('created_at', { ascending: false });
+        
+        // Create maps of user_id -> latest subscription data
+        const statusMap: Record<string, string> = {};
+        const endDateMap: Record<string, string | null> = {};
+        if (subscriptionsData) {
+          subscriptionsData.forEach((sub: any) => {
+            // Only update if we haven't seen this user_id yet (since we order by created_at desc)
+            if (!statusMap[sub.user_id] && sub.subscription_status) {
+              statusMap[sub.user_id] = sub.subscription_status;
+            }
+            // Use current_period_end if available, otherwise end_date
+            if (!endDateMap[sub.user_id]) {
+              endDateMap[sub.user_id] = sub.current_period_end || sub.end_date || null;
+            }
+          });
+        }
+        
+        // Update profiles with subscription_status and end_date from subscriptions table (more reliable)
+        const enrichedProfiles = profilesData.map((profile: any) => {
+          const subStatus = statusMap[profile.user_id];
+          const subEndDate = endDateMap[profile.user_id];
+          const updates: any = {};
+          if (subStatus) {
+            updates.subscription_status = subStatus;
+          }
+          // Prefer subscription end_date over profile end_date if available
+          if (subEndDate) {
+            updates.subscription_end_date = subEndDate;
+          }
+          return Object.keys(updates).length > 0 ? { ...profile, ...updates } : profile;
+        });
+        
+        return enrichedProfiles;
+      }
+      
+      return profilesData || [];
     }
     
     // Original logic for when admin check is needed
@@ -775,10 +823,91 @@ export async function getAllUsers(skipAdminCheck = false) {
         }
         
         console.log('✅ getAllUsers: loaded via fallback, count =', fallbackData?.length || 0);
+        
+        // Enrich fallback data with subscription status and end_date
+        if (fallbackData && fallbackData.length > 0) {
+          const userIds = fallbackData.map((p: any) => p.user_id).filter(Boolean);
+          if (userIds.length > 0) {
+            try {
+              const { data: subscriptionsData } = await adminClient
+                .from('subscriptions')
+                .select('user_id, subscription_status, end_date, current_period_end')
+                .in('user_id', userIds)
+                .order('created_at', { ascending: false });
+              
+              const statusMap: Record<string, string> = {};
+              const endDateMap: Record<string, string | null> = {};
+              if (subscriptionsData) {
+                subscriptionsData.forEach((sub: any) => {
+                  if (!statusMap[sub.user_id] && sub.subscription_status) {
+                    statusMap[sub.user_id] = sub.subscription_status;
+                  }
+                  if (!endDateMap[sub.user_id]) {
+                    endDateMap[sub.user_id] = sub.current_period_end || sub.end_date || null;
+                  }
+                });
+              }
+              
+              return fallbackData.map((profile: any) => {
+                const subStatus = statusMap[profile.user_id];
+                const subEndDate = endDateMap[profile.user_id];
+                const updates: any = {};
+                if (subStatus) updates.subscription_status = subStatus;
+                if (subEndDate) updates.subscription_end_date = subEndDate;
+                return Object.keys(updates).length > 0 ? { ...profile, ...updates } : profile;
+              });
+            } catch (subError) {
+              console.warn('⚠️ getAllUsers: Could not enrich fallback data with subscription status:', subError);
+            }
+          }
+        }
+        
         return fallbackData || [];
       } catch (fallbackException: any) {
         console.error('❌ getAllUsers: Fallback exception:', fallbackException);
         return [];
+      }
+    }
+
+    // Enrich profiles data with subscription status and end_date from subscriptions table
+    if (data && data.length > 0) {
+      const userIds = data.map((p: any) => p.user_id).filter(Boolean);
+      if (userIds.length > 0) {
+        try {
+          const { data: subscriptionsData } = await adminClient
+            .from('subscriptions')
+            .select('user_id, subscription_status, end_date, current_period_end')
+            .in('user_id', userIds)
+            .order('created_at', { ascending: false });
+          
+          const statusMap: Record<string, string> = {};
+          const endDateMap: Record<string, string | null> = {};
+          if (subscriptionsData) {
+            subscriptionsData.forEach((sub: any) => {
+              // Only update if we haven't seen this user_id yet (since we order by created_at desc)
+              if (!statusMap[sub.user_id] && sub.subscription_status) {
+                statusMap[sub.user_id] = sub.subscription_status;
+              }
+              if (!endDateMap[sub.user_id]) {
+                endDateMap[sub.user_id] = sub.current_period_end || sub.end_date || null;
+              }
+            });
+          }
+          
+          // Update profiles with subscription_status and end_date from subscriptions table (more reliable)
+          const enrichedData = data.map((profile: any) => {
+            const subStatus = statusMap[profile.user_id];
+            const subEndDate = endDateMap[profile.user_id];
+            const updates: any = {};
+            if (subStatus) updates.subscription_status = subStatus;
+            if (subEndDate) updates.subscription_end_date = subEndDate;
+            return Object.keys(updates).length > 0 ? { ...profile, ...updates } : profile;
+          });
+          
+          return enrichedData;
+        } catch (subError) {
+          console.warn('⚠️ getAllUsers: Could not enrich data with subscription status:', subError);
+        }
       }
     }
 

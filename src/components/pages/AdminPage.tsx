@@ -1738,15 +1738,37 @@ export const AdminPage: React.FC = () => {
                       const usageText = plan?.limits?.maxAnalysesPerPeriod === -1
                         ? `${usage.analysesUsed} (ללא הגבלה)`
                         : `${usage.analysesUsed} / ${usage.maxAnalyses}`;
-                      const statusMap: Record<string, string> = {
-                        active: 'פעיל',
-                        paused: 'מושהה',
-                        canceled: 'בוטל',
-                        cancelled: 'בוטל',
-                        expired: 'פג תוקף',
-                        inactive: 'לא פעיל',
-                      };
-                      const statusLabel = statusMap[(user.subscription_status || '').toLowerCase()] || (user.subscription_status || '—');
+                      // Determine subscription status display
+                      // If subscription is still valid (endDate not passed), show "פעיל" with actual state in parentheses
+                      const subscriptionStatus = (user.subscription_status || '').toLowerCase();
+                      const endDate = user.subscription_end_date ? new Date(user.subscription_end_date) : null;
+                      const isStillValid = endDate ? new Date() <= endDate : (subscriptionStatus === 'active' || subscriptionStatus === 'paused' || subscriptionStatus === 'canceled');
+                      
+                      let statusLabel: string;
+                      if (isStillValid && isPaid) {
+                        // Subscription is still valid - show "פעיל" with actual state in parentheses if different
+                        if (subscriptionStatus === 'active') {
+                          statusLabel = 'פעיל';
+                        } else if (subscriptionStatus === 'paused') {
+                          statusLabel = 'פעיל (מושהה)';
+                        } else if (subscriptionStatus === 'canceled' || subscriptionStatus === 'cancelled') {
+                          statusLabel = 'פעיל (בוטל)';
+                        } else {
+                          statusLabel = 'פעיל';
+                        }
+                      } else {
+                        // Subscription expired or invalid
+                        const statusMap: Record<string, string> = {
+                          active: 'פעיל',
+                          paused: 'מושהה',
+                          canceled: 'בוטל',
+                          cancelled: 'בוטל',
+                          expired: 'פג תוקף',
+                          inactive: 'לא פעיל',
+                        };
+                        statusLabel = statusMap[subscriptionStatus] || (user.subscription_status || '—');
+                      }
+                      
                       return (
                         <TableRow key={user.user_id || user.id}>
                           <TableCell>{(user.full_name || '-').trim() || '-'}</TableCell>
