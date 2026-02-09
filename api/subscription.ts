@@ -246,20 +246,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (action === 'cancel') {
         if (subAny.subscription_status === 'canceled') return res.status(200).json({ ok: true, message: 'המנוי כבר בוטל' });
-        if (recurringId) {
-          try {
-            const takbulApiKey = process.env.TAKBULL_API_KEY;
-            const takbulApiSecret = process.env.TAKBULL_API_SECRET;
-            if (takbulApiKey && takbulApiSecret) {
-              const resTakbul = await fetch('https://api.takbull.co.il/api/ExtranalAPI/StopRecurringCharge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ API_Key: takbulApiKey, API_Secret: takbulApiSecret, RecurringId: recurringId }),
-              });
-              if (!resTakbul.ok) console.warn('Takbul stopRecurringCharge failed:', await resTakbul.text());
-            }
-          } catch (e) { console.warn('Takbul cancel error:', e); }
+        
+        // Get the original order's uniqId for CancelSubscription API call
+        let uniqId: string | null = null;
+        try {
+          const { data: order } = await admin
+            .from('takbull_orders')
+            .select('uniq_id')
+            .eq('subscription_id', sub.id)
+            .not('uniq_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          uniqId = (order as any)?.uniq_id || null;
+        } catch (e) {
+          console.warn('Error fetching order uniqId:', e);
         }
+       
+
+        // Call CancelSubscription with original uniqId from GetRedirectUrl
+        if (uniqId) {
+          try {
+            const cancelUrl = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}`;
+            const resCancel = await fetch(cancelUrl, {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' },
+            });
+            
+            if (!resCancel.ok) {
+              const errorText = await resCancel.text();
+              console.warn('Takbull CancelSubscription HTTP error:', resCancel.status, errorText);
+            } else {
+              const cancelData = await resCancel.json();
+              if (cancelData.InternalCode === 0) {
+                console.log('Takbull CancelSubscription succeeded for uniqId:', uniqId);
+              } else {
+                const errorMsg = cancelData.InternalDescription || 'Unknown error';
+                console.warn('Takbull CancelSubscription failed:', {
+                  uniqId,
+                  InternalCode: cancelData.InternalCode,
+                  InternalDescription: errorMsg,
+                });
+              }
+            }
+          } catch (e) {
+            console.warn('Takbull CancelSubscription error:', e);
+          }
+        } else {
+          console.warn('No uniqId found for subscription cancellation');
+        }
+
         const now = new Date().toISOString();
         await admin.from('subscriptions').update({
           subscription_status: 'canceled',
@@ -268,7 +304,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           canceled_at: now,
           updated_at: now,
         } as any).eq('id', sub.id);
-        await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id });
+        await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id, uniqId });
         await admin.from('profiles').update({ subscription_status: 'cancelled', updated_at: now }).eq('user_id', user.id);
         const emailCancel = await getEmailForUser(admin, user.id);
         if (emailCancel) await sendSubscriptionActionEmail(emailCancel, 'cancel');
