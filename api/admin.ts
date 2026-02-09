@@ -71,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'delete-user-by-email') {
       const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
       if (!email) return res.status(400).json({ ok: false, error: 'Missing email in request body' });
-      const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers(1000);
+      const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
       if (listError) return res.status(500).json({ ok: false, error: listError.message });
       const target = (users || []).find((u: any) => (u.email || '').toLowerCase() === email);
       if (!target) return res.status(404).json({ ok: false, error: 'User not found with this email' });
