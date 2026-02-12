@@ -3127,7 +3127,8 @@ const App = () => {
         
         // Check file size
         if (file.size > maxFileBytes) {
-           alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
+           const actualMb = (file.size / (1024 * 1024)).toFixed(1);
+           alert(`הקובץ גדול מדי (${actualMb}MB).\n\nחלק מהסרטונים (במיוחד מאייפון), נשמרים באיכות גבוהה מאוד ולכן הנפח שלהם גדול מידיי.\nפשוט שלחו לעצמכם את הסרטון בווצאפ והורידו אותו מחדש. הקובץ יהיה קטן יותר והניתוח ישאר מדוייק.`);
            if (loadingTimeout) {
              clearTimeout(loadingTimeout);
              loadingTimeout = null;
@@ -3140,7 +3141,8 @@ const App = () => {
         if (file.type.startsWith('video') && videoRef.current) {
           const duration = videoRef.current.duration || 0;
           if (duration > maxVideoSeconds) {
-            alert(`הסרטון חורג מהמגבלה: ${limitText}.`);
+            const durationSeconds = Math.round(duration);
+            alert(`הסרטון ארוך מידיי (${durationSeconds} שניות).\n\nהעלה סרטון באורך מתאים או שדרג ליכולות מתקדמות.`);
             if (loadingTimeout) {
               clearTimeout(loadingTimeout);
               loadingTimeout = null;
