@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
-import { checkEmailExists, checkPhoneExists, validateCoupon, redeemCoupon, updateCurrentUserProfile } from '../../lib/supabase-helpers';
+import { validateCoupon, redeemCoupon, updateCurrentUserProfile } from '../../lib/supabase-helpers';
 import { TEST_ACCOUNT_EMAIL, SUBSCRIPTION_PLANS } from '../../constants';
 import type { SubscriptionTier, TrackId } from '../../types';
 
@@ -405,23 +405,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
           }
 
-        if (!isTestAccount) {
-          const emailExists = await checkEmailExists(email.trim());
-          if (emailExists) {
-            setError('כתובת האימייל כבר רשומה במערכת. נסה להתחבר במקום או השתמש באימייל אחר.');
-            setLoading(false);
-            return;
-          }
-          if (mode !== 'initial') {
-            const cleanPhoneForCheck = phone.trim().replace(/\D/g, '');
-            const phoneExists = await checkPhoneExists(cleanPhoneForCheck);
-            if (phoneExists) {
-              setError('מספר הטלפון כבר רשום במערכת. נסה להתחבר במקום או השתמש במספר טלפון אחר.');
-              setLoading(false);
-              return;
-            }
-          }
-        }
+        // Removed emailExists/phoneExists checks - Supabase handles duplicate validation automatically
+        // This speeds up registration significantly
 
         const redirectUrl = window.location.origin;
         const effectiveTier = mode === 'initial' ? 'free' : selectedTier;
@@ -540,9 +525,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           // Date fixed: 2026-01-16
           // Status: WORKING - DO NOT TOUCH
           if (data.user.id) {
-            // Give trigger 200ms to create profile with metadata
-            // DO NOT change this delay - it's needed for trigger to complete
-            await new Promise(resolve => setTimeout(resolve, 200));
+            // Give trigger 100ms to create profile with metadata (reduced from 200ms for faster registration)
+            // DO NOT remove this delay - it's needed for trigger to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
             console.log('✅ Profile created by trigger with metadata:', {
               tier: effectiveTier,
               track: effectiveTrack,

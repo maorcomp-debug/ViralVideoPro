@@ -104,6 +104,7 @@ export const useAuth = (): UseAuthReturn => {
     const otpType = params?.get('type');
 
     const initAuth = async () => {
+      // Handle email verification via query params (token_hash)
       if (tokenHash && otpType && typeof window !== 'undefined') {
         try {
           const { error } = await supabase.auth.verifyOtp({
@@ -117,6 +118,28 @@ export const useAuth = (): UseAuthReturn => {
           }
         } catch (e) {
           console.warn('verifyOtp from email link failed:', e);
+        }
+      }
+
+      // Handle email verification via hash fragment (#access_token) - Supabase default method
+      if (typeof window !== 'undefined' && window.location.hash) {
+        const hash = window.location.hash.substring(1); // Remove #
+        const hashParams = new URLSearchParams(hash);
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+        
+        if (accessToken && (type === 'signup' || type === 'email' || type === 'recovery')) {
+          try {
+            // Supabase automatically handles hash fragments, but we need to ensure session is set
+            // The hash fragment is processed by Supabase SDK automatically on getSession()
+            console.log('📧 Email verification hash fragment detected');
+            // Clean up URL after processing
+            const cleanPath = window.location.pathname || '/';
+            window.history.replaceState({}, '', cleanPath);
+          } catch (e) {
+            console.warn('Error processing email verification hash:', e);
+          }
         }
       }
 
