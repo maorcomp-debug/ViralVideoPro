@@ -1622,7 +1622,8 @@ const App = () => {
     const limitText = getUploadLimitText(activeTrack, subscription || undefined);
 
     if (selectedFile.size > maxFileBytes) {
-      alert(`הקובץ גדול מדי. מגבלה: ${limitText}.`);
+      const actualMb = (selectedFile.size / (1024 * 1024)).toFixed(1);
+      alert(`הקובץ גדול מדי (${actualMb}MB).\n\nחלק מהסרטונים (במיוחד מאייפון), נשמרים באיכות גבוהה מאוד ולכן הנפח שלהם גדול מידיי.\nפשוט שלחו לעצמכם את הסרטון בווצאפ והורידו אותו מחדש. הקובץ יהיה קטן יותר והניתוח ישאר מדוייק.`);
       resetInput();
       return;
     }
@@ -1646,7 +1647,8 @@ const App = () => {
 
       videoEl.onloadedmetadata = () => {
         if (videoEl.duration > maxVideoSeconds) {
-          alert(`הסרטון חורג מהמגבלה: ${limitText}.`);
+          const durationSeconds = Math.round(videoEl.duration);
+          alert(`הסרטון ארוך מידיי (${durationSeconds} שניות).\n\nהעלה סרטון באורך מתאים או שדרג ליכולות מתקדמות.`);
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;
