@@ -525,42 +525,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           // Date fixed: 2026-01-16
           // Status: WORKING - DO NOT TOUCH
           if (data.user.id) {
-            // Give trigger 100ms to create profile with metadata (reduced from 200ms for faster registration)
+            // Give trigger 50ms to create profile with metadata (reduced for faster registration)
             // DO NOT remove this delay - it's needed for trigger to complete
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 50));
             console.log('✅ Profile created by trigger with metadata:', {
               tier: effectiveTier,
               track: effectiveTrack,
             });
-          }
-
-          // Handle test accounts and coupons AFTER profile update
-          if (isTestAccount && data.user.id) {
-            try {
-              const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ subscription_tier: testPackageTier })
-                .eq('user_id', data.user.id);
-              
-              if (updateError) {
-                console.error('Error updating test account subscription tier:', updateError);
-              } else {
-                console.log(`✅ Test account subscription tier set to: ${testPackageTier}`);
-              }
-            } catch (err) {
-              console.error('Error updating test account profile:', err);
-            }
-          }
-
-          // Apply coupon if provided
-          if (couponCode.trim() && couponValid?.valid && data.user.id) {
-            try {
-              await redeemCoupon(couponCode.trim(), data.user.id);
-              console.log('✅ Coupon redeemed successfully');
-            } catch (couponError: any) {
-              console.error('Error redeeming coupon:', couponError);
-              alert(`נרשמת בהצלחה, אך היה בעיה בשימוש בקוד הקופון: ${couponError.message}. אנא פנה לתמיכה.`);
-            }
           }
 
           // כאן יש session (כי אם היה דורש אימות מייל – כבר יצאנו למעלה)
@@ -574,11 +545,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               if (signInData?.session) finalSession = signInData.session;
             } catch (_) {}
           }
+          
+          // Complete registration immediately - don't wait for background tasks
           if (finalSession) {
             console.log('✅ Registration completed. User logged in with selected package:', effectiveTier);
-            alert('נרשמת בהצלחה!');
             onAuthSuccess();
             onClose();
+            setLoading(false);
+          }
+
+          // Handle test accounts and coupons in background (non-blocking)
+          if (data.user.id) {
+            // Test account update - background
+            if (isTestAccount) {
+              supabase
+                .from('profiles')
+                .update({ subscription_tier: testPackageTier })
+                .eq('user_id', data.user.id)
+                .then(({ error }) => {
+                  if (error) {
+                    console.error('Error updating test account subscription tier:', error);
+                  } else {
+                    console.log(`✅ Test account subscription tier set to: ${testPackageTier}`);
+                  }
+                })
+                .catch((err) => console.error('Error updating test account profile:', err));
+            }
+
+            // Apply coupon in background - don't block registration
+            if (couponCode.trim() && couponValid?.valid) {
+              redeemCoupon(couponCode.trim(), data.user.id)
+                .then(() => console.log('✅ Coupon redeemed successfully'))
+                .catch((couponError: any) => {
+                  console.error('Error redeeming coupon:', couponError);
+                  // Show notification but don't block - user is already registered
+                  setTimeout(() => {
+                    alert(`הייתה בעיה בשימוש בקוד הקופון: ${couponError.message}. אנא פנה לתמיכה.`);
+                  }, 1000);
+                });
+            }
           }
         } else {
           console.error('❌ User creation failed - no user data returned');
