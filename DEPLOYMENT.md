@@ -48,11 +48,27 @@ https://viral-video-pro.vercel.app
 ---
 
 ## Troubleshooting – 401 Invalid API key
-אם מקבלים `AuthApiError: Invalid API key` בהרשמה:
-1. **בדוק התאמה:** `VITE_SUPABASE_ANON_KEY` חייב להתאים לפרויקט של `VITE_SUPABASE_URL`.
-2. **מפתח שגוי:** אם ה-URL הוא `poejxozjnwrsakrhiyny.supabase.co` – המפתח חייב להיות של אותו פרויקט (לא של פרויקט אחר).
-3. **Vercel:** עדכן את `VITE_SUPABASE_ANON_KEY` ב־Settings → Environment Variables.
-4. **Redeploy:** אחרי שינוי env vars – חייבים Redeploy (Vite מקפיא את הערכים בזמן build).
+אם מקבלים `AuthApiError: Invalid API key` בהרשמה – המפתח ב־Vercel לא תואם לפרויקט.
+
+### תיקון ב־Vercel (חובה)
+1. היכנס ל־**Vercel Dashboard** → הפרויקט שמגיש ל־`viral-video-pro.vercel.app`
+2. **Settings** → **Environment Variables**
+3. מצא `VITE_SUPABASE_ANON_KEY` – **ערוך** (או מחק ויצור מחדש)
+4. העתק את המפתח מ־**Supabase Dashboard** → הפרויקט `poejxozjnwrsakrhiyny` → **Settings** → **API** → **Project API keys** → **anon public**
+5. ודא ש־`VITE_SUPABASE_URL` = `https://poejxozjnwrsakrhiyny.supabase.co`
+6. **חשוב:** סמן **Production** ו־**Preview** (גם שניהם)
+7. **Redeploy:** Deployments → ⋮ על ה-deploy האחרון → **Redeploy** (ללא cache)
+
+### ערכים נכונים לפרויקט poejxozjnwrsakrhiyny
+| Variable | Value |
+|----------|-------|
+| VITE_SUPABASE_URL | `https://poejxozjnwrsakrhiyny.supabase.co` |
+| VITE_SUPABASE_ANON_KEY | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvZWp4b3pqbndyc2FrcmhpeW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzOTA2MzcsImV4cCI6MjA4MTk2NjYzN30.UvZO82HzVBzN_bozWUnI8bRI_HGhheDdg6tVRnftXBs` |
+
+אם ה־ANON_KEY מתחיל ב־`eyJ...` אבל ה-ref בתוך ה-JWT הוא `iwrccjxtowrywpeatoik` – זה פרויקט אחר. השתמש במפתח שמכיל `poejxozjnwrsakrhiyny`.
+
+### בדיקה: איזה פרויקט Vercel מגיש ל־viral-video-pro.vercel.app?
+אם יש לך כמה פרויקטים (למשל viral-video-pro ו־viralypro) – עדכן את ה־env vars **בפרויקט שמגיש** ל־viral-video-pro.vercel.app.
 
 ---
 
