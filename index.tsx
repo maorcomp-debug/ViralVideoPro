@@ -3903,7 +3903,7 @@ const App = () => {
           )} */}
           </div>
           <Title>{t('header.title')}</Title>
-          <Subtitle>{t('header.subtitle')}</Subtitle>
+          <Subtitle dangerouslySetInnerHTML={{ __html: t('header.subtitle') }} />
           <Description dangerouslySetInnerHTML={{ __html: t('header.description') }} />
           {user && (
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
@@ -4425,7 +4425,7 @@ const App = () => {
             <UploadContent>
               <UploadIcon><CinematicCameraIcon /></UploadIcon>
               <UploadTitle>
-                {isImprovementMode ? t('analysis.uploadImproved') : t('analysis.uploadTitleForTrack', { track: t(`track.${activeTrack}`) })}
+                {isImprovementMode ? t('analysis.uploadImproved') : (activeTrack === 'actors' ? t('analysis.uploadTitleActors') : t('analysis.uploadTitleForTrack', { track: t(`track.${activeTrack}`) }))}
               </UploadTitle>
               
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '10px' }}>
