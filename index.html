@@ -23,8 +23,9 @@
       ::-webkit-scrollbar-track { background: #0f0f0f; }
       ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #D4A043; }
-      /* Hide initial placeholder until React mounts – no visible "Loading application" in corner */
-      #root .init-placeholder { color: transparent; font-size: 0; }
+      /* Show loading until React mounts – helps debug black screen */
+      #root .init-placeholder { color: #D4A043; font-size: 14px; }
+      #root .load-error { color: #ff6b6b; font-size: 14px; padding: 20px; }
     </style>
   <script type="importmap">
 {
@@ -44,6 +45,15 @@
 </head>
   <body>
     <div id="root"><span class="init-placeholder">Loading application...</span></div>
+    <script>
+      window.onerror = function(msg, url, line, col, err) {
+        var el = document.getElementById('root');
+        if (el) {
+          el.innerHTML = '<div class="load-error">JS Error: ' + msg + (err && err.stack ? '<pre>' + err.stack + '</pre>' : '') + '</div>';
+        }
+        return false;
+      };
+    </script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

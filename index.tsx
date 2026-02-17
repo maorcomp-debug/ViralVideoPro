@@ -5074,5 +5074,42 @@ const AppRouter = () => {
   );
 };
 
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  state = { hasError: false, error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError && this.state.error) {
+      return (
+        <div style={{
+          padding: 24,
+          background: '#1a1a1a',
+          color: '#ff6b6b',
+          fontFamily: 'monospace',
+          fontSize: 14,
+          whiteSpace: 'pre-wrap',
+          maxWidth: 800,
+          margin: '20px auto',
+          border: '1px solid #ff6b6b',
+          borderRadius: 8,
+        }}>
+          <strong>Error loading app:</strong>
+          <pre style={{ marginTop: 12, overflow: 'auto' }}>{this.state.error.message}</pre>
+          <pre style={{ marginTop: 8, fontSize: 12, color: '#999' }}>{this.state.error.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const root = createRoot(document.getElementById('root')!);
-root.render(<AppRouter />);
+root.render(
+  <ErrorBoundary>
+    <AppRouter />
+  </ErrorBoundary>
+);
