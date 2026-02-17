@@ -25,12 +25,12 @@ export default defineConfig(({ mode }) => {
         rollupOptions: {
           output: {
             manualChunks: (id) => {
-              // Split node_modules into separate chunks
+              // Split node_modules – keep all React-dependent packages together
               if (id.includes('node_modules')) {
                 if (id.includes('@supabase')) {
                   return 'vendor-supabase';
                 }
-                if (id.includes('react') || id.includes('react-dom')) {
+                if (id.includes('react') || id.includes('react-dom') || id.includes('react-i18next') || id.includes('react-router') || id.includes('i18next')) {
                   return 'vendor-react';
                 }
                 if (id.includes('styled-components')) {
