@@ -188,6 +188,27 @@
     "line2": "Studio & coaches",
     "line3": "Coach Edition"
   },
+  "comparison": {
+    "maxAnalyses": "Up to 4 analyses can be compared at once.",
+    "unassigned": "Unassigned",
+    "notFound": "Not found"
+  },
+  "coachDashboard": {
+    "enterTraineeName": "Enter trainee name",
+    "loginRequired": "Sign in first",
+    "saveError": "Couldn't save trainee. Try again.",
+    "deleteError": "Couldn't delete trainee. Try again.",
+    "deleteConfirm": "Are you sure you want to delete this trainee?",
+    "exportSuccess": "Data exported successfully! File saved to your Downloads folder.",
+    "exportError": "Couldn't export data. Try again.",
+    "importSuccess": "Data imported successfully!",
+    "importError": "Couldn't import data: {{error}}",
+    "importInvalidFormat": "Invalid file format – missing trainees list",
+    "importInvalidAnalyses": "Invalid file format – missing analyses list",
+    "importConfirm": "Import this data?\n\nThis will replace all existing data!\n\nTrainees: {{trainees}}\nAnalyses: {{analyses}}",
+    "modalTitle": "Trainee management – Coach Edition",
+    "modalSubtitle": "Manage your trainees, track progress, and saved analyses"
+  },
   "coachTrack": {
     "restrictionMessage": "Premium track is for coaches, studios and acting schools only. Upgrade to access.",
     "alertMessage": "Premium track is for coaches, studios and acting schools only. Upgrade your plan to access.",

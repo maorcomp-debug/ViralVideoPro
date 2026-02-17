@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ModalOverlay,
   ModalContent,
@@ -44,12 +45,13 @@ export const ComparisonModal = ({
   savedAnalyses,
   trainees
 }: ComparisonModalProps) => {
+  const { t } = useTranslation();
   const [selectedAnalyses, setSelectedAnalyses] = useState<string[]>([]);
 
   const getTraineeName = (traineeId?: string) => {
-    if (!traineeId) return 'לא שויך';
-    const trainee = trainees.find(t => t.id === traineeId);
-    return trainee?.name || 'לא נמצא';
+    if (!traineeId) return t('comparison.unassigned');
+    const trainee = trainees.find(tr => tr.id === traineeId);
+    return trainee?.name || t('comparison.notFound');
   };
 
   const toggleAnalysisSelection = (analysisId: string) => {
@@ -58,7 +60,7 @@ export const ComparisonModal = ({
         return prev.filter(id => id !== analysisId);
       } else {
         if (prev.length >= 4) {
-          alert('ניתן להשוות עד 4 ניתוחים בבת אחת');
+          alert(t('comparison.maxAnalyses'));
           return prev;
         }
         return [...prev, analysisId];

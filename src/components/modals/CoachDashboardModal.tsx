@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { saveTrainee, getAnalyses } from '../../lib/supabase-helpers';
 import {
@@ -50,6 +51,7 @@ export const CoachDashboardModal = ({
   onViewAnalysis,
   onExportReport
 }: CoachDashboardModalProps) => {
+  const { t } = useTranslation();
   const [isAddingTrainee, setIsAddingTrainee] = useState(false);
   const [editingTrainee, setEditingTrainee] = useState<Trainee | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', notes: '' });
@@ -57,13 +59,13 @@ export const CoachDashboardModal = ({
 
   const handleSaveTrainee = async () => {
     if (!formData.name.trim()) {
-      alert('נא להזין שם מתאמן');
+      alert(t('coachDashboard.enterTraineeName'));
       return;
     }
 
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
-      alert('יש להיכנס למערכת תחילה');
+      alert(t('coachDashboard.loginRequired'));
       return;
     }
 
@@ -114,16 +116,16 @@ export const CoachDashboardModal = ({
       setFormData({ name: '', email: '', phone: '', notes: '' });
     } catch (error) {
       console.error('Error saving trainee:', error);
-      alert('אירעה שגיאה בשמירת המתאמן. נסה שוב.');
+      alert(t('coachDashboard.saveError'));
     }
   };
 
   const handleDeleteTrainee = async (id: string) => {
-    if (!confirm('האם אתה בטוח שברצונך למחוק מתאמן זה?')) return;
+    if (!confirm(t('coachDashboard.deleteConfirm'))) return;
 
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
-      alert('יש להיכנס למערכת תחילה');
+      alert(t('coachDashboard.loginRequired'));
       return;
     }
 
@@ -156,7 +158,7 @@ export const CoachDashboardModal = ({
       })));
     } catch (error) {
       console.error('Error deleting trainee:', error);
-      alert('אירעה שגיאה במחיקת המתאמן. נסה שוב.');
+      alert(t('coachDashboard.deleteError'));
     }
   };
 
@@ -202,10 +204,10 @@ export const CoachDashboardModal = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      alert('הנתונים יוצאו בהצלחה! הקובץ נשמר בתיקיית ההורדות שלך.');
+      alert(t('coachDashboard.exportSuccess'));
     } catch (error) {
       console.error('Export error:', error);
-      alert('אירעה שגיאה ביצוא הנתונים. נסה שוב.');
+      alert(t('coachDashboard.exportError'));
     }
   };
 
@@ -224,14 +226,17 @@ export const CoachDashboardModal = ({
           const importedData = JSON.parse(event.target.result);
           
           if (!importedData.trainees || !Array.isArray(importedData.trainees)) {
-            throw new Error('פורמט קובץ לא תקין - חסר רשימת מתאמנים');
+            throw new Error(t('coachDashboard.importInvalidFormat'));
           }
 
           if (!importedData.savedAnalyses || !Array.isArray(importedData.savedAnalyses)) {
-            throw new Error('פורמט קובץ לא תקין - חסר רשימת ניתוחים');
+            throw new Error(t('coachDashboard.importInvalidAnalyses'));
           }
 
-          const confirmMessage = `האם אתה בטוח שברצונך לייבא את הנתונים?\n\nזה יחליף את כל הנתונים הקיימים!\n\nמתאמנים: ${importedData.trainees.length}\nניתוחים: ${importedData.savedAnalyses.length}`;
+          const confirmMessage = t('coachDashboard.importConfirm', {
+            trainees: importedData.trainees.length,
+            analyses: importedData.savedAnalyses.length,
+          });
           
           if (confirm(confirmMessage)) {
             // Convert dates back to Date objects
@@ -249,12 +254,12 @@ export const CoachDashboardModal = ({
             setTrainees(importedTrainees);
             setSavedAnalyses(importedAnalyses);
             
-            alert('הנתונים יובאו בהצלחה!');
+            alert(t('coachDashboard.importSuccess'));
             onClose(); // Close modal to show updated data
           }
         } catch (error: any) {
           console.error('Import error:', error);
-          alert(`אירעה שגיאה בייבוא הנתונים: ${error.message}`);
+          alert(t('coachDashboard.importError', { error: error.message }));
         }
       };
       reader.readAsText(file);
@@ -269,9 +274,9 @@ export const CoachDashboardModal = ({
       <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '900px' }}>
         <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
         <ModalHeader>
-          <ModalTitle>ניהול מתאמנים - Coach Edition</ModalTitle>
+          <ModalTitle>{t('coachDashboard.modalTitle')}</ModalTitle>
           <ModalSubtitle>
-            ניהול רשימת המתאמנים שלך, מעקב התקדמות וניתוחים שמורים
+            {t('coachDashboard.modalSubtitle')}
           </ModalSubtitle>
         </ModalHeader>
         
