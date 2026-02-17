@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import type { SubscriptionTier, BillingPeriod, TrackId, UserSubscription } from '../../types';
 import { SUBSCRIPTION_PLANS } from '../../constants';
@@ -578,6 +579,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   onSelectPlan,
   activeTrack,
 }) => {
+  const { t } = useTranslation();
   // All hooks must be called before any conditional returns
   const [selectedPeriods, setSelectedPeriods] = useState<Record<SubscriptionTier, BillingPeriod>>({
     free: 'monthly',
@@ -630,46 +632,38 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   const getFeatureText = (tier: SubscriptionTier, feature: string): string => {
     const plan = SUBSCRIPTION_PLANS[tier];
+    const tf = (key: string, opts?: object) => t(key, opts);
     switch (feature) {
       case 'analyses':
-        if (tier === 'coach' || tier === 'coach-pro') {
-          // For coach tiers, return empty - will use analysesUnlimited instead
-          return '';
-        }
-        if (plan.limits.maxAnalysesPerPeriod === -1) return 'ללא הגבלה';
-        if (tier === 'free') return 'ניתוח טעימה';
-        return `${plan.limits.maxAnalysesPerPeriod} ניתוח/חודש`;
+        if (tier === 'coach' || tier === 'coach-pro') return '';
+        if (plan.limits.maxAnalysesPerPeriod === -1) return tf('subscription.features.unlimited');
+        if (tier === 'free') return tf('subscription.features.trialAnalysis');
+        return tf('subscription.features.analysesPerMonth', { count: plan.limits.maxAnalysesPerPeriod });
       case 'minutes':
-        if (tier === 'free') return ''; // Hide minutes for free tier
-        if (tier === 'coach' || tier === 'coach-pro') return ''; // Hide minutes for coach tiers (handled separately)
-        return `${plan.limits.maxVideoMinutesPerPeriod} דק'/חודש`;
+        if (tier === 'free' || tier === 'coach' || tier === 'coach-pro') return '';
+        return tf('subscription.features.minutesPerMonth', { count: plan.limits.maxVideoMinutesPerPeriod });
       case 'coachMinutes':
-        if (tier === 'coach') return 'עד 200 דק\'/חודש';
-        if (tier === 'coach-pro') return 'עד 300 דק\'/חודש';
+        if (tier === 'coach') return tf('subscription.features.coachMinutes200');
+        if (tier === 'coach-pro') return tf('subscription.features.coachMinutes300');
         return '';
       case 'analysesUnlimited':
-        if (tier === 'coach' || tier === 'coach-pro') {
-          if (plan.limits.maxAnalysesPerPeriod === -1) return 'ללא הגבלת ניתוחים';
-        }
+        if ((tier === 'coach' || tier === 'coach-pro') && plan.limits.maxAnalysesPerPeriod === -1) return tf('subscription.features.unlimitedAnalyses');
         return '';
       case 'videoLength':
         const seconds = plan.limits.maxVideoSeconds;
-        const mb = plan.limits.maxFileBytes / (1024 * 1024);
-        if (seconds >= 60) {
-          const minutes = Math.floor(seconds / 60);
-          return `עד ${minutes} דק' או ${mb}MB`;
-        }
-        return `עד ${seconds} שניות או ${mb}MB`;
+        const mb = Math.round(plan.limits.maxFileBytes / (1024 * 1024));
+        if (seconds >= 60) return tf('subscription.features.videoLength', { minutes: Math.floor(seconds / 60), mb });
+        return tf('subscription.features.videoLengthSeconds', { seconds, mb });
       case 'experts':
-        return tier === 'free' ? '3 מומחים' : 'כל המומחים (8)';
+        return tier === 'free' ? tf('subscription.features.experts3') : tf('subscription.features.expertsAll');
       case 'tracks':
-        if (tier === 'free') return 'תחום ניתוח 1 לבחירה';
-        if (tier === 'creator') return '2 תחומי ניתוח לבחירה';
-        return 'כל התחומים (4)';
+        if (tier === 'free') return tf('subscription.features.tracks1');
+        if (tier === 'creator') return tf('subscription.features.tracks2');
+        return tf('subscription.features.tracksAll');
       case 'trainees':
         if (tier === 'coach' || tier === 'coach-pro') {
-          if (plan.limits.maxTrainees === -1) return 'ללא הגבלה';
-          return `עד ${plan.limits.maxTrainees} מתאמנים`;
+          if (plan.limits.maxTrainees === -1) return tf('subscription.features.unlimited');
+          return tf('subscription.features.traineesUpTo', { count: plan.limits.maxTrainees });
         }
         return '';
       case 'pdfExport':
@@ -687,41 +681,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
   };
 
-  const faqItems = [
-    {
-      question: 'האם השירות מתאים גם למתחילים?',
-      answer: 'כן. האפליקציה מתאימה ליוצרים בכל רמה, גם ללא נסיון קודם.',
-    },
-    {
-      question: 'איך עובד ניתוח הווידאו?',
-      answer: 'פשוט מעלים סרטון, מוסיפים הקשר אם רוצים, וה-AI שלנו מנתח את התוכן עם 8 מומחים וירטואליים בהתאם למסלול הניתוח שלך.',
-    },
-    {
-      question: 'מה קורה אם אני עובר את מכסת הניתוחים?',
-      answer: 'כשתגיע למכסה, תוכל לשדרג לחבילה גבוהה יותר או להמתין לחידוש החודשי. אנחנו לא מחייבים אוטומטית.',
-    },
-    {
-      question: 'למה הסרטון שלי לא עולה לניתוח?',
-      answer: 'חלק מהסרטונים (במיוחד מאייפון), נשמרים באיכות גבוהה מאוד ולכן הנפח שלהם גדול מידיי.\nפשוט שלחו לעצמכם בווצאפ והורידו אותו מחדש. הקובץ יהיה קטן יותר והניתוח ישאר מדוייק.',
-    },
-    {
-      question: 'האם יש התחייבות לתקופה מסוימת?',
-      answer: 'לא, כל החבילות הן חודשיות ללא התחייבות. אתה משלם רק על מה שאתה משתמש.',
-    },
-    {
-      question: 'האם אני יכול לבטל את המנוי בכל עת?',
-      answer: 'כן, אתה יכול לבטל את המנוי בכל עת. המנוי יישאר פעיל עד סוף תקופת החיוב הנוכחית.',
-    },
-    {
-      question: 'מה קורה אחרי ביטול או השהיית המנוי?',
-      answer: 'לאחר ביטול או השהייה, הגישה נשארת פעילה עד סוף תקופת החיוב ולא מתבצע חיוב נוסף.',
-    },
-    {
-      question: 'האם אפשר לקבל החזר כספי?',
-      answer: 'לא. החיוב הוא עבור תקופת שימוש שכבר התחילה ולכן לא ניתנים החזרים.',
-    },
-  ];
-
   return (
     <SubscriptionModalOverlay $isOpen={isOpen} onClick={(e) => {
       if (e.target === e.currentTarget) onClose();
@@ -729,9 +688,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       <SubscriptionModalContent>
         <CloseModalButton onClick={onClose}>×</CloseModalButton>
         <SubscriptionModalHeader>
-          <h2 style={{ fontSize: '3rem', marginBottom: '15px' }}>בחר את החבילה שלך</h2>
+          <h2 style={{ fontSize: '3rem', marginBottom: '15px' }}>{t('coachPackages.title')}</h2>
           <p style={{ fontSize: '1.2rem', color: '#D4A043' }}>
-            שדרג את יכולות יצירת התוכן שלך עם ניתוחים מקצועיים ברמה הוליוודית
+            {t('coachPackages.subtitle')}
           </p>
         </SubscriptionModalHeader>
 
@@ -740,9 +699,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           <>
             <PackagesGrid>
               {[
-                { tier: 'free' as SubscriptionTier, name: 'ניסיון', subtitle: 'חינם' },
-                { tier: 'creator' as SubscriptionTier, name: 'יוצרים', subtitle: '₪49', recommended: true },
-                { tier: 'pro' as SubscriptionTier, name: 'יוצרים באקסטרים', subtitle: '₪99' },
+                { tier: 'free' as SubscriptionTier, subtitleKey: 'billingPlan.freeSubtitle' },
+                { tier: 'creator' as SubscriptionTier, subtitleKey: 'billingPlan.creatorSubtitle', recommended: true },
+                { tier: 'pro' as SubscriptionTier, subtitleKey: 'billingPlan.proSubtitle' },
               ].map((plan) => {
                 const planData = SUBSCRIPTION_PLANS[plan.tier];
                 const isCurrentTier = plan.tier === currentSubscription?.tier;
@@ -751,10 +710,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 const allowUpgrade = plan.tier === 'free' ? false : canUpgradeTo(plan.tier, currentTier);
                 return (
                   <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
-                    {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
-                    {isCurrentTier && <ActiveBadge>חבילה פעילה</ActiveBadge>}
-                    <PackageTitle>{plan.name}</PackageTitle>
-                    <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
+                    {plan.recommended && <RecommendedBadge>{t('billing.recommended')}</RecommendedBadge>}
+                    {isCurrentTier && <ActiveBadge>{t('billing.activePlan')}</ActiveBadge>}
+                    <PackageTitle>{t(`plan.${plan.tier}`)}</PackageTitle>
+                    <PackageSubtitle>{t((plan as any).subtitleKey || 'billingPlan.freeSubtitle')}</PackageSubtitle>
                     <PackageFeatures>
                       <li>{getFeatureText(plan.tier, 'analyses')}</li>
                       {getFeatureText(plan.tier, 'minutes') && <li>{getFeatureText(plan.tier, 'minutes')}</li>}
@@ -762,13 +721,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       <li>{getFeatureText(plan.tier, 'experts')}</li>
                       <li>{getFeatureText(plan.tier, 'tracks')}</li>
                       <li className={planData.limits.features.pdfExport ? '' : 'unavailable'}>
-                        {planData.limits.features.pdfExport ? 'יצוא PDF' : 'יצוא PDF'}
+                        {t('billingPlan.pdfExport')}
                       </li>
                       <li className={planData.limits.features.advancedAnalysis ? '' : 'unavailable'}>
-                        {planData.limits.features.advancedAnalysis ? 'ניתוח מתקדם' : 'ניתוח מתקדם'}
+                        {t('billingPlan.advancedAnalysis')}
                       </li>
                       <li className={planData.limits.features.comparison ? '' : 'unavailable'}>
-                        {planData.limits.features.comparison ? 'השוואת סרטונים' : 'השוואת סרטונים'}
+                        {t('billingPlan.videoComparison')}
                       </li>
                     </PackageFeatures>
                     {allowUpgrade && !isCurrentTier && plan.tier !== 'free' && currentSubscription && (
@@ -805,55 +764,55 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
             <ComparisonTable>
               <TableHeader>
-                <TableHeaderCell>תכונה</TableHeaderCell>
-                <TableHeaderCell>ניסיון</TableHeaderCell>
-                <TableHeaderCell>יוצרים</TableHeaderCell>
-                <TableHeaderCell>יוצרים באקסטרים</TableHeaderCell>
+                <TableHeaderCell>{t('comparisonFeature')}</TableHeaderCell>
+                <TableHeaderCell>{t('plan.free')}</TableHeaderCell>
+                <TableHeaderCell>{t('plan.creator')}</TableHeaderCell>
+                <TableHeaderCell>{t('plan.pro')}</TableHeaderCell>
               </TableHeader>
               <TableRow>
-                <TableLabel>ניתוחים חודשיים</TableLabel>
+                <TableLabel>{t('comparisonMonthlyAnalyses')}</TableLabel>
                 <TableCell>{getFeatureText('free', 'analyses')}</TableCell>
                 <TableCell>{getFeatureText('creator', 'analyses')}</TableCell>
                 <TableCell>{getFeatureText('pro', 'analyses')}</TableCell>
               </TableRow>
               <TableRow>
-                <TableLabel>דקות חודשיות</TableLabel>
+                <TableLabel>{t('comparisonMinutes')}</TableLabel>
                 <TableCell>-</TableCell>
                 <TableCell>{getFeatureText('creator', 'minutes')}</TableCell>
                 <TableCell>{getFeatureText('pro', 'minutes')}</TableCell>
               </TableRow>
               <TableRow>
-                <TableLabel>אורך סרטון</TableLabel>
+                <TableLabel>{t('comparisonVideoLength')}</TableLabel>
                 <TableCell>{getFeatureText('free', 'videoLength')}</TableCell>
                 <TableCell>{getFeatureText('creator', 'videoLength')}</TableCell>
                 <TableCell>{getFeatureText('pro', 'videoLength')}</TableCell>
               </TableRow>
               <TableRow>
-                <TableLabel>מספר מומחים</TableLabel>
+                <TableLabel>{t('comparisonExperts')}</TableLabel>
                 <TableCell>{getFeatureText('free', 'experts')}</TableCell>
                 <TableCell>{getFeatureText('creator', 'experts')}</TableCell>
                 <TableCell>{getFeatureText('pro', 'experts')}</TableCell>
               </TableRow>
               <TableRow>
-                <TableLabel>מספר תחומים</TableLabel>
+                <TableLabel>{t('comparisonTracks')}</TableLabel>
                 <TableCell>{getFeatureText('free', 'tracks')}</TableCell>
                 <TableCell>{getFeatureText('creator', 'tracks')}</TableCell>
                 <TableCell>{getFeatureText('pro', 'tracks')}</TableCell>
               </TableRow>
               <TableRow>
-                <TableLabel>יצוא PDF</TableLabel>
+                <TableLabel>{t('billingPlan.pdfExport')}</TableLabel>
                 <TableCell>{getFeatureText('free', 'pdfExport')}</TableCell>
                 <TableCell>{getFeatureText('creator', 'pdfExport')}</TableCell>
                 <TableCell>{getFeatureText('pro', 'pdfExport')}</TableCell>
               </TableRow>
               <TableRow>
-                <TableLabel>ניתוח מתקדם</TableLabel>
+                <TableLabel>{t('billingPlan.advancedAnalysis')}</TableLabel>
                 <TableCell>{getFeatureText('free', 'advancedAnalysis')}</TableCell>
                 <TableCell>{getFeatureText('creator', 'advancedAnalysis')}</TableCell>
                 <TableCell>{getFeatureText('pro', 'advancedAnalysis')}</TableCell>
               </TableRow>
               <TableRow>
-                <TableLabel>השוואת סרטונים</TableLabel>
+                <TableLabel>{t('billingPlan.videoComparison')}</TableLabel>
                 <TableCell>{getFeatureText('free', 'videoComparison')}</TableCell>
                 <TableCell>{getFeatureText('creator', 'videoComparison')}</TableCell>
                 <TableCell>{getFeatureText('pro', 'videoComparison')}</TableCell>
@@ -867,13 +826,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           <>
             <PackagesGrid>
               {(currentSubscription?.tier === 'coach'
-                ? [{ tier: 'coach-pro' as SubscriptionTier, name: SUBSCRIPTION_PLANS['coach-pro'].name, subtitle: '₪299', recommended: true }]
+                ? [{ tier: 'coach-pro' as SubscriptionTier, subtitleKey: 'coachPackages.price299', recommended: true }]
                 : currentSubscription?.tier === 'coach-pro'
                 ? []
                 : activeTrack === 'coach'
                 ? [
-                    { tier: 'coach' as SubscriptionTier, name: SUBSCRIPTION_PLANS.coach.name, subtitle: '₪199' },
-                    { tier: 'coach-pro' as SubscriptionTier, name: SUBSCRIPTION_PLANS['coach-pro'].name, subtitle: '₪299', recommended: true }
+                    { tier: 'coach' as SubscriptionTier, subtitleKey: 'coachPackages.price199' },
+                    { tier: 'coach-pro' as SubscriptionTier, subtitleKey: 'coachPackages.price299', recommended: true }
                   ]
                 : []
               ).map((plan) => {
@@ -883,11 +842,11 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 const allowUpgrade = canUpgradeTo(plan.tier, currentTier);
                 return (
                   <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
-                    {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
-                    {plan.tier === 'coach-pro' && <PremiumBadge>גרסת פרו</PremiumBadge>}
-                    {isCurrentTier && <ActiveBadge>חבילה פעילה</ActiveBadge>}
-                    <PackageTitle>{plan.name}</PackageTitle>
-                    <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
+                    {plan.recommended && <RecommendedBadge>{t('billing.recommended')}</RecommendedBadge>}
+                    {plan.tier === 'coach-pro' && <PremiumBadge>{t('plan.proVersion')}</PremiumBadge>}
+                    {isCurrentTier && <ActiveBadge>{t('billing.activePlan')}</ActiveBadge>}
+                    <PackageTitle>{t(`plan.${plan.tier}`)}</PackageTitle>
+                    <PackageSubtitle>{(plan as any).subtitleKey ? t((plan as any).subtitleKey) : (plan as any).subtitle}</PackageSubtitle>
                     <PackageFeatures>
                       {getFeatureText(plan.tier, 'analysesUnlimited') && <li>{getFeatureText(plan.tier, 'analysesUnlimited')}</li>}
                       {getFeatureText(plan.tier, 'coachMinutes') && <li>{getFeatureText(plan.tier, 'coachMinutes')}</li>}
@@ -896,21 +855,21 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       {getFeatureText(plan.tier, 'tracks') && <li>{getFeatureText(plan.tier, 'tracks')}</li>}
                       {getFeatureText(plan.tier, 'trainees') && <li>{getFeatureText(plan.tier, 'trainees')}</li>}
                       <li className={planData.limits.features.pdfExport ? '' : 'unavailable'}>
-                        יצוא PDF
+                        {t('billingPlan.pdfExport')}
                       </li>
                       <li className={planData.limits.features.advancedAnalysis ? '' : 'unavailable'}>
-                        ניתוח מתקדם
+                        {t('billingPlan.advancedAnalysis')}
                       </li>
                       <li className={planData.limits.features.comparison ? '' : 'unavailable'}>
-                        השוואת סרטונים
+                        {t('billingPlan.videoComparison')}
                       </li>
                       {(plan.tier === 'coach' || plan.tier === 'coach-pro') && (
                         <>
                           <li className={planData.limits.features.traineeManagement ? '' : 'unavailable'}>
-                            ניהול מתאמנים
+                            {t('coachTrack.traineeManagement')}
                           </li>
                           <li className={planData.limits.features.coachDashboard ? '' : 'unavailable'}>
-                            דשבורד מאמן
+                            {t('coachTrack.coachDashboard')}
                           </li>
                         </>
                       )}
@@ -951,57 +910,57 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             {activeTrack === 'coach' && (currentSubscription?.tier !== 'coach' && currentSubscription?.tier !== 'coach-pro') && (
               <ComparisonTable>
                 <TableHeader>
-                  <TableHeaderCell>תכונה</TableHeaderCell>
-                  <TableHeaderCell>{SUBSCRIPTION_PLANS.coach.name}</TableHeaderCell>
-                  <TableHeaderCell>{SUBSCRIPTION_PLANS['coach-pro'].name}</TableHeaderCell>
+                  <TableHeaderCell>{t('comparisonFeature')}</TableHeaderCell>
+                  <TableHeaderCell>{t('plan.coach')}</TableHeaderCell>
+                  <TableHeaderCell>{t('plan.coachPro')}</TableHeaderCell>
                 </TableHeader>
                 <TableRow>
-                  <TableLabel>ניתוחים</TableLabel>
+                  <TableLabel>{t('comparisonMonthlyAnalyses')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'analysesUnlimited')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'analysesUnlimited')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>דקות חודשיות</TableLabel>
+                  <TableLabel>{t('comparisonMinutes')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'coachMinutes')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'coachMinutes')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>אורך סרטון</TableLabel>
+                  <TableLabel>{t('comparisonVideoLength')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'videoLength')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'videoLength')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>מספר מומחים</TableLabel>
+                  <TableLabel>{t('comparisonExperts')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'experts')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'experts')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>מספר מתאמנים</TableLabel>
+                  <TableLabel>{t('comparisonTrainees')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'trainees')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'trainees')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>יצוא PDF</TableLabel>
+                  <TableLabel>{t('billingPlan.pdfExport')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'pdfExport')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'pdfExport')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>ניתוח מתקדם</TableLabel>
+                  <TableLabel>{t('billingPlan.advancedAnalysis')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'advancedAnalysis')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'advancedAnalysis')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>השוואת סרטונים</TableLabel>
+                  <TableLabel>{t('billingPlan.videoComparison')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'videoComparison')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'videoComparison')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>ניהול מתאמנים</TableLabel>
+                  <TableLabel>{t('coachTrack.traineeManagement')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'traineeManagement')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'traineeManagement')}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableLabel>דשבורד מאמן</TableLabel>
+                  <TableLabel>{t('coachTrack.coachDashboard')}</TableLabel>
                   <TableCell>{getFeatureText('coach', 'coachDashboard')}</TableCell>
                   <TableCell>{getFeatureText('coach-pro', 'coachDashboard')}</TableCell>
                 </TableRow>
@@ -1020,11 +979,11 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           border: '1px solid rgba(212, 160, 67, 0.3)'
         }}>
           <h3 style={{ color: '#D4A043', fontSize: '2rem', margin: '0 0 15px 0', fontFamily: "'Frank Ruhl Libre', serif" }}>
-            אנחנו בטוחים שתאהב את השירות
+            {t('subscription.noCommitmentTitle')}
           </h3>
           <div style={{ color: '#D4A043', fontSize: '1.3rem', lineHeight: '1.6', fontWeight: 700 }}>
-            <p style={{ margin: '0 0 6px 0' }}>ולכן אין התחייבות</p>
-            <p style={{ margin: 0 }}>מבטלים בלחיצה אחת!</p>
+            <p style={{ margin: '0 0 6px 0' }}>{t('subscription.noCommitmentLine1')}</p>
+            <p style={{ margin: 0 }}>{t('subscription.noCommitmentLine2')}</p>
           </div>
         </div>
 
@@ -1037,10 +996,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             textAlign: 'center',
             fontFamily: "'Frank Ruhl Libre', serif" 
           }}>
-            שאלות נפוצות
+            {t('subscription.faqTitle')}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {faqItems.map((faq, index) => (
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
               <div 
                 key={index}
                 style={{
@@ -1069,7 +1028,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     flex: 1,
                     textAlign: 'right'
                   }}>
-                    {faq.question}
+                    {t(`subscription.faq${index}q`)}
                   </h4>
                 </div>
                 {expandedFaq === index && (
@@ -1079,7 +1038,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     lineHeight: '1.6',
                     textAlign: 'right'
                   }}>
-                    {faq.answer}
+                    {t(`subscription.faq${index}a`)}
                   </p>
                 )}
               </div>
@@ -1095,12 +1054,12 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             margin: '0 0 20px 0',
             fontFamily: "'Frank Ruhl Libre', serif"
           }}>
-            יש לך שאלות נוספות או צורך בתמיכה?
+            {t('subscription.contactTitle')}
           </h3>
           {!showContactForm ? (
             <>
               <p style={{ color: '#ccc', marginBottom: '20px' }}>
-                יש לך שאלות? שלח לנו הודעה ונחזור אליך בהקדם
+                {t('subscription.contactDesc')}
               </p>
               <SubscribeButton 
                 onClick={() => setShowContactForm(true)}
@@ -1108,7 +1067,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 $isFree={false}
                 style={{ maxWidth: '300px', margin: '0 auto' }}
               >
-                שלח הודעה
+                {t('subscription.sendMessage')}
               </SubscribeButton>
             </>
           ) : (

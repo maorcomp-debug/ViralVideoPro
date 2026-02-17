@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { 
   getAllUsers, 
@@ -839,6 +840,7 @@ function buildBenefitDetailsForEmail(form: {
 
 export const AdminPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<MainTab>('overview');
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('send-update');
   
@@ -1088,10 +1090,10 @@ export const AdminPage: React.FC = () => {
       // Clear cache and reload immediately - no delays
       clearAdminCache();
       await loadData(true); // Force refresh to get fresh data
-      alert('המשתמש נמחק בהצלחה');
+      alert(t('alerts.userDeleted'));
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      alert('שגיאה במחיקת המשתמש: ' + (error.message || 'Unknown error'));
+      alert(t('alerts.deleteUserError', { error: error.message || 'Unknown error' }));
       // Reload data even on error to ensure UI is in sync
       clearAdminCache();
       loadData(true).catch(() => {});
@@ -1101,7 +1103,7 @@ export const AdminPage: React.FC = () => {
   const handleDeleteByEmail = async () => {
     const email = deleteByEmailValue.trim();
     if (!email) {
-      alert('הזן אימייל');
+      alert(t('alerts.enterEmail'));
       return;
     }
     if (!confirm(`למחוק משתמש עם אימייל ${email}? (גם מ-Supabase Auth)`)) return;
@@ -1111,10 +1113,10 @@ export const AdminPage: React.FC = () => {
       setDeleteByEmailValue('');
       clearAdminCache();
       await loadData(true);
-      alert('המשתמש נמחק בהצלחה');
+      alert(t('alerts.userDeleted'));
     } catch (error: any) {
       console.error('Error deleting user by email:', error);
-      alert('שגיאה במחיקת המשתמש: ' + (error.message || 'Unknown error'));
+      alert(t('alerts.deleteUserError', { error: error.message || 'Unknown error' }));
       clearAdminCache();
       loadData(true).catch(() => {});
     } finally {
@@ -1126,10 +1128,10 @@ export const AdminPage: React.FC = () => {
     try {
       await updateUserProfile(userId, { role: 'admin' });
       await loadData();
-      alert('המשתמש הוגדר כמנהל בהצלחה');
+      alert(t('alerts.setAdminSuccess'));
     } catch (error: any) {
       console.error('Error making user admin:', error);
-      alert('שגיאה בהגדרת המשתמש כמנהל: ' + (error.message || 'Unknown error'));
+      alert(t('alerts.setAdminError', { error: error.message || 'Unknown error' }));
     }
   };
 
@@ -1200,17 +1202,17 @@ export const AdminPage: React.FC = () => {
           }
         }
         
-        alert('החבילה עודכנה בהצלחה\n\nעם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה');
+        alert(t('alerts.planUpdated'));
       } catch (dbError: any) {
         // If DB update fails, revert optimistic update
         loadData(true).catch(() => {});
-        alert('שגיאה בעדכון החבילה: ' + (dbError.message || 'Unknown error'));
+        alert(t('alerts.planUpdateError', { error: dbError.message || 'Unknown error' }));
       }
     } catch (error: any) {
       console.error('Error updating package:', error);
       // Revert on error
       loadData(true).catch(() => {});
-      alert('שגיאה בעדכון החבילה: ' + (error.message || 'Unknown error'));
+      alert(t('alerts.planUpdateError', { error: error.message || 'Unknown error' }));
     }
   };
   
@@ -1255,10 +1257,10 @@ export const AdminPage: React.FC = () => {
       });
       setEditingCoupon(null);
       await loadData(true);
-      alert('ההטבה עודכנה בהצלחה');
+      alert(t('alerts.benefitUpdated'));
     } catch (error: any) {
       console.error('Error updating coupon:', error);
-      alert('שגיאה בעדכון ההטבה: ' + (error.message || 'Unknown error'));
+      alert(t('alerts.benefitUpdateError', { error: error.message || 'Unknown error' }));
     }
   };
 
@@ -1272,7 +1274,7 @@ export const AdminPage: React.FC = () => {
       console.log('[Admin] delete coupon OK (direct)');
       setEditingCoupon(null);
       await loadData(true);
-      alert('ההטבה נמחקה');
+      alert(t('alerts.benefitDeleted'));
     } catch (directErr: any) {
       if (directErr?.message !== 'RLS') console.warn('[Admin] direct delete failed', directErr);
       try {
@@ -1280,11 +1282,10 @@ export const AdminPage: React.FC = () => {
         console.log('[Admin] delete coupon OK (API)');
         setEditingCoupon(null);
         await loadData(true);
-        alert('ההטבה נמחקה');
+        alert(t('alerts.benefitDeleted'));
       } catch (apiErr: any) {
         console.error('[Admin] delete coupon failed', apiErr);
-        const hint = 'ודא שהרצת את המיגרציה allow_admin_delete ב-Supabase (SQL Editor) וכי המשתמש הוא admin. אם ה-API מפורסם ב-Vercel, בדוק משתני סביבה.';
-        alert('שגיאה במחיקת ההטבה: ' + (apiErr.message || directErr.message || 'Unknown error') + '\n\n' + hint);
+        alert(t('alerts.benefitDeleteError', { error: (apiErr.message || directErr.message || 'Unknown error') }) + '\n\n' + t('alerts.benefitDeleteHint'));
       }
     }
   };
@@ -1296,23 +1297,23 @@ export const AdminPage: React.FC = () => {
       if (error) throw error;
       if (trials.length > 0 && (!deleted || deleted.length === 0)) throw new Error('RLS');
       await loadData(true);
-      alert('כל ההתנסויות נמחקו');
+      alert(t('alerts.allTrialsDeleted'));
     } catch (directErr: any) {
       if (directErr?.message !== 'RLS') console.warn('[Admin] direct delete all trials failed', directErr);
       try {
         await deleteAllTrialsViaAdminApi();
         await loadData(true);
-        alert('כל ההתנסויות נמחקו');
+        alert(t('alerts.allTrialsDeleted'));
       } catch (apiErr: any) {
         console.error('[Admin] delete all trials failed', apiErr);
-        alert('שגיאה במחיקת ההתנסויות: ' + (apiErr.message || directErr.message || 'Unknown error'));
+        alert(t('alerts.trialsDeleteError', { error: apiErr.message || directErr.message || 'Unknown error' }));
       }
     }
   };
 
   const handleDeleteSelectedTrials = async () => {
     if (selectedTrials.size === 0) {
-      alert('לא נבחרו התנסויות למחיקה');
+      alert(t('alerts.noTrialsSelected'));
       return;
     }
     if (!confirm(`למחוק ${selectedTrials.size} התנסויות שנבחרו? לא ניתן לשחזר.`)) return;
@@ -1323,7 +1324,7 @@ export const AdminPage: React.FC = () => {
       if (!deleted || deleted.length === 0) throw new Error('RLS');
       setSelectedTrials(new Set());
       await loadData(true);
-      alert(`${ids.length} התנסויות נמחקו`);
+      alert(t('alerts.trialsDeleted', { count: ids.length }));
     } catch (directErr: any) {
       if (directErr?.message !== 'RLS') console.warn('[Admin] direct trials delete failed', directErr);
       try {
@@ -1341,17 +1342,17 @@ export const AdminPage: React.FC = () => {
         if (!res.ok || !data.ok) throw new Error(data.error || text || `שגיאה ${res.status}`);
         setSelectedTrials(new Set());
         await loadData(true);
-        alert(`${ids.length} התנסויות נמחקו`);
+        alert(t('alerts.trialsDeleted', { count: ids.length }));
       } catch (apiErr: any) {
         console.error('[Admin] delete selected trials failed', apiErr);
-        alert('שגיאה במחיקת ההתנסויות: ' + (apiErr.message || directErr.message || 'Unknown error'));
+        alert(t('alerts.trialsDeleteError', { error: apiErr.message || directErr.message || 'Unknown error' }));
       }
     }
   };
 
   const handleDeleteSelectedCoupons = async () => {
     if (selectedCoupons.size === 0) {
-      alert('לא נבחרו הטבות למחיקה');
+      alert(t('alerts.noCouponsSelected'));
       return;
     }
     if (!confirm(`למחוק ${selectedCoupons.size} הטבות שנבחרו? לא ניתן לשחזר.`)) return;
@@ -1366,7 +1367,7 @@ export const AdminPage: React.FC = () => {
       console.log('[Admin] delete selected coupons OK (direct)', ids.length);
       setSelectedCoupons(new Set());
       await loadData(true);
-      alert(`${ids.length} הטבות נמחקו`);
+      alert(t('alerts.couponsDeleted', { count: ids.length }));
     } catch (directErr: any) {
       if (directErr?.message !== 'RLS') console.warn('[Admin] direct batch delete failed', directErr);
       try {
@@ -1385,11 +1386,10 @@ export const AdminPage: React.FC = () => {
         console.log('[Admin] delete selected coupons OK (API)', ids.length);
         setSelectedCoupons(new Set());
         await loadData(true);
-        alert(`${ids.length} הטבות נמחקו`);
+        alert(t('alerts.couponsDeleted', { count: ids.length }));
       } catch (apiErr: any) {
         console.error('[Admin] delete selected coupons failed', apiErr);
-        const hint = 'ודא שהרצת את המיגרציה allow_admin_delete ב-Supabase (SQL Editor) וכי המשתמש הוא admin. אם ה-API מפורסם ב-Vercel, בדוק משתני סביבה.';
-        alert('שגיאה במחיקת ההטבות: ' + (apiErr.message || directErr.message || 'Unknown error') + '\n\n' + hint);
+        alert(t('alerts.benefitDeleteError', { error: (apiErr.message || directErr.message || 'Unknown error') }) + '\n\n' + t('alerts.benefitDeleteHint'));
       }
     }
   };
@@ -1403,12 +1403,12 @@ export const AdminPage: React.FC = () => {
         target_all: updateForm.sendToAll,
         target_tier: updateForm.sendToAll ? undefined : [],
       });
-      alert('העדכון נשלח בהצלחה');
+      alert(t('alerts.updateSentSuccess'));
       setUpdateForm({ title: '', content: '', sendToAll: true, attachBenefit: false });
       await loadData();
     } catch (error: any) {
       console.error('Error sending update:', error);
-      alert('שגיאה בשליחת העדכון: ' + (error.message || 'Unknown error'));
+      alert(t('alerts.updateSendError', { error: error.message || 'Unknown error' }));
     }
   };
 
@@ -1419,11 +1419,11 @@ export const AdminPage: React.FC = () => {
     if (isCreatingCoupon) return;
     const titleTrimmed = couponForm.title?.trim();
     if (!titleTrimmed) {
-      alert('נא למלא כותרת להטבה.');
+      alert(t('alerts.fillBenefitTitle'));
       return;
     }
     if (couponForm.targetScope === 'user' && couponForm.deliveryEmail && !couponForm.targetUserEmail?.trim()) {
-      alert('נא למלא אימייל של המשתמש כשההטבה מיועדת למשתמש ספציפי ומסומנת לשליחה במייל.');
+      alert(t('alerts.fillUserEmail'));
       return;
     }
     setIsCreatingCoupon(true);
@@ -1549,7 +1549,7 @@ export const AdminPage: React.FC = () => {
           }
         }
 
-        alert('ההטבה נוצרה בהצלחה');
+        alert(t('alerts.benefitCreatedSuccess'));
         // Do not redirect to /?redeem=... – benefit is delivered only where configured (email and/or in-app updates)
         setCouponForm({
           benefitType: 'free_week',
@@ -1575,7 +1575,7 @@ export const AdminPage: React.FC = () => {
       await loadData(true);
     } catch (error: any) {
       console.error('Error creating coupon:', error);
-      alert('שגיאה ביצירת ההטבה: ' + (error.message || 'Unknown error'));
+      alert(t('alerts.benefitCreateError', { error: error.message || 'Unknown error' }));
     } finally {
       setIsCreatingCoupon(false);
     }

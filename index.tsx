@@ -1,4 +1,6 @@
+import './src/i18n';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import styled, { css } from 'styled-components';
@@ -19,6 +21,7 @@ import { TakbullPaymentModal } from './src/components/modals/TakbullPaymentModal
 import { ComparisonModal } from './src/components/modals/ComparisonModal';
 import { CoachDashboardModal } from './src/components/modals/CoachDashboardModal';
 import { AppLogo } from './src/components/AppLogo';
+import { LanguageDropdown } from './src/components/LanguageDropdown';
 import { AppContainer, Header } from './src/styles/components';
 import {
   ModalOverlay,
@@ -182,6 +185,7 @@ const TRACKS = [
 ];
 
 const App = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   // Use both: React Router can briefly lag on F5 refresh – window.location is source of truth for route
@@ -1006,10 +1010,10 @@ const App = () => {
     (async () => {
       try {
         await redeemCoupon(redeemCode.trim(), user.id);
-        alert('ההטבה מומשה בהצלחה');
+        alert(t('alerts.benefitRedeemed'));
         await loadUserData(user, true);
       } catch (err: any) {
-        alert(err?.message || 'לא ניתן לממש את ההטבה. ייתכן שכבר מומשה.');
+        alert(err?.message || t('alerts.benefitRedeemFailed'));
       }
       const next = new URLSearchParams(location.search);
       next.delete('redeem');
@@ -1111,7 +1115,7 @@ const App = () => {
     console.log('🔔 handleSelectPlan called:', { tier, period, user: user?.email, isUpdatingSubscription });
     
     if (!user) {
-      alert('יש להיכנס למערכת תחילה');
+      alert(t('alerts.loginRequired'));
       setAuthModalMode('initial');
       setShowAuthModal(true);
       setShowSubscriptionModal(false);
@@ -1147,7 +1151,7 @@ const App = () => {
         });
         const data = await res.json();
         if (!data.ok || !data.paymentUrl) {
-          throw new Error(data.error || 'לא ניתן לאתחל תשלום. נסה שוב.');
+          throw new Error(data.error || t('alerts.initPaymentFailed'));
         }
         setUpgradeFromTier(subscription?.tier || 'free');
         setUpgradeToTier(tier);
@@ -1158,7 +1162,7 @@ const App = () => {
         );
       } catch (err: any) {
         console.error('❌ TAKBUK init-order error:', err);
-        alert(err.message || 'אירעה שגיאה בפתיחת עמוד התשלום. נסה שוב.');
+        alert(err.message || t('alerts.paymentPageError'));
       } finally {
         updatingSubscriptionRef.current = false;
         setIsUpdatingSubscription(false);
@@ -1247,7 +1251,7 @@ const App = () => {
       }
     } catch (error: any) {
       console.error('Error saving subscription (free tier):', error);
-      alert('אירעה שגיאה בשמירת המנוי. נסה שוב.');
+      alert(t('alerts.subscriptionSaveError'));
     } finally {
       updatingSubscriptionRef.current = false;
       setIsUpdatingSubscription(false);
@@ -1303,7 +1307,7 @@ const App = () => {
       const plan = SUBSCRIPTION_PLANS[effectiveTier as SubscriptionTier];
       if (!plan || !plan.limits) {
         console.error('❌ Invalid tier or missing plan limits:', effectiveTier);
-        return { allowed: false, message: 'חבילה לא תקינה. נא ליצור קשר עם התמיכה.' };
+        return { allowed: false, message: t('alerts.invalidPlan') };
       }
     
       // CRITICAL: Check if subscription has expired - applies to ALL tiers (free, creator, pro, coach, coach-pro)
@@ -1326,7 +1330,7 @@ const App = () => {
               if (now > endDate) {
                 return { 
                   allowed: false, 
-                  message: 'המנוי שלך פג תוקף (הסתיימה תקופת החיוב). כדי להמשיך לנתח, יש לחדש או לשדרג את החבילה.' 
+                  message: t('alerts.subscriptionExpiredBilling')
                 };
               }
             }
@@ -1348,7 +1352,7 @@ const App = () => {
               // Subscription expired according to profile - block analysis
               return { 
                 allowed: false, 
-                message: 'המנוי שלך פג תוקף (על פי נתוני הפרופיל). כדי להמשיך לנתח, יש לחדש או לשדרג את החבילה.' 
+                message: t('alerts.subscriptionExpiredProfile')
               };
             }
           }
@@ -1392,7 +1396,7 @@ const App = () => {
         } else if (minutesUsed >= minutesLimit) {
           return { 
             allowed: false, 
-            message: 'סיימת את מכסת הניתוחים בחבילה הנוכחית. כדי להמשיך לנתח, מומלץ לשדרג חבילה או להמתין שהמכסה תתחדש.' 
+            message: t('alerts.quotaExceeded')
           };
         }
         // Within minutes limit - allow (analyses are unlimited)
@@ -1430,7 +1434,7 @@ const App = () => {
         if (totalAnalysesCount >= analysesLimit) {
           return { 
             allowed: false, 
-            message: 'סיימת את ניתוח הטעימה החינמי. כדי להמשיך לנתח ולהנות מאפשרויות מתקדמות נוספות, מומלץ לשדרג חבילה.' 
+            message: t('alerts.trialFinished')
           };
         }
         return { allowed: true };
@@ -1462,7 +1466,7 @@ const App = () => {
       // Better to block than allow unauthorized analysis
       return { 
         allowed: false, 
-        message: 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.' 
+        message: t('alerts.subscriptionCheckError')
       };
     }
   };
@@ -1600,7 +1604,7 @@ const App = () => {
         return prev.filter(t => t !== title);
       } else {
         if (prev.length >= maxExperts) {
-          alert(`מקסימום ${maxExperts} מומחים זמינים בחבילה שלך. יש לשדרג את החבילה לבחור מומחים נוספים.`);
+          alert(t('alerts.maxExperts', { max: maxExperts }));
           setShowSubscriptionModal(true);
           return prev;
         }
@@ -1623,7 +1627,7 @@ const App = () => {
 
     if (selectedFile.size > maxFileBytes) {
       const actualMb = (selectedFile.size / (1024 * 1024)).toFixed(1);
-      alert(`הקובץ גדול מדי (${actualMb}MB).\n\nחלק מהסרטונים (במיוחד מאייפון), נשמרים באיכות גבוהה מאוד ולכן הנפח שלהם גדול מידיי.\nפשוט שלחו לעצמכם את הסרטון בווצאפ והורידו אותו מחדש. הקובץ יהיה קטן יותר והניתוח ישאר מדוייק.`);
+      alert(t('alerts.fileTooLarge', { mb: actualMb }));
       resetInput();
       return;
     }
@@ -1648,7 +1652,7 @@ const App = () => {
       videoEl.onloadedmetadata = () => {
         if (videoEl.duration > maxVideoSeconds) {
           const durationSeconds = Math.round(videoEl.duration);
-          alert(`הסרטון ארוך מידיי (${durationSeconds} שניות).\n\nהעלה סרטון באורך מתאים או שדרג ליכולות מתקדמות.`);
+          alert(t('alerts.videoTooLong', { seconds: durationSeconds }));
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;
@@ -1657,7 +1661,7 @@ const App = () => {
       };
 
       videoEl.onerror = () => {
-        alert("לא ניתן לקרוא את המטא-דאטה של הווידאו. נסה קובץ אחר.");
+        alert(t('alerts.videoMetadataError'));
         URL.revokeObjectURL(objectUrl);
         resetInput();
       };
@@ -1681,7 +1685,7 @@ const App = () => {
       if (selectedPdf.type === 'application/pdf') {
         setPdfFile(selectedPdf);
       } else {
-        alert("נא להעלות קובץ PDF בלבד");
+        alert(t('alerts.pdfOnly'));
       }
     }
   };
@@ -1764,7 +1768,7 @@ const App = () => {
               new Map(mappedAnalyses.map(a => [a.id, a])).values()
             );
             setSavedAnalyses(uniqueAnalyses);
-            alert('הניתוח כבר נשמר אוטומטית לאחר השלמתו');
+            alert(t('alerts.analysisAlreadySaved'));
             return;
           }
         }
@@ -1772,7 +1776,7 @@ const App = () => {
     }
 
     if (activeTrack === 'coach' && !selectedTrainee) {
-      alert('נא לבחור מתאמן לפני שמירת הניתוח');
+      alert(t('alerts.selectTraineeFirst'));
       setShowCoachDashboard(true);
       return;
     }
@@ -1891,7 +1895,7 @@ const App = () => {
       };
 
       // Don't add to state here - reload from Supabase to ensure consistency
-      alert(`הניתוח נשמר בהצלחה${trainee ? ` עבור ${trainee.name}` : ''}`);
+      alert(t('alerts.analysisSavedSuccess') + (trainee ? ` ${t('alerts.forTrainee', { name: trainee.name })}` : ''));
       
       // Reload analyses from Supabase to get the latest data
       if (user) {
@@ -2080,7 +2084,7 @@ const App = () => {
       }
     } catch (error) {
       console.error('Error saving analysis:', error);
-      alert('אירעה שגיאה בשמירת הניתוח. נסה שוב.');
+      alert(t('alerts.analysisSaveError'));
     } finally {
       // CRITICAL: Always reset saving state, even on error
       if (savingTimeout) {
@@ -2111,7 +2115,7 @@ const App = () => {
   const handleExportCoachReport = (traineeId: string) => {
     const trainee = trainees.find(t => t.id === traineeId);
     if (!trainee) {
-      alert('מתאמן לא נמצא');
+      alert(t('alerts.traineeNotFound'));
       return;
     }
 
@@ -2120,7 +2124,7 @@ const App = () => {
       .sort((a, b) => new Date(a.analysisDate).getTime() - new Date(b.analysisDate).getTime());
 
     if (traineeAnalyses.length === 0) {
-      alert('אין ניתוחים שמורים עבור מתאמן זה');
+      alert(t('alerts.noAnalysesForTrainee'));
       return;
     }
 
@@ -2151,7 +2155,7 @@ const App = () => {
     // Generate report HTML
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert('לא ניתן לפתוח חלון חדש. אנא אפשר חלונות קופצים בדפדפן.');
+      alert(t('alerts.popupBlocked'));
       return;
     }
 
@@ -2434,14 +2438,14 @@ const App = () => {
     if (!result) return;
 
     if (!canUseFeature('pdfExport')) {
-      alert('יצוא ל-PDF זמין לחבילות מנוי בלבד. יש לשדרג את החבילה.');
+      alert(t('alerts.pdfSubscriptionOnly'));
       setShowSubscriptionModal(true);
       return;
     }
 
     const printWindow = window.open('', '_blank', 'width=900,height=1200');
     if (!printWindow) {
-      alert('נא לאפשר חלונות קופצים כדי לייצא ל-PDF.');
+      alert(t('alerts.allowPopupsForPdf'));
       return;
     }
 
@@ -2454,7 +2458,7 @@ const App = () => {
         html += `<div class="pdf-section">`;
         html += `
           <div style="background: #fff9e6; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-right: 4px solid #b8862e; page-break-inside: avoid; break-inside: avoid;">
-            <h3 style="color: #b8862e; margin: 0 0 10px 0; font-size: 1.2rem;">✨ טיפ זהב של הפאנל</h3>
+            <h3 style="color: #b8862e; margin: 0 0 10px 0; font-size: 1.2rem;">✨ ${t('analysis.goldenTipTitle')}</h3>
             <p style="margin: 0; font-size: 1.1rem; font-weight: 600; line-height: 1.6;">"${result.hook}"</p>
           </div>
         `;
@@ -2464,7 +2468,7 @@ const App = () => {
       // Expert Analysis – זורם אחרי טיפ הזהב (דף 1 מלא), בלי דף ריק
       if (result.expertAnalysis && result.expertAnalysis.length > 0) {
         html += '<div class="pdf-section">';
-        html += '<h3 class="section-title">ניתוח פאנל המומחים</h3>';
+        html += `<h3 class="section-title">${t('analysis.expertPanel')}</h3>`;
         html += '<div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 25px;">';
         
         result.expertAnalysis.forEach((expert) => {
@@ -2473,11 +2477,11 @@ const App = () => {
               <div class="card">
                 <h4 class="pdf-expert-role">${expert.role}<span class="score-badge">${expert.score}</span></h4>
                 <div class="pdf-professional-block">
-                  <strong class="subtle-label">זווית מקצועית:</strong>
+                  <strong class="subtle-label">${t('analysis.professionalView')}:</strong>
                   <p>${expert.insight}</p>
                 </div>
                 <div class="pdf-tips-block">
-                  <strong class="subtle-label">טיפים לשיפור:</strong>
+                  <strong class="subtle-label">${t('analysis.improvementTips')}:</strong>
                   <p>${expert.tips}</p>
                 </div>
               </div>
@@ -2492,7 +2496,7 @@ const App = () => {
       // Committee Summary – זורם אחרי הפאנל (מלא דפים, בלי דף ריק)
       if (result.committee) {
         html += '<div class="pdf-section">';
-        html += '<h3 class="section-title">סיכום ועדת המומחים</h3>';
+        html += `<h3 class="section-title">${t('analysis.committeeSummary')}</h3>`;
         html += '<div class="card pdf-committee-summary-card">';
         html += `<p>${result.committee.summary}</p>`;
         html += '</div>';
@@ -2502,7 +2506,7 @@ const App = () => {
         if (result.committee.finalTips && result.committee.finalTips.length > 0) {
           html += `
             <div data-pdf="committee-tips">
-              <h5>טיפים מנצחים לעתיד:</h5>
+              <h5>${t('analysis.winningTips')}</h5>
               <ul>
                 ${result.committee.finalTips.map(tip => `<li>${tip}</li>`).join('')}
               </ul>
@@ -2514,19 +2518,25 @@ const App = () => {
           const hasRetake = recText.includes('טייק נוסף') || 
                            recText.includes('טייק חוזר') || 
                            recText.includes('retake') ||
+                           recText.includes('another take') ||
                            recText.includes('מומלץ לבצע') ||
-                           recText.includes('מומלץ טייק');
+                           recText.includes('מומלץ טייק') ||
+                           recText.includes('need improvement') ||
+                           recText.includes('recommended');
           const isReady = !hasRetake && (
             recText.includes('ready') || 
             recText.includes('מוכן') || 
             recText.includes('להגיש') ||
-            recText.includes('ניתן')
+            recText.includes('ניתן') ||
+            recText.includes('ready to submit') ||
+            recText.includes('submit') ||
+            recText.includes('approve')
           );
           const recommendationColor = isReady ? '#4CAF50' : '#FF9800';
           html += `
             <div class="card pdf-recommendation-card" style="border-right: 4px solid ${recommendationColor}; background: ${isReady ? '#f1f8f4' : '#fff8f0'};">
               <h4 style="color: ${recommendationColor};">
-                ${isReady ? '✅ מוכן להגשה!' : '💡 הצעות לשיפור:'}
+                ${isReady ? '✅ ' + t('analysis.readyToSubmit') : '💡 ' + t('analysis.suggestionsForImprovement')}
               </h4>
               <p>${result.takeRecommendation}</p>
             </div>
@@ -2535,14 +2545,14 @@ const App = () => {
         html += `
           <div data-pdf="final-score">
             <span class="number">${averageScore}</span>
-            <span class="label">ציון ויראליות משוקלל</span>
+            <span class="label">${t('analysis.viralScoreLabel')}</span>
           </div>
         `;
         html += '</div>';
         html += '</div>';
       } else {
         html += '<div class="pdf-section"><div class="pdf-final-block">';
-        html += `<div data-pdf="final-score"><span class="number">${averageScore}</span><span class="label">ציון ויראליות משוקלל</span></div>`;
+        html += `<div data-pdf="final-score"><span class="number">${averageScore}</span><span class="label">${t('analysis.viralScoreLabel')}</span></div>`;
         html += '</div></div>';
       }
 
@@ -2791,18 +2801,20 @@ const App = () => {
     `;
 
     const doc = printWindow.document;
+    const pdfDir = (i18n.language || 'he').startsWith('en') ? 'ltr' : 'rtl';
+    const localeForDate = (i18n.language || 'he').startsWith('en') ? 'en-US' : 'he-IL';
     doc.open();
     doc.write(`
-      <html dir="rtl">
+      <html dir="${pdfDir}">
         <head>
-          <title>דו"ח ניתוח וידאו</title>
+          <title>${t('analysis.pdfReportTitle')}</title>
         </head>
         <body>
           <div class="export-wrapper">
             <div class="export-header">
               <div class="export-header-text">
-              <h2>דו"ח ניתוח - Video Director Pro</h2>
-              <div class="export-note">נוצר במסלול פרימיום • ${new Date().toLocaleString('he-IL')}</div>
+              <h2>${t('analysis.pdfReportHeader')}</h2>
+              <div class="export-note">${t('analysis.pdfReportNote')} • ${new Date().toLocaleString(localeForDate)}</div>
             </div>
               <div class="export-logo-left">
                 <img src="${window.location.origin}/Logo.png" alt="Viraly Logo" />
@@ -2866,14 +2878,14 @@ const App = () => {
 
     // Validate inputs (no loading yet – so we never show "צוות המומחים צופה" when blocking)
     if (!prompt.trim() && !file) {
-      alert('נא להעלות סרטון או להזין טקסט לפני לחיצה על אקשן.');
+      alert(t('alerts.uploadOrTypeFirst'));
       return;
     }
     if (selectedExperts.length < 3) {
       const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
       const defaults = (EXPERTS_BY_TRACK[trackToUse] || []).slice(0, 3).map(e => e.title);
       if (defaults.length < 3) {
-        alert('נא לבחור לפחות 3 מומחים לפני התחלת הניתוח.');
+        alert(t('alerts.minExperts'));
         return;
       }
       setSelectedExperts(defaults);
@@ -2881,7 +2893,7 @@ const App = () => {
 
     // Check if user is logged in
     if (!user) {
-      alert('עליך להרשם תחילה כדי לבצע ניתוח.');
+      alert(t('alerts.signupRequired'));
       setAuthModalMode('initial');
       setShowAuthModal(true);
       return;
@@ -2891,7 +2903,7 @@ const App = () => {
     const effectiveTier = subscription?.tier || profile?.subscription_tier || 'free';
     const freeUsage = usage?.analysesUsed ?? subscription?.usage?.analysesUsed ?? 0;
     if (effectiveTier === 'free' && freeUsage >= 1) {
-      alert('סיימת את ניתוח הטעימה החינמי. כדי להמשיך לנתח ולהנות מאפשרויות מתקדמות נוספות, מומלץ לשדרג חבילה.');
+      alert(t('alerts.trialFinished'));
       setShowSubscriptionModal(true);
       return;
     }
@@ -2900,7 +2912,7 @@ const App = () => {
     setLoading(true);
 
     // Full limit check (for paid tiers and when free usage not yet in state)
-    const SUBSCRIPTION_CHECK_ERROR = 'שגיאה בבדיקת המנוי. אנא נסה שוב או צור קשר עם התמיכה.';
+    const SUBSCRIPTION_CHECK_ERROR = t('alerts.subscriptionCheckError');
     let limitCheck: { allowed: boolean; message?: string };
     if (userIsAdmin) {
       limitCheck = { allowed: true };
@@ -2926,14 +2938,14 @@ const App = () => {
     const trackAvailable = isTrackAvailable(activeTrack);
     if (!trackAvailable) {
       setLoading(false);
-      alert('תחום זה אינו כלול בחבילה שלך. יש לשדרג את החבילה לבחור תחומים נוספים.');
+      alert(t('alerts.trackNotInPlan'));
       setShowSubscriptionModal(true);
       return;
     }
 
     if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
       setLoading(false);
-      alert('מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד. יש לשדרג את החבילה.');
+      alert(t('coachTrack.alertMessage'));
       setShowSubscriptionModal(true);
       return;
     }
@@ -2949,7 +2961,7 @@ const App = () => {
     try {
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
       if (!apiKey) {
-        alert("חסר מפתח API. נא להגדיר VITE_GEMINI_API_KEY בסביבת ההרצה.");
+        alert(t('alerts.missingApiKey'));
         if (loadingTimeout) {
           clearTimeout(loadingTimeout);
           loadingTimeout = null;
@@ -2967,7 +2979,7 @@ const App = () => {
         : (EXPERTS_BY_TRACK[trackForExperts] || []).slice(0, 3).map(e => e.title)
       );
       if (expertsForRun.length < 3) {
-        alert('שגיאה: לא נמצאו מספיק מומחים לניתוח. נסה לבחור תחום אחר או לרענן.');
+        alert(t('alerts.notEnoughExperts'));
         if (loadingTimeout) {
           clearTimeout(loadingTimeout);
           loadingTimeout = null;
@@ -3002,11 +3014,13 @@ const App = () => {
 
       const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
       const isDeepAnalysis = (activeTrack === 'coach' || activeTrack === 'pro') && analysisDepth === 'deep';
+      const outputLang = (i18n.language || 'he').startsWith('en') ? 'en' : 'he';
+      const timestampExample = outputLang === 'he' ? '"בדקה 2:15..."' : '"at 2:15..."';
       const depthInstruction = isDeepAnalysis ? `
         
         ANALYSIS DEPTH: DEEP & PROFESSIONAL ANALYSIS MODE
         - Provide extremely detailed, comprehensive, and thorough analysis
-        - Include specific timestamps references when relevant (e.g., "בדקה 2:15...")
+        - Include specific timestamps references when relevant (e.g., ${timestampExample})
         - Give multiple layers of feedback (technical, emotional, performance, delivery)
         - Compare to professional standards and best practices
         - Provide actionable, specific, and detailed improvement recommendations
@@ -3022,12 +3036,7 @@ const App = () => {
         - Focus on key areas for improvement
       ` : '';
 
-      const systemInstruction = `
-        You are "Viraly", a world-class Video Director and Analyst.
-        Current Mode: ${trackToUse}${activeTrack === 'coach' ? ' (Coach Edition - Training Track)' : ''}.
-        Panel: ${expertPanel}.
-        ${depthInstruction}
-        
+      const langInstruction = outputLang === 'he' ? `
         Task: Analyze the user's input (Idea/Script or Video File) strictly in HEBREW.
         
         CRITICAL: OUTPUT MUST BE 100% HEBREW. DO NOT USE ENGLISH WORDS IN THE DISPLAYED TEXT.
@@ -3041,6 +3050,20 @@ const App = () => {
         - Viral -> "ויראלי"
         - Composition -> "קומפוזיציה"
         - Timeline -> "ציר הזמן"
+      ` : `
+        Task: Analyze the user's input (Idea/Script or Video File) strictly in ENGLISH.
+        
+        CRITICAL: OUTPUT MUST BE 100% ENGLISH. DO NOT USE HEBREW OR OTHER LANGUAGES IN THE DISPLAYED TEXT.
+        Use standard professional English terminology throughout.
+      `;
+
+      const systemInstruction = `
+        You are "Viraly", a world-class Video Director and Analyst.
+        Current Mode: ${trackToUse}${activeTrack === 'coach' ? ' (Coach Edition - Training Track)' : ''}.
+        Panel: ${expertPanel}.
+        ${depthInstruction}
+        
+        ${langInstruction}
         
         ${extraContext}
         ${pdfContext}
@@ -3081,22 +3104,24 @@ const App = () => {
            - If a retake is needed: Honestly recommend another take if significant improvements are needed, explaining specifically what should be improved
            - Be authentic - don't always recommend retakes, and don't always say it's ready. Assess professionally and honestly.
 
-        Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be Hebrew):
+        Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be in ${outputLang === 'he' ? 'Hebrew' : 'English'}):
         {
           "expertAnalysis": [
             {
-              "role": "Expert Title (Hebrew)",
-              "insight": "Deep professional analysis from this expert's unique POV. Must include: track-specific professional perspective, balanced praise and criticism, text/content analysis if applicable, key moments identification, and specific professional insights. (Hebrew only)",
-              "tips": "Actionable, specific, professional tips for improvement relevant to this track's expertise. High-value, authentic, and implementable advice. (Hebrew only)",
+              "role": "Expert Title (${outputLang === 'he' ? 'Hebrew' : 'English'})",
+              "insight": "Deep professional analysis from this expert's unique POV. Must include: track-specific professional perspective, balanced praise and criticism, text/content analysis if applicable, key moments identification, and specific professional insights. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
+              "tips": "Actionable, specific, professional tips for improvement relevant to this track's expertise. High-value, authentic, and implementable advice. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
               "score": number (1-100, authentic professional assessment)
             }
           ],
-          "hook": "The 'Golden Tip'. A single, explosive, game-changing sentence. It must be the absolute secret weapon for this specific video. Phrased as a direct, powerful, and unforgettable command that will transform the user's career. (Hebrew only)",
+          "hook": "The 'Golden Tip'. A single, explosive, game-changing sentence. It must be the absolute secret weapon for this specific video. Phrased as a direct, powerful, and unforgettable command that will transform the user's career. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
           "committee": {
-            "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (Hebrew only)",
-            "finalTips": ["Professional tip 1 (Hebrew)", "Professional tip 2 (Hebrew)", "Professional tip 3 (Hebrew)"]
+            "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
+            "finalTips": ["Professional tip 1", "Professional tip 2", "Professional tip 3"]
           },
-          "takeRecommendation": "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. NO ENGLISH - Hebrew only!"
+          "takeRecommendation": "${outputLang === 'he' 
+            ? "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. NO ENGLISH - Hebrew only!" 
+            : "Honest professional recommendation in English: If ready - say 'Ready to submit' and explain why. If needs improvement - say 'Another take recommended' and give friendly suggestions. NO HEBREW - English only!"}"
         }
 
         Important:
@@ -3105,7 +3130,7 @@ const App = () => {
         - "hook" is NOT a suggestion for a video hook. It is the "Golden Insight" of the analysis.
         - "score" for each expert must be authentic (1-100) based on professional standards.
         - "takeRecommendation" must be honest - assess if the take is ready or needs improvement.
-        - Use purely Hebrew professional terms.
+        - Use purely ${outputLang === 'he' ? 'Hebrew' : 'English'} professional terms.
         - Do not use Markdown formatting inside the JSON strings.
         - Balance praise and criticism authentically - be professional, not overly positive or negative.
         ${((activeTrack === 'coach' || activeTrack === 'pro') && analysisDepth === 'deep') ? `
@@ -3117,7 +3142,7 @@ const App = () => {
       
       // Force a text part if prompt is empty to ensure API stability
       if (!prompt.trim()) {
-        parts.push({ text: "Please analyze the attached media based on the system instructions." });
+        parts.push({ text: t('analysis.emptyPromptFallback') });
       } else {
         parts.push({ text: prompt });
       }
@@ -3130,7 +3155,7 @@ const App = () => {
         // Check file size
         if (file.size > maxFileBytes) {
            const actualMb = (file.size / (1024 * 1024)).toFixed(1);
-           alert(`הקובץ גדול מדי (${actualMb}MB).\n\nחלק מהסרטונים (במיוחד מאייפון), נשמרים באיכות גבוהה מאוד ולכן הנפח שלהם גדול מידיי.\nפשוט שלחו לעצמכם את הסרטון בווצאפ והורידו אותו מחדש. הקובץ יהיה קטן יותר והניתוח ישאר מדוייק.`);
+           alert(t('alerts.fileTooLarge', { mb: actualMb }));
            if (loadingTimeout) {
              clearTimeout(loadingTimeout);
              loadingTimeout = null;
@@ -3144,7 +3169,7 @@ const App = () => {
           const duration = videoRef.current.duration || 0;
           if (duration > maxVideoSeconds) {
             const durationSeconds = Math.round(duration);
-            alert(`הסרטון ארוך מידיי (${durationSeconds} שניות).\n\nהעלה סרטון באורך מתאים או שדרג ליכולות מתקדמות.`);
+            alert(t('alerts.videoTooLong', { seconds: durationSeconds }));
             if (loadingTimeout) {
               clearTimeout(loadingTimeout);
               loadingTimeout = null;
@@ -3158,7 +3183,7 @@ const App = () => {
           parts.push(imagePart);
         } catch (e) {
           console.error("❌ File processing error", e);
-          alert("שגיאה בעיבוד הקובץ");
+          alert(t('alerts.fileProcessingError'));
           if (loadingTimeout) {
             clearTimeout(loadingTimeout);
             loadingTimeout = null;
@@ -3220,7 +3245,7 @@ const App = () => {
         console.error("❌ JSON Parse Error", e);
         console.error("Raw Text (first 500 chars):", jsonText.substring(0, 500));
         console.error("Raw Text (last 500 chars):", jsonText.substring(Math.max(0, jsonText.length - 500)));
-        alert("התקבלה תשובה לא תקינה מהמערכת. אנא נסה שוב.");
+        alert(t('alerts.invalidResponse'));
         setLoading(false);
         return;
       }
@@ -3228,7 +3253,7 @@ const App = () => {
       // Validate result structure
       if (!parsedResult.expertAnalysis || parsedResult.expertAnalysis.length === 0) {
         console.error("❌ Invalid result structure - no expertAnalysis");
-        alert("התקבלה תשובה לא תקינה מהמערכת (חסרים ניתוחי מומחים). אנא נסה שוב.");
+        alert(t('alerts.invalidResponseNoExperts'));
         setLoading(false);
         return;
       }
@@ -3411,9 +3436,9 @@ const App = () => {
             console.error('❌ Save error details:', saveError?.details);
             
             // Show alert to user so they know the analysis wasn't saved
-            const errorMessage = saveError?.message || 'שגיאה לא ידועה';
+            const errorMessage = saveError?.message || t('alerts.unknownError');
             const errorCode = saveError?.code || 'UNKNOWN';
-            alert(`⚠️ הניתוח הושלם אבל לא נשמר במסד הנתונים.\n\nשגיאה: ${errorMessage}\nקוד: ${errorCode}\n\nנא לנסות שוב או ליצור קשר עם התמיכה.`);
+            alert(t('alerts.analysisSaveErrorDb', { error: errorMessage, code: errorCode }));
             
             // Don't block UI - analysis result is still shown
             // Usage will be updated on next page load or when user manually saves
@@ -3452,15 +3477,15 @@ const App = () => {
       
       const code = error?.error?.code ?? error?.status ?? (typeof error?.code === 'number' ? error.code : undefined);
       if (code === 429) {
-        alert("חרגת ממכסת הקריאות למודל Gemini בחשבון גוגל. יש להמתין לחידוש המכסה או לשדרג חבילה.");
+        alert(t('alerts.geminiQuotaExceeded'));
       } else if (code === 503) {
-        alert("המודל של Gemini כרגע עמוס (503). נסה שוב בעוד כמה דקות.");
+        alert(t('alerts.geminiOverloaded'));
       } else if (code === 500 || code === 502 || code === 504) {
-        alert("שגיאה זמנית בשרת הניתוח (Google). נסה שוב בעוד רגע.");
+        alert(t('alerts.geminiServerError'));
       } else if (code === 400) {
-        alert("בקשה לא תקינה למודל. ייתכן שהקובץ גדול מדי או שיש בעיה בפורמט.");
+        alert(t('alerts.invalidRequest'));
       } else {
-        alert(`אירעה שגיאה בניתוח (קוד: ${code ?? 'לא ידוע'}). ייתכן שהאינטרנט איטי, יש עומס על המערכת או בעיית API.`);
+        alert(t('alerts.analysisError', { code: code ?? (i18n.language?.startsWith('en') ? 'unknown' : 'לא ידוע') }));
       }
     } finally {
       // Stop video when analysis ends (success or error)
@@ -3501,7 +3526,7 @@ const App = () => {
   const handleSetAll = () => {
     const maxExperts = getMaxExperts();
     if (maxExperts < 8) {
-      alert('8 מומחים זמינים בחבילות מנוי בלבד. יש לשדרג את החבילה.');
+      alert(t('alerts.all8Experts'));
       setShowSubscriptionModal(true);
       return;
     }
@@ -3746,6 +3771,7 @@ const App = () => {
               return next;
             });
           }}
+          onLogout={handleLogout}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
@@ -3808,8 +3834,13 @@ const App = () => {
       <GlobalStyle />
       <AppContainer>
         <Header>
+          <div style={{ position: 'relative', width: '100%', marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <AppLogo />
+            <div style={{ position: 'absolute', top: 0, right: 0, left: 'auto' }}>
+              <LanguageDropdown />
+            </div>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '20px', gap: '15px' }}>
-          <AppLogo />
           {/* DISABLED: Upgrade completion message popup */}
           {/* This popup was causing issues with immediate login flow after registration */}
           {/* User now enters directly with selected package and settings */}
@@ -3871,17 +3902,14 @@ const App = () => {
             </div>
           )} */}
           </div>
-          <Title>Video Director Pro</Title>
-          <Subtitle>בינת וידאו לשחקנים, זמרים ויוצרי תוכן</Subtitle>
-          <Description>
-            סוכן על שמשלב ריאליטי, קולנוע, מוזיקה ומשפיענים.<br/>
-            קבל ניתוח עומק, הערות מקצועיות וליווי עד לפריצה הגדולה.
-          </Description>
+          <Title>{t('header.title')}</Title>
+          <Subtitle>{t('header.subtitle')}</Subtitle>
+          <Description dangerouslySetInnerHTML={{ __html: t('header.description') }} />
           {user && (
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
               {/* מחובר כ: במרכז מעל הלחצנים */}
               <span style={{ color: '#D4A043', fontSize: '0.9rem', fontWeight: 600 }}>
-                מחובר כ: <span style={{ color: '#fff' }}>{profile?.full_name || user.email}</span>
+                {t('header.loggedInAs')}: <span style={{ color: '#fff' }}>{profile?.full_name || user.email}</span>
               </span>
               
               {/* הלחצנים במרכז */}
@@ -3903,7 +3931,7 @@ const App = () => {
                       gap: '8px',
                     }}
                   >
-                    ⚙️ הגדרות
+                    ⚙️ {t('header.settings')}
                   </button>
                 )}
                 {userIsAdmin && (
@@ -3928,7 +3956,7 @@ const App = () => {
                       gap: '8px',
                     }}
                   >
-                    ⚙️ פאנל ניהול
+                    ⚙️ {t('header.adminPanel')}
                   </button>
                 )}
                 <button
@@ -3945,18 +3973,15 @@ const App = () => {
                     opacity: loggingOut ? 0.6 : 1,
                   }}
                 >
-                  {loggingOut ? 'מתנתק...' : 'התנתק'}
+                  {loggingOut ? t('header.loggingOut') : t('header.logout')}
                 </button>
               </div>
               
               {/* סוג החבילה במרכז מתחת ללחצנים */}
               {(() => {
                 const currentTier = subscription?.tier || profile?.subscription_tier || 'free';
-                let tierName = SUBSCRIPTION_PLANS[currentTier as SubscriptionTier]?.name || 'ניסיון';
-                // Add "גרסת פרו" for coach-pro tier
-                if (currentTier === 'coach-pro') {
-                  tierName = 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
-                }
+                let tierKey = currentTier === 'coach-pro' ? 'plan.coachPro' : `plan.${currentTier}`;
+                const tierName = t(tierKey);
                 return (
                   <span style={{ 
                     color: currentTier === 'free' ? '#888' : currentTier === 'coach' ? '#D4A043' : '#e6be74',
@@ -4020,20 +4045,20 @@ const App = () => {
                   e.currentTarget.style.boxShadow = '0 4px 15px rgba(212, 160, 67, 0.3)';
                 }}
               >
-                🔒 התחבר / הרשם
+                🔒 {t('header.loginSignup')}
               </button>
             </div>
           )}
           <CTAButton onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
-            העלה סרטון וקבל ניתוח מלא
+            {t('header.ctaUpload')}
           </CTAButton>
           
           <CapabilitiesButton onClick={() => setIsModalOpen(true)}>
-             יכולות האפליקציה של סוכן העל <SparklesIcon />
+             {t('header.ctaCapabilities')} <SparklesIcon />
           </CapabilitiesButton>
           
           <PackagesButton onClick={() => setShowPackageSelectionModal(true)}>
-            חבילות והצעות
+            {t('header.ctaPackages')}
           </PackagesButton>
         </Header>
         
@@ -4079,7 +4104,7 @@ const App = () => {
           onClose={() => setShowCoachGuide(false)}
         />
 
-        <SectionLabel>בחר את מסלול הניתוח שלך:</SectionLabel>
+        <SectionLabel>{t('analysis.selectTrack')}</SectionLabel>
         <Grid>
           {TRACKS.filter(track => !track.isPremium).map(track => {
             const showRestrictions = shouldShowTrackRestrictions(track.id as TrackId);
@@ -4094,10 +4119,10 @@ const App = () => {
                   cursor: 'pointer',
                   position: 'relative'
                 }}
-                title={showRestrictions ? 'תחום זה אינו כלול בחבילה שלך. תוכל לדפדף ולראות, אבל לא לבצע ניתוח. לחץ לשדרג.' : ''}
+                title={showRestrictions ? t('coachTrack.cardTooltip') : ''}
               >
                 {track.icon}
-                <span>{track.label}</span>
+                <span>{t(`track.${track.id}`)}</span>
                 {showRestrictions && (
                   <span style={{
                     position: 'absolute',
@@ -4128,12 +4153,12 @@ const App = () => {
                   opacity: showRestrictions ? 0.5 : 1,
                   cursor: 'pointer'
                 }}
-                title={showRestrictions ? 'מסלול הפרימיום אינו כלול בחבילה שלך. תוכל לדפדף ולראות, אבל לא לבצע ניתוח. לחץ לשדרג.' : ''}
+                title={showRestrictions ? t('coachTrack.cardTooltip') : ''}
               >
                 {track.icon}
-                <div className="coach-line1">מסלול פרימיום</div>
-                <div className="coach-line2">סטודיו ומאמנים</div>
-                <div className="coach-line3">Coach Edition</div>
+                <div className="coach-line1">{t('coachCard.line1')}</div>
+                <div className="coach-line2">{t('coachCard.line2')}</div>
+                <div className="coach-line3">{t('coachCard.line3')}</div>
               </PremiumCoachCard>
             );
           })}
@@ -4168,13 +4193,13 @@ const App = () => {
               }}
             >
               <SparklesIcon />
-              הסבר שימוש וניהול פשוט
+              {t('coachGuide.button')}
             </button>
           </div>
         )}
         
         <TrackDescriptionText>
-           {TRACK_DESCRIPTIONS[activeTrack]}
+           {t(`trackDescription.${activeTrack}`)}
         </TrackDescriptionText>
 
         {activeTrack === 'coach' && (
@@ -4183,12 +4208,12 @@ const App = () => {
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <CoachButton onClick={() => setShowCoachDashboard(true)}>
                   <CoachIcon />
-                  ניהול מתאמנים
+                  {t('coachTrack.traineeManagement')}
                 </CoachButton>
                 {canUseFeature('comparison') && (
                   <CoachButton onClick={() => setShowComparison(true)}>
                     <ComparisonIcon />
-                    השוואת ניתוחים
+                    {t('analysis.compareAnalyses')}
                   </CoachButton>
                 )}
               </div>
@@ -4202,17 +4227,17 @@ const App = () => {
                 width: '100%'
               }}>
                 <p style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.1rem', fontWeight: 600 }}>
-                  מסלול הפרימיום זמין למאמנים, סוכנויות ובתי ספר למשחק בלבד
+                  {t('coachTrack.restrictionMessage')}
                 </p>
                 <CoachButton onClick={() => setShowSubscriptionModal(true)}>
-                  שדרג למסלול הפרימיום
+                  {t('coachTrack.upgradeCta')}
                 </CoachButton>
               </div>
             )}
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', maxWidth: '800px' }}>
               <div style={{ background: 'rgba(212, 160, 67, 0.1)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.3)' }}>
-                <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.1rem' }}>בחר תחום אימון</h3>
+                <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', fontSize: '1.1rem' }}>{t('coachTrack.selectTrainingField')}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
                   {(['actors', 'musicians', 'creators', 'influencers'] as TrackId[]).map(trackId => {
                     const track = TRACKS.find(t => t.id === trackId);
@@ -4232,7 +4257,7 @@ const App = () => {
                           fontWeight: 600
                         }}
                       >
-                        {track.label}
+                        {t(`track.${track.id}`)}
                       </button>
                     ) : null;
                   })}
@@ -4240,7 +4265,7 @@ const App = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '15px', alignItems: 'center', background: 'rgba(212, 160, 67, 0.1)', padding: '12px 20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.3)' }}>
-                <span style={{ color: '#D4A043', fontWeight: 600 }}>סוג ניתוח:</span>
+                <span style={{ color: '#D4A043', fontWeight: 600 }}>{t('analysis.analysisType')}</span>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button
                     onClick={() => setAnalysisDepth('standard')}
@@ -4257,7 +4282,7 @@ const App = () => {
                       transition: 'all 0.3s'
                     }}
                   >
-                    ניתוח רגיל
+                    {t('analysis.standard')}
                   </button>
                   <button
                     onClick={() => setAnalysisDepth('deep')}
@@ -4274,7 +4299,7 @@ const App = () => {
                       transition: 'all 0.3s'
                     }}
                   >
-                    ניתוח מעמיק
+                    {t('analysis.deep')}
                   </button>
                 </div>
               </div>
@@ -4308,14 +4333,14 @@ const App = () => {
           </div>
         )}
 
-        <SectionLabel>מי הם צוות המומחים שלך?</SectionLabel>
+        <SectionLabel>{t('experts.whoAre')}</SectionLabel>
         
         <ExpertControlBar>
            <ExpertControlText>
-             הנבחרת שלך ב<strong>{activeTrack === 'coach' ? TRACKS.find(t => t.id === coachTrainingTrack)?.label : TRACKS.find(t => t.id === activeTrack)?.label}</strong>: אלו המומחים ומה הם בודקים
+             {t('analysis.yourCommittee')} <strong>{activeTrack === 'coach' ? t(`track.${coachTrainingTrack}`) : t(`track.${activeTrack}`)}</strong>{t('analysis.expertsIntro')}
            </ExpertControlText>
            <ExpertToggleGroup>
-              <ExpertToggleButton $active={isTop3()} onClick={handleSetTop3}>3 המובילים</ExpertToggleButton>
+              <ExpertToggleButton $active={isTop3()} onClick={handleSetTop3}>{t('experts.toggleTop3')}</ExpertToggleButton>
               <ExpertToggleButton 
                 $active={isAll()} 
                 onClick={handleSetAll}
@@ -4326,16 +4351,19 @@ const App = () => {
                 }}
                 title={getMaxExperts() < 8 ? '8 מומחים זמינים בחבילות מנוי בלבד. שדרג את החבילה.' : ''}
               >
-                8 מומחים
+                {t('experts.toggleAll8')}
               </ExpertToggleButton>
            </ExpertToggleGroup>
         </ExpertControlBar>
 
         <Grid>
           {EXPERTS_BY_TRACK[activeTrack === 'coach' ? coachTrainingTrack : activeTrack].map((expert, i) => {
+            const trackKey = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
             const isSelected = selectedExperts.includes(expert.title);
             const maxExperts = getMaxExperts();
             const isDisabled = !isSelected && selectedExperts.length >= maxExperts;
+            const expertTitle = t(`experts.${trackKey}.${i}.title`, { defaultValue: expert.title });
+            const expertDesc = t(`experts.${trackKey}.${i}.desc`, { defaultValue: expert.desc });
             return (
               <FeatureCard 
                 key={i} 
@@ -4347,8 +4375,8 @@ const App = () => {
                 }}
                 title={isDisabled ? `מקסימום ${maxExperts} מומחים זמינים בחבילה שלך. שדרג את החבילה לבחור מומחים נוספים.` : ''}
               >
-                <FeatureTitle $selected={isSelected}>{expert.title}</FeatureTitle>
-                <FeatureDesc $selected={isSelected}>{expert.desc}</FeatureDesc>
+                <FeatureTitle $selected={isSelected}>{expertTitle}</FeatureTitle>
+                <FeatureDesc $selected={isSelected}>{expertDesc}</FeatureDesc>
               </FeatureCard>
             );
           })}
@@ -4397,7 +4425,7 @@ const App = () => {
             <UploadContent>
               <UploadIcon><CinematicCameraIcon /></UploadIcon>
               <UploadTitle>
-                {isImprovementMode ? 'העלה טייק משופר (ניסיון 2)' : `העלה סרטון ${TRACKS.find(t => t.id === activeTrack)?.label}`}
+                {isImprovementMode ? t('analysis.uploadImproved') : t('analysis.uploadTitleForTrack', { track: t(`track.${activeTrack}`) })}
               </UploadTitle>
               
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '10px' }}>
@@ -4415,26 +4443,40 @@ const App = () => {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {subscription?.tier === 'free' ? 'שדרג חבילה' : 'נהל מנוי'}
+                  {subscription?.tier === 'free' ? t('subscription.upgradePlan') : t('subscription.manageSubscription')}
                 </button>
               </div>
               
               <UploadSubtitle style={{ textAlign: 'center', marginBottom: '25px' }}>
-                {getUploadLimitText(activeTrack, subscription || undefined)}
+                {(() => {
+                  const sub = subscription || undefined;
+                  if (sub) {
+                    const plan = SUBSCRIPTION_PLANS[sub.tier];
+                    const seconds = plan.limits.maxVideoSeconds;
+                    const mb = plan.limits.maxFileBytes / (1024 * 1024);
+                    if (seconds >= 60) {
+                      const minutes = Math.floor(seconds / 60);
+                      return t('uploadLimit.minutes', { minutes, mb });
+                    }
+                    return t('uploadLimit.seconds', { seconds, mb });
+                  }
+                  if (activeTrack === 'coach') return t('uploadLimit.minutes', { minutes: 5, mb: 40 });
+                  return t('uploadLimit.minute', { mb: 20 });
+                })()}
                 {subscription && (
                   <span style={{ display: 'block', marginTop: '8px', fontSize: '0.85rem', color: '#D4A043' }}>
-                    חבילה: {subscription.tier === 'coach-pro' 
-                      ? 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו'
-                      : SUBSCRIPTION_PLANS[subscription.tier].name}
+                    {t('billingPlanLabel')}: {subscription.tier === 'coach-pro' 
+                      ? t('plan.coachPro')
+                      : t(`plan.${subscription.tier}`)}
                     {subscription.usage.analysesUsed > 0 && SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod !== -1 && (
-                      <span> | נותרו {SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod - subscription.usage.analysesUsed} ניתוחים</span>
+                      <span> | {t('analysis.remainingAnalyses', { count: SUBSCRIPTION_PLANS[subscription.tier].limits.maxAnalysesPerPeriod - subscription.usage.analysesUsed })}</span>
                     )}
                   </span>
                 )}
               </UploadSubtitle>
               
               <UploadButton>
-                {isImprovementMode ? 'בחר קובץ לשיפור' : 'העלה סרטון עכשיו'}
+                {isImprovementMode ? t('analysis.selectFile') : t('analysis.uploadNow')}
                 <FileInput 
                   type="file" 
                   accept="video/*,image/*" 
@@ -4451,14 +4493,14 @@ const App = () => {
             <PdfFileInfo>
               <PdfIcon />
               <span>{pdfFile.name}</span>
-              <RemovePdfBtnSmall onClick={handleRemovePdf} title="הסר קובץ">
+              <RemovePdfBtnSmall onClick={handleRemovePdf} title={t('analysis.removeFile')}>
                 <CloseIcon />
               </RemovePdfBtnSmall>
             </PdfFileInfo>
           ) : (
             <PdfUploadLabel>
               <PdfIcon />
-              צרף תסריט / הנחיות (PDF)
+              {t('analysis.attachScript')}
               <input 
                 type="file" 
                 accept="application/pdf" 
@@ -4483,7 +4525,7 @@ const App = () => {
             marginBottom: '20px',
             justifyContent: 'center'
           }}>
-            <span style={{ color: '#D4A043', fontWeight: 600 }}>סוג ניתוח:</span>
+            <span style={{ color: '#D4A043', fontWeight: 600 }}>{t('analysis.analysisType')}</span>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => setAnalysisDepth('standard')}
@@ -4500,7 +4542,7 @@ const App = () => {
                   transition: 'all 0.3s'
                 }}
               >
-                ניתוח רגיל
+                {t('analysis.standard')}
               </button>
               <button
                 onClick={() => setAnalysisDepth('deep')}
@@ -4517,7 +4559,7 @@ const App = () => {
                   transition: 'all 0.3s'
                 }}
               >
-                ניתוח מעמיק
+                {t('analysis.deep')}
               </button>
             </div>
           </div>
@@ -4525,7 +4567,7 @@ const App = () => {
 
         <InputWrapper>
           <MainInput 
-            placeholder={isImprovementMode ? "מה שינית בטייק הזה? (אופציונלי)" : "כתוב כאן תיאור קצר: מה מטרת הסרטון? מה המסר? (אופציונלי)"}
+            placeholder={isImprovementMode ? t('analysis.improvementPlaceholder') : t('analysis.descriptionPlaceholder')}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
@@ -4535,7 +4577,7 @@ const App = () => {
             $isReady={isReady}
             $isLoading={loading}
           >
-            {loading ? 'צוות המומחים צופה כעת בסרטון' : (isImprovementMode ? 'נתח שיפורים' : 'אקשן !')}
+            {loading ? t('analysis.watching') : (isImprovementMode ? t('analysis.analyzeImprovements') : t('analysis.action'))}
           </ActionButton>
           {selectedExperts.length < 3 && (
             <ErrorMsg>נא לבחור לפחות 3 מומחים כדי להמשיך</ErrorMsg>
@@ -4548,7 +4590,7 @@ const App = () => {
               {result.hook && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <SectionTitleExternal>
-                    <SubtleSparkleIcon /> טיפ זהב של הפאנל <SubtleSparkleIcon />
+                    <SubtleSparkleIcon /> {t('analysis.goldenTipTitle')} <SubtleSparkleIcon />
                   </SectionTitleExternal>
                   <CompactResultBox>
                     <HookText>"{result.hook}"</HookText>
@@ -4556,26 +4598,26 @@ const App = () => {
                 </div>
               )}
 
-              <SectionLabel style={{ textAlign: 'center', display: 'block', marginTop: '20px' }}>ניתוח פאנל המומחים</SectionLabel>
+              <SectionLabel style={{ textAlign: 'center', display: 'block', marginTop: '20px' }}>{t('analysis.expertPanel')}</SectionLabel>
               
               <ExpertsGrid>
                 {result.expertAnalysis?.map((expert, idx) => (
                   <ExpertResultCard key={idx}>
                     <h4>{expert.role} <ExpertScore>{expert.score}</ExpertScore></h4>
                     
-                    <ExpertSectionTitle><EyeIcon /> זווית מקצועית</ExpertSectionTitle>
+                    <ExpertSectionTitle><EyeIcon /> {t('analysis.professionalView')}</ExpertSectionTitle>
                     <ExpertText>{expert.insight}</ExpertText>
                     
-                    <ExpertSectionTitle><BulbIcon /> טיפים לשיפור</ExpertSectionTitle>
+                    <ExpertSectionTitle><BulbIcon /> {t('analysis.improvementTips')}</ExpertSectionTitle>
                     <ExpertText style={{ color: '#fff', fontWeight: 500 }}>{expert.tips}</ExpertText>
                   </ExpertResultCard>
-                )) || <p style={{textAlign: 'center', color: '#666'}}>טוען ניתוח...</p>}
+                )) || <p style={{textAlign: 'center', color: '#666'}}>{t('analysis.loadingAnalysis')}</p>}
               </ExpertsGrid>
 
               {result.committee && (
                 <CommitteeSection>
                   <SectionTitleExternal>
-                     <SubtleDocumentIcon /> סיכום ועדת המומחים
+                     <SubtleDocumentIcon /> {t('analysis.committeeSummary')}
                   </SectionTitleExternal>
                   <CompactResultBox>
                     <CommitteeText>{result.committee.summary}</CommitteeText>
@@ -4583,7 +4625,7 @@ const App = () => {
                   
                   {result.committee.finalTips && result.committee.finalTips.length > 0 && (
                     <CommitteeTips data-pdf="committee-tips">
-                      <h5>טיפים מנצחים לעתיד:</h5>
+                      <h5>{t('analysis.winningTips')}</h5>
                       <ul>
                         {result.committee.finalTips.map((tip, i) => (
                           <li key={i}>{tip}</li>
@@ -4597,13 +4639,19 @@ const App = () => {
                     const hasRetake = recText.includes('טייק נוסף') || 
                                      recText.includes('טייק חוזר') || 
                                      recText.includes('retake') ||
+                                     recText.includes('another take') ||
                                      recText.includes('מומלץ לבצע') ||
-                                     recText.includes('מומלץ טייק');
+                                     recText.includes('מומלץ טייק') ||
+                                     recText.includes('need improvement') ||
+                                     recText.includes('recommended');
                     const isReady = !hasRetake && (
                       recText.includes('ready') || 
                       recText.includes('מוכן') || 
                       recText.includes('להגיש') ||
-                      recText.includes('ניתן')
+                      recText.includes('ניתן') ||
+                      recText.includes('ready to submit') ||
+                      recText.includes('submit') ||
+                      recText.includes('approve')
                     );
                     return (
                       <div style={{
@@ -4614,8 +4662,8 @@ const App = () => {
                         borderRadius: '12px',
                         padding: '20px',
                         marginTop: '20px',
-                        textAlign: 'right',
-                        direction: 'rtl'
+                        textAlign: (i18n.language || 'he').startsWith('en') ? 'left' : 'right',
+                        direction: (i18n.language || 'he').startsWith('en') ? 'ltr' : 'rtl'
                       }}>
                         <h4 style={{
                           color: isReady ? '#4CAF50' : '#FF9800',
@@ -4626,7 +4674,7 @@ const App = () => {
                           alignItems: 'center',
                           gap: '10px'
                         }}>
-                          {isReady ? '✅' : '💡'} {isReady ? 'מוכן להגשה!' : 'הצעות לשיפור:'}
+                          {isReady ? '✅' : '💡'} {isReady ? t('analysis.readyToSubmit') : t('analysis.suggestionsForImprovement')}
                         </h4>
                         <p style={{
                           margin: 0,
@@ -4643,7 +4691,7 @@ const App = () => {
                   
                   <FinalScore data-pdf="final-score">
                     <span className="number">{averageScore}</span>
-                    <span className="label">ציון ויראליות משוקלל</span>
+                    <span className="label">{t('analysis.viralScoreLabel')}</span>
                   </FinalScore>
                 </CommitteeSection>
               )}
@@ -4657,15 +4705,15 @@ const App = () => {
                   opacity: !canUseFeature('pdfExport') ? 0.5 : 1,
                   cursor: !canUseFeature('pdfExport') ? 'not-allowed' : 'pointer'
                 }}
-                title={!canUseFeature('pdfExport') ? 'יצוא ל-PDF זמין בחבילות מנוי בלבד. שדרג את החבילה.' : ''}
+                title={!canUseFeature('pdfExport') ? t('alerts.pdfSubscriptionOnly') : ''}
               >
                 {!canUseFeature('pdfExport') ? <NoEntryIcon /> : <PdfIcon />}
-                יצוא ניתוח ל-PDF
+                {t('analysis.exportPdf')}
                 {!canUseFeature('pdfExport') && <PremiumBadge>פרימיום</PremiumBadge>}
               </PrimaryButton>
               {activeTrack === 'coach' && canUseFeature('traineeManagement') && (
                 <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee || isSavingAnalysis}>
-                  {isSavingAnalysis ? '💾 שומר...' : '💾 שמור ניתוח למתאמן'}
+                  {isSavingAnalysis ? `💾 ${t('analysis.saving')}` : `💾 ${t('analysis.saveForTrainee')}`}
                 </PrimaryButton>
               )}
               <SecondaryButton onClick={handleReset}>
@@ -4679,7 +4727,7 @@ const App = () => {
                   opacity: !canUseFeature('improvementTracking') ? 0.5 : 1,
                   cursor: !canUseFeature('improvementTracking') ? 'not-allowed' : 'pointer'
                 }}
-                title={!canUseFeature('improvementTracking') ? 'העלאת טייק משופר זמינה בחבילות מנוי בלבד. שדרג את החבילה.' : ''}
+                title={!canUseFeature('improvementTracking') ? t('alerts.improvementTrackingSubscriptionOnly') : ''}
               >
                 <UploadIconSmall />
                 העלה טייק משופר
@@ -4828,7 +4876,7 @@ const App = () => {
         }}
         onError={(error) => {
           console.error('Payment error:', error);
-          alert(`שגיאה בתשלום: ${error}`);
+          alert(t('alerts.paymentError', { error: String(error) }));
         }}
       />
       
@@ -4996,7 +5044,7 @@ const App = () => {
             }
           } catch (error) {
             console.error('Error adding track:', error);
-            alert('שגיאה בהוספת התחום. תוכל להוסיף אותו מאוחר יותר מההגדרות.');
+            alert(t('alerts.addTrackError'));
           }
         }}
         onFinishTrackSelection={async () => {

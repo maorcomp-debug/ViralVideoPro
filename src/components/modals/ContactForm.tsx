@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 interface ContactFormProps {
@@ -180,6 +181,7 @@ const CharacterCount = styled.div<{ $warning?: boolean }>`
 `;
 
 export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) => {
+  const { t, i18n } = useTranslation();
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     email: '',
@@ -202,23 +204,23 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
     const newErrors: FormErrors = {};
 
     if (!formData.fullName.trim()) {
-      newErrors.fullName = 'נא להזין שם מלא';
+      newErrors.fullName = t('contact.fullNameRequired');
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'נא להזין כתובת אימייל';
+      newErrors.email = t('contact.emailRequired');
     } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'כתובת אימייל לא תקינה';
+      newErrors.email = t('contact.emailInvalid');
     }
 
     if (!formData.subject.trim()) {
-      newErrors.subject = 'נא להזין נושא';
+      newErrors.subject = t('contact.subjectRequired');
     }
 
     if (!formData.message.trim()) {
-      newErrors.message = 'נא להזין הודעה';
+      newErrors.message = t('contact.messageRequired');
     } else if (formData.message.trim().length < 20) {
-      newErrors.message = 'ההודעה חייבת להכיל לפחות 20 תווים';
+      newErrors.message = t('contact.messageMinLength');
     }
 
     setErrors(newErrors);
@@ -249,13 +251,14 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
           message: formData.message.trim(),
           honeypot: formData.honeypot,
           sourceUrl: sourceUrl || window.location.href,
+          lang: (i18n.language || i18n.resolvedLanguage || 'he').split('-')[0],
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        throw new Error(data.error || 'אירעה שגיאה בשליחת ההודעה');
+        throw new Error(data.error || t('contact.sendError'));
       }
 
       setIsSuccess(true);
@@ -278,7 +281,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
 
     } catch (error: any) {
       setErrors({
-        general: error.message || 'אירעה שגיאה בשליחת ההודעה. אנא נסה שוב מאוחר יותר.',
+        general: error.message || t('contact.sendError'),
       });
     } finally {
       setIsSubmitting(false);
@@ -292,7 +295,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
     return (
       <FormContainer>
         <SuccessMessage>
-          ✓ ההודעה נשלחה בהצלחה! ניצור איתך קשר בהקדם.
+          ✓ {t('contact.successMessage')}
         </SuccessMessage>
       </FormContainer>
     );
@@ -309,13 +312,13 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
 
         <FormField>
           <Label>
-            <Required>*</Required>שם מלא
+            <Required>*</Required>{t('contact.fullName')}
           </Label>
           <Input
             type="text"
             value={formData.fullName}
             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-            placeholder="הזן שם מלא"
+            placeholder={t('contact.placeholderFullName')}
             disabled={isSubmitting}
             required
           />
@@ -324,7 +327,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
 
         <FormField>
           <Label>
-            <Required>*</Required>אימייל
+            <Required>*</Required>{t('contact.email')}
           </Label>
           <Input
             type="email"
@@ -339,7 +342,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
         </FormField>
 
         <FormField>
-          <Label>טלפון (אופציונלי)</Label>
+          <Label>{t('contact.phoneOptional')}</Label>
           <Input
             type="tel"
             value={formData.phone}
@@ -352,13 +355,13 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
 
         <FormField>
           <Label>
-            <Required>*</Required>נושא
+            <Required>*</Required>{t('contact.subject')}
           </Label>
           <Input
             type="text"
             value={formData.subject}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-            placeholder="מה הנושא?"
+            placeholder={t('contact.placeholderSubject')}
             disabled={isSubmitting}
             required
           />
@@ -367,18 +370,18 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
 
         <FormField>
           <Label>
-            <Required>*</Required>הודעה
+            <Required>*</Required>{t('contact.message')}
           </Label>
           <TextArea
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            placeholder="כתוב את הודעתך כאן (מינימום 20 תווים)"
+            placeholder={t('contact.placeholderMessage')}
             disabled={isSubmitting}
             required
             rows={5}
           />
           <CharacterCount $warning={messageLength > 0 && messageLength < minMessageLength}>
-            {messageLength} / {minMessageLength} תווים (מינימום)
+            {t('contact.charCount', { count: messageLength, min: minMessageLength })}
           </CharacterCount>
           {errors.message && <ErrorMessage>{errors.message}</ErrorMessage>}
         </FormField>
@@ -399,7 +402,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
             $primary
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'שולח...' : 'שלח הודעה'}
+            {isSubmitting ? t('subscription.sending') : t('subscription.sendMessage')}
           </Button>
           <Button
             type="button"
@@ -407,7 +410,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({ onClose, sourceUrl }) 
             $isFree={true}
             disabled={isSubmitting}
           >
-            ביטול
+            {t('subscription.cancel')}
           </Button>
         </ButtonContainer>
       </form>

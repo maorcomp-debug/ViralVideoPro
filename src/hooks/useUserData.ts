@@ -9,6 +9,7 @@ import {
   getAnalyses,
   isAdmin,
 } from '../lib/supabase-helpers';
+import i18n from '../i18n';
 import { SUBSCRIPTION_PLANS } from '../constants';
 import type {
   UserSubscription,
@@ -120,6 +121,12 @@ export const useUserData = ({
       }
       
       setProfile(userProfile);
+
+      // Apply preferred_language from profile if set
+      const prefLang = (userProfile as { preferred_language?: 'he' | 'en' | null })?.preferred_language;
+      if (prefLang && ['he', 'en'].includes(prefLang)) {
+        i18n.changeLanguage(prefLang);
+      }
 
       // Load subscription first to check if user has paid subscription
       const subData = await getCurrentSubscription();

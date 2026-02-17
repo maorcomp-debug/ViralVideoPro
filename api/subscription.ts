@@ -1,5 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { EmailLang } from './email-templates';
+import {
+  getSubscriptionSubject,
+  getSubscriptionConfirmLine,
+  buildSubscriptionActionEmailHtml,
+} from './email-templates';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
@@ -35,68 +41,32 @@ async function logEvent(admin: SupabaseClient, user_id: string, event_type: stri
   }
 }
 
-const SUBSCRIPTION_EMAIL_SUBJECTS: Record<string, string> = {
-  pause: 'השהיית מנוי | Viraly – Video Director Pro',
-  cancel: 'ביטול מנוי | Viraly – Video Director Pro',
-  resume: 'חידוש מנוי | Viraly – Video Director Pro',
-};
-
-const SUBSCRIPTION_EMAIL_CONFIRM_LINE: Record<string, string> = {
-  pause: 'אנו מאשרים כי ביקשת להשהות את המנוי. ההשהייה תיכנס לתוקף בסיום התקופה.',
-  cancel: 'אנו מאשרים כי ביקשת לבטל את המנוי. הביטול ייכנס לתוקף בסיום התקופה.',
-  resume: 'אנו מאשרים כי ביקשת לחדש את המנוי.',
-};
-
-function escapeHtml(s: string): string {
-  const m: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-  return s.replace(/[&<>"']/g, (c) => m[c] || c);
-}
-
-function buildSubscriptionActionEmailHtml(confirmLine: string): string {
-  return `<!DOCTYPE html>
-<html dir="rtl" lang="he">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style type="text/css">body, .rtl-wrap { direction: rtl; text-align: right; }</style>
-</head>
-<body style="margin:0; padding:0; background:#1a1a1a; font-family: Arial, sans-serif; direction: rtl; text-align: right;">
-  <div class="rtl-wrap" style="max-width: 600px; margin: 0 auto; padding: 24px; background: #1a1a1a; color: #fff; direction: rtl; text-align: right;">
-    <p style="margin: 0 0 24px 0; line-height: 1.6; color: #fff;">
-      ברוך הבא ל־Viraly Video Director Pro – מערכת AI מתקדמת לניתוח ושיפור נוכחות מצולמת.
-    </p>
-    <p style="margin: 0 0 32px 0; line-height: 1.6; color: #fff;">
-      ${escapeHtml(confirmLine)}
-    </p>
-    <p style="margin: 0; font-size: 0.85rem; color: #888; text-align: right;">
-      Viraly – Video Director Pro
-    </p>
-  </div>
-</body>
-</html>`;
-}
-
-async function getEmailForUser(admin: SupabaseClient, userId: string): Promise<string | null> {
-  const { data: profile } = await admin.from('profiles').select('email').eq('user_id', userId).maybeSingle();
+async function getEmailAndLangForUser(admin: SupabaseClient, userId: string): Promise<{ email: string | null; lang: EmailLang }> {
+  const { data: profile } = await admin.from('profiles').select('email, preferred_language').eq('user_id', userId).maybeSingle();
   const email = (profile as any)?.email;
-  if (email && typeof email === 'string') return email;
+  if (email && typeof email === 'string') {
+    const lang: EmailLang = (profile as any)?.preferred_language === 'en' ? 'en' : 'he';
+    return { email, lang };
+  }
   try {
     const { data: authUser } = await admin.auth.admin.getUserById(userId);
-    if ((authUser?.user as any)?.email) return (authUser!.user as any).email;
+    if ((authUser?.user as any)?.email) {
+      return { email: (authUser!.user as any).email, lang: 'he' };
+    }
   } catch (_) {}
-  return null;
+  return { email: null, lang: 'he' };
 }
 
-async function sendSubscriptionActionEmail(toEmail: string, action: 'pause' | 'cancel' | 'resume'): Promise<void> {
+async function sendSubscriptionActionEmail(toEmail: string, action: 'pause' | 'cancel' | 'resume', lang: EmailLang = 'he'): Promise<void> {
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.CONTACT_FROM_EMAIL || process.env.FROM_EMAIL;
   if (!resendApiKey || !fromEmail) {
     console.warn('RESEND_API_KEY or FROM_EMAIL not set – skipping subscription action email');
     return;
   }
-  const subject = SUBSCRIPTION_EMAIL_SUBJECTS[action] || `${action} | Viraly – Video Director Pro`;
-  const confirmLine = SUBSCRIPTION_EMAIL_CONFIRM_LINE[action] || 'אנו מאשרים כי ביקשת לבצע שינוי במנוי.';
-  const html = buildSubscriptionActionEmailHtml(confirmLine);
+  const subject = getSubscriptionSubject(action, lang);
+  const confirmLine = getSubscriptionConfirmLine(action, lang);
+  const html = buildSubscriptionActionEmailHtml(confirmLine, lang);
   const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -239,8 +209,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: profile } = await admin.from('profiles').select('user_id').eq('user_id', user.id).single();
         // חשוב: בפרופיל נשמור סטטוס "paused" כדי לשקף למנהל שמדובר במנוי מושהה (לא "לא פעיל")
         if (profile) await admin.from('profiles').update({ subscription_status: 'paused', updated_at: now }).eq('user_id', user.id);
-        const email = await getEmailForUser(admin, user.id);
-        if (email) await sendSubscriptionActionEmail(email, 'pause');
+        const { email, lang } = await getEmailAndLangForUser(admin, user.id);
+        if (email) await sendSubscriptionActionEmail(email, 'pause', lang);
         return res.status(200).json({ ok: true });
       }
 
@@ -306,8 +276,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } as any).eq('id', sub.id);
         await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id, uniqId });
         await admin.from('profiles').update({ subscription_status: 'cancelled', updated_at: now }).eq('user_id', user.id);
-        const emailCancel = await getEmailForUser(admin, user.id);
-        if (emailCancel) await sendSubscriptionActionEmail(emailCancel, 'cancel');
+        const { email: emailCancel, lang: langCancel } = await getEmailAndLangForUser(admin, user.id);
+        if (emailCancel) await sendSubscriptionActionEmail(emailCancel, 'cancel', langCancel);
         return res.status(200).json({ ok: true });
       }
 
@@ -337,8 +307,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } as any).eq('id', sub.id);
         await logEvent(admin, user.id, 'resume', { subscription_id: sub.id });
         await admin.from('profiles').update({ subscription_status: 'active', updated_at: now }).eq('user_id', user.id);
-        const emailResume = await getEmailForUser(admin, user.id);
-        if (emailResume) await sendSubscriptionActionEmail(emailResume, 'resume');
+        const { email: emailResume, lang: langResume } = await getEmailAndLangForUser(admin, user.id);
+        if (emailResume) await sendSubscriptionActionEmail(emailResume, 'resume', langResume);
         return res.status(200).json({ ok: true });
       }
     } catch (e) {

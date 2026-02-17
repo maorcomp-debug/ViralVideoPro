@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { TrackId, UserSubscription } from '../types';
 import { getMaxFileBytes, getMaxVideoSeconds, getUploadLimitText } from '../constants';
 
@@ -25,6 +26,7 @@ export const useFileUpload = (
   isImprovementMode: boolean,
   setResult: (result: any) => void
 ): UseFileUploadReturn => {
+  const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export const useFileUpload = (
 
     if (selectedFile.size > maxFileBytes) {
       const actualMb = (selectedFile.size / (1024 * 1024)).toFixed(1);
-      alert(`הקובץ גדול מדי (${actualMb}MB).\n\nחלק מהסרטונים (במיוחד מאייפון), נשמרים באיכות גבוהה מאוד ולכן הנפח שלהם גדול מידיי.\nפשוט שלחו לעצמכם את הסרטון בווצאפ והורידו אותו מחדש. הקובץ יהיה קטן יותר והניתוח ישאר מדוייק.`);
+      alert(t('alerts.fileTooLarge', { mb: actualMb }));
       resetInput();
       return;
     }
@@ -70,7 +72,7 @@ export const useFileUpload = (
       videoEl.onloadedmetadata = () => {
         if (videoEl.duration > maxVideoSeconds) {
           const durationSeconds = Math.round(videoEl.duration);
-          alert(`הסרטון ארוך מידיי (${durationSeconds} שניות).\n\nהעלה סרטון באורך מתאים או שדרג ליכולות מתקדמות.`);
+          alert(t('alerts.videoTooLong', { seconds: durationSeconds }));
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;
@@ -79,14 +81,14 @@ export const useFileUpload = (
       };
 
       videoEl.onerror = () => {
-        alert("לא ניתן לקרוא את המטא-דאטה של הווידאו. נסה קובץ אחר.");
+        alert(t('alerts.videoMetadataError'));
         URL.revokeObjectURL(objectUrl);
         resetInput();
       };
     } else {
       finalizeSelection();
     }
-  }, [activeTrack, subscription, isImprovementMode, setResult]);
+  }, [activeTrack, subscription, isImprovementMode, setResult, t]);
 
   const handleRemoveFile = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -105,10 +107,10 @@ export const useFileUpload = (
     if (selectedFile && selectedFile.type === 'application/pdf') {
       setPdfFile(selectedFile);
     } else if (selectedFile) {
-      alert('נא לבחור קובץ PDF בלבד');
+      alert(t('alerts.pdfOnly'));
     }
     if (pdfInputRef.current) pdfInputRef.current.value = '';
-  }, []);
+  }, [t]);
 
   const handleRemovePdf = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { ModalOverlay, ModalHeader, ModalTitle } from '../../styles/modal';
 
@@ -37,6 +38,7 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
   paymentUrl,
   orderReference,
 }) => {
+  const { t } = useTranslation();
   useEffect(() => {
     if (!isOpen || !paymentUrl) return;
     const t = setTimeout(() => {
@@ -55,10 +57,10 @@ export const TakbullPaymentModal: React.FC<TakbullPaymentModalProps> = ({
       <FullScreenModalContent onClick={(e) => e.stopPropagation()}>
         <ModalHeader style={{ flexShrink: 0, padding: '0 0 16px 0' }}>
           <ModalTitle style={{ marginBottom: 0, fontSize: '1.1rem' }}>
-            תשלום מאובטח · הזמנה {orderReference}
+            {t('billing.securePayment')} {orderReference}
           </ModalTitle>
         </ModalHeader>
-        <Message>מעביר אותך לדף תשלום מאובטח…</Message>
+        <Message>{t('billing.redirecting')}</Message>
       </FullScreenModalContent>
     </ModalOverlay>
   );

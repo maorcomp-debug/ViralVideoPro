@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
@@ -196,6 +197,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialPackage,
   onUpgradeComplete,
 }) => {
+  const { t } = useTranslation();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -239,7 +241,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setShowCouponField(true);
       setCouponCode(code);
       setCouponValid(null);
-      validateCoupon(code).then((validation) => setCouponValid(validation)).catch(() => setCouponValid({ valid: false, error: 'שגיאה בבדיקת קוד הקופון' }));
+      validateCoupon(code).then((validation) => setCouponValid(validation)).catch(() => setCouponValid({ valid: false, error: t('authErrors.couponValidationError') }));
     }
     const pkg = initialPackageForUpgrade ?? initialPackage;
     if (pkg && ['creator', 'pro', 'coach', 'coach-pro'].includes(pkg)) {
@@ -270,7 +272,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const validation = await validateCoupon(code.trim());
       setCouponValid(validation);
     } catch (error) {
-      setCouponValid({ valid: false, error: 'שגיאה בבדיקת קוד הקופון' });
+      setCouponValid({ valid: false, error: t('authErrors.couponValidationError') });
     } finally {
       setCouponValidating(false);
     }
@@ -280,7 +282,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     
     if (!email.trim()) {
-      setError('אנא הזן את כתובת האימייל שלך');
+      setError(t('authErrors.enterEmail'));
       return;
     }
 
@@ -295,13 +297,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       if (resetError) {
         console.error('Password reset error:', resetError);
-        throw new Error('שגיאה בשליחת אימייל איפוס סיסמה. נסה שוב מאוחר יותר.');
+        throw new Error(t('authErrors.resetSendError'));
       }
 
       setPasswordResetSent(true);
     } catch (err: any) {
       console.error('Password reset error:', err);
-      setError(err.message || 'אירעה שגיאה. נסה שוב.');
+      setError(err.message || t('authErrors.genericError'));
     } finally {
       setLoading(false);
     }
@@ -318,24 +320,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const trimmedFullName = fullName.trim();
         const nameWords = trimmedFullName.split(/\s+/).filter(word => word.length > 0);
         if (!trimmedFullName || trimmedFullName.length < 3) {
-          setError('אנא הזן שם מלא (שם פרטי ומשפחה)');
+          setError(t('authErrors.fullNameRequired'));
           setLoading(false);
           return;
         }
         if (nameWords.length < 2) {
-          setError('אנא הזן שם מלא הכולל שם פרטי ושם משפחה');
+          setError(t('authErrors.fullNameBothRequired'));
           setLoading(false);
           return;
         }
         const cleanPhone = phone.trim().replace(/\D/g, '');
         if (!cleanPhone || cleanPhone.length < 9) {
-          setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
+          setError(t('authErrors.phoneInvalid'));
           setLoading(false);
           return;
         }
         // בשדרוג ליוצרים – התחום כבר נבחר בחינם; תחום נוסף ייבחר בהגדרות
         if (!currentUser?.id) {
-          setError('נדרשת כניסה לחשבון לפני שדרוג');
+          setError(t('authErrors.loginRequired'));
           setLoading(false);
           return;
         }
@@ -358,9 +360,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           ]);
         } catch (err: any) {
           if (err?.message === 'UPGRADE_TIMEOUT') {
-            setError('הפעולה לוקחת זמן. נסה לרענן את הדף ולשדרג שוב.');
+            setError(t('authErrors.upgradeTimeout'));
           } else {
-            setError(err?.message || 'שגיאה בעדכון. נסה שוב.');
+            setError(err?.message || t('authErrors.genericError'));
           }
           setLoading(false);
           return;
@@ -375,7 +377,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (isSignUp) {
           if (mode === 'initial') {
             if (!selectedTrack) {
-              setError('נא לבחור תחום ניתוח התחלתי');
+              setError(t('authErrors.selectTrackRequired'));
               setLoading(false);
               return;
             }
@@ -383,23 +385,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             const trimmedFullName = fullName.trim();
             const nameWords = trimmedFullName.split(/\s+/).filter(word => word.length > 0);
             if (!trimmedFullName || trimmedFullName.length < 3) {
-              setError('אנא הזן שם מלא (שם פרטי ומשפחה)');
+              setError(t('authErrors.fullNameRequired'));
               setLoading(false);
               return;
             }
             if (nameWords.length < 2) {
-              setError('אנא הזן שם מלא הכולל שם פרטי ושם משפחה');
+              setError(t('authErrors.fullNameBothRequired'));
               setLoading(false);
               return;
             }
             const cleanPhone = phone.trim().replace(/\D/g, '');
             if (!cleanPhone || cleanPhone.length < 9) {
-              setError('מספר טלפון לא תקין. נא להזין מספר טלפון ישראלי (10 ספרות)');
+              setError(t('authErrors.phoneInvalid'));
               setLoading(false);
               return;
             }
             if (tierRequiresTrack(selectedTier) && !selectedTrack) {
-              setError('נא לבחור תחום ניתוח התחלתי');
+              setError(t('authErrors.selectTrackRequired'));
               setLoading(false);
               return;
             }
@@ -449,7 +451,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               // This is expected for test accounts - allow multiple registrations with different passwords
               console.log('Test account: Multiple registrations with same email allowed (different passwords per package)');
               // Don't throw - check if user was created anyway or show message
-              setError('המשתמש כבר קיים עם סיסמה אחרת. נסה סיסמה שונה או התחבר עם הסיסמה הקיימת.');
+              setError(t('authErrors.userExists'));
               setLoading(false);
               return;
             }
@@ -470,25 +472,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 signUpError.message.includes('already exists') ||
                 signUpError.message.includes('User already registered') ||
                 signUpError.message.toLowerCase().includes('user')) {
-              errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
+              errorMessage = t('authErrors.userAlreadyRegistered');
             } else if (signUpError.message.includes('Invalid API key') || 
                        signUpError.message.includes('JWT') ||
                        signUpError.message.includes('api')) {
-              errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local והפעל מחדש את השרת.';
+              errorMessage = t('authErrors.invalidApiKey');
             } else {
-              errorMessage = 'שגיאת הרשאה (401). המשתמש כבר קיים או שיש בעיה בהגדרות. נסה להתחבר במקום.';
+              errorMessage = t('authErrors.authError401');
             }
           } else if (signUpError.message.includes('Invalid API key') || signUpError.message.includes('JWT')) {
-            errorMessage = 'מפתח API לא תקין. אנא בדוק את ההגדרות ב-.env.local';
+            errorMessage = t('authErrors.invalidApiKey');
           } else if (signUpError.message.includes('User already registered') || 
                      signUpError.message.includes('already exists')) {
-            errorMessage = 'משתמש זה כבר רשום במערכת. נסה להתחבר במקום.';
+            errorMessage = t('authErrors.userAlreadyRegistered');
           } else if (signUpError.message.includes('Password') || signUpError.message.includes('password')) {
-            errorMessage = 'הסיסמה חלשה מדי. נסה סיסמה חזקה יותר (לפחות 6 תווים).';
+            errorMessage = t('authErrors.weakPassword');
           } else if (signUpError.message.includes('email') || signUpError.message.includes('Email')) {
-            errorMessage = 'כתובת האימייל לא תקינה או כבר קיימת במערכת.';
+            errorMessage = t('authErrors.invalidEmail');
           } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('too many')) {
-            errorMessage = 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.';
+            errorMessage = t('authErrors.rateLimit');
           }
           
           throw new Error(errorMessage);
@@ -507,7 +509,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           const needsEmailConfirmation = !session && !data.user.email_confirmed_at;
           if (needsEmailConfirmation) {
             setLoading(false);
-            alert('נרשמת בהצלחה!\n\nנשלח אליך אימייל לאימות. לחץ על הקישור באימייל כדי להפעיל את החשבון ואז היכנס למערכת.');
+            alert(t('authErrors.signupSuccess'));
             onClose();
             return;
           }
@@ -580,14 +582,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   console.error('Error redeeming coupon:', couponError);
                   // Show notification but don't block - user is already registered
                   setTimeout(() => {
-                    alert(`הייתה בעיה בשימוש בקוד הקופון: ${couponError.message}. אנא פנה לתמיכה.`);
+                    alert(t('authErrors.couponError', { error: couponError.message }));
                   }, 1000);
                 });
             }
           }
         } else {
           console.error('❌ User creation failed - no user data returned');
-          throw new Error('לא ניתן ליצור משתמש. נסה שוב.');
+          throw new Error(t('authErrors.createUserFailed'));
         }
       } else {
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -606,13 +608,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             ));
 
           if (isInvalidCredentials) {
-            errorMessage = 'עליך להירשם תחילה.';
+            errorMessage = t('authErrors.signInRequired');
           } else if (signInError.message?.includes('Email not confirmed')) {
-            errorMessage = 'נא לאשר את האימייל שלך לפני הכניסה. בדוק את תיבת הדואר.';
+            errorMessage = t('authErrors.emailNotConfirmed');
           } else if (signInError.message?.includes('email')) {
-            errorMessage = 'כתובת האימייל לא תקינה.';
+            errorMessage = t('authErrors.invalidEmail');
           } else {
-            errorMessage = 'אירעה שגיאה. נסה שוב.';
+            errorMessage = t('authErrors.genericError');
           }
           throw new Error(errorMessage);
         }
@@ -626,8 +628,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      const msg = err?.message || 'אירעה שגיאה. נסה שוב.';
-      if (msg !== 'עליך להירשם תחילה.') {
+      const msg = err?.message || t('authErrors.genericError');
+      if (msg !== t('authErrors.signInRequired')) {
         console.error('Auth error:', err);
       }
       setError(msg);
@@ -657,14 +659,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <AuthCloseButton onClick={onClose}>×</AuthCloseButton>
         <AuthModalHeader>
           <h2>
-            {showPasswordReset ? 'איפוס סיסמה' : isUpgradeMode ? 'שדרוג חבילה' : (isSignUp ? 'הרשמה' : 'כניסה')}
+            {showPasswordReset ? t('auth.passwordReset') : isUpgradeMode ? t('auth.upgrade') : (isSignUp ? t('auth.signup') : t('auth.login'))}
           </h2>
           <p>
             {showPasswordReset 
-              ? 'נשלח לך אימייל עם קישור לאיפוס הסיסמה' 
+              ? t('auth.passwordResetTitle')
               : isUpgradeMode 
-                ? 'השלם את הפרטים לשדרוג החבילה' 
-                : (isSignUp ? 'צור חשבון חדש (אימייל, סיסמה ותחום ניתוח)' : 'היכנס לחשבון שלך')
+                ? t('auth.upgradeTitle')
+                : (isSignUp ? t('auth.signupTitle') : t('auth.loginTitle'))
             }
           </p>
         </AuthModalHeader>
@@ -681,24 +683,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 color: '#4CAF50'
               }}>
                 <p style={{ margin: 0, fontSize: '1rem', marginBottom: '10px' }}>
-                  ✓ אימייל איפוס סיסמה נשלח לכתובת: <strong>{email}</strong>
+                  {t('auth.resetEmailSent')} <strong>{email}</strong>
                 </p>
                 <p style={{ margin: 0, fontSize: '0.9rem', color: '#ccc' }}>
-                  אנא בדוק את תיבת הדואר שלך ולחץ על הקישור לאיפוס הסיסמה.
+                  {t('auth.checkInbox')}
                 </p>
               </div>
             ) : (
               <>
                 <div>
                   <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                    אימייל
+                    {t('auth.email')}
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="הכנס את כתובת האימייל שלך"
+                    placeholder={t('auth.emailPlaceholder')}
                     style={{
                       width: '100%',
                       background: 'rgba(255, 255, 255, 0.1)',
@@ -723,7 +725,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="submit"
                   disabled={loading || !email.trim()}
                 >
-                  {loading ? 'שולח...' : 'שלח קישור איפוס סיסמה'}
+                  {loading ? t('auth.sending') : t('auth.sendResetLink')}
                 </AuthButton>
               </>
             )}
@@ -744,7 +746,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 textDecoration: 'underline',
               }}
             >
-              ← חזרה לכניסה
+              {t('auth.backToLogin')}
             </button>
           </form>
         ) : (
@@ -753,14 +755,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <>
               <div>
                 <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                  שם מלא (פרטי ומשפחה) *
+                  {t('auth.fullName')}
                 </label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
-                  placeholder="לדוגמה: יוסי כהן"
+                  placeholder={t('auth.fullNamePlaceholder')}
                   style={{
                     width: '100%',
                     background: 'rgba(255, 255, 255, 0.1)',
@@ -775,13 +777,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
               <div>
                 <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                  מספר טלפון *
+                  {t('auth.phone')}
                 </label>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="0501234567"
+                  placeholder={t('auth.phonePlaceholder')}
                   required
                   style={{
                     width: '100%',
@@ -796,12 +798,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   }}
                 />
                 <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
-                  מספר טלפון ישראלי (10 ספרות)
+                  {t('auth.phoneHint')}
                 </div>
               </div>
               <div>
                 <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                  בחירת חבילה *
+                  {t('auth.selectPackage')}
                 </label>
                 <PackageSelect
                   value={selectedTier}
@@ -811,10 +813,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     if (tier !== 'creator') setSelectedTrack('');
                   }}
                 >
-                  <option value="creator">יוצרים</option>
-                  <option value="pro">יוצרים באקסטרים</option>
-                  <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
-                  <option value="coach-pro">מאמנים פרו</option>
+                  <option value="creator">{t('plan.creator')}</option>
+                  <option value="pro">{t('plan.pro')}</option>
+                  <option value="coach">{t('plan.coach')}</option>
+                  <option value="coach-pro">{t('plan.coachPro')}</option>
                 </PackageSelect>
               </div>
               {/* בשדרוג לחבילת יוצרים לא מציגים בחירת תחום – התחום כבר נבחר בחינם; תחום נוסף ייבחר בהגדרות */}
@@ -826,7 +828,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {mode === 'initial' ? (
                 <>
                   <div>
-                    <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>אימייל *</label>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>{t('auth.email')} *</label>
                     <input
                       type="email"
                       value={email}
@@ -846,7 +848,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>סיסמה *</label>
+                    <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>{t('auth.password')} *</label>
                     <input
                       type="password"
                       value={password}
@@ -878,28 +880,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         textShadow: '0 0 10px rgba(212, 160, 67, 0.6)',
                       }}
                     >
-                      בחר תחום ניתוח *
+                      {t('auth.selectTrack')}
                     </label>
                     <PackageSelect
                       value={selectedTrack || ''}
                       onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
                       style={{ color: '#D4A043', fontWeight: 600, textAlign: 'center' }}
                     >
-                      <option value="">בחר תחום ניתוח</option>
-                      <option value="actors">שחקנים ואודישנים</option>
-                      <option value="musicians">זמרים ומוזיקאים</option>
-                      <option value="creators">יוצרי תוכן וכוכבי רשת</option>
-                      <option value="influencers">משפיענים ומותגים</option>
+                      <option value="">{t('auth.selectTrackPlaceholder')}</option>
+                      <option value="actors">{t('track.actors')}</option>
+                      <option value="musicians">{t('track.musicians')}</option>
+                      <option value="creators">{t('track.creators')}</option>
+                      <option value="influencers">{t('track.influencers')}</option>
                     </PackageSelect>
                   </div>
                   {initialRedeemCode?.trim() && (
                     <div style={{ background: 'rgba(212, 160, 67, 0.05)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.2)' }}>
-                      <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px' }}>קוד קופון (אופציונלי)</label>
+                      <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'block', marginBottom: '8px' }}>{t('auth.couponCode')}</label>
                       <input
                         type="text"
                         value={couponCode}
                         onChange={(e) => { setCouponCode(e.target.value.toUpperCase().trim()); if (e.target.value.trim().length >= 3) handleCouponValidation(e.target.value.trim()); }}
-                        placeholder="הכנס קוד קופון"
+                        placeholder={t('auth.couponPlaceholder')}
                         style={{
                           width: '100%',
                           background: 'rgba(255, 255, 255, 0.1)',
@@ -912,7 +914,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           textAlign: 'center',
                         }}
                       />
-                      {couponValid?.valid && <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#4CAF50' }}>✓ קוד קופון תקין</div>}
+                      {couponValid?.valid && <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#4CAF50' }}>{t('auth.couponValid')}</div>}
                     </div>
                   )}
                 </>
@@ -970,7 +972,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {mode !== 'initial' && (
                 <div>
                   <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                    מספר טלפון <span style={{ color: '#ff6b6b' }}>*</span>
+                    {t('auth.phone')} <span style={{ color: '#ff6b6b' }}>*</span>
                   </label>
                   <input
                     type="tel"
@@ -1001,7 +1003,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {!isUpgradeMode && (!isSignUp || mode !== 'initial') && (
             <>
               <div>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>אימייל</label>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>{t('auth.email')}</label>
                 <input
                   type="email"
                   value={email}
@@ -1029,7 +1031,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 )}
               </div>
               <div>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>סיסמה</label>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>{t('auth.password')}</label>
                 <input
                   type="password"
                   value={password}
@@ -1064,7 +1066,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     marginBottom: '5px',
                   }}
                 >
-                  בחירת חבילה התחלתית *
+                  {t('auth.selectPackageUpgrade')}
                 </label>
                 <PackageSelect
                   value={selectedTier}
@@ -1077,14 +1079,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     }
                   }}
                 >
-                  <option value="free">ניסיון (חינם)</option>
-                  <option value="creator">יוצרים</option>
-                  <option value="pro">יוצרים באקסטרים</option>
-                  <option value="coach">מאמנים, סוכנויות ובתי ספר למשחק</option>
-                  <option value="coach-pro">מאמנים פרו</option>
+                  <option value="free">{t('plan.free')} ({t('plan.badgeFree')})</option>
+                  <option value="creator">{t('plan.creator')}</option>
+                  <option value="pro">{t('plan.pro')}</option>
+                  <option value="coach">{t('plan.coach')}</option>
+                  <option value="coach-pro">{t('plan.coachPro')}</option>
                 </PackageSelect>
                 <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
-                  שדרוג לחבילות בתשלום יתבצע לאחר ההרשמה בעזרת תשלום מאובטח.
+                  {t('auth.upgradeAfterSignup', { defaultValue: 'שדרוג לחבילות בתשלום יתבצע לאחר ההרשמה בעזרת תשלום מאובטח.' })}
                 </div>
               </div>
 
@@ -1099,17 +1101,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       marginBottom: '5px',
                     }}
                   >
-                    בחר תחום ניתוח התחלתי *
+                    {t('auth.selectTrackInitial')}
                   </label>
                   <PackageSelect
                     value={selectedTrack || ''}
                     onChange={(e) => setSelectedTrack(e.target.value as TrackId)}
                   >
-                    <option value="">-- בחר תחום ניתוח --</option>
-                    <option value="actors">שחקנים ואודישנים</option>
-                    <option value="musicians">זמרים ומוזיקאים</option>
-                    <option value="creators">יוצרי תוכן וכוכבי רשת</option>
-                    <option value="influencers">משפיענים ומותגים</option>
+                    <option value="">-- {t('auth.selectTrackPlaceholder')} --</option>
+                    <option value="actors">{t('track.actors')}</option>
+                    <option value="musicians">{t('track.musicians')}</option>
+                    <option value="creators">{t('track.creators')}</option>
+                    <option value="influencers">{t('track.influencers')}</option>
                   </PackageSelect>
                 </div>
               )}
@@ -1134,7 +1136,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     marginBottom: '8px',
                   }}
                 >
-                  <span>🎫 קוד קופון (אופציונלי)</span>
+                  <span>🎫 {t('auth.couponCode')}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#ccc' }}>
                     <input
                       type="checkbox"
@@ -1167,7 +1169,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             setCouponValid(null);
                           }
                         }}
-                        placeholder="הכנס קוד קופון"
+                        placeholder={t('auth.couponPlaceholder')}
                         style={{
                           flex: 1,
                           background: 'rgba(255, 255, 255, 0.1)',
@@ -1258,8 +1260,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
           >
             {loading
-              ? (isUpgradeMode ? 'שומר...' : (isSignUp ? 'נרשם...' : 'מתחבר...'))
-              : (isUpgradeMode ? 'שדרג חבילה' : (isSignUp ? 'הרשמה' : 'כניסה'))}
+              ? t('auth.processing')
+              : (isUpgradeMode ? t('auth.upgrade') : (isSignUp ? t('auth.signup') : t('auth.login')))}
           </AuthButton>
 
           {!isUpgradeMode && (
@@ -1279,7 +1281,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 textDecoration: 'underline',
               }}
             >
-              {isSignUp ? 'יש לך כבר חשבון? התחבר' : 'אין לך חשבון? הירשם'}
+              {isSignUp ? t('auth.haveAccount') : t('auth.noAccount')}
             </button>
             {!isSignUp && (
               <button
@@ -1297,7 +1299,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   textDecoration: 'underline',
                 }}
               >
-                שכחתי את הסיסמה
+                {t('auth.forgotPassword')}
               </button>
             )}
           </div>

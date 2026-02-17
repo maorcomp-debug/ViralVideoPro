@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
+import { setLanguage } from '../../i18n/setLanguage';
 import { updateCurrentUserProfile, getUserAnnouncements, markAnnouncementAsRead, redeemCoupon } from '../../lib/supabase-helpers';
 import { TrackSelectionModal } from '../modals/TrackSelectionModal';
 import { ManageSubscriptionChoiceModal } from '../modals/ManageSubscriptionChoiceModal';
@@ -20,6 +22,7 @@ interface SettingsPageProps {
   onOpenSubscriptionBillingModal?: () => void;
   /** עדכון אופטימי של selected_tracks ב-state (ממשק מתעדכן מיד, שמירה ל-DB ברקע) */
   onProfileTracksUpdated?: (trackIds: string[]) => void;
+  onLogout?: () => void | Promise<void>;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -31,23 +34,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onOpenSubscriptionModal,
   onOpenSubscriptionBillingModal,
   onProfileTracksUpdated,
+  onLogout,
 }) => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Load active tab from sessionStorage to preserve it after refresh
-  const getInitialTab = (): 'profile' | 'password' | 'subscription' | 'updates' => {
+  const getInitialTab = (): 'general' | 'profile' | 'password' | 'subscription' | 'updates' => {
     if (typeof window !== 'undefined') {
       const savedTab = sessionStorage.getItem('settings_active_tab');
-      if (savedTab && ['profile', 'password', 'subscription', 'updates'].includes(savedTab)) {
-        return savedTab as 'profile' | 'password' | 'subscription' | 'updates';
+      if (savedTab && ['general', 'profile', 'password', 'subscription', 'updates'].includes(savedTab)) {
+        return savedTab as 'general' | 'profile' | 'password' | 'subscription' | 'updates';
       }
     }
-    return 'profile';
+    return 'general';
   };
   
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'subscription' | 'updates'>(getInitialTab());
+  const [activeTab, setActiveTab] = useState<'general' | 'profile' | 'password' | 'subscription' | 'updates'>(getInitialTab());
   
   // Save active tab to sessionStorage whenever it changes
   useEffect(() => {
@@ -164,12 +169,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setLoading(true);
     try {
       await updateCurrentUserProfile({ receive_updates: newValue });
-      setMessage({ type: 'success', text: newValue ? 'תקבל עדכונים בהצלחה' : 'בוטלה קבלת עדכונים' });
+      setMessage({ type: 'success', text: newValue ? t('settings.updatesSuccess') : t('settings.updatesCancelled') });
       onProfileUpdate();
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
       setReceiveUpdates(!newValue); // Revert on error
-      setMessage({ type: 'error', text: error.message || 'שגיאה בעדכון ההגדרות' });
+      setMessage({ type: 'error', text: error.message || t('settings.settingsError') });
       setTimeout(() => setMessage(null), 5000);
     } finally {
       setLoading(false);
@@ -199,7 +204,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     const ann = item?.announcement;
     const code = getCouponCodeFromMessage(ann?.message);
     if (!code || !user?.id) {
-      setMessage({ type: 'error', text: 'לא נמצא קוד הטבה בהודעה' });
+      setMessage({ type: 'error', text: t('alerts.noBenefitCode') });
       return;
     }
     if (redeemingCode) return;
@@ -207,12 +212,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setMessage(null);
     try {
       await redeemCoupon(code, user.id);
-      setMessage({ type: 'success', text: 'ההטבה מומשה בהצלחה' });
+      setMessage({ type: 'success', text: t('settings.benefitRedeemed') });
       if (ann?.id) await markAnnouncementAsRead(ann.id);
       loadAnnouncements();
       onProfileUpdate();
     } catch (err: any) {
-      setMessage({ type: 'error', text: err?.message || 'לא ניתן לממש את ההטבה' });
+      setMessage({ type: 'error', text: err?.message || t('settings.benefitRedeemFailed') });
     } finally {
       setRedeemingCode(null);
     }
@@ -227,14 +232,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       await updateCurrentUserProfile({
         full_name: formData.full_name.trim(),
       });
-      setMessage({ type: 'success', text: 'הפרופיל עודכן בהצלחה' });
+      setMessage({ type: 'success', text: t('settings.profileUpdated') });
       onProfileUpdate();
       setTimeout(() => {
         setMessage(null);
       }, 3000);
     } catch (error: any) {
       console.error('Error updating profile:', error);
-      setMessage({ type: 'error', text: error.message || 'שגיאה בעדכון הפרופיל' });
+      setMessage({ type: 'error', text: error.message || t('settings.profileError') });
     } finally {
       setLoading(false);
     }
@@ -246,13 +251,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setMessage(null);
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMessage({ type: 'error', text: 'הסיסמאות אינן תואמות' });
+      setMessage({ type: 'error', text: t('settings.passwordsMismatch') });
       setLoading(false);
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'הסיסמה חייבת להכיל לפחות 6 תווים' });
+      setMessage({ type: 'error', text: t('settings.passwordMinLength') });
       setLoading(false);
       return;
     }
@@ -266,7 +271,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         throw error;
       }
 
-      setMessage({ type: 'success', text: 'הסיסמה עודכנה בהצלחה' });
+      setMessage({ type: 'success', text: t('settings.passwordUpdated') });
       setPasswordData({
         newPassword: '',
         confirmPassword: '',
@@ -276,7 +281,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       }, 3000);
     } catch (error: any) {
       console.error('Error updating password:', error);
-      setMessage({ type: 'error', text: error.message || 'שגיאה בעדכון הסיסמה' });
+      setMessage({ type: 'error', text: error.message || t('settings.passwordError') });
     } finally {
       setLoading(false);
     }
@@ -298,7 +303,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     return (
       <AppContainer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column' }}>
         <h1 style={{ color: '#D4A043' }}>הגדרות</h1>
-        <p style={{ color: '#ccc' }}>אנא התחבר כדי לגשת להגדרות החשבון שלך.</p>
+        <p style={{ color: '#ccc' }}>{t('settings.loginToAccess')}</p>
         <button
           onClick={() => navigate('/')}
           style={{
@@ -350,6 +355,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           marginBottom: '20px',
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
         }}>
+          <button
+            onClick={() => setActiveTab('general')}
+            style={{
+              background: activeTab === 'general' ? 'rgba(212, 160, 67, 0.2)' : 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'general' ? '2px solid #D4A043' : '2px solid transparent',
+              color: activeTab === 'general' ? '#D4A043' : '#ccc',
+              padding: '10px 20px',
+              cursor: 'pointer',
+              fontSize: '0.95rem',
+              fontWeight: activeTab === 'general' ? 700 : 400,
+              transition: 'all 0.3s',
+            }}
+          >
+            {t('header.language')}
+          </button>
           <button
             onClick={() => setActiveTab('profile')}
             style={{
@@ -415,6 +436,71 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             עדכונים
           </button>
         </div>
+
+        {/* General Tab - Language + Logout */}
+        {activeTab === 'general' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{
+              padding: '20px',
+              background: 'rgba(212, 160, 67, 0.1)',
+              border: '1px solid rgba(212, 160, 67, 0.3)',
+              borderRadius: '8px',
+            }}>
+              <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                🌐 {t('header.language')}
+              </label>
+              <select
+                value={(i18n.language || i18n.resolvedLanguage || 'en').split('-')[0]}
+                onChange={async (e) => {
+                  const lng = (e.target.value || 'en') as 'en' | 'he';
+                  setLanguage(lng);
+                  if (user) {
+                    try {
+                      await updateCurrentUserProfile({ preferred_language: lng });
+                    } catch (err) {
+                      console.warn('Could not save preferred_language:', err);
+                    }
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  maxWidth: '200px',
+                  padding: '10px 12px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(212, 160, 67, 0.4)',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="en">English</option>
+                <option value="he">עברית</option>
+              </select>
+            </div>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={() => onLogout()}
+                style={{
+                  width: '100%',
+                  maxWidth: '200px',
+                  padding: '12px',
+                  background: 'transparent',
+                  border: '1px solid rgba(244, 67, 54, 0.6)',
+                  borderRadius: '8px',
+                  color: '#F44336',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {t('header.logout')}
+              </button>
+            )}
+          </div>
+        )}
 
         {message && (
           <div style={{
@@ -838,7 +924,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                                 fontSize: '0.95rem',
                               }}
                             >
-                              {redeemingCode === getCouponCodeFromMessage(ann.message) ? 'מממש...' : 'מימוש הטבה'}
+                              {redeemingCode === getCouponCodeFromMessage(ann.message) ? t('settings.redeeming') : t('settings.redeemBenefit')}
                             </button>
                           </div>
                         )}
@@ -876,14 +962,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             : (profile?.selected_primary_track ? [profile.selected_primary_track] : []);
           onProfileTracksUpdated?.(trackIds);
           setShowTrackSelectionModal(false);
-          setMessage({ type: 'success', text: 'תחום הניתוח נוסף בהצלחה!' });
+          setMessage({ type: 'success', text: t('settings.addTrackSuccess') });
           setTimeout(() => setMessage(null), 3000);
           updateCurrentUserProfile({ selected_tracks: trackIds })
             .then(() => onProfileUpdate())
             .catch((error: any) => {
               console.error('Error adding track:', error);
               onProfileTracksUpdated?.(previousTracks);
-              setMessage({ type: 'error', text: error.message || 'שגיאה בהוספת התחום. נסה שוב.' });
+              setMessage({ type: 'error', text: error.message || t('settings.addTrackError') });
             });
         }}
       />

@@ -11,6 +11,7 @@ interface ContactRequest {
   message: string;
   honeypot?: string; // Hidden field for spam protection
   sourceUrl?: string; // Page URL where form was submitted
+  lang?: 'he' | 'en'; // User's UI language for internal email labels
 }
 
 function getRateLimitKey(req: VercelRequest): string {
@@ -134,8 +135,35 @@ export default async function handler(
       });
     }
 
-    // Format date in Hebrew locale
-    const date = new Date().toLocaleString('he-IL', {
+    const lang = body.lang === 'en' ? 'en' : 'he';
+    const dir = lang === 'he' ? 'rtl' : 'ltr';
+    const labels = lang === 'en'
+      ? {
+          header: 'New message from contact form',
+          fullName: 'Full Name',
+          email: 'Email',
+          phone: 'Phone',
+          subject: 'Subject',
+          message: 'Message',
+          sourcePage: 'Source URL',
+          dateTime: 'Date and time',
+          footerSent: 'This message was sent from the contact form on Viraly - Video Director Pro website',
+          footerReply: (e: string) => `You can reply directly to this email – replies will be sent to ${e}`,
+        }
+      : {
+          header: 'הודעה חדשה מטופס יצירת קשר',
+          fullName: 'שם מלא',
+          email: 'אימייל',
+          phone: 'טלפון',
+          subject: 'נושא',
+          message: 'הודעה',
+          sourcePage: 'דף מקור',
+          dateTime: 'תאריך ושעה',
+          footerSent: 'הודעה זו נשלחה מטופס יצירת קשר באתר Viraly - Video Director Pro',
+          footerReply: (e: string) => `ניתן להגיב ישירות למייל זה - התשובה תגיע ל-${e}`,
+        };
+
+    const date = new Date().toLocaleString(lang === 'he' ? 'he-IL' : 'en-US', {
       timeZone: 'Asia/Jerusalem',
       year: 'numeric',
       month: '2-digit',
@@ -144,10 +172,9 @@ export default async function handler(
       minute: '2-digit',
     });
 
-    // Prepare email content
     const htmlBody = `
       <!DOCTYPE html>
-      <html dir="rtl" lang="he">
+      <html dir="${dir}" lang="${lang}">
         <head>
           <meta charset="UTF-8">
           <style>
@@ -165,44 +192,44 @@ export default async function handler(
         <body>
           <div class="container">
             <div class="header">
-              <h1 style="margin: 0;">הודעה חדשה מטופס יצירת קשר</h1>
+              <h1 style="margin: 0;">${labels.header}</h1>
             </div>
             <div class="content">
               <div class="field">
-                <span class="label">שם מלא:</span>
+                <span class="label">${labels.fullName}:</span>
                 <div class="value">${escapeHtml(body.fullName)}</div>
               </div>
               <div class="field">
-                <span class="label">אימייל:</span>
+                <span class="label">${labels.email}:</span>
                 <div class="value"><a href="mailto:${escapeHtml(body.email)}">${escapeHtml(body.email)}</a></div>
               </div>
               ${body.phone ? `
               <div class="field">
-                <span class="label">טלפון:</span>
+                <span class="label">${labels.phone}:</span>
                 <div class="value">${escapeHtml(body.phone)}</div>
               </div>
               ` : ''}
               <div class="field">
-                <span class="label">נושא:</span>
+                <span class="label">${labels.subject}:</span>
                 <div class="value">${escapeHtml(body.subject)}</div>
               </div>
               <div class="field">
-                <span class="label">הודעה:</span>
+                <span class="label">${labels.message}:</span>
                 <div class="message-box">${escapeHtml(body.message)}</div>
               </div>
               ${body.sourceUrl ? `
               <div class="field">
-                <span class="label">דף מקור:</span>
+                <span class="label">${labels.sourcePage}:</span>
                 <div class="value"><a href="${escapeHtml(body.sourceUrl)}">${escapeHtml(body.sourceUrl)}</a></div>
               </div>
               ` : ''}
               <div class="field">
-                <span class="label">תאריך ושעה:</span>
+                <span class="label">${labels.dateTime}:</span>
                 <div class="value">${date}</div>
               </div>
               <div class="footer">
-                <p>הודעה זו נשלחה מטופס יצירת קשר באתר Viraly - Video Director Pro</p>
-                <p>ניתן להגיב ישירות למייל זה - התשובה תגיע ל-${escapeHtml(body.email)}</p>
+                <p>${labels.footerSent}</p>
+                <p>${labels.footerReply(escapeHtml(body.email))}</p>
               </div>
             </div>
           </div>
@@ -211,19 +238,19 @@ export default async function handler(
     `;
 
     const textBody = `
-הודעה חדשה מטופס יצירת קשר
+${labels.header}
 
-שם מלא: ${body.fullName}
-אימייל: ${body.email}
-${body.phone ? `טלפון: ${body.phone}\n` : ''}נושא: ${body.subject}
+${labels.fullName}: ${body.fullName}
+${labels.email}: ${body.email}
+${body.phone ? `${labels.phone}: ${body.phone}\n` : ''}${labels.subject}: ${body.subject}
 
-הודעה:
+${labels.message}:
 ${body.message}
 
-${body.sourceUrl ? `דף מקור: ${body.sourceUrl}\n` : ''}תאריך ושעה: ${date}
+${body.sourceUrl ? `${labels.sourcePage}: ${body.sourceUrl}\n` : ''}${labels.dateTime}: ${date}
 
 ---
-ניתן להגיב ישירות למייל זה - התשובה תגיע ל-${body.email}
+${labels.footerReply(body.email)}
     `.trim();
 
     // Send email via Resend API

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
@@ -353,6 +354,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
   userEmail,
   currentTier = 'free'
 }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState<SubscriptionTier | null>(null);
 
   const isTestAccount = userEmail?.trim().toLowerCase() === TEST_ACCOUNT_EMAIL.toLowerCase();
@@ -394,7 +396,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert('שגיאה: משתמש לא מחובר');
+        alert(t('alerts.userNotConnected'));
         setLoading(null);
         return;
       }
@@ -406,7 +408,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
       
       if (updateError) {
         console.error('Error updating subscription tier:', updateError);
-        alert('שגיאה בעדכון החבילה. נסה שוב.');
+        alert(t('alerts.packageUpdateError'));
         setLoading(null);
         return;
       }
@@ -415,7 +417,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Error saving package selection:', err);
-      alert('שגיאה בשמירת הבחירה. נסה שוב.');
+      alert(t('alerts.choiceSaveError'));
     } finally {
       setLoading(null);
     }
@@ -424,35 +426,35 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
   if (!isOpen) return null;
 
   const plans = [
-    { tier: 'free' as SubscriptionTier, name: 'ניסיון', subtitle: 'חינם' },
-    { tier: 'creator' as SubscriptionTier, name: 'יוצרים', subtitle: '₪49', recommended: true },
-    { tier: 'pro' as SubscriptionTier, name: 'יוצרים באקסטרים', subtitle: '₪99' },
+    { tier: 'free' as SubscriptionTier, nameKey: 'billingPlan.free', subtitleKey: 'billingPlan.freeSubtitle' },
+    { tier: 'creator' as SubscriptionTier, nameKey: 'billingPlan.creator', subtitleKey: 'billingPlan.creatorSubtitle', recommended: true },
+    { tier: 'pro' as SubscriptionTier, nameKey: 'billingPlan.pro', subtitleKey: 'billingPlan.proSubtitle' },
   ];
 
   const getFeatureText = (tier: SubscriptionTier, feature: string): string => {
     const plan = SUBSCRIPTION_PLANS[tier];
     switch (feature) {
       case 'analyses':
-        if (plan.limits.maxAnalysesPerPeriod === -1) return 'ללא הגבלה';
-        if (tier === 'free') return 'ניתוח טעימה';
-        return `${plan.limits.maxAnalysesPerPeriod} ניתוח/חודש`;
+        if (plan.limits.maxAnalysesPerPeriod === -1) return t('billingPlan.unlimited');
+        if (tier === 'free') return t('billingPlan.analysesTrial');
+        return t('billingPlan.analysesCount', { count: plan.limits.maxAnalysesPerPeriod });
       case 'minutes':
-        if (tier === 'free') return ''; // Hide minutes for free tier
-        return `${plan.limits.maxVideoMinutesPerPeriod} דק'/חודש`;
+        if (tier === 'free') return '';
+        return t('billingPlan.minutesCount', { count: plan.limits.maxVideoMinutesPerPeriod });
       case 'videoLength':
         const seconds = plan.limits.maxVideoSeconds;
         const mb = plan.limits.maxFileBytes / (1024 * 1024);
         if (seconds >= 60) {
           const minutes = Math.floor(seconds / 60);
-          return `עד ${minutes} דק' או ${mb}MB`;
+          return t('billingPlan.videoLimit', { minutes, mb });
         }
-        return `עד ${seconds} שניות או ${mb}MB`;
+        return t('billingPlan.videoLimitSeconds', { seconds, mb });
       case 'experts':
-        return tier === 'free' ? '3 מומחים' : 'כל המומחים (8)';
+        return tier === 'free' ? t('billingPlan.experts3') : t('billingPlan.expertsAll');
       case 'tracks':
-        if (tier === 'free') return 'תחום ניתוח 1 לבחירה';
-        if (tier === 'creator') return '2 תחומי ניתוח לבחירה';
-        return 'כל התחומים (4)';
+        if (tier === 'free') return t('billingPlan.tracks1');
+        if (tier === 'creator') return t('billingPlan.tracks2');
+        return t('billingPlan.tracksAll');
       case 'pdfExport':
         return plan.limits.features.pdfExport ? '✓' : '✗';
       case 'advancedAnalysis':
@@ -474,8 +476,8 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
         <CloseButton onClick={onClose}>×</CloseButton>
         
         <ModalHeader>
-          <h2>חבילות והצעות</h2>
-          <p>בחר את החבילה המתאימה לך ביותר</p>
+          <h2>{t('billing.packagesTitle')}</h2>
+          <p>{t('billing.packagesSubtitle')}</p>
         </ModalHeader>
 
         <PackagesGrid>
@@ -486,7 +488,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
             const allowUpgrade = canUpgradeTo(plan.tier, currentTier);
             return (
               <PackageCard key={plan.tier} $isRecommended={plan.recommended}>
-                {plan.recommended && <RecommendedBadge>מומלץ</RecommendedBadge>}
+                {plan.recommended && <RecommendedBadge>{t('billing.recommended')}</RecommendedBadge>}
                 {isCurrentTier && (
                   <div style={{
                     position: 'absolute',
@@ -500,11 +502,11 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                     fontWeight: 700,
                     textTransform: 'uppercase',
                   }}>
-                    חבילה פעילה
+                    {t('billing.activePlan')}
                   </div>
                 )}
-                <PackageTitle>{plan.name}</PackageTitle>
-                <PackageSubtitle>{plan.subtitle}</PackageSubtitle>
+                <PackageTitle>{t(plan.nameKey)}</PackageTitle>
+                <PackageSubtitle>{t(plan.subtitleKey)}</PackageSubtitle>
                 <PackageFeatures>
                   <li>{getFeatureText(plan.tier, 'analyses')}</li>
                   {getFeatureText(plan.tier, 'minutes') && <li>{getFeatureText(plan.tier, 'minutes')}</li>}
@@ -533,7 +535,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                     fontStyle: 'italic',
                     textAlign: 'center'
                   }}>
-                    ✨ עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                    {t('billing.upgradeNote')}
                   </div>
                 )}
                 <PackageButton
@@ -541,14 +543,14 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                   disabled={loading !== null || isCurrentTier || !allowUpgrade}
                 >
                   {loading === plan.tier
-                    ? 'מעבד...'
+                    ? t('auth.processing')
                     : isCurrentTier
-                    ? 'חבילה פעילה'
+                    ? t('billing.activePlan')
                     : !allowUpgrade
-                    ? 'לא זמין'
+                    ? t('billingPlan.unavailable')
                     : plan.tier === 'free'
-                    ? 'התחל חינם'
-                    : 'הרשמה לחבילה זו'}
+                    ? t('billingPlan.startFree')
+                    : t('billingPlan.signupPlan')}
                 </PackageButton>
               </PackageCard>
             );
@@ -557,55 +559,55 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
 
         <ComparisonTable>
           <TableHeader>
-            <TableHeaderCell>תכונה</TableHeaderCell>
-            <TableHeaderCell>ניסיון</TableHeaderCell>
-            <TableHeaderCell>יוצרים</TableHeaderCell>
-            <TableHeaderCell>יוצרים באקסטרים</TableHeaderCell>
+            <TableHeaderCell>{t('comparisonFeature')}</TableHeaderCell>
+            <TableHeaderCell>{t('plan.free')}</TableHeaderCell>
+            <TableHeaderCell>{t('plan.creator')}</TableHeaderCell>
+            <TableHeaderCell>{t('plan.pro')}</TableHeaderCell>
           </TableHeader>
           <TableRow>
-            <TableLabel>ניתוחים חודשיים</TableLabel>
+            <TableLabel>{t('comparisonMonthlyAnalyses')}</TableLabel>
             <TableCell>{getFeatureText('free', 'analyses')}</TableCell>
             <TableCell>{getFeatureText('creator', 'analyses')}</TableCell>
             <TableCell>{getFeatureText('pro', 'analyses')}</TableCell>
           </TableRow>
           <TableRow>
-            <TableLabel>דקות חודשיות</TableLabel>
+            <TableLabel>{t('comparisonMinutes')}</TableLabel>
             <TableCell>-</TableCell>
             <TableCell>{getFeatureText('creator', 'minutes')}</TableCell>
             <TableCell>{getFeatureText('pro', 'minutes')}</TableCell>
           </TableRow>
           <TableRow>
-            <TableLabel>אורך סרטון</TableLabel>
+            <TableLabel>{t('comparisonVideoLength')}</TableLabel>
             <TableCell>{getFeatureText('free', 'videoLength')}</TableCell>
             <TableCell>{getFeatureText('creator', 'videoLength')}</TableCell>
             <TableCell>{getFeatureText('pro', 'videoLength')}</TableCell>
           </TableRow>
           <TableRow>
-            <TableLabel>מספר מומחים</TableLabel>
+            <TableLabel>{t('comparisonExperts')}</TableLabel>
             <TableCell>{getFeatureText('free', 'experts')}</TableCell>
             <TableCell>{getFeatureText('creator', 'experts')}</TableCell>
             <TableCell>{getFeatureText('pro', 'experts')}</TableCell>
           </TableRow>
           <TableRow>
-            <TableLabel>מספר תחומים</TableLabel>
+            <TableLabel>{t('comparisonTracks')}</TableLabel>
             <TableCell>{getFeatureText('free', 'tracks')}</TableCell>
             <TableCell>{getFeatureText('creator', 'tracks')}</TableCell>
             <TableCell>{getFeatureText('pro', 'tracks')}</TableCell>
           </TableRow>
           <TableRow>
-            <TableLabel>יצוא PDF</TableLabel>
+            <TableLabel>{t('billingPlan.pdfExport')}</TableLabel>
             <TableCell>{getFeatureText('free', 'pdfExport')}</TableCell>
             <TableCell>{getFeatureText('creator', 'pdfExport')}</TableCell>
             <TableCell>{getFeatureText('pro', 'pdfExport')}</TableCell>
           </TableRow>
           <TableRow>
-            <TableLabel>ניתוח מתקדם</TableLabel>
+            <TableLabel>{t('billingPlan.advancedAnalysis')}</TableLabel>
             <TableCell>{getFeatureText('free', 'advancedAnalysis')}</TableCell>
             <TableCell>{getFeatureText('creator', 'advancedAnalysis')}</TableCell>
             <TableCell>{getFeatureText('pro', 'advancedAnalysis')}</TableCell>
           </TableRow>
           <TableRow>
-            <TableLabel>השוואת סרטונים</TableLabel>
+            <TableLabel>{t('billingPlan.videoComparison')}</TableLabel>
             <TableCell>{getFeatureText('free', 'videoComparison')}</TableCell>
             <TableCell>{getFeatureText('creator', 'videoComparison')}</TableCell>
             <TableCell>{getFeatureText('pro', 'videoComparison')}</TableCell>

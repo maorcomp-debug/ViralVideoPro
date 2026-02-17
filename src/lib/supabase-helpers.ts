@@ -1362,6 +1362,7 @@ export async function updateCurrentUserProfile(updates: {
   receive_updates?: boolean;
   subscription_tier?: string;
   subscription_status?: string;
+  preferred_language?: 'he' | 'en';
 }, knownUserId?: string) {
   const userId = knownUserId ?? (await supabase.auth.getUser()).data.user?.id;
   if (!userId) throw new Error('User not authenticated');
