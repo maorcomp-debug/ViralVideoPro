@@ -191,6 +191,8 @@ export default async function handler(
       Interval:1,
       OrderReference: orderReference,
       OrderTotalSum: amount,
+      InitialAmount: amount,
+      InitialAmountDescription: productName,
       Products: [
         {
           ProductName: productName,
