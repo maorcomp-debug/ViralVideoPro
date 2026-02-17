@@ -197,7 +197,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialPackage,
   onUpgradeComplete,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -417,6 +417,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         let displayName = mode === 'initial' ? (email.trim() || 'משתמש') : fullName.trim();
         if (isTestAccount) displayName = `חבילת ${SUBSCRIPTION_PLANS[testPackageTier].name}`;
 
+        const currentLang = (i18n.language || i18n.resolvedLanguage || 'en').split('-')[0] as 'en' | 'he';
+        const preferredLang = currentLang === 'he' ? 'he' : 'en';
+
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -427,6 +430,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               test_package_tier: isTestAccount ? testPackageTier : undefined,
               signup_tier: effectiveTier,
               signup_primary_track: effectiveTrack,
+              preferred_language: preferredLang,
             },
             emailRedirectTo: redirectUrl,
           },

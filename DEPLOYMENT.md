@@ -47,6 +47,24 @@ https://viral-video-pro.vercel.app
 
 ---
 
+## Auth Hook – מייל אימות לפי שפת הממשק
+כדי שמייל האימות יישלח באנגלית כשהמשתמש נרשם בממשק אנגלית:
+
+1. **Deploy את auth-send-email:**
+   ```bash
+   supabase functions deploy auth-send-email --no-verify-jwt
+   ```
+
+2. **הגדר Secrets ב-Supabase:**
+   ```bash
+   supabase secrets set VITE_APP_URL=https://viral-video-pro.vercel.app
+   supabase secrets set SUPABASE_URL=https://poejxozjnwrsakrhiyny.supabase.co
+   ```
+
+3. **הפעל את ה-Hook ב-Dashboard:** Authentication → Hooks → Send Email Hook → בחר `auth-send-email`
+
+---
+
 ## Troubleshooting – 401 Invalid API key
 אם מקבלים `AuthApiError: Invalid API key` בהרשמה – המפתח ב־Vercel לא תואם לפרויקט.
 
