@@ -47,8 +47,9 @@ https://viral-video-pro.vercel.app
 
 ---
 
-## Auth Hook – מייל אימות באנגלית (חובה!)
-**בלי ה-Hook – המייל תמיד בעברית** (מתבנית Supabase Dashboard). כדי שמייל האימות יישלח באנגלית כשהמשתמש נרשם בממשק אנגלית:
+## Auth Hook – מיילים דו־לשוניים (אימות + איפוס סיסמה)
+**בלי ה-Hook – המיילים תמיד בעברית** (מתבנית Supabase Dashboard).  
+ה-Hook מזהה שפת הממשק: **הרשמה** – מ־user_metadata.preferred_language, **איפוס סיסמה** – מ־profiles.preferred_language.
 
 1. **Deploy את auth-send-email:**
    ```bash
@@ -60,7 +61,9 @@ https://viral-video-pro.vercel.app
    ```bash
    supabase secrets set VITE_APP_URL=https://viral-video-pro.vercel.app
    supabase secrets set SUPABASE_URL=https://poejxozjnwrsakrhiyny.supabase.co
+   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service_role_key>
    ```
+   (ה־SERVICE_ROLE_KEY נדרש לשאיבת preferred_language מפרופיל באיפוס סיסמה)
 
 3. **הפעל את ה-Hook ב-Dashboard:** Authentication → Hooks → Send Email Hook → בחר `auth-send-email`
 
@@ -91,6 +94,10 @@ https://viral-video-pro.vercel.app
 | VITE_SUPABASE_ANON_KEY | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvZWp4b3pqbndyc2FrcmhpeW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzOTA2MzcsImV4cCI6MjA4MTk2NjYzN30.UvZO82HzVBzN_bozWUnI8bRI_HGhheDdg6tVRnftXBs` |
 
 אם ה־ANON_KEY מתחיל ב־`eyJ...` אבל ה-ref בתוך ה-JWT הוא `iwrccjxtowrywpeatoik` – זה פרויקט אחר. השתמש במפתח שמכיל `poejxozjnwrsakrhiyny`.
+
+### מייל אימות/איפוס בעברית
+- **מייל בעברית:** ה־auth-send-email hook לא פרוס. Supabase שולח מתבנית ברירת מחדל (עברית). יש לפרוס את ה-Hook (ראה למעלה).
+- **זיהוי שפה:** הרשמה – משפת הממשק (preferred_language ב־metadata). איפוס סיסמה – מ־profiles.preferred_language (אם לא קיים: עברית).
 
 ### בדיקה: איזה פרויקט Vercel מגיש ל־viral-video-pro.vercel.app?
 אם יש לך כמה פרויקטים (למשל viral-video-pro ו־viralypro) – עדכן את ה־env vars **בפרויקט שמגיש** ל־viral-video-pro.vercel.app.

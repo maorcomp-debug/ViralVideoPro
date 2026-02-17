@@ -1,12 +1,13 @@
 /**
- * Auth Send Email Hook – sends confirmation email via our Resend API.
+ * Auth Send Email Hook – sends signup confirmation and password reset emails via our Resend API.
  * Supabase calls this hook for signup, recovery, etc.
- * We call api/send-confirmation-email with the verification link and user's preferred_language.
+ * Detects language from: user_metadata.preferred_language (signup) or profiles.preferred_language (recovery).
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const APP_URL = Deno.env.get("VITE_APP_URL") || "https://viral-video-pro.vercel.app";
+const APP_URL = Deno.env.get("VITE_APP_URL") || Deno.env.get("APP_URL") || "https://viral-video-pro.vercel.app";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || Deno.env.get("VITE_SUPABASE_URL") || "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 interface HookPayload {
   user: {
@@ -29,6 +30,25 @@ const OK = () =>
     headers: { "Content-Type": "application/json" },
   });
 
+async function getPreferredLanguageFromProfile(userId: string): Promise<"en" | "he"> {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return "he";
+  try {
+    const url = `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/profiles?user_id=eq.${userId}&select=preferred_language`;
+    const res = await fetch(url, {
+      headers: {
+        apikey: SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+    });
+    if (!res.ok) return "he";
+    const data = await res.json();
+    const lang = data?.[0]?.preferred_language;
+    return lang === "en" ? "en" : "he";
+  } catch {
+    return "he";
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
@@ -40,19 +60,27 @@ Deno.serve(async (req: Request) => {
     const email = user?.email;
     const tokenHash = email_data?.token_hash;
     const redirectTo = email_data?.redirect_to || APP_URL;
-    const actionType = email_data?.email_action_type || "signup";
+    const actionType = (email_data?.email_action_type || "signup") as string;
 
     if (!email || !tokenHash || !SUPABASE_URL) {
       console.warn("auth-send-email: missing email, token_hash, or SUPABASE_URL");
       return OK();
     }
 
+    const isRecovery = actionType === "recovery" || actionType === "reset";
+    const type = isRecovery ? "recovery" : "signup";
+
+    let lang: "en" | "he" = "he";
+    if (isRecovery) {
+      lang = await getPreferredLanguageFromProfile(user.id);
+    } else {
+      const preferredLang = user?.user_metadata?.preferred_language;
+      lang = preferredLang === "en" ? "en" : "he";
+    }
+
     const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(actionType)}&redirect_to=${encodeURIComponent(redirectTo)}`;
 
-    const preferredLang = user?.user_metadata?.preferred_language;
-    const lang = preferredLang === "en" ? "en" : "he";
-
-    const apiUrl = `${APP_URL.replace(/\/$/, "")}/api/send-confirmation-email`;
+    const apiUrl = `${APP_URL.replace(/\/$/, "")}/api/send-auth-email`;
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -61,6 +89,7 @@ Deno.serve(async (req: Request) => {
         actionLink,
         redirectTo,
         lang,
+        type,
       }),
     });
 

@@ -27,7 +27,8 @@ i18n
     defaultNS: 'translation',
     supportedLngs: ['en', 'he'],
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['querystring', 'localStorage', 'navigator'],
+      lookupQuerystring: 'lang',
       lookupLocalStorage: STORAGE_KEY,
       caches: ['localStorage'],
       convertDetectedLanguage: (lng: string) => {

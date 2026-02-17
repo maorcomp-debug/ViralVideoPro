@@ -290,7 +290,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-      const redirectUrl = `${window.location.origin}/reset-password`;
+      const currentLang = (i18n.language || i18n.resolvedLanguage || 'en').split('-')[0];
+      const redirectUrl = `${window.location.origin}/reset-password?lang=${currentLang}`;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: redirectUrl,
       });
