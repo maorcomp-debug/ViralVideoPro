@@ -21,21 +21,12 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
-        chunkSizeWarningLimit: 1000, // Increase warning limit to 1MB (default is 500KB)
+        chunkSizeWarningLimit: 1500,
         rollupOptions: {
           output: {
+            // Single vendor chunk – avoids React undefined from chunk load order
             manualChunks: (id) => {
-              // Split node_modules – keep all React-dependent packages together
               if (id.includes('node_modules')) {
-                if (id.includes('@supabase')) {
-                  return 'vendor-supabase';
-                }
-                if (id.includes('react') || id.includes('react-dom') || id.includes('react-i18next') || id.includes('react-router') || id.includes('i18next')) {
-                  return 'vendor-react';
-                }
-                if (id.includes('styled-components')) {
-                  return 'vendor-styled';
-                }
                 return 'vendor';
               }
             },
