@@ -742,7 +742,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                         fontStyle: 'italic',
                         textAlign: 'center'
                       }}>
-                        ✨ עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                        ✨ {t('billing.upgradeNote')}
                       </div>
                     )}
                     <PackageButton
@@ -755,7 +755,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       }}
                       disabled={!allowUpgrade || processingTier !== null}
                     >
-                      {processingTier === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : !allowUpgrade ? 'לא זמין' : plan.tier === 'free' ? 'התחל חינם' : 'שדרג עכשיו'}
+                      {processingTier === plan.tier ? t('subscriptionModal.processing') : isCurrentTier ? t('subscriptionModal.activePlan') : !allowUpgrade ? t('subscriptionModal.unavailable') : plan.tier === 'free' ? t('subscriptionModal.startFree') : t('subscriptionModal.upgradeNow')}
                     </PackageButton>
                   </PackageCard>
                 );
@@ -886,7 +886,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                         fontStyle: 'italic',
                         textAlign: 'center'
                       }}>
-                        ✨ עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                        ✨ {t('billing.upgradeNote')}
                       </div>
                     )}
                     <PackageButton
@@ -899,7 +899,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       }}
                       disabled={!allowUpgrade || processingTier !== null}
                     >
-                      {processingTier === plan.tier ? 'מעבד...' : isCurrentTier ? 'חבילה פעילה' : !allowUpgrade ? 'לא זמין' : 'שדרג עכשיו'}
+                      {processingTier === plan.tier ? t('subscriptionModal.processing') : isCurrentTier ? t('subscriptionModal.activePlan') : !allowUpgrade ? t('subscriptionModal.unavailable') : t('subscriptionModal.upgradeNow')}
                     </PackageButton>
                   </PackageCard>
                 );

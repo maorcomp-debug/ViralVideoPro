@@ -514,13 +514,13 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                   <li>{getFeatureText(plan.tier, 'experts')}</li>
                   <li>{getFeatureText(plan.tier, 'tracks')}</li>
                   <li className={planData.limits.features.pdfExport ? '' : 'unavailable'}>
-                    {planData.limits.features.pdfExport ? 'יצוא PDF' : 'יצוא PDF'}
+                    {t('billingPlan.pdfExport')}
                   </li>
                   <li className={planData.limits.features.advancedAnalysis ? '' : 'unavailable'}>
-                    {planData.limits.features.advancedAnalysis ? 'ניתוח מתקדם' : 'ניתוח מתקדם'}
+                    {t('billingPlan.advancedAnalysis')}
                   </li>
                   <li className={planData.limits.features.comparison ? '' : 'unavailable'}>
-                    {planData.limits.features.comparison ? 'השוואת סרטונים' : 'השוואת סרטונים'}
+                    {t('billingPlan.videoComparison')}
                   </li>
                 </PackageFeatures>
                 {!isCurrentTier && plan.tier !== 'free' && currentTier && allowUpgrade && (

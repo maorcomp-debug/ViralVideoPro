@@ -140,6 +140,7 @@
     "uploadTitle": "העלה סרטון",
     "uploadTitleForTrack": "העלה סרטון {{track}}",
     "uploadImproved": "העלה טייק משופר (ניסיון 2)",
+    "startOver": "התחל מחדש",
     "uploadSubtitle": "עד {{minutes}} דקות או {{mb}}MB",
     "uploadSubtitleSeconds": "עד {{seconds}} שניות או {{mb}}MB",
     "remainingAnalyses": "נותרו {{count}} ניתוחים",

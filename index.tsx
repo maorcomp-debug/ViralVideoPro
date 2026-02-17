@@ -4709,7 +4709,7 @@ const App = () => {
               >
                 {!canUseFeature('pdfExport') ? <NoEntryIcon /> : <PdfIcon />}
                 {t('analysis.exportPdf')}
-                {!canUseFeature('pdfExport') && <PremiumBadge>פרימיום</PremiumBadge>}
+                {!canUseFeature('pdfExport') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
               </PrimaryButton>
               {activeTrack === 'coach' && canUseFeature('traineeManagement') && (
                 <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee || isSavingAnalysis}>
@@ -4718,7 +4718,7 @@ const App = () => {
               )}
               <SecondaryButton onClick={handleReset}>
                 <RefreshIcon />
-                התחל מחדש
+                {t('analysis.startOver')}
               </SecondaryButton>
               <PrimaryButton 
                 onClick={handleUploadImprovedTake}
@@ -4730,8 +4730,8 @@ const App = () => {
                 title={!canUseFeature('improvementTracking') ? t('alerts.improvementTrackingSubscriptionOnly') : ''}
               >
                 <UploadIconSmall />
-                העלה טייק משופר
-                {!canUseFeature('improvementTracking') && <PremiumBadge>פרימיום</PremiumBadge>}
+                {t('analysis.uploadImproved')}
+                {!canUseFeature('improvementTracking') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
               </PrimaryButton>
             </ActionButtonsContainer>
 
