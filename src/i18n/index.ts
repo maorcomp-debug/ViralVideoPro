@@ -55,4 +55,17 @@ i18n.on('languageChanged', (lng) => {
 const currentLng = i18n.language || i18n.resolvedLanguage || 'en';
 applyDirection(currentLng);
 
+// Apply lang from URL on load (for email verification redirect – user lands in correct language)
+if (typeof window !== 'undefined') {
+  const params = new URLSearchParams(window.location.search);
+  const langParam = params.get('lang');
+  if (langParam === 'en' || langParam === 'he') {
+    i18n.changeLanguage(langParam);
+    params.delete('lang');
+    const newSearch = params.toString();
+    const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+    window.history.replaceState({}, '', newUrl);
+  }
+}
+
 export default i18n;

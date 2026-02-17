@@ -410,15 +410,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         // Removed emailExists/phoneExists checks - Supabase handles duplicate validation automatically
         // This speeds up registration significantly
 
-        const redirectUrl = window.location.origin;
+        const currentLang = (i18n.language || i18n.resolvedLanguage || 'en').split('-')[0] as 'en' | 'he';
+        const preferredLang = currentLang === 'he' ? 'he' : 'en';
+        const baseRedirect = window.location.origin;
+        const redirectUrl = preferredLang === 'en' ? `${baseRedirect}?lang=en` : baseRedirect;
         const effectiveTier = mode === 'initial' ? 'free' : selectedTier;
         const effectiveTrack = selectedTrack || undefined;
         const cleanPhoneForSignUp = mode === 'initial' ? '' : phone.trim().replace(/\D/g, '');
         let displayName = mode === 'initial' ? (email.trim() || 'משתמש') : fullName.trim();
         if (isTestAccount) displayName = `חבילת ${SUBSCRIPTION_PLANS[testPackageTier].name}`;
-
-        const currentLang = (i18n.language || i18n.resolvedLanguage || 'en').split('-')[0] as 'en' | 'he';
-        const preferredLang = currentLang === 'he' ? 'he' : 'en';
 
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),

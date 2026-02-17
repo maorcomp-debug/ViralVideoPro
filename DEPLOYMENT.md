@@ -47,11 +47,12 @@ https://viral-video-pro.vercel.app
 
 ---
 
-## Auth Hook – מייל אימות לפי שפת הממשק
-כדי שמייל האימות יישלח באנגלית כשהמשתמש נרשם בממשק אנגלית:
+## Auth Hook – מייל אימות באנגלית (חובה!)
+**בלי ה-Hook – המייל תמיד בעברית** (מתבנית Supabase Dashboard). כדי שמייל האימות יישלח באנגלית כשהמשתמש נרשם בממשק אנגלית:
 
 1. **Deploy את auth-send-email:**
    ```bash
+   cd supabase
    supabase functions deploy auth-send-email --no-verify-jwt
    ```
 
@@ -62,6 +63,12 @@ https://viral-video-pro.vercel.app
    ```
 
 3. **הפעל את ה-Hook ב-Dashboard:** Authentication → Hooks → Send Email Hook → בחר `auth-send-email`
+
+4. **הרץ את המיגרציה** (preferred_language בפרופיל):
+   ```bash
+   supabase db push
+   ```
+   או הרץ ידנית: `supabase/migrations/20260217120000_add_preferred_language_to_handle_new_user.sql`
 
 ---
 
