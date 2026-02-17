@@ -413,7 +413,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const currentLang = (i18n.language || i18n.resolvedLanguage || 'en').split('-')[0] as 'en' | 'he';
         const preferredLang = currentLang === 'he' ? 'he' : 'en';
         const baseRedirect = window.location.origin;
-        const redirectUrl = preferredLang === 'en' ? `${baseRedirect}?lang=en` : baseRedirect;
+        // Always redirect to English after verification (user requested landing in English)
+        const redirectUrl = `${baseRedirect}?lang=en`;
         const effectiveTier = mode === 'initial' ? 'free' : selectedTier;
         const effectiveTrack = selectedTrack || undefined;
         const cleanPhoneForSignUp = mode === 'initial' ? '' : phone.trim().replace(/\D/g, '');
