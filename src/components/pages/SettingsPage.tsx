@@ -300,10 +300,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const getTierDisplayName = (tier: string) => {
-    if (tier === 'coach-pro') {
-      return 'מאמנים, סוכנויות ובתי ספר למשחק גרסת פרו';
-    }
-    return SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.name || tier;
+    const planKey = tier === 'coach-pro' ? 'coachPro' : tier;
+    return t(`plan.${planKey}`) || SUBSCRIPTION_PLANS[tier as SubscriptionTier]?.name || tier;
   };
 
   const getMaxAnalyses = () => {
@@ -617,8 +615,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         {activeTab === 'profile' && (
           <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
-              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                אימייל
+              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: i18n.language?.startsWith('he') ? 'right' : 'left', display: 'block', marginBottom: '5px' }}>
+                {t('settings.email')}
               </label>
               <input
                 type="email"
@@ -637,14 +635,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               />
             </div>
             <div>
-              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                שם מלא
+              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: i18n.language?.startsWith('he') ? 'right' : 'left', display: 'block', marginBottom: '5px' }}>
+                {t('settings.fullName')}
               </label>
               <input
                 type="text"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                placeholder="הכנס שם מלא"
+                placeholder={t('settings.placeholderFullName')}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -673,7 +671,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 transition: 'all 0.3s',
               }}
             >
-              {loading ? 'שומר...' : 'שמור שינויים'}
+              {loading ? t('settings.saving') : t('settings.saveChanges')}
             </button>
           </form>
         )}
@@ -682,14 +680,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         {activeTab === 'password' && (
           <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
-              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                סיסמה חדשה
+              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: i18n.language?.startsWith('he') ? 'right' : 'left', display: 'block', marginBottom: '5px' }}>
+                {t('settings.newPassword')}
               </label>
               <input
                 type="password"
                 value={passwordData.newPassword}
                 onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                placeholder="הכנס סיסמה חדשה"
+                placeholder={t('settings.placeholderNewPassword')}
                 required
                 style={{
                   width: '100%',
@@ -703,14 +701,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               />
             </div>
             <div>
-              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                אשר סיסמה חדשה
+              <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: i18n.language?.startsWith('he') ? 'right' : 'left', display: 'block', marginBottom: '5px' }}>
+                {t('settings.confirmPassword')}
               </label>
               <input
                 type="password"
                 value={passwordData.confirmPassword}
                 onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                placeholder="אשר סיסמה חדשה"
+                placeholder={t('settings.placeholderConfirmPassword')}
                 required
                 style={{
                   width: '100%',
@@ -739,7 +737,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 transition: 'all 0.3s',
               }}
             >
-              {loading ? 'מעדכן...' : 'עדכן סיסמה'}
+              {loading ? t('settings.updating') : t('settings.updatePassword')}
             </button>
           </form>
         )}
@@ -753,26 +751,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               border: '1px solid #D4A043',
               borderRadius: '8px',
               marginBottom: '20px',
-              textAlign: 'right',
+              textAlign: i18n.language?.startsWith('he') ? 'right' : 'left',
             }}>
-              <h3 style={{ color: '#D4A043', margin: '0 0 10px 0' }}>סטטוס מנוי נוכחי</h3>
+              <h3 style={{ color: '#D4A043', margin: '0 0 10px 0' }}>{t('settings.subscriptionStatus')}</h3>
               <div style={{ margin: '5px 0', color: '#ccc', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <p style={{ margin: 0 }}>
-                  <span style={{ color: '#D4A043', fontWeight: 700 }}>חבילה:</span>{' '}
+                  <span style={{ color: '#D4A043', fontWeight: 700 }}>{t('settings.package')}:</span>{' '}
                   {subscription ? getTierDisplayName(subscription.tier) : getTierDisplayName(profile?.subscription_tier || 'free')}
                 </p>
                 <p style={{ margin: 0 }}>
-                  <span style={{ color: '#D4A043', fontWeight: 700 }}>סטטוס:</span>{' '}
-                  {subscription?.isActive ? 'פעיל' : 'לא פעיל'}
+                  <span style={{ color: '#D4A043', fontWeight: 700 }}>{t('settings.status')}:</span>{' '}
+                  {subscription?.isActive ? t('settings.active') : t('settings.inactive')}
                 </p>
               {subscription?.tier !== 'free' && (
                 <>
                   <p style={{ margin: 0 }}>
-                    <span style={{ color: '#D4A043', fontWeight: 700 }}>תקופת חיוב:</span>{' '}
-                    {subscription?.billingPeriod === 'monthly' ? 'חודשי' : 'שנתי'}
+                    <span style={{ color: '#D4A043', fontWeight: 700 }}>{t('settings.billingPeriod')}:</span>{' '}
+                    {subscription?.billingPeriod === 'monthly' ? t('settings.monthly') : t('settings.yearly')}
                   </p>
                   <p style={{ margin: 0 }}>
-                    <span style={{ color: '#D4A043', fontWeight: 700 }}>תאריך חידוש החבילה:</span>{' '}
+                    <span style={{ color: '#D4A043', fontWeight: 700 }}>{t('settings.renewalDate')}:</span>{' '}
                     {(() => {
                       // תמיד מחשבים את חידוש החבילה כחודש/שנה קדימה מתאריך הפעלת החבילה (subscription_start_date)
                       // כך שאם הפעלת ב־5.2.2027 → חידוש ב־5.3.2027
@@ -780,7 +778,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         ? new Date(profile.subscription_start_date)
                         : null;
                       if (!start) {
-                        return 'לא ידוע';
+                        return t('settings.unknown');
                       }
                       const renewal = new Date(start);
                       if (subscription?.billingPeriod === 'yearly') {
@@ -788,7 +786,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       } else {
                         renewal.setMonth(renewal.getMonth() + 1);
                       }
-                      return renewal.toLocaleDateString('he-IL');
+                      return renewal.toLocaleDateString(i18n.language?.startsWith('he') ? 'he-IL' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
                     })()}
                   </p>
                 </>
@@ -799,7 +797,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 if (!subscription) {
                   return (
                     <p style={{ margin: '5px 0', color: '#ccc' }}>
-                      <span style={{ color: '#D4A043', fontWeight: 700 }}>ניתוחים שבוצעו החודש:</span>{' '}
+                      <span style={{ color: '#D4A043', fontWeight: 700 }}>{t('settings.analysesThisMonth')}:</span>{' '}
                       {usage.analysesUsed}
                     </p>
                   );
@@ -814,19 +812,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <>
                     {!isCoachTier && maxAnalyses !== -1 && (
                       <p style={{ margin: '5px 0', color: '#ccc' }}>
-                        <span style={{ color: '#D4A043', fontWeight: 700 }}>ניתוחים שבוצעו החודש:</span>{' '}
-                        {usage.analysesUsed} מתוך {maxAnalyses}
+                        <span style={{ color: '#D4A043', fontWeight: 700 }}>{t('settings.analysesThisMonth')}:</span>{' '}
+                        {usage.analysesUsed} {t('settings.of')} {maxAnalyses}
                       </p>
                     )}
                     {maxMinutes !== -1 && maxMinutes > 0 && (
                       <p style={{ margin: '5px 0', color: '#ccc' }}>
-                        <span style={{ color: '#D4A043', fontWeight: 700 }}>דקות ניתוח שבוצעו החודש:</span>{' '}
-                        {usage.minutesUsed || 0} מתוך {maxMinutes}
+                        <span style={{ color: '#D4A043', fontWeight: 700 }}>{t('settings.minutesUsedThisMonth')}:</span>{' '}
+                        {usage.minutesUsed || 0} {t('settings.of')} {maxMinutes}
                       </p>
                     )}
                     {isCoachTier && maxMinutes !== -1 && (
                       <p style={{ margin: '5px 0', color: '#ccc', fontSize: '0.9rem' }}>
-                        כמות ניתוחים: ללא הגבלה (מוגבל בדקות בלבד)
+                        {t('settings.unlimitedAnalyses')}
                       </p>
                     )}
                     {profile?.subscription_start_date && new Date(profile.subscription_start_date) > new Date(new Date().getFullYear(), new Date().getMonth(), 1) && (
@@ -840,7 +838,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         border: '1px solid rgba(212, 160, 67, 0.3)',
                         borderRadius: '6px'
                       }}>
-                        ✨ עם השדרוג – נפתחת לך מכסה חדשה בהתאם לחבילה
+                        {t('settings.upgradeQuotaNote')}
                       </p>
                     )}
                   </>
@@ -861,7 +859,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 cursor: 'pointer',
               }}
             >
-              ניהול מנוי / שדרוג
+              {t('settings.manageSubscription')}
             </button>
             <ManageSubscriptionChoiceModal
               isOpen={showManageSubscriptionChoice}
@@ -894,11 +892,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 background: 'linear-gradient(135deg, rgba(212, 160, 67, 0.2), rgba(212, 160, 67, 0.1))',
                 border: '2px solid #D4A043',
                 borderRadius: '12px',
-                textAlign: 'right',
+                textAlign: i18n.language?.startsWith('he') ? 'right' : 'left',
               }}>
-                <h3 style={{ color: '#D4A043', margin: '0 0 10px 0', fontSize: '1.3rem' }}>🎯 בחירת תחום ניתוח נוסף</h3>
+                <h3 style={{ color: '#D4A043', margin: '0 0 10px 0', fontSize: '1.3rem' }}>🎯 {t('settings.addTrackTitle')}</h3>
                 <p style={{ color: '#ccc', margin: '0 0 15px 0', lineHeight: '1.6' }}>
-                  כחלק מחבילת יוצרים, תוכל לבחור תחום ניתוח נוסף. זה יאפשר לך לקבל ניתוחים מותאמים גם לתחום השני.
+                  {t('settings.addTrackDesc')}
                 </p>
                 <button
                   onClick={() => setShowTrackSelectionModal(true)}
@@ -923,7 +921,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
-                  בחר תחום ניתוח נוסף
+                  {t('settings.addTrackButton')}
                 </button>
               </div>
             )}
@@ -933,11 +931,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               background: 'rgba(212, 160, 67, 0.1)',
               border: '1px solid #D4A043',
               borderRadius: '8px',
-              textAlign: 'right',
+              textAlign: i18n.language?.startsWith('he') ? 'right' : 'left',
             }}>
-              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0' }}>הגדרות עדכונים</h3>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0' }}>{t('settings.updatesSettings')}</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#ccc' }}>קבלת עדכונים על חידושים, הטבות ועדכונים באפליקציה</span>
+                <span style={{ color: '#ccc' }}>{t('settings.updatesDesc')}</span>
                 <button
                   onClick={handleToggleUpdates}
                   disabled={loading}
@@ -952,13 +950,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     transition: 'all 0.3s',
                   }}
                 >
-                  {receiveUpdates ? 'פעיל' : 'לא פעיל'}
+                  {receiveUpdates ? t('settings.active') : t('settings.inactive')}
                 </button>
               </div>
             </div>
 
             <div>
-              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', textAlign: 'right' }}>עדכונים שנשלחו</h3>
+              <h3 style={{ color: '#D4A043', margin: '0 0 15px 0', textAlign: i18n.language?.startsWith('he') ? 'right' : 'left' }}>{t('settings.sentUpdates')}</h3>
               {announcements.length === 0 ? (
                 <div style={{
                   padding: '40px',
@@ -967,7 +965,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   borderRadius: '8px',
                   color: '#888',
                 }}>
-                  אין עדכונים להצגה
+                  {t('settings.noUpdates')}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -985,7 +983,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           border: `1px solid ${isRead ? 'rgba(255, 255, 255, 0.1)' : '#D4A043'}`,
                           borderRadius: '8px',
                           cursor: !isRead ? 'pointer' : 'default',
-                          textAlign: 'right',
+                          textAlign: i18n.language?.startsWith('he') ? 'right' : 'left',
                           transition: 'all 0.2s',
                         }}
                       >
@@ -1000,7 +998,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                               fontSize: '0.75rem',
                               fontWeight: 700,
                             }}>
-                              חדש
+                              {t('settings.new')}
                             </span>
                           )}
                         </div>
@@ -1027,7 +1025,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           </div>
                         )}
                         <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
-                          {new Date(ann.created_at).toLocaleDateString('he-IL', {
+                          {new Date(ann.created_at).toLocaleDateString(i18n.language?.startsWith('he') ? 'he-IL' : 'en-US', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric',
