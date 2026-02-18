@@ -159,11 +159,11 @@ const PackageSelect = styled.select`
   }
 `;
 
-const TRACK_OPTIONS: { id: TrackId; label: string }[] = [
-  { id: 'actors', label: 'שחקנים ואודישנים' },
-  { id: 'musicians', label: 'זמרים ומוזיקאים' },
-  { id: 'creators', label: 'יוצרי תוכן וכוכבי רשת' },
-  { id: 'influencers', label: 'משפיענים ומותגים' },
+const TRACK_OPTIONS: { id: TrackId; labelKey: string }[] = [
+  { id: 'actors', labelKey: 'track.actors' },
+  { id: 'musicians', labelKey: 'track.musicians' },
+  { id: 'creators', labelKey: 'track.creators' },
+  { id: 'influencers', labelKey: 'track.influencers' },
 ];
 
 export type AuthModalMode = 'initial' | 'upgrade';

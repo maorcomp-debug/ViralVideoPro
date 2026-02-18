@@ -177,11 +177,11 @@ import {
 } from './src/components/icons';
 
 const TRACKS = [
-  { id: 'actors', label: 'שחקנים ואודישנים', icon: <TheaterMasksIcon /> },
-  { id: 'musicians', label: 'זמרים ומוזיקאים', icon: <MusicNoteIcon /> },
-  { id: 'creators', label: 'יוצרי תוכן וכוכבי רשת', icon: <PhoneStarIcon /> },
-  { id: 'influencers', label: 'משפיענים ומותגים', icon: <MicrophoneIcon /> },
-  { id: 'coach', label: 'מסלול פרימיום', icon: <CoachIcon />, isPremium: true },
+  { id: 'actors', icon: <TheaterMasksIcon /> },
+  { id: 'musicians', icon: <MusicNoteIcon /> },
+  { id: 'creators', icon: <PhoneStarIcon /> },
+  { id: 'influencers', icon: <MicrophoneIcon /> },
+  { id: 'coach', icon: <CoachIcon />, isPremium: true },
 ];
 
 const App = () => {
@@ -1679,11 +1679,20 @@ const App = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const ALLOWED_DOC_TYPES = [
+    'application/pdf',
+    'text/plain',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
   const handlePdfSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const selectedPdf = e.target.files[0];
-      if (selectedPdf.type === 'application/pdf') {
-        setPdfFile(selectedPdf);
+      const selectedFile = e.target.files[0];
+      const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+      const isAllowed = ALLOWED_DOC_TYPES.includes(selectedFile.type) ||
+        ['pdf', 'txt', 'doc', 'docx'].includes(ext || '');
+      if (isAllowed) {
+        setPdfFile(selectedFile);
       } else {
         alert(t('alerts.pdfOnly'));
       }
@@ -3006,8 +3015,8 @@ const App = () => {
       let pdfContext = '';
       if (pdfFile) {
         pdfContext = `
-          ADDITIONAL CONTEXT: The user has attached a PDF document (Script, Audition Instructions, or Guidelines). 
-          Use the content of this PDF to check if the video matches the requirements, lines, or tone described in the document.
+          ADDITIONAL CONTEXT: The user has attached a document (Script, Audition Instructions, or Guidelines - PDF, TXT, DOC, or DOCX). 
+          Use the content of this document to check if the video matches the requirements, lines, or tone described in it.
           This is crucial for the "Script Analysis" or "Director" roles if selected.
         `;
       }
@@ -4424,9 +4433,20 @@ const App = () => {
           ) : (
             <UploadContent>
               <UploadIcon><CinematicCameraIcon /></UploadIcon>
-              <UploadTitle>
-                {isImprovementMode ? t('analysis.uploadImproved') : (activeTrack === 'actors' ? t('analysis.uploadTitleActors') : t('analysis.uploadTitleForTrack', { track: t(`track.${activeTrack}`) }))}
-              </UploadTitle>
+              {(i18n.language || i18n.resolvedLanguage || '').startsWith('en') ? (
+                <>
+                  <SectionLabel style={{ textAlign: 'center', display: 'block', marginBottom: '8px' }}>
+                    {t(`analysis.uploadSectionHeader.${activeTrack === 'coach' ? coachTrainingTrack : activeTrack}`)}
+                  </SectionLabel>
+                  <UploadTitle>
+                    {isImprovementMode ? t('analysis.uploadImproved') : t('analysis.uploadTitle')}
+                  </UploadTitle>
+                </>
+              ) : (
+                <UploadTitle>
+                  {isImprovementMode ? t('analysis.uploadImproved') : (activeTrack === 'actors' ? t('analysis.uploadTitleActors') : t('analysis.uploadTitleForTrack', { track: t(`track.${activeTrack}`) }))}
+                </UploadTitle>
+              )}
               
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '10px' }}>
                 <button 
@@ -4503,7 +4523,7 @@ const App = () => {
               {t('analysis.attachScript')}
               <input 
                 type="file" 
-                accept="application/pdf" 
+                accept=".pdf,.txt,.doc,.docx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
                 onChange={handlePdfSelect} 
                 style={{ display: 'none' }} 
                 ref={pdfInputRef}

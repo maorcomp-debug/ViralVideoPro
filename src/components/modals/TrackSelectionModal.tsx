@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { fadeIn } from '../../styles/globalStyles';
 import { ModalCloseBtn } from '../../styles/modal';
@@ -315,30 +316,10 @@ interface TrackSelectionModalProps {
 
 // Track definitions (matching the ones in index.tsx)
 const TRACKS = [
-  { 
-    id: 'actors' as TrackId, 
-    label: 'שחקנים ואודישנים',
-    description: 'חדר האודישנים הראשי של הפקות הדרמה המובילות',
-    icon: TheaterMasksIcon
-  },
-  { 
-    id: 'musicians' as TrackId, 
-    label: 'זמרים ומוזיקאים',
-    description: 'פאנל השופטים של תוכניות המוזיקה הגדולות',
-    icon: MusicNoteIcon
-  },
-  { 
-    id: 'creators' as TrackId, 
-    label: 'יוצרי תוכן וכוכבי רשת',
-    description: 'האלגוריתם של הרשתות החברתיות (טיקטוק/רילס/יוטיוב)',
-    icon: PhoneStarIcon
-  },
-  { 
-    id: 'influencers' as TrackId, 
-    label: 'משפיענים ומותגים',
-    description: 'חדר האסטרטגיה של המותגים הגדולים ומשרדי הפרסום',
-    icon: MicrophoneIcon
-  },
+  { id: 'actors' as TrackId, labelKey: 'track.actors', descriptionKey: 'trackDescription.actors', icon: TheaterMasksIcon },
+  { id: 'musicians' as TrackId, labelKey: 'track.musicians', descriptionKey: 'trackDescription.musicians', icon: MusicNoteIcon },
+  { id: 'creators' as TrackId, labelKey: 'track.creators', descriptionKey: 'trackDescription.creators', icon: PhoneStarIcon },
+  { id: 'influencers' as TrackId, labelKey: 'track.influencers', descriptionKey: 'trackDescription.influencers', icon: MicrophoneIcon },
 ];
 
 export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
@@ -349,6 +330,7 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
   existingTracks = [],
   mode = 'replace'
 }) => {
+  const { t } = useTranslation();
   // If mode is 'add', start with existing tracks selected
   const [selectedTracks, setSelectedTracks] = useState<TrackId[]>(
     mode === 'add' ? [...existingTracks] : []
@@ -522,8 +504,8 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
                 <TrackIcon>
                   <TrackIconComponent />
                 </TrackIcon>
-                <TrackName>{track.label}</TrackName>
-                <TrackDescription>{track.description}</TrackDescription>
+                <TrackName>{t(track.labelKey)}</TrackName>
+                <TrackDescription>{t(track.descriptionKey)}</TrackDescription>
               </TrackCard>
             );
           })}

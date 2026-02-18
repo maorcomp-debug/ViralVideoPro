@@ -139,6 +139,13 @@
     "expertsIntro": ": אלו המומחים ומה הם בודקים",
     "uploadTitle": "העלה סרטון",
     "uploadTitleForTrack": "העלה סרטון {{track}}",
+    "uploadTitleActors": "העלה את הטייק שלך",
+    "uploadSectionHeader": {
+      "actors": "שחקנים ואודישנים",
+      "musicians": "זמרים ומוזיקאים",
+      "creators": "יוצרי תוכן וכוכבי רשת",
+      "influencers": "משפיענים ומותגים"
+    },
     "uploadImproved": "העלה טייק משופר (ניסיון 2)",
     "startOver": "התחל מחדש",
     "uploadSubtitle": "עד {{minutes}} דקות או {{mb}}MB",
@@ -160,7 +167,7 @@
     "exportPdf": "יצוא ניתוח ל-PDF",
     "saveForTrainee": "שמור ניתוח למתאמן",
     "saving": "שומר...",
-    "attachScript": "צרף תסריט / הנחיות (PDF)",
+    "attachScript": "צרף תסריט / הנחיות (PDF, TXT, DOC, DOCX)",
     "removeFile": "הסר קובץ",
     "goldenTipTitle": "טיפ זהב של הפאנל",
     "professionalView": "זווית מקצועית",
@@ -363,7 +370,7 @@
       "7": { "title": "יועץ מותג אישי", "desc": "עקביות, ייחודיות, מיצוב מקצועי" }
     }
   },
-  "attachScript": "צרף תסריט / הנחיות (PDF)",
+  "attachScript": "צרף תסריט / הנחיות (PDF, TXT, DOC, DOCX)",
   "uploadLimit": {
     "minutes": "עד {{minutes}} דקות או {{mb}}MB",
     "seconds": "עד {{seconds}} שניות או {{mb}}MB",
@@ -385,7 +392,7 @@
     "fileTooLarge": "הקובץ גדול מדי ({{mb}}MB).\n\nחלק מהסרטונים (במיוחד מאייפון), נשמרים באיכות גבוהה מאוד ולכן הנפח שלהם גדול מידיי.\nפשוט שלחו לעצמכם את הסרטון בווצאפ והורידו אותו מחדש. הקובץ יהיה קטן יותר והניתוח ישאר מדוייק.",
     "videoTooLong": "הסרטון ארוך מידיי ({{seconds}} שניות).\n\nהעלה סרטון באורך מתאים או שדרג ליכולות מתקדמות.",
     "videoMetadataError": "לא ניתן לקרוא את המטא-דאטה של הווידאו. נסה קובץ אחר.",
-    "pdfOnly": "נא להעלות קובץ PDF בלבד",
+    "pdfOnly": "נא להעלות קובץ PDF, TXT, DOC או DOCX בלבד",
     "analysisAlreadySaved": "הניתוח כבר נשמר אוטומטית לאחר השלמתו",
     "selectTraineeFirst": "נא לבחור מתאמן לפני שמירת הניתוח",
     "analysisSavedSuccess": "הניתוח נשמר בהצלחה",

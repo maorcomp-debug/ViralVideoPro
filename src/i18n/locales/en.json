@@ -54,7 +54,7 @@
     "proVersion": "Pro version"
   },
   "track": {
-    "actors": "Actors & self-tapes",
+    "actors": "Actors",
     "musicians": "Singers & musicians",
     "creators": "Content creators",
     "influencers": "Influencers & brands",
@@ -137,9 +137,15 @@
     "selectTrack": "Pick your track:",
     "yourCommittee": "Your panel in",
     "expertsIntro": ": who they are, what they look for",
-    "uploadTitle": "Upload video",
+    "uploadTitle": "Upload your video",
     "uploadTitleForTrack": "Upload your {{track}} take",
-    "uploadTitleActors": "Upload your self-tape",
+    "uploadTitleActors": "Upload your audition",
+    "uploadSectionHeader": {
+      "actors": "Acting Self-Tape",
+      "musicians": "Singing Performance",
+      "creators": "Creator Video",
+      "influencers": "Brand Content"
+    },
     "uploadImproved": "Upload take 2",
     "startOver": "Start over",
     "uploadSubtitle": "Up to {{minutes}} min or {{mb}}MB",
@@ -161,7 +167,7 @@
     "exportPdf": "Export PDF",
     "saveForTrainee": "Save for trainee",
     "saving": "Saving...",
-    "attachScript": "Attach script / notes (PDF)",
+    "attachScript": "Attach script / notes (PDF, TXT, DOC, DOCX)",
     "removeFile": "Remove file",
     "goldenTipTitle": "Pro Tip",
     "professionalView": "Professional view",
@@ -314,42 +320,42 @@
     "toggleTop3": "Top 3",
     "toggleAll8": "All 8",
     "actors": {
-      "0": { "title": "The Director", "desc": "Scene building, intention" },
+      "0": { "title": "Director", "desc": "Scene building, intention" },
       "1": { "title": "Casting Director", "desc": "Typecast, credibility, character" },
-      "2": { "title": "The Writer", "desc": "Text accuracy, subtext" },
+      "2": { "title": "Screenwriter", "desc": "Text accuracy, subtext" },
       "3": { "title": "Acting Coach", "desc": "Physical tension, emotional choices" },
       "4": { "title": "Director of Photography", "desc": "Light, eye contact, lens" },
-      "5": { "title": "Body Language", "desc": "Body-text alignment" },
-      "6": { "title": "Audition Mentor", "desc": "Self-presentation, getting into character" },
+      "5": { "title": "Body Language Expert", "desc": "Body-text alignment" },
+      "6": { "title": "Audition Coach", "desc": "Self-presentation, getting into character" },
       "7": { "title": "Career Strategist", "desc": "Portfolio fit, casting" }
     },
     "musicians": {
       "0": { "title": "Vocal Coach", "desc": "Technique, pitch, breath" },
       "1": { "title": "Music Producer", "desc": "Rhythm, groove, dynamics" },
-      "2": { "title": "The Tough Judge", "desc": "Uniqueness, signature, charisma" },
-      "3": { "title": "Performance Expert", "desc": "Delivery, stage presence" },
-      "4": { "title": "Interpretation", "desc": "Emotion, connection, authenticity" },
-      "5": { "title": "Styling & Image", "desc": "Look, visibility, genre fit" },
-      "6": { "title": "Repertoire", "desc": "Song choice, range fit" },
-      "7": { "title": "Radio Editor", "desc": "Radio potential, commercial" }
+      "2": { "title": "A&R", "desc": "Uniqueness, signature, charisma" },
+      "3": { "title": "Performance Coach", "desc": "Delivery, stage presence" },
+      "4": { "title": "Interpretation Coach", "desc": "Emotion, connection, authenticity" },
+      "5": { "title": "Styling & Image Consultant", "desc": "Look, visibility, genre fit" },
+      "6": { "title": "Repertoire Manager", "desc": "Song choice, range fit" },
+      "7": { "title": "Radio Programmer", "desc": "Radio potential, commercial" }
     },
     "creators": {
       "0": { "title": "Viral Strategist", "desc": "Promise vs delivery, share potential" },
-      "1": { "title": "Hook Master", "desc": "First 3 seconds, attention grab" },
+      "1": { "title": "Hook Specialist", "desc": "First 3 seconds, attention grab" },
       "2": { "title": "Video Editor", "desc": "Pace, flow, cuts, zoom" },
-      "3": { "title": "Algorithm Expert", "desc": "Watch time, rewatch" },
-      "4": { "title": "Energy Expert", "desc": "Vibe, authenticity, trends" },
-      "5": { "title": "Production Value", "desc": "Lighting, sound quality" },
-      "6": { "title": "Engagement Guru", "desc": "Call to action, comments" },
-      "7": { "title": "Storyteller", "desc": "Punch, tight messaging" }
+      "3": { "title": "Algorithm Strategist", "desc": "Watch time, rewatch" },
+      "4": { "title": "Performance Coach", "desc": "Vibe, authenticity, trends" },
+      "5": { "title": "Production Designer", "desc": "Lighting, sound quality" },
+      "6": { "title": "Engagement Strategist", "desc": "Call to action, comments" },
+      "7": { "title": "Content Writer", "desc": "Punch, tight messaging" }
     },
     "influencers": {
-      "0": { "title": "Rhetoric Master", "desc": "Diction, flow, persuasion" },
-      "1": { "title": "Authority Builder", "desc": "Expert positioning, credibility" },
+      "0": { "title": "Speech Coach", "desc": "Diction, flow, persuasion" },
+      "1": { "title": "Authority Strategist", "desc": "Expert positioning, credibility" },
       "2": { "title": "Business Storyteller", "desc": "Complex message, simple delivery" },
-      "3": { "title": "Body Language", "desc": "Openness, confidence, gestures" },
-      "4": { "title": "Personal Brand", "desc": "Differentiation, values, visual" },
-      "5": { "title": "Stage Charisma", "desc": "Presence, hold the room" },
+      "3": { "title": "Body Language Expert", "desc": "Openness, confidence, gestures" },
+      "4": { "title": "Personal Brand Strategist", "desc": "Differentiation, values, visual" },
+      "5": { "title": "Stage Presence Coach", "desc": "Presence, hold the room" },
       "6": { "title": "Copywriter", "desc": "Message accuracy, CTA" },
       "7": { "title": "Content Strategist", "desc": "Value for audience, trust" }
     },
@@ -364,7 +370,7 @@
       "7": { "title": "Personal Brand Advisor", "desc": "Consistency, uniqueness" }
     }
   },
-  "attachScript": "Attach script / notes (PDF)",
+  "attachScript": "Attach script / notes (PDF, TXT, DOC, DOCX)",
   "uploadLimit": {
     "minutes": "Up to {{minutes}} min or {{mb}}MB",
     "seconds": "Up to {{seconds}} sec or {{mb}}MB",
@@ -386,7 +392,7 @@
     "fileTooLarge": "File too large ({{mb}}MB).\n\niPhone videos are often huge. Send to yourself via WhatsApp and re-download. Smaller file, same quality.",
     "videoTooLong": "Video too long ({{seconds}} sec).\n\nUpload shorter or upgrade for longer limits.",
     "videoMetadataError": "Couldn't read video. Try a different file.",
-    "pdfOnly": "PDF only, please.",
+    "pdfOnly": "PDF, TXT, DOC or DOCX only.",
     "analysisAlreadySaved": "Already saved automatically.",
     "selectTraineeFirst": "Select a trainee first.",
     "analysisSavedSuccess": "Saved",

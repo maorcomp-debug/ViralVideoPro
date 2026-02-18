@@ -102,12 +102,23 @@ export const useFileUpload = (
     }
   }, [previewUrl]);
 
+  const ALLOWED_DOC_TYPES = [
+    'application/pdf',
+    'text/plain',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
   const handlePdfSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
-      setPdfFile(selectedFile);
-    } else if (selectedFile) {
-      alert(t('alerts.pdfOnly'));
+    if (selectedFile) {
+      const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+      const isAllowed = ALLOWED_DOC_TYPES.includes(selectedFile.type) ||
+        ['pdf', 'txt', 'doc', 'docx'].includes(ext || '');
+      if (isAllowed) {
+        setPdfFile(selectedFile);
+      } else {
+        alert(t('alerts.pdfOnly'));
+      }
     }
     if (pdfInputRef.current) pdfInputRef.current.value = '';
   }, [t]);

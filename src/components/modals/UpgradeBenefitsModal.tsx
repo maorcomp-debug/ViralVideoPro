@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { fadeIn } from '../../styles/globalStyles';
 import { SUBSCRIPTION_PLANS } from '../../constants';
@@ -40,30 +41,10 @@ const MicrophoneIcon = () => (
 );
 
 const TRACKS = [
-  { 
-    id: 'actors' as TrackId, 
-    label: 'שחקנים ואודישנים',
-    description: 'חדר האודישנים הראשי של הפקות הדרמה המובילות',
-    icon: TheaterMasksIcon
-  },
-  { 
-    id: 'musicians' as TrackId, 
-    label: 'זמרים ומוזיקאים',
-    description: 'פאנל השופטים של תוכניות המוזיקה הגדולות',
-    icon: MusicNoteIcon
-  },
-  { 
-    id: 'creators' as TrackId, 
-    label: 'יוצרי תוכן וכוכבי רשת',
-    description: 'האלגוריתם של הרשתות החברתיות (טיקטוק/רילס/יוטיוב)',
-    icon: PhoneStarIcon
-  },
-  { 
-    id: 'influencers' as TrackId, 
-    label: 'משפיענים ומותגים',
-    description: 'חדר האסטרטגיה של המותגים הגדולים ומשרדי הפרסום',
-    icon: MicrophoneIcon
-  },
+  { id: 'actors' as TrackId, labelKey: 'track.actors', icon: TheaterMasksIcon },
+  { id: 'musicians' as TrackId, labelKey: 'track.musicians', icon: MusicNoteIcon },
+  { id: 'creators' as TrackId, labelKey: 'track.creators', icon: PhoneStarIcon },
+  { id: 'influencers' as TrackId, labelKey: 'track.influencers', icon: MicrophoneIcon },
 ];
 
 const ModalOverlay = styled.div<{ $isOpen: boolean }>`
@@ -435,6 +416,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   onShouldSelectTrack,
   currentTracks = []
 }) => {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   const oldPlan = SUBSCRIPTION_PLANS[oldTier];
@@ -586,7 +568,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
                     <TrackPreviewIcon>
                       <TrackIconComponent />
                     </TrackPreviewIcon>
-                    <TrackPreviewName>{track.label}</TrackPreviewName>
+                    <TrackPreviewName>{t(track.labelKey)}</TrackPreviewName>
                   </TrackPreviewCard>
                 );
               })}
