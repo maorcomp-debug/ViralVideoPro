@@ -169,7 +169,7 @@
     "exportPdf": "יצוא ניתוח ל-PDF",
     "saveForTrainee": "שמור ניתוח למתאמן",
     "saving": "שומר...",
-    "attachScript": "צרף תסריט / הנחיות (PDF, TXT, DOC, DOCX)",
+    "attachScript": "צרף תסריט / הנחיות",
     "removeFile": "הסר קובץ",
     "goldenTipTitle": "טיפ זהב של הפאנל",
     "professionalView": "זווית מקצועית",
@@ -372,7 +372,7 @@
       "7": { "title": "יועץ מותג אישי", "desc": "עקביות, ייחודיות, מיצוב מקצועי" }
     }
   },
-  "attachScript": "צרף תסריט / הנחיות (PDF, TXT, DOC, DOCX)",
+  "attachScript": "צרף תסריט / הנחיות",
   "uploadLimit": {
     "minutes": "עד {{minutes}} דקות או {{mb}}MB",
     "seconds": "עד {{seconds}} שניות או {{mb}}MB",

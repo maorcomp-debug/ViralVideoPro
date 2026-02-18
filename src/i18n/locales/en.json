@@ -169,7 +169,7 @@
     "exportPdf": "Export PDF",
     "saveForTrainee": "Save for trainee",
     "saving": "Saving...",
-    "attachScript": "Attach script / notes (PDF, TXT, DOC, DOCX)",
+    "attachScript": "Attach script / notes",
     "removeFile": "Remove file",
     "goldenTipTitle": "Pro Tip",
     "professionalView": "Professional view",
@@ -372,7 +372,7 @@
       "7": { "title": "Personal Brand Advisor", "desc": "Consistency, uniqueness" }
     }
   },
-  "attachScript": "Attach script / notes (PDF, TXT, DOC, DOCX)",
+  "attachScript": "Attach script / notes",
   "uploadLimit": {
     "minutes": "Up to {{minutes}} min or {{mb}}MB",
     "seconds": "Up to {{seconds}} sec or {{mb}}MB",
