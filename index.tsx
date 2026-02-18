@@ -262,6 +262,13 @@ const App = () => {
   const [hasShownPackageModal, setHasShownPackageModal] = useState(false);
   const [showUpgradeBenefitsModal, setShowUpgradeBenefitsModal] = useState(false);
   const [upgradeFromTier, setUpgradeFromTier] = useState<SubscriptionTier>('free');
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [upgradeToTier, setUpgradeToTier] = useState<SubscriptionTier>('free');
   const [hasShownTrackModal, setHasShownTrackModal] = useState(false);
   const [showUpgradeCompletionMessage, setShowUpgradeCompletionMessage] = useState(false);
@@ -3912,7 +3919,7 @@ const App = () => {
           )} */}
           </div>
           <Title>{t('header.title')}</Title>
-          <Subtitle dangerouslySetInnerHTML={{ __html: t('header.subtitle') }} />
+          <Subtitle dangerouslySetInnerHTML={{ __html: (isMobile && (i18n.language || i18n.resolvedLanguage || '').startsWith('en')) ? (t('header.subtitleMobile') || t('header.subtitle')) : t('header.subtitle') }} />
           <Description dangerouslySetInnerHTML={{ __html: t('header.description') }} />
           {user && (
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
