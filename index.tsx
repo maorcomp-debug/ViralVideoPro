@@ -38,7 +38,6 @@ import {
   ModalRole,
   ModalDesc,
 } from './src/styles/modal';
-import { GoogleGenAI } from "@google/genai";
 import { supabase } from './src/lib/supabase';
 import {
   getCurrentUserProfile,
@@ -2977,18 +2976,6 @@ const App = () => {
     // Subscription check already done above - no need to check again
     
     try {
-      const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
-      if (!apiKey) {
-        alert(t('alerts.missingApiKey'));
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-          loadingTimeout = null;
-        }
-        setLoading(false);
-        return;
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
       // Safety: if experts state is temporarily empty/partial (race after login/track sync),
       // still run with default experts for the current track so "אקשן!" always starts.
       const trackForExperts = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
@@ -3222,48 +3209,43 @@ const App = () => {
 
       const maxRetries = 2;
       let lastError: any;
-      let response: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
+      let parsedResult: AnalysisResult | null = null;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: { parts },
-            config: { 
-              systemInstruction,
-              responseMimeType: "application/json"
-            }
+          const apiRes = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ systemInstruction, parts }),
           });
+          const data = await apiRes.json();
+          if (!apiRes.ok) {
+            const err = new Error(data?.error || `API ${apiRes.status}`) as any;
+            err.status = apiRes.status;
+            err.code = data?.code ?? apiRes.status;
+            throw err;
+          }
+          parsedResult = (typeof data === 'object' && data !== null ? data : JSON.parse(typeof data === 'string' ? data : '{}')) as AnalysisResult;
           lastError = null;
           break;
         } catch (err: any) {
           lastError = err;
-          const code = err?.error?.code ?? err?.status ?? err?.code;
+          const code = err?.status ?? err?.code ?? 500;
           const isRetryable = code === 500 || code === 502 || code === 503 || code === 504;
           if (isRetryable && attempt < maxRetries) {
             await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
             continue;
           }
+          if (code === 403) {
+            alert(t('alerts.missingApiKey'));
+          }
           throw err;
         }
       }
-      if (lastError || !response) throw lastError || new Error('No response');
+      if (lastError || !parsedResult) throw lastError || new Error('No response');
 
-      // Reduced logging
-
-      // Robust JSON Parsing
-      let jsonText = response.text || '{}';
-      // Clean potential markdown fencing from the model
-      jsonText = jsonText.replace(/```json|```/g, '').trim();
-      
-      let parsedResult: AnalysisResult;
-      try {
-        parsedResult = JSON.parse(jsonText) as AnalysisResult;
-        // Reduced logging
-      } catch (e) {
-        console.error("❌ JSON Parse Error", e);
-        console.error("Raw Text (first 500 chars):", jsonText.substring(0, 500));
-        console.error("Raw Text (last 500 chars):", jsonText.substring(Math.max(0, jsonText.length - 500)));
-        alert(t('alerts.invalidResponse'));
+      if (!parsedResult.expertAnalysis || parsedResult.expertAnalysis.length === 0) {
+        console.error("❌ Invalid result structure - no expertAnalysis");
+        alert(t('alerts.invalidResponseNoExperts'));
         setLoading(false);
         return;
       }

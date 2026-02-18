@@ -86,24 +86,29 @@ Deno.serve(async (req: Request) => {
 
     const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(actionType)}&redirect_to=${encodeURIComponent(redirectTo)}`;
 
-    // Use API from same origin as redirect – backup site → backup API, production → production API
+    // Use API from same origin as redirect – backup → backup API. If that fails, fallback to APP_URL (production may not have the API).
     let apiBase = APP_URL;
     try {
       const parsed = new URL(redirectTo);
       if (parsed.origin && parsed.protocol.startsWith("http")) apiBase = parsed.origin;
     } catch {}
-    const apiUrl = `${apiBase.replace(/\/$/, "")}/api/send-auth-email`;
-    const res = await fetch(apiUrl, {
+    const body = JSON.stringify({ email, actionLink, redirectTo, lang, type });
+    let apiUrl = `${apiBase.replace(/\/$/, "")}/api/send-auth-email`;
+    let res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        actionLink,
-        redirectTo,
-        lang,
-        type,
-      }),
+      body,
     });
+
+    // Fallback: if origin API fails (404/500 – e.g. production viraly.co.il has different codebase), use APP_URL
+    if (!res.ok && apiBase !== APP_URL) {
+      apiUrl = `${APP_URL.replace(/\/$/, "")}/api/send-auth-email`;
+      res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+    }
 
     if (!res.ok) {
       const errText = await res.text();

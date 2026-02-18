@@ -11,7 +11,7 @@ https://viral-video-pro.vercel.app
 |-----|-------|-------------|
 | VITE_SUPABASE_URL | Supabase – חיבור לקליינט | Production, Preview |
 | VITE_SUPABASE_ANON_KEY | Supabase Auth | Production, Preview |
-| VITE_GEMINI_API_KEY | ניתוח AI | Production, Preview |
+| GEMINI_API_KEY | ניתוח AI (שרת בלבד – לא נחשף בדפדפן) | Production, Preview |
 | SUPABASE_SERVICE_ROLE_KEY | API – יצירת פרופיל בהרשמה | Production, Preview |
 
 ### חובה להרשמה ועבודה מלאה
@@ -102,6 +102,11 @@ https://viral-video-pro.vercel.app
 | VITE_SUPABASE_ANON_KEY | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvZWp4b3pqbndyc2FrcmhpeW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzOTA2MzcsImV4cCI6MjA4MTk2NjYzN30.UvZO82HzVBzN_bozWUnI8bRI_HGhheDdg6tVRnftXBs` |
 
 אם ה־ANON_KEY מתחיל ב־`eyJ...` אבל ה-ref בתוך ה-JWT הוא `iwrccjxtowrywpeatoik` – זה פרויקט אחר. השתמש במפתח שמכיל `poejxozjnwrsakrhiyny`.
+
+### 403 / API key חסום (ניתוח AI)
+- **סיבה:** המפתח נחשף (למשל בדפדפן) ו־Google חסם אותו.
+- **פתרון:** הניתוח רץ כעת דרך `/api/analyze` בשרת. המפתח נשמר רק ב־`GEMINI_API_KEY` (לא `VITE_`).
+- **צעדים:** 1) צור מפתח חדש ב־[Google AI Studio](https://aistudio.google.com/app/apikey). 2) הוסף ב־Vercel: `GEMINI_API_KEY` (לא VITE_). 3) מחק `VITE_GEMINI_API_KEY` אם קיים. 4) Redeploy.
 
 ### מייל אימות/איפוס – שפה
 - **מייל בעברית כשצריך אנגלית:** ה־auth-send-email hook לא פרוס. Supabase שולח מתבנית ברירת מחדל. יש לפרוס את ה-Hook (ראה למעלה).
