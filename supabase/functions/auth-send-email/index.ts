@@ -86,7 +86,13 @@ Deno.serve(async (req: Request) => {
 
     const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(actionType)}&redirect_to=${encodeURIComponent(redirectTo)}`;
 
-    const apiUrl = `${APP_URL.replace(/\/$/, "")}/api/send-auth-email`;
+    // Use API from same origin as redirect – backup site → backup API, production → production API
+    let apiBase = APP_URL;
+    try {
+      const parsed = new URL(redirectTo);
+      if (parsed.origin && parsed.protocol.startsWith("http")) apiBase = parsed.origin;
+    } catch {}
+    const apiUrl = `${apiBase.replace(/\/$/, "")}/api/send-auth-email`;
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
