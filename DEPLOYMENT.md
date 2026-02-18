@@ -99,7 +99,7 @@ https://viral-video-pro.vercel.app
 | Variable | Value |
 |----------|-------|
 | VITE_SUPABASE_URL | `https://poejxozjnwrsakrhiyny.supabase.co` |
-| VITE_SUPABASE_ANON_KEY | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvZWp4b3pqbndyc2FrcmhpeW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzOTA2MzcsImV4cCI6MjA4MTk2NjYzN30.UvZO82HzVBzN_bozWUnI8bRI_HGhheDdg6tVRnftXBs` |
+| VITE_SUPABASE_ANON_KEY | העתק מ־Supabase Dashboard → Settings → API → anon public (לא להעלות ל־Git) |
 
 אם ה־ANON_KEY מתחיל ב־`eyJ...` אבל ה-ref בתוך ה-JWT הוא `iwrccjxtowrywpeatoik` – זה פרויקט אחר. השתמש במפתח שמכיל `poejxozjnwrsakrhiyny`.
 
@@ -107,6 +107,18 @@ https://viral-video-pro.vercel.app
 - **סיבה:** המפתח נחשף (למשל בדפדפן) ו־Google חסם אותו.
 - **פתרון:** הניתוח רץ כעת דרך `/api/analyze` בשרת. המפתח נשמר רק ב־`GEMINI_API_KEY` (לא `VITE_`).
 - **צעדים:** 1) צור מפתח חדש ב־[Google AI Studio](https://aistudio.google.com/app/apikey). 2) הוסף ב־Vercel: `GEMINI_API_KEY` (לא VITE_). 3) מחק `VITE_GEMINI_API_KEY` אם קיים. 4) Redeploy.
+
+### החלפת מפתחות API בצורה בטוחה (בלי לחשוף שוב)
+**כלל זהב:** מפתחות API מוגדרים **רק** ב־Vercel Environment Variables (או Supabase Secrets). **אף פעם** לא בקוד, לא ב־Git, לא בקובץ .env שמתחיל ב־VITE_.
+
+| מפתח | איפה להגדיר | איפה לא |
+|------|-------------|---------|
+| `GEMINI_API_KEY` | Vercel → Settings → Env Vars | לא VITE_ – לא ייחשף בדפדפן |
+| `VITE_SUPABASE_ANON_KEY` | Vercel → Settings → Env Vars | anon = ציבורי, אבל צריך להתאים לפרויקט |
+| `SUPABASE_SERVICE_ROLE_KEY` | Vercel + Supabase Secrets | לעולם לא בקוד/דפדפן |
+| `RESEND_API_KEY` | Vercel → Settings → Env Vars | לא בקוד |
+
+**פרודקשן (viraly.co.il):** אם viraly.co.il הוא פרויקט Vercel נפרד – צריך להגדיר את אותם מפתחות **בפרויקט שמגיש ל־viraly.co.il**.
 
 ### מייל אימות/איפוס – שפה
 - **מייל בעברית כשצריך אנגלית:** ה־auth-send-email hook לא פרוס. Supabase שולח מתבנית ברירת מחדל. יש לפרוס את ה-Hook (ראה למעלה).
