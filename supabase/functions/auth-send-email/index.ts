@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
     const { user, email_data } = payload;
     const email = user?.email;
     const tokenHash = email_data?.token_hash;
-    const redirectTo = email_data?.redirect_to || APP_URL;
+    let redirectTo = email_data?.redirect_to || APP_URL;
     const actionType = (email_data?.email_action_type || "signup") as string;
 
     if (!email || !tokenHash || !SUPABASE_URL) {
@@ -76,6 +76,12 @@ Deno.serve(async (req: Request) => {
     } else {
       const preferredLang = user?.user_metadata?.preferred_language;
       lang = preferredLang === "en" ? "en" : "he";
+    }
+
+    // Ensure redirect includes ?lang= for correct post-verification language
+    if (!redirectTo.includes("lang=")) {
+      const sep = redirectTo.includes("?") ? "&" : "?";
+      redirectTo = `${redirectTo}${sep}lang=${lang}`;
     }
 
     const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(actionType)}&redirect_to=${encodeURIComponent(redirectTo)}`;

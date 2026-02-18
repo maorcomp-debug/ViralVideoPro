@@ -1147,6 +1147,7 @@ const App = () => {
     if (isPaidTier) {
       // Paid tier: redirect to TAKBUK payment flow
       try {
+        const preferredLang = (i18n.language || i18n.resolvedLanguage || 'en').startsWith('he') ? 'he' : 'en';
         const res = await fetch('/api/takbull/init-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1154,6 +1155,7 @@ const App = () => {
             userId: user.id,
             subscriptionTier: tier,
             billingPeriod: period,
+            preferredLanguage: preferredLang,
           }),
         });
         const data = await res.json();

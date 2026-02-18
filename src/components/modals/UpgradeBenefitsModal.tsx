@@ -429,27 +429,27 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
   const isCoachToCoachPro = oldTier === 'coach' && newTier === 'coach-pro';
   
   if (isCoachToCoachPro) {
-    // For coach-pro upgrade, show specific benefits (simple format)
-    benefits.push('👥 יותר מתאמנים');
-    benefits.push('⏱️ יותר דקות ניתוח');
+    benefits.push(t('upgradeBenefits.benefitMoreTrainees'));
+    benefits.push(t('upgradeBenefits.benefitMoreMinutes'));
   } else {
     // Standard benefits logic for other upgrades
     // Check if tracks increased
     const oldMaxTracks = oldTier === 'free' ? 1 : oldTier === 'creator' ? 2 : 4;
     const newMaxTracks = newTier === 'free' ? 1 : newTier === 'creator' ? 2 : 4;
     
-    // For pro, coach, coach-pro tiers: show "all tracks open" instead of "more tracks"
     if (newTier === 'pro' || newTier === 'coach' || newTier === 'coach-pro') {
-      benefits.push('🎯 כל תחומי הניתוח פתוחים לשימוש');
+      benefits.push(t('upgradeBenefits.benefitAllTracks'));
     } else if (newMaxTracks > oldMaxTracks) {
-      benefits.push(`🎯 יותר תחומי ניתוח: מ-${oldMaxTracks} ל-${newMaxTracks} תחומים`);
+      benefits.push(t('upgradeBenefits.benefitMoreTracks', { from: oldMaxTracks, to: newMaxTracks }));
     }
     
     // Check if analyses increased
     const oldAnalyses = oldPlan.limits.maxAnalysesPerPeriod;
     const newAnalyses = newPlan.limits.maxAnalysesPerPeriod;
     if (newAnalyses > oldAnalyses && oldAnalyses !== -1) {
-      benefits.push(`📊 יותר ניתוחים: מ-${oldAnalyses} ל-${newAnalyses === -1 ? 'ללא הגבלה' : newAnalyses} ניתוחים`);
+      benefits.push(newAnalyses === -1
+        ? t('upgradeBenefits.benefitUnlimitedAnalyses', { from: oldAnalyses })
+        : t('upgradeBenefits.benefitMoreAnalyses', { from: oldAnalyses, to: newAnalyses }));
     }
     
     // Check if video duration increased
@@ -458,37 +458,37 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
     if (newDuration > oldDuration) {
       const oldMin = Math.floor(oldDuration / 60);
       const newMin = Math.floor(newDuration / 60);
-      benefits.push(`⏱️ סרטונים ארוכים יותר: מ-${oldMin} דקות ל-${newMin} דקות`);
+      benefits.push(t('upgradeBenefits.benefitLongerVideos', { from: oldMin, to: newMin }));
     }
     
     // Check if file size increased
     const oldMB = oldPlan.limits.maxFileBytes / (1024 * 1024);
     const newMB = newPlan.limits.maxFileBytes / (1024 * 1024);
     if (newMB > oldMB) {
-      benefits.push(`💾 קבצים גדולים יותר: מ-${oldMB}MB ל-${newMB}MB`);
+      benefits.push(t('upgradeBenefits.benefitLargerFiles', { from: oldMB, to: newMB }));
     }
     
     // Check new features
     if (!oldPlan.limits.features.saveHistory && newPlan.limits.features.saveHistory) {
-      benefits.push('💾 שמירת היסטוריית ניתוחים');
+      benefits.push(t('upgradeBenefits.benefitSaveHistory'));
     }
     if (!oldPlan.limits.features.improvementTracking && newPlan.limits.features.improvementTracking) {
-      benefits.push('📈 מעקב שיפור לאורך זמן');
+      benefits.push(t('upgradeBenefits.benefitImprovementTracking'));
     }
     if (!oldPlan.limits.features.comparison && newPlan.limits.features.comparison) {
-      benefits.push('🔄 השוואה בין סרטונים');
+      benefits.push(t('upgradeBenefits.benefitComparison'));
     }
     if (!oldPlan.limits.features.advancedAnalysis && newPlan.limits.features.advancedAnalysis) {
-      benefits.push('🔬 ניתוח מתקדם ומפורט יותר');
+      benefits.push(t('upgradeBenefits.benefitAdvancedAnalysis'));
     }
     if (!oldPlan.limits.features.pdfExport && newPlan.limits.features.pdfExport) {
-      benefits.push('📄 יצוא ניתוחים ל-PDF');
+      benefits.push(t('upgradeBenefits.benefitPdfExport'));
     }
     if (!oldPlan.limits.features.traineeManagement && newPlan.limits.features.traineeManagement) {
-      benefits.push('👥 ניהול מתאמנים');
+      benefits.push(t('upgradeBenefits.benefitTraineeManagement'));
     }
     if (!oldPlan.limits.features.coachDashboard && newPlan.limits.features.coachDashboard) {
-      benefits.push('📊 דשבורד מאמן מתקדם');
+      benefits.push(t('upgradeBenefits.benefitCoachDashboard'));
     }
   }
 
@@ -508,26 +508,26 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
     }}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
-          <h2>🎉 מזל טוב! שדרגת בהצלחה</h2>
+          <h2>🎉 {t('upgradeBenefits.title')}</h2>
           {isCoachToCoachPro ? (
             <>
               <p>
-                החבילה שלך עודכנה ל-<strong style={{ color: '#D4A043' }}>מאמנים, סוכנויות ובתי ספר למשחק</strong>
+                {t('upgradeBenefits.planUpdatedTo')} <strong style={{ color: '#D4A043' }}>{t('plan.coach')}</strong>
               </p>
               <p style={{ color: '#D4A043', fontSize: '1.4rem', fontWeight: 700, marginTop: '10px' }}>
-                בגרסת הפרו
+                {t('upgradeBenefits.proVersion')}
               </p>
             </>
           ) : (
             <p>
-              החבילה שלך עודכנה ל-<strong style={{ color: '#D4A043' }}>{newPlan.name}</strong>
+              {t('upgradeBenefits.planUpdatedTo')} <strong style={{ color: '#D4A043' }}>{t(`plan.${newTier === 'coach-pro' ? 'coachPro' : newTier}`)}</strong>
             </p>
           )}
         </ModalHeader>
 
         <BenefitsList>
           <h3 style={{ color: '#D4A043', margin: '0 0 20px 0', fontSize: '1.3rem', textAlign: 'right' }}>
-            האופציות החדשות שנפתחו בפניך:
+            {t('upgradeBenefits.newFeaturesTitle')}
           </h3>
           {isCoachToCoachPro ? (
             <>
@@ -539,7 +539,7 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
               ))}
               <BenefitItem>
                 <span className="icon">✓</span>
-                <span className="text">כל התכונות של מאמנים, סוכנויות ובתי ספר למשחק זמינות לך כעת!</span>
+                <span className="text">{t('upgradeBenefits.allCoachFeatures')}</span>
               </BenefitItem>
             </>
           ) : benefits.length > 0 ? (
@@ -552,14 +552,14 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
           ) : (
             <BenefitItem>
               <span className="icon">✓</span>
-              <span className="text">כל התכונות של {newPlan.name} זמינות לך כעת!</span>
+              <span className="text">{t('upgradeBenefits.allPlanFeatures', { plan: t(`plan.${newTier === 'coach-pro' ? 'coachPro' : newTier}`) })}</span>
             </BenefitItem>
           )}
         </BenefitsList>
 
         {allTracksOpen && (
           <AdditionalTracksMessage>
-            <h4>🎯 כל תחומי הניתוח פתוחים בפניך לשימוש</h4>
+            <h4>{t('upgradeBenefits.allTracksOpen')}</h4>
             <TracksPreviewGrid>
               {TRACKS.filter(t => t.id !== 'coach').map((track) => {
                 const TrackIconComponent = track.icon;
@@ -579,14 +579,14 @@ export const UpgradeBenefitsModal: React.FC<UpgradeBenefitsModalProps> = ({
         {canAddMoreTracks && !allTracksOpen && (
           <AdditionalTracksMessage>
             <p style={{ marginBottom: '15px', fontSize: '0.95rem', lineHeight: '1.6', color: '#e0e0e0', textAlign: 'center' }}>
-              ההטבה מחכה לך בעדכונים שנמצא בתוך ההגדרות
+              {t('upgradeBenefits.addTracksInSettings')}
             </p>
           </AdditionalTracksMessage>
         )}
 
         <ButtonGroup>
           <PrimaryButton onClick={handleContinue} disabled={false}>
-            מזל טוב, בואו נתחיל!
+            {t('upgradeBenefits.letsGo')}
           </PrimaryButton>
         </ButtonGroup>
       </ModalContent>

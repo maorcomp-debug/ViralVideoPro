@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { fadeIn } from '../../styles/globalStyles';
 
@@ -87,6 +88,7 @@ export const ManageSubscriptionChoiceModal: React.FC<ManageSubscriptionChoiceMod
   onSelectPackages,
   onSelectBilling,
 }) => {
+  const { t } = useTranslation();
   const handlePackages = () => {
     onClose();
     onSelectPackages();
@@ -98,17 +100,17 @@ export const ManageSubscriptionChoiceModal: React.FC<ManageSubscriptionChoiceMod
   return (
     <Overlay $isOpen={isOpen} onClick={onClose}>
       <Box onClick={(e) => e.stopPropagation()}>
-        <Title>מה תרצה לעשות?</Title>
+        <Title>{t('manageSubscription.title')}</Title>
         <Buttons>
           <ChoiceButton $primary onClick={handlePackages}>
-            בחירת חבילות / שדרוג
+            {t('manageSubscription.packagesUpgrade')}
           </ChoiceButton>
           <ChoiceButton onClick={handleBilling}>
-            מנוי וחיוב (השהה / ביטול / חידוש)
+            {t('manageSubscription.billingManage')}
           </ChoiceButton>
         </Buttons>
         <BackButton type="button" onClick={onClose}>
-          חזור
+          {t('manageSubscription.back')}
         </BackButton>
       </Box>
     </Overlay>

@@ -372,7 +372,7 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
     
     // In 'add' mode, don't allow deselecting existing tracks
     if (mode === 'add' && existingTracks.includes(trackId)) {
-      setError('לא ניתן להסיר תחום קיים. בחר תחום נוסף.');
+      setError(t('trackSelection.errorCannotRemove'));
       return;
     }
     
@@ -386,14 +386,14 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
         if (selectedTracks.length - existingTracks.length < remainingSlots) {
           setSelectedTracks(prev => [...prev, trackId]);
         } else {
-          setError(`ניתן להוסיף עד ${remainingSlots} ${remainingSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'} בחבילה זו`);
+          setError(t('trackSelection.errorMaxAdd', { count: remainingSlots, track: t(remainingSlots === 1 ? 'trackSelection.track_one' : 'trackSelection.track_other') }));
         }
       } else {
         // In 'replace' mode, use normal logic
         if (selectedTracks.length < maxTracks) {
           setSelectedTracks(prev => [...prev, trackId]);
         } else {
-          setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
+          setError(t('trackSelection.errorMaxReplace', { max: maxTracks, track: t(maxTracks === 1 ? 'trackSelection.trackReplace_one' : 'trackSelection.trackReplace_other') }));
         }
       }
     }
@@ -405,25 +405,25 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
     
     if (mode === 'add') {
       // In 'add' mode, check if at least one new track was selected
-      const newTracks = selectedTracks.filter(t => !existingTracks.includes(t));
+      const newTracks = selectedTracks.filter(tr => !existingTracks.includes(tr));
       if (newTracks.length === 0) {
-        setError('אנא בחר תחום נוסף להוספה');
+        setError(t('trackSelection.errorSelectAdditional'));
         return;
       }
       
       if (selectedTracks.length > maxTracks) {
-        setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
+        setError(t('trackSelection.errorMaxReplace', { max: maxTracks, track: t(maxTracks === 1 ? 'trackSelection.trackReplace_one' : 'trackSelection.trackReplace_other') }));
         return;
       }
     } else {
       // In 'replace' mode, normal validation
       if (selectedTracks.length === 0) {
-        setError('אנא בחר תחום ניתוח');
+        setError(t('trackSelection.errorSelectTrack'));
         return;
       }
 
       if (selectedTracks.length > maxTracks) {
-        setError(`ניתן לבחור עד ${maxTracks} ${maxTracks === 1 ? 'תחום' : 'תחומים'} בחבילה זו`);
+        setError(t('trackSelection.errorMaxReplace', { max: maxTracks, track: t(maxTracks === 1 ? 'trackSelection.trackReplace_one' : 'trackSelection.trackReplace_other') }));
         return;
       }
     }
@@ -436,13 +436,13 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
       await Promise.race([
         Promise.resolve(onSelect(selectedTracks)),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('פעולה לוקחת יותר מדי זמן. נסה שוב.')), timeoutMs)
+          setTimeout(() => reject(new Error(t('trackSelection.errorTimeout'))), timeoutMs)
         ),
       ]);
       onClose();
     } catch (err: any) {
       console.error('❌ Error saving track selection:', err);
-      setError(err.message || 'שגיאה בשמירת הבחירה. נסה שוב.');
+      setError(err.message || t('trackSelection.errorSave'));
     } finally {
       setLoading(false);
     }
@@ -460,23 +460,23 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
           <ModalCloseBtn onClick={onClose} style={{ position: 'absolute', top: '15px', left: '15px' }}>✕</ModalCloseBtn>
         )}
         <ModalHeader>
-          <h2>{mode === 'add' ? 'הוסף תחום ניתוח נוסף' : 'בחר תחום ניתוח'}</h2>
+          <h2>{mode === 'add' ? t('trackSelection.titleAdd') : t('trackSelection.titleReplace')}</h2>
           <p>
             {mode === 'add' 
-              ? `בחר תחום נוסף להוספה לחבילה שלך. ניתן להוסיף עד ${remainingSlots} ${remainingSlots === 1 ? 'תחום נוסף' : 'תחומים נוספים'}.`
+              ? t('trackSelection.subtitleAdd', { count: remainingSlots, track: t(remainingSlots === 1 ? 'trackSelection.track_one' : 'trackSelection.track_other') })
               : subscriptionTier === 'free' 
-              ? 'כחלק מחבילת הניסיון, אנא בחר תחום אחד לניתוח. תוכל לשדרג את החבילה מאוחר יותר לבחור תחומים נוספים.'
+              ? t('trackSelection.subtitleFree')
               : subscriptionTier === 'creator'
-              ? 'בחר עד שני תחומי ניתוח. תוכל לשדרג את החבילה מאוחר יותר לכל התחומים.'
-              : 'בחר תחומי ניתוח (עד 4 תחומים).'}
+              ? t('trackSelection.subtitleCreator')
+              : t('trackSelection.subtitleCoach')}
           </p>
         </ModalHeader>
 
         <InfoMessage>
-          {mode === 'add' && `💡 תחומים קיימים שלך: ${existingTracks.length}. ניתן להוסיף עוד ${remainingSlots} ${remainingSlots === 1 ? 'תחום' : 'תחומים'}.`}
-          {mode === 'replace' && subscriptionTier === 'free' && '💡 כל תחום כולל פאנל מומחים מותאם אישית. ניתן לשדרג בעתיד לבחור תחומים נוספים.'}
-          {mode === 'replace' && subscriptionTier === 'creator' && `💡 ניתן לבחור עד 2 תחומים. נבחרו: ${selectedTracks.length}/${maxTracks}`}
-          {mode === 'replace' && subscriptionTier !== 'free' && subscriptionTier !== 'creator' && '💡 כל התחומים זמינים לך!'}
+          {mode === 'add' && t('trackSelection.infoAdd', { existing: existingTracks.length, remaining: remainingSlots, track: t(remainingSlots === 1 ? 'trackSelection.track_one' : 'trackSelection.track_other') })}
+          {mode === 'replace' && subscriptionTier === 'free' && t('trackSelection.infoFree')}
+          {mode === 'replace' && subscriptionTier === 'creator' && t('trackSelection.infoCreator', { selected: selectedTracks.length, max: maxTracks })}
+          {mode === 'replace' && subscriptionTier !== 'free' && subscriptionTier !== 'creator' && t('trackSelection.infoCoach')}
         </InfoMessage>
 
         <TracksGrid>
@@ -499,7 +499,7 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
                 }}
               >
                 {(isSelected || isExisting) && (
-                  <SelectedBadge>✓ נבחר</SelectedBadge>
+                  <SelectedBadge>{t('trackSelection.selectedBadge')}</SelectedBadge>
                 )}
                 <TrackIcon>
                   <TrackIconComponent />
@@ -523,10 +523,10 @@ export const TrackSelectionModal: React.FC<TrackSelectionModalProps> = ({
           }
         >
           {loading 
-            ? 'שומר...' 
+            ? t('trackSelection.saving') 
             : mode === 'add'
-            ? 'הוסף תחום נוסף'
-            : `אשר בחירה והמשך (${selectedTracks.length}/${maxTracks})`
+            ? t('trackSelection.addTrackButton')
+            : t('trackSelection.confirmButton', { selected: selectedTracks.length, max: maxTracks })
           }
         </SubmitButton>
       </ModalContent>

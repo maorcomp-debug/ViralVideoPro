@@ -11,6 +11,8 @@ interface InitOrderRequest {
   subscriptionTier: 'creator' | 'pro' | 'coach' | 'coach-pro';
   billingPeriod: 'monthly' | 'yearly';
   planId?: string;
+  /** Preferred UI language for payment page: 'he' | 'en'. Pass from app; Takbull may support both. */
+  preferredLanguage?: 'he' | 'en';
 }
 
 // RULE: This API only creates an order and returns the payment URL. It does NOT update profile or subscription.
@@ -206,7 +208,7 @@ export default async function handler(
       },
       RedirectAddress: redirectUrl,
       Currency: 'ILS',
-      Language: 'he',
+      Language: (body.preferredLanguage === 'en' ? 'en' : 'he') as string,
     };
 
     // Add subscription parameters if needed (check Takbull docs)

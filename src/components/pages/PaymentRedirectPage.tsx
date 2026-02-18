@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import styled, { keyframes } from 'styled-components';
 
 const spin = keyframes`
@@ -11,7 +12,7 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-const Page = styled.div`
+const Page = styled.div<{ $isRtl?: boolean }>`
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
@@ -21,7 +22,7 @@ const Page = styled.div`
   align-items: center;
   justify-content: center;
   padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
-  direction: rtl;
+  direction: ${p => p.$isRtl ? 'rtl' : 'ltr'};
   text-align: center;
   box-sizing: border-box;
   animation: ${fadeIn} 0.35s ease-out;
@@ -99,10 +100,12 @@ const BackLink = styled(Link)`
 `;
 
 export const PaymentRedirectPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const [failed, setFailed] = useState(false);
   const url = searchParams.get('url');
   const ref = searchParams.get('ref') || '';
+  const isRtl = (i18n.language || i18n.resolvedLanguage || 'en').startsWith('he');
 
   useEffect(() => {
     if (!url) {
@@ -124,23 +127,23 @@ export const PaymentRedirectPage: React.FC = () => {
 
   if (failed) {
     return (
-      <Page>
+      <Page $isRtl={isRtl}>
         <Card>
-          <Title>שגיאה</Title>
-          <Message>קישור התשלום לא זמין. נסה שוב מההגדרות.</Message>
-          <BackLink to="/settings">חזרה להגדרות</BackLink>
+          <Title>{t('paymentRedirect.errorTitle')}</Title>
+          <Message>{t('paymentRedirect.linkUnavailable')}</Message>
+          <BackLink to="/settings">{t('paymentRedirect.backSettings')}</BackLink>
         </Card>
       </Page>
     );
   }
 
   return (
-    <Page>
+    <Page $isRtl={isRtl}>
       <Card>
         <Spinner aria-hidden />
-        <Title>מעביר אותך לדף תשלום מאובטח</Title>
-        <Message>הדף ייפתח רגע…</Message>
-        {ref && <Ref>הזמנה {ref}</Ref>}
+        <Title>{t('paymentRedirect.redirecting')}</Title>
+        <Message>{t('paymentRedirect.opening')}</Message>
+        {ref && <Ref>{t('paymentRedirect.orderRef', { ref })}</Ref>}
       </Card>
     </Page>
   );

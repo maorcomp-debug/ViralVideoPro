@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 
-const PageContainer = styled.div`
+const PageContainer = styled.div<{ $isRtl?: boolean }>`
   min-height: 100vh;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  direction: rtl;
+  direction: ${p => p.$isRtl ? 'rtl' : 'ltr'};
 `;
 
 const ContentCard = styled.div`
@@ -79,11 +80,14 @@ const ErrorMessage = styled.div`
 `;
 
 export const OrderReceivedPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [isRetryError, setIsRetryError] = useState(false);
+  const isRtl = (i18n.language || i18n.resolvedLanguage || 'en').startsWith('he');
 
   useEffect(() => {
     const processPayment = async () => {
@@ -105,7 +109,7 @@ export const OrderReceivedPage: React.FC = () => {
 
         if (!orderReference) {
           setStatus('error');
-          setError('מספר הזמנה לא נמצא');
+          setError(t('orderReceived.orderNotFound'));
           return;
         }
 
@@ -114,8 +118,8 @@ export const OrderReceivedPage: React.FC = () => {
 
         if (!isSuccess) {
           setStatus('error');
-          setMessage('התשלום נכשל');
-          setError(Number.isNaN(statusCode) ? 'לא התקבל אישור תשלום מהמערכת' : `קוד שגיאה: ${statusCode}`);
+          setMessage(t('orderReceived.paymentFailed'));
+          setError(Number.isNaN(statusCode) ? t('orderReceived.noConfirmation') : t('orderReceived.errorCode', { code: statusCode }));
           return;
         }
 
@@ -124,7 +128,7 @@ export const OrderReceivedPage: React.FC = () => {
         const maxWaitTimeout = setTimeout(() => {
           console.warn('⚠️ Callback did not respond in 15s – redirecting without payment_success');
           setStatus('success');
-          setMessage('מעבדים את הבקשה. אם ביצעת תשלום, המנוי יעודכן בהקדם.');
+          setMessage(t('orderReceived.successPending'));
           if (window.parent && window.parent !== window) {
             setTimeout(() => {
               try {
@@ -148,7 +152,7 @@ export const OrderReceivedPage: React.FC = () => {
         if (userError || !user) {
           clearTimeout(maxWaitTimeout);
           setStatus('error');
-          setError('לא ניתן לזהות את המשתמש. אנא התחבר מחדש.');
+          setError(t('orderReceived.userNotIdentified'));
           return;
         }
 
@@ -181,7 +185,7 @@ export const OrderReceivedPage: React.FC = () => {
               console.error('❌ Callback API timeout after 10 seconds');
               clearTimeout(maxWaitTimeout);
               setStatus('error');
-              setError('חיבור לשרת א timed out. אם ביצעת תשלום – המנוי יעודכן. אחרת נסה שוב.');
+              setError(t('orderReceived.connectionTimeout'));
               return;
             }
             throw fetchError;
@@ -213,7 +217,7 @@ export const OrderReceivedPage: React.FC = () => {
             result = JSON.parse(responseText);
           } catch (parseError) {
             console.error('❌ Failed to parse callback response:', parseError);
-            throw new Error('Invalid response from server');
+            throw new Error(t('orderReceived.invalidResponse'));
           }
           console.log('✅ Callback API result:', result);
           
@@ -223,13 +227,14 @@ export const OrderReceivedPage: React.FC = () => {
           if (result.needsRetry) {
             clearTimeout(maxWaitTimeout);
             setStatus('error');
-            setMessage('התשלום לא אושר');
-            setError(result.message || 'המנוי נשאר ללא שינוי. אנא בצע תשלום מחדש.');
+            setMessage(t('orderReceived.errorTitle'));
+            setError(result.message || t('orderReceived.subscriptionUnchanged'));
+            setIsRetryError(true);
             return;
           }
           if (result.ok && result.success) {
             setStatus('success');
-            setMessage('תשלומך התקבל בהצלחה! המנוי שלך עודכן.');
+            setMessage(t('orderReceived.successMessage'));
             
             // Redirect to home with upgrade parameter to show UpgradeBenefitsModal
             const oldTier = result.oldTier || 'free';
@@ -270,19 +275,17 @@ export const OrderReceivedPage: React.FC = () => {
               }, 1500);
             }
           } else {
-            // Even if API says it failed, if statusCode is 0, payment was successful
-            // Show success anyway (IPN will handle the update)
             if (statusCode === 0) {
               setStatus('success');
-              setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
+              setMessage(t('orderReceived.successPending'));
               setTimeout(() => {
                 const timestamp = new Date().getTime();
                 window.location.replace(`/?_t=${timestamp}`);
               }, 2000);
             } else {
               setStatus('error');
-              setMessage('התשלום נכשל');
-              setError(result.message || 'שגיאה בעיבוד התשלום');
+              setMessage(t('orderReceived.paymentFailed'));
+              setError(result.message || t('orderReceived.errorGenericMessage'));
             }
           }
 
@@ -296,7 +299,7 @@ export const OrderReceivedPage: React.FC = () => {
           // The IPN will handle the subscription update
           if (statusCode === 0) {
             setStatus('success');
-            setMessage('תשלומך התקבל בהצלחה! המנוי שלך יעודכן תוך מספר דקות.');
+            setMessage(t('orderReceived.successPending'));
             
             // If we're in a popup window (opener exists), close popup and redirect opener
             // Otherwise, redirect current window
@@ -314,7 +317,7 @@ export const OrderReceivedPage: React.FC = () => {
             }
           } else {
             setStatus('error');
-            setError(fetchError.message || 'שגיאה בעיבוד התשלום');
+            setError(fetchError.message || t('orderReceived.errorGenericMessage'));
           }
         }
 
@@ -323,7 +326,7 @@ export const OrderReceivedPage: React.FC = () => {
         // Make sure to clear any timeouts
         // Note: maxWaitTimeout is not accessible here, but it will timeout on its own if statusCode === 0
         setStatus('error');
-        setError(error.message || 'שגיאה בעיבוד התשלום');
+        setError(error.message || t('orderReceived.errorGenericMessage'));
       }
     };
 
@@ -331,24 +334,23 @@ export const OrderReceivedPage: React.FC = () => {
   }, [searchParams, navigate]);
 
   return (
-    <PageContainer>
+    <PageContainer $isRtl={isRtl}>
       <ContentCard>
         {status === 'loading' && (
           <>
             <StatusIcon success={true}>⏳</StatusIcon>
-            <Title>מעבד את התשלום...</Title>
-            <LoadingMessage>אנא המתן, אנו מעבדים את התשלום שלך</LoadingMessage>
+            <Title>{t('orderReceived.processing')}</Title>
+            <LoadingMessage>{t('orderReceived.pleaseWait')}</LoadingMessage>
           </>
         )}
 
         {status === 'success' && (
           <>
             <StatusIcon success={true}>✅</StatusIcon>
-            <Title>תשלום התקבל בהצלחה!</Title>
+            <Title>{t('orderReceived.successTitle')}</Title>
             <Message>{message}</Message>
-            {/* Removed important message - auto logout after upgrade already handles profile refresh */}
             <Button onClick={() => navigate('/')}>
-              חזרה לדף הבית
+              {t('orderReceived.backHome')}
             </Button>
           </>
         )}
@@ -356,11 +358,11 @@ export const OrderReceivedPage: React.FC = () => {
         {status === 'error' && (
           <>
             <StatusIcon success={false}>❌</StatusIcon>
-            <Title>{error && error.includes('תשלום מחדש') ? 'התשלום לא אושר' : 'שגיאה בעיבוד התשלום'}</Title>
-            <Message>{message || 'אירעה שגיאה בעיבוד התשלום'}</Message>
+            <Title>{isRetryError ? t('orderReceived.errorTitle') : t('orderReceived.errorGenericTitle')}</Title>
+            <Message>{message || t('orderReceived.errorGenericMessage')}</Message>
             {error && <ErrorMessage>{error}</ErrorMessage>}
             <Button onClick={() => navigate('/')}>
-              {error && error.includes('תשלום מחדש') ? 'חזרה לביצוע תשלום מחדש' : 'חזרה לדף הבית'}
+              {isRetryError ? t('orderReceived.errorRetry') : t('orderReceived.backHome')}
             </Button>
           </>
         )}
