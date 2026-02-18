@@ -15,7 +15,8 @@
     "language": "שפה",
     "logout": "התנתק",
     "loggingOut": "מתנתק...",
-    "loginSignup": "התחבר / הרשם"
+    "loginSignup": "התחבר / הרשם",
+    "back": "חזרה"
   },
   "capabilitiesModal": {
     "subtitle": "פשוט וקל. מעלים סרטון, מצרפים קובץ הנחיות או תסריט (לדיוק מקסימלי), כותבים הנחיה, הוראות או שאלות למומחים (אופציונלי) ולוחצים על אקשן !",
@@ -473,6 +474,11 @@
     "charCount": "{{count}} / {{min}} תווים (מינימום)"
   },
   "settings": {
+    "tabProfile": "פרטים אישיים",
+    "tabPassword": "שינוי סיסמה",
+    "tabSubscription": "מנוי",
+    "tabUpdates": "עדכונים",
+    "backToHome": "חזרה לדף הבית",
     "updatesSuccess": "תקבל עדכונים בהצלחה",
     "updatesCancelled": "בוטלה קבלת עדכונים",
     "settingsError": "שגיאה בעדכון ההגדרות",

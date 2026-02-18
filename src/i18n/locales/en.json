@@ -15,7 +15,8 @@
     "language": "Language",
     "logout": "Sign out",
     "loggingOut": "Signing out...",
-    "loginSignup": "Sign in"
+    "loginSignup": "Sign in",
+    "back": "Back"
   },
   "capabilitiesModal": {
     "subtitle": "Upload a video, add a script or notes for accuracy, drop in any instructions—then hit ACTION!",
@@ -473,6 +474,11 @@
     "charCount": "{{count}} / {{min}} characters"
   },
   "settings": {
+    "tabProfile": "Profile",
+    "tabPassword": "Change password",
+    "tabSubscription": "Subscription",
+    "tabUpdates": "Updates",
+    "backToHome": "Back to home",
     "updatesSuccess": "You'll receive updates",
     "updatesCancelled": "Update notifications cancelled",
     "settingsError": "Couldn't update settings",

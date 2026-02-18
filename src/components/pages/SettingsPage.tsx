@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
@@ -72,6 +72,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [redeemingCode, setRedeemingCode] = useState<string | null>(null);
   const [showTrackSelectionModal, setShowTrackSelectionModal] = useState(false);
   const [showManageSubscriptionChoice, setShowManageSubscriptionChoice] = useState(false);
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(e.target as Node)) {
+        setLangDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -302,7 +314,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   if (!user) {
     return (
       <AppContainer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column' }}>
-        <h1 style={{ color: '#D4A043' }}>הגדרות</h1>
+        <h1 style={{ color: '#D4A043' }}>{t('header.settings')}</h1>
         <p style={{ color: '#ccc' }}>{t('settings.loginToAccess')}</p>
         <button
           onClick={() => navigate('/')}
@@ -318,7 +330,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             marginTop: '20px'
           }}
         >
-          חזרה לדף הבית
+          {t('settings.backToHome')}
         </button>
       </AppContainer>
     );
@@ -341,9 +353,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               fontWeight: 600,
             }}
           >
-            ← חזרה
+            ← {t('header.back')}
           </button>
-          <h1 style={{ color: '#D4A043', margin: 0, fontSize: '2rem' }}>⚙️ הגדרות</h1>
+          <h1 style={{ color: '#D4A043', margin: 0, fontSize: '2rem' }}>⚙️ {t('header.settings')}</h1>
           <div style={{ width: '100px' }}></div>
         </div>
       </Header>
@@ -385,7 +397,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               transition: 'all 0.3s',
             }}
           >
-            פרטים אישיים
+            {t('settings.tabProfile')}
           </button>
           <button
             onClick={() => setActiveTab('password')}
@@ -401,7 +413,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               transition: 'all 0.3s',
             }}
           >
-            שינוי סיסמה
+            {t('settings.tabPassword')}
           </button>
           <button
             onClick={() => setActiveTab('subscription')}
@@ -417,7 +429,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               transition: 'all 0.3s',
             }}
           >
-            מנוי
+            {t('settings.tabSubscription')}
           </button>
           <button
             onClick={() => setActiveTab('updates')}
@@ -433,7 +445,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               transition: 'all 0.3s',
             }}
           >
-            עדכונים
+            {t('settings.tabUpdates')}
           </button>
         </div>
 
@@ -449,34 +461,120 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <label style={{ color: '#D4A043', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 🌐 {t('header.language')}
               </label>
-              <select
-                value={(i18n.language || i18n.resolvedLanguage || 'en').split('-')[0]}
-                onChange={async (e) => {
-                  const lng = (e.target.value || 'en') as 'en' | 'he';
-                  setLanguage(lng);
-                  if (user) {
-                    try {
-                      await updateCurrentUserProfile({ preferred_language: lng });
-                    } catch (err) {
-                      console.warn('Could not save preferred_language:', err);
-                    }
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  maxWidth: '200px',
-                  padding: '10px 12px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(212, 160, 67, 0.4)',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="en">English</option>
-                <option value="he">עברית</option>
-              </select>
+              <div ref={langDropdownRef} style={{ position: 'relative', width: '100%', maxWidth: '200px' }}>
+                <button
+                  type="button"
+                  onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(212, 160, 67, 0.4)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  {(i18n.language || i18n.resolvedLanguage || 'en').split('-')[0] === 'he' ? 'עברית' : 'English'}
+                  <span style={{ opacity: 0.8, transform: langDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                </button>
+                {langDropdownOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      right: 0,
+                      minWidth: '100%',
+                      background: 'rgba(26, 26, 26, 0.98)',
+                      border: '1px solid rgba(212, 160, 67, 0.3)',
+                      borderRadius: '8px',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                      zIndex: 1000,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setLanguage('en');
+                        setLangDropdownOpen(false);
+                        if (user) {
+                          try {
+                            await updateCurrentUserProfile({ preferred_language: 'en' });
+                          } catch (err) {
+                            console.warn('Could not save preferred_language:', err);
+                          }
+                        }
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '10px 14px',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: '#e0e0e0',
+                        background: 'transparent',
+                        border: 'none',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(212, 160, 67, 0.12)';
+                        e.currentTarget.style.color = '#D4A043';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = '#e0e0e0';
+                      }}
+                    >
+                      English
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setLanguage('he');
+                        setLangDropdownOpen(false);
+                        if (user) {
+                          try {
+                            await updateCurrentUserProfile({ preferred_language: 'he' });
+                          } catch (err) {
+                            console.warn('Could not save preferred_language:', err);
+                          }
+                        }
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '10px 14px',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: '#e0e0e0',
+                        background: 'transparent',
+                        border: 'none',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(212, 160, 67, 0.12)';
+                        e.currentTarget.style.color = '#D4A043';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = '#e0e0e0';
+                      }}
+                    >
+                      עברית
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             {onLogout && (
               <button
