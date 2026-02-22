@@ -38,8 +38,11 @@ https://viral-video-pro.vercel.app
 ## Supabase – Redirect URLs (חובה להרשמה)
 ב־Supabase Dashboard → Authentication → URL Configuration:
 
-1. **Site URL:** `https://viral-video-pro.vercel.app`
-2. **Redirect URLs** – הוסף:
+1. **Site URL:** `https://viraly.co.il` (פרודקשן) או `https://viral-video-pro.vercel.app` (גיבוי)
+2. **Redirect URLs** – הוסף **את שניהם** (פרודקשן + גיבוי) כדי שהמיילים יעבדו בשני האתרים:
+   - `https://viraly.co.il/**`
+   - `https://viraly.co.il`
+   - `https://www.viraly.co.il/**`
    - `https://viral-video-pro.vercel.app/**`
    - `https://viral-video-pro.vercel.app`
 
@@ -48,11 +51,13 @@ https://viral-video-pro.vercel.app
 ---
 
 ## Auth Hook – מיילים דו־לשוניים (אימות + איפוס סיסמה)
-**בלי ה-Hook – המיילים תמיד בעברית** (מתבנית Supabase Dashboard).  
-ה-Hook שולח מיילים דרך Resend עם תבניות EN/HE.  
-**זיהוי שפה:** הרשמה – מ־user_metadata.preferred_language (שפת הממשק), איפוס סיסמה – מ־profiles.preferred_language.
+**בלי ה-Hook –** Supabase שולח מיילים (תבנית אחת, שפה אחת).  
+**עם ה-Hook –** מיילים דרך Resend: עברית/אנגלית לפי שפת הממשק.
 
-**Flow באנגלית:** הרשמה מממשק אנגלית → הודעה באנגלית → מייל אימות באנגלית → לחיצה על הקישור → כניסה אוטומטית לממשק באנגלית.
+**Flow עברית:** הרשמה מ־viraly.co.il → הודעה בעברית → מייל אימות בעברית → קישור → כניסה ל־viraly.co.il?lang=he.  
+**Flow אנגלית:** הרשמה מ־?lang=en → הודעה באנגלית → מייל אימות באנגלית → קישור → כניסה ל־?lang=en.
+
+**חובה:** `VITE_APP_URL` ב־Supabase Secrets = `https://viral-video-pro.vercel.app` (ה־API של send-auth-email נמצא שם).
 
 1. **התחבר ל-Supabase CLI** (פעם אחת):
    ```bash
@@ -73,7 +78,7 @@ https://viral-video-pro.vercel.app
    ```
    (ה־SERVICE_ROLE_KEY נדרש לשאיבת preferred_language מפרופיל באיפוס סיסמה)
 
-4. **הפעל את ה-Hook ב-Dashboard:** Authentication → Hooks → Send Email Hook → בחר `auth-send-email`
+4. **הפעל את ה-Hook ב-Dashboard:** Authentication → Hooks → Configure hook → Enable Send Email hook → בחר `auth-send-email` (HTTPS)
 
 5. **הרץ את המיגרציה** (preferred_language בפרופיל):
    ```bash
@@ -83,7 +88,15 @@ https://viral-video-pro.vercel.app
 
 ---
 
-## Troubleshooting – 401 Invalid API key
+## Troubleshooting
+
+### הרשמה/כניסה לא עובדת
+1. **ודא מפתחות Supabase:** `VITE_SUPABASE_URL` ו־`VITE_SUPABASE_ANON_KEY` ב־Vercel תואמים לפרויקט `poejxozjnwrsakrhiyny` (ראה "תיקון ב־Vercel" למטה).
+2. **Redirect URLs:** Supabase → Authentication → URL Configuration – הוסף את כתובת האתר (viral-video-pro.vercel.app או viraly.co.il).
+3. **מייל אימות:** אם לא מגיע מייל – הפעל את auth-send-email Hook (ראה "Auth Hook" למעלה) או הגדר SMTP מותאם ב־Supabase.
+4. **Redeploy:** אחרי עדכון env vars – Redeploy ב־Vercel (ללא cache).
+
+### 401 Invalid API key
 אם מקבלים `AuthApiError: Invalid API key` בהרשמה – המפתח ב־Vercel לא תואם לפרויקט.
 
 ### תיקון ב־Vercel (חובה)

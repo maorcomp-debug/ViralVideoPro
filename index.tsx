@@ -237,6 +237,7 @@ const App = () => {
   const [averageScore, setAverageScore] = useState<number>(0);
   const [previousResult, setPreviousResult] = useState<AnalysisResult | null>(null);
   const [isImprovementMode, setIsImprovementMode] = useState(false);
+  const [lastAnalysisHadVideo, setLastAnalysisHadVideo] = useState(true); // false = script/instructions only
 
   // Coach Edition State
   const [coachMode, setCoachMode] = useState<'coach' | 'trainee' | null>(null);
@@ -2492,7 +2493,7 @@ const App = () => {
           html += `
             <div class="pdf-expert-card">
               <div class="card">
-                <h4 class="pdf-expert-role">${expert.role}<span class="score-badge">${expert.score}</span></h4>
+                <h4 class="pdf-expert-role">${expert.role}${lastAnalysisHadVideo && expert.score != null ? `<span class="score-badge">${expert.score}</span>` : ''}</h4>
                 <div class="pdf-professional-block">
                   <strong class="subtle-label">${t('analysis.professionalView')}:</strong>
                   <p>${expert.insight}</p>
@@ -2530,7 +2531,7 @@ const App = () => {
             </div>
           `;
         }
-        if (result.takeRecommendation) {
+        if (lastAnalysisHadVideo && result.takeRecommendation) {
           const recText = result.takeRecommendation.toLowerCase();
           const hasRetake = recText.includes('טייק נוסף') || 
                            recText.includes('טייק חוזר') || 
@@ -2559,17 +2560,21 @@ const App = () => {
             </div>
           `;
         }
-        html += `
-          <div data-pdf="final-score">
-            <span class="number">${averageScore}</span>
-            <span class="label">${t('analysis.viralScoreLabel')}</span>
-          </div>
-        `;
+        if (lastAnalysisHadVideo) {
+          html += `
+            <div data-pdf="final-score">
+              <span class="number">${averageScore}</span>
+              <span class="label">${t('analysis.viralScoreLabel')}</span>
+            </div>
+          `;
+        }
         html += '</div>';
         html += '</div>';
       } else {
         html += '<div class="pdf-section"><div class="pdf-final-block">';
-        html += `<div data-pdf="final-score"><span class="number">${averageScore}</span><span class="label">${t('analysis.viralScoreLabel')}</span></div>`;
+        if (lastAnalysisHadVideo) {
+          html += `<div data-pdf="final-score"><span class="number">${averageScore}</span><span class="label">${t('analysis.viralScoreLabel')}</span></div>`;
+        }
         html += '</div></div>';
       }
 
@@ -3104,10 +3109,11 @@ const App = () => {
            - Each tip should offer genuine value and be implementable
            - Tips should reflect deep understanding of the track's professional requirements
         
-          6. TAKE RECOMMENDATION: At the end, provide an honest professional recommendation:
+          ${file && file.type.startsWith('video') ? `6. TAKE RECOMMENDATION: At the end, provide an honest professional recommendation:
            - If the performance is ready: Clearly state if the video/take is ready to submit/upload in its current state, and why
            - If a retake is needed: Honestly recommend another take if significant improvements are needed, explaining specifically what should be improved
            - Be authentic - don't always recommend retakes, and don't always say it's ready. Assess professionally and honestly.
+        ` : `6. SCRIPT/INSTRUCTIONS ONLY (no video): Do NOT include "takeRecommendation" in the JSON. Omit it entirely. Focus on script quality, tips, and actionable feedback. Do NOT provide expert scores - use null for "score" in each expert.`}
 
         Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be in ${outputLang === 'he' ? 'Hebrew' : 'English'}):
         {
@@ -3116,25 +3122,26 @@ const App = () => {
               "role": "Expert Title (${outputLang === 'he' ? 'Hebrew' : 'English'})",
               "insight": "Deep professional analysis from this expert's unique POV. Must include: track-specific professional perspective, balanced praise and criticism, text/content analysis if applicable, key moments identification, and specific professional insights. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
               "tips": "Actionable, specific, professional tips for improvement relevant to this track's expertise. High-value, authentic, and implementable advice. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
-              "score": number (1-100, authentic professional assessment)
+              "score": ${file && file.type.startsWith('video') ? 'number (1-100, authentic professional assessment)' : 'null (omit when analyzing script only - no video)'}
             }
           ],
           "hook": "The 'Golden Tip'. A single, explosive, game-changing sentence. It must be the absolute secret weapon for this specific video. Phrased as a direct, powerful, and unforgettable command that will transform the user's career. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
           "committee": {
-            "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses, significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
+            "summary": "A comprehensive summary from the entire committee, synthesizing the views. Must include: overall professional assessment, key strengths and weaknesses${file && file.type.startsWith('video') ? ', significant moments analysis, and final recommendation on whether to submit/upload current take or do another take with specific improvements needed' : ''}. (${outputLang === 'he' ? 'Hebrew only' : 'English only'})",
             "finalTips": ["Professional tip 1", "Professional tip 2", "Professional tip 3"]
-          },
+          }${file && file.type.startsWith('video') ? `,
           "takeRecommendation": "${outputLang === 'he' 
             ? "Honest professional recommendation in Hebrew: If ready - say 'מוכן להגשה' and explain why. If needs improvement - say 'מומלץ טייק נוסף' and give friendly suggestions. NO ENGLISH - Hebrew only!" 
             : "Honest professional recommendation in English: If ready - say 'Ready to submit' and explain why. If needs improvement - say 'Another take recommended' and give friendly suggestions. NO HEBREW - English only!"}"
+        ` : ''}
         }
 
         Important:
         - "expertAnalysis" array must contain an object for EACH selected expert in the panel.
         - Each expert's insight must reflect their unique professional expertise for the selected track.
         - "hook" is NOT a suggestion for a video hook. It is the "Golden Insight" of the analysis.
-        - "score" for each expert must be authentic (1-100) based on professional standards.
-        - "takeRecommendation" must be honest - assess if the take is ready or needs improvement.
+        ${file && file.type.startsWith('video') ? '- "score" for each expert must be authentic (1-100) based on professional standards.' : '- "score" for each expert: use null when analyzing script/instructions only (no video).'}
+        ${file && file.type.startsWith('video') ? '- "takeRecommendation" must be honest - assess if the take is ready or needs improvement.' : ''}
         - Use purely ${outputLang === 'he' ? 'Hebrew' : 'English'} professional terms.
         - Do not use Markdown formatting inside the JSON strings.
         - Balance praise and criticism authentically - be professional, not overly positive or negative.
@@ -3266,6 +3273,7 @@ const App = () => {
       }
 
       setResult(parsedResult);
+      setLastAnalysisHadVideo(!!(file && file.type.startsWith('video')));
       
       // CRITICAL: Save analysis and update usage IMMEDIATELY after analysis completes successfully
       // This ensures usage is tracked correctly for all subscription tiers
@@ -4614,7 +4622,7 @@ const App = () => {
               <ExpertsGrid>
                 {result.expertAnalysis?.map((expert, idx) => (
                   <ExpertResultCard key={idx}>
-                    <h4>{expert.role} <ExpertScore>{expert.score}</ExpertScore></h4>
+                    <h4>{expert.role} {lastAnalysisHadVideo && expert.score != null ? <ExpertScore>{expert.score}</ExpertScore> : null}</h4>
                     
                     <ExpertSectionTitle><EyeIcon /> {t('analysis.professionalView')}</ExpertSectionTitle>
                     <ExpertText>{expert.insight}</ExpertText>
@@ -4645,7 +4653,7 @@ const App = () => {
                     </CommitteeTips>
                   )}
                   
-                  {result.takeRecommendation && (() => {
+                  {lastAnalysisHadVideo && result.takeRecommendation && (() => {
                     const recText = result.takeRecommendation.toLowerCase();
                     const hasRetake = recText.includes('טייק נוסף') || 
                                      recText.includes('טייק חוזר') || 
@@ -4700,10 +4708,12 @@ const App = () => {
                     );
                   })()}
                   
-                  <FinalScore data-pdf="final-score">
-                    <span className="number">{averageScore}</span>
-                    <span className="label">{t('analysis.viralScoreLabel')}</span>
-                  </FinalScore>
+                  {lastAnalysisHadVideo && (
+                    <FinalScore data-pdf="final-score">
+                      <span className="number">{averageScore}</span>
+                      <span className="label">{t('analysis.viralScoreLabel')}</span>
+                    </FinalScore>
+                  )}
                 </CommitteeSection>
               )}
             </div>
@@ -4731,19 +4741,21 @@ const App = () => {
                 <RefreshIcon />
                 {t('analysis.startOver')}
               </SecondaryButton>
-              <PrimaryButton 
-                onClick={handleUploadImprovedTake}
-                disabled={!canUseFeature('improvementTracking')}
-                style={{
-                  opacity: !canUseFeature('improvementTracking') ? 0.5 : 1,
-                  cursor: !canUseFeature('improvementTracking') ? 'not-allowed' : 'pointer'
-                }}
-                title={!canUseFeature('improvementTracking') ? t('alerts.improvementTrackingSubscriptionOnly') : ''}
-              >
-                <UploadIconSmall />
-                {t('analysis.uploadImproved')}
-                {!canUseFeature('improvementTracking') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
-              </PrimaryButton>
+              {lastAnalysisHadVideo && (
+                <PrimaryButton 
+                  onClick={handleUploadImprovedTake}
+                  disabled={!canUseFeature('improvementTracking')}
+                  style={{
+                    opacity: !canUseFeature('improvementTracking') ? 0.5 : 1,
+                    cursor: !canUseFeature('improvementTracking') ? 'not-allowed' : 'pointer'
+                  }}
+                  title={!canUseFeature('improvementTracking') ? t('alerts.improvementTrackingSubscriptionOnly') : ''}
+                >
+                  <UploadIconSmall />
+                  {t('analysis.uploadImproved')}
+                  {!canUseFeature('improvementTracking') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
+                </PrimaryButton>
+              )}
             </ActionButtonsContainer>
 
           </ResponseArea>
