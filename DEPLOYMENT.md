@@ -32,6 +32,7 @@ https://viral-video-pro.vercel.app
 |-----|-------|
 | CONTACT_TO_EMAIL | יעד טופס יצירת קשר (ברירת מחדל: viralypro@gmail.com) |
 | CRON_SECRET | Cron – השהה/ביטול מנוי |
+| EMAIL_TEST_SECRET | בדיקת שליחת מייל: GET /api/send-auth-email?test=1&email=xxx&secret=xxx |
 
 ---
 
@@ -150,10 +151,15 @@ https://viral-video-pro.vercel.app
 - **סיבה:** ה-API `send-auth-email` נכשל (Vercel) או Resend דוחה. Supabase מחזיר 200 כי ה-Hook רץ – אבל המייל לא נשלח.
 - **בדיקה 1 – אבחון API:** פתח בדפדפן: `https://viral-video-pro.vercel.app/api/send-auth-email` (GET). אמור להחזיר JSON עם `emailReady: true` ו-`config: { hasResend: true, hasFrom: true, ... }`. אם `hasResend` או `hasFrom` הם `false` – חסרים משתני סביבה ב-Vercel.
 - **בדיקה 2 – Vercel:** Settings → Environment Variables – חובה: `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`. **ודא שהם מוגדרים ל-Production** (ולא רק Preview).
-- **בדיקה 3 – Resend:** הדומיין של `CONTACT_FROM_EMAIL` חייב להיות מאומת ב־Resend. לדוגמה: `noreply@viraly.co.il` דורש אימות של `viraly.co.il`.
-- **בדיקה 4 – Resend Logs:** Resend Dashboard → Logs – האם יש ניסיון שליחה? אם לא – ה-API לא מגיע ל-Resend.
-- **בדיקה 5 – Supabase Logs:** Edge Functions → auth-send-email → Logs. חפש `API error 500` – אם מופיע, ה-API ב-Vercel נכשל.
+- **בדיקה 3 – Resend:** הדומיין של `CONTACT_FROM_EMAIL` חייב להיות מאומת ב־Resend. לדוגמה: `noreply@viraly.co.il` דורש אימות של `viraly.co.il`. **אפשרות:** השתמש ב־`onboarding@resend.dev` (מאומת אוטומטית) – רק לבדיקות; לפרודקשן עדיף דומיין משלך.
+- **בדיקה 4 – Resend Logs:** Resend Dashboard → Logs – האם יש ניסיון שליחה? אם לא – ה-API לא מגיע ל-Resend או ה-Hook מחזיר מוקדם (חסר token_hash).
+- **בדיקה 5 – Supabase Logs:** Edge Functions → auth-send-email → Logs. חפש `Vercel API failed 500` – אם מופיע, ה-API ב-Vercel נכשל. חפש `early return – missing: token_hash` – אם מופיע, Supabase לא שולח את ה-payload המלא.
 - **בדיקה 6 – ספאם:** בדוק תיקיית ספאם.
+- **בדיקה 7 – שליחת בדיקה ידנית:** הוסף ב-Vercel משתנה `EMAIL_TEST_SECRET` (מחרוזת אקראית). ואז:
+  ```
+  https://viral-video-pro.vercel.app/api/send-auth-email?test=1&email=המייל_שלך&secret=ה_SECRET_שהגדרת
+  ```
+  אם מקבלים `{ ok: true, test: true, resendId: "..." }` – Resend עובד. אם `resendStatus` / `resendBody` – Resend דוחה (בדוק דומיין, Logs).
 
 ### מייל אימות/איפוס – שפה
 - **מייל בעברית כשצריך אנגלית:** ה־auth-send-email hook לא פרוס או לא מופעל. Supabase שולח מתבנית ברירת מחדל. יש לפרוס ולהפעיל את ה-Hook (ראה למעלה).

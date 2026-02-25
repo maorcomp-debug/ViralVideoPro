@@ -164,6 +164,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const hasFrom = !!(process.env.CONTACT_FROM_EMAIL || process.env.FROM_EMAIL);
     const hasSupabase = !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL);
     const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    // Test send: ?test=1&email=xxx&secret=xxx – requires EMAIL_TEST_SECRET in Vercel
+    const testEmail = typeof req.query?.email === 'string' ? req.query.email.trim().toLowerCase() : '';
+    const testSecret = typeof req.query?.secret === 'string' ? req.query.secret : '';
+    const wantTest = req.query?.test === '1' || req.query?.test === 'true';
+    const expectedSecret = process.env.EMAIL_TEST_SECRET;
+
+    if (wantTest && testEmail && expectedSecret && testSecret === expectedSecret) {
+      const fromEmail = process.env.CONTACT_FROM_EMAIL || process.env.FROM_EMAIL;
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (!resendApiKey || !fromEmail) {
+        return res.status(500).json({ ok: false, error: 'Email not configured' });
+      }
+      const subject = 'Test | Viraly - Video Director Pro';
+      const html = `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px"><h1>Test</h1><p>If you got this, Resend is working.</p></body></html>`;
+      const fromDisplay = fromEmail.includes('@') ? `Viraly <${fromEmail}>` : fromEmail;
+      const resendRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendApiKey}` },
+        body: JSON.stringify({ from: fromDisplay, to: [testEmail], subject, html }),
+      });
+      const resendBody = await resendRes.text();
+      if (!resendRes.ok) {
+        return res.status(500).json({ ok: false, error: 'Resend failed', resendStatus: resendRes.status, resendBody });
+      }
+      let resendId = '';
+      try {
+        resendId = JSON.parse(resendBody)?.id || '';
+      } catch {
+        /* ignore */
+      }
+      return res.status(200).json({ ok: true, test: true, resendId });
+    }
+
     return res.status(200).json({
       ok: true,
       diagnostic: true,
@@ -239,13 +273,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({ from: fromDisplay, to: [email], subject, html }),
     });
 
+    const resendBody = await resendRes.text();
     if (!resendRes.ok) {
-      const errText = await resendRes.text();
-      console.error('Resend error:', resendRes.status, errText);
+      console.error('Resend error:', resendRes.status, resendBody, '| to:', email, '| from:', fromDisplay);
       return res.status(500).json({ ok: false, error: 'Failed to send email' });
     }
 
-    return res.status(200).json({ ok: true });
+    let resendId = '';
+    try {
+      const parsed = JSON.parse(resendBody);
+      resendId = parsed?.id || '';
+    } catch {
+      /* ignore */
+    }
+    return res.status(200).json({ ok: true, resendId });
   } catch (e: any) {
     console.error('send-auth-email error:', e);
     return res.status(500).json({ ok: false, error: e.message || 'Internal server error' });

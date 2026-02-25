@@ -63,7 +63,12 @@ Deno.serve(async (req: Request) => {
     const actionType = (email_data?.email_action_type || "signup") as string;
 
     if (!email || !tokenHash || !SUPABASE_URL) {
-      console.warn("auth-send-email: missing email, token_hash, or SUPABASE_URL");
+      const missing = [
+        !email && "email",
+        !tokenHash && "token_hash",
+        !SUPABASE_URL && "SUPABASE_URL",
+      ].filter(Boolean);
+      console.warn("auth-send-email: early return – missing:", missing.join(", "), "| payload keys:", Object.keys(payload || {}), "email_data keys:", Object.keys(email_data || {}));
       return OK();
     }
 
@@ -100,9 +105,16 @@ Deno.serve(async (req: Request) => {
 
     const errText = await res.text();
     if (!res.ok) {
-      console.error("auth-send-email: API error", res.status, apiUrl, errText);
+      console.error("auth-send-email: Vercel API failed", res.status, "| body:", errText);
     } else {
-      console.log("auth-send-email: OK", email, lang, type);
+      let resendId = "";
+      try {
+        const parsed = JSON.parse(errText);
+        resendId = parsed?.resendId || parsed?.id || "";
+      } catch {
+        /* ignore */
+      }
+      console.log("auth-send-email: OK", email, lang, type, resendId ? `| resendId=${resendId}` : "");
     }
   } catch (e) {
     console.error("auth-send-email error:", e);
