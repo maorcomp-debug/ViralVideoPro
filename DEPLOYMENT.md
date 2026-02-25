@@ -96,7 +96,13 @@ https://viral-video-pro.vercel.app
 
 ### הרשמה/כניסה לא עובדת
 1. **ודא מפתחות Supabase:** `VITE_SUPABASE_URL` ו־`VITE_SUPABASE_ANON_KEY` ב־Vercel תואמים לפרויקט `poejxozjnwrsakrhiyny` (ראה "תיקון ב־Vercel" למטה).
-2. **Redirect URLs:** Supabase → Authentication → URL Configuration – הוסף את כתובת האתר (viral-video-pro.vercel.app או viraly.co.il).
+2. **Redirect URLs (חשוב לכניסה אוטומטית אחרי אימות):** Supabase → Authentication → **URL Configuration** → **Redirect URLs** – הוסף את **כל** כתובות האתר:
+   - `https://viral-video-pro.vercel.app`
+   - `https://viral-video-pro.vercel.app/**`
+   - `https://viraly.co.il`
+   - `https://viraly.co.il/**`
+   - כל כתובת גיבוי/פרויקט נוסף (למשל `https://your-backup.vercel.app` ו־`https://your-backup.vercel.app/**`).
+   בלי זה – לחיצה על קישור אימות במייל תחזיר לאפליקציה אבל **לא כמשתמש מחובר** (verifyOtp נכשל).
 3. **מייל אימות:** אם לא מגיע מייל – הפעל את auth-send-email Hook (ראה "Auth Hook" למעלה) או הגדר SMTP מותאם ב־Supabase.
 4. **Redeploy:** אחרי עדכון env vars – Redeploy ב־Vercel (ללא cache).
 

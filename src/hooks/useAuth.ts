@@ -100,35 +100,45 @@ export const useAuth = (): UseAuthReturn => {
     let timeoutId: NodeJS.Timeout | null = null;
 
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const tokenHash = params?.get('token_hash');
+    let tokenHash = params?.get('token_hash');
     const otpType = params?.get('type');
 
+    // Decode token_hash in case email client double-encoded the URL
+    if (tokenHash) {
+      try {
+        tokenHash = decodeURIComponent(tokenHash);
+      } catch {
+        /* keep original */
+      }
+    }
+
     const initAuth = async () => {
-      // Handle email verification via query params (token_hash)
+      // Handle email verification via query params (token_hash) – same flow as Supabase direct, but link points to our app
       if (tokenHash && otpType && typeof window !== 'undefined') {
         const verifyType = otpType as 'magiclink' | 'email' | 'signup' | 'recovery';
+        const typesToTry: Array<'email' | 'signup' | 'magiclink' | 'recovery'> =
+          verifyType === 'signup' ? ['email', 'signup'] : verifyType === 'email' ? ['email', 'signup'] : [verifyType];
         try {
-          let { data, error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: verifyType,
-          });
-          // Some Supabase versions expect 'email' for signup confirmation
-          if (error && verifyType === 'signup') {
-            const retry = await supabase.auth.verifyOtp({
-              token_hash: tokenHash,
-              type: 'email',
-            });
-            data = retry.data;
-            error = retry.error;
+          let data: { session?: any } | null = null;
+          let error: { message?: string } | null = null;
+          for (const t of typesToTry) {
+            const res = await supabase.auth.verifyOtp({ token_hash: tokenHash!, type: t });
+            data = res.data;
+            error = res.error;
+            if (!error) break;
           }
-          if (!error) {
+          if (!error && data?.session) {
+            // Explicitly set session so it persists before reload (critical for backup/cross-tab)
+            await supabase.auth.setSession({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token,
+            });
             const cleanParams = new URLSearchParams(window.location.search);
             cleanParams.delete('token_hash');
             cleanParams.delete('type');
             const qs = cleanParams.toString();
             const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '') + (window.location.hash || '');
-            // Wait for session to persist before reload (PKCE/Storage async)
-            await new Promise((r) => setTimeout(r, 800));
+            await new Promise((r) => setTimeout(r, 1200));
             window.location.replace(cleanUrl);
             return;
           }

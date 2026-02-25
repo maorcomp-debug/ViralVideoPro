@@ -48,20 +48,30 @@ export const Description = styled.p`
   padding: 0 10px;
 `;
 
+const headerButtonSize = css`
+  min-width: 240px;
+  width: 240px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+`;
+
 export const CTAButton = styled.button`
   background: linear-gradient(135deg, #b8862e 0%, #e6be74 50%, #b8862e 100%);
   background-size: 200% auto;
   color: #000;
   border: none;
   border-radius: 50px;
-  padding: 12px 35px;
   font-family: 'Assistant', sans-serif;
   font-weight: 700;
-  font-size: 1rem;
   cursor: pointer;
   margin: 8px 0 0 0;
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(212, 160, 67, 0.3);
+  ${headerButtonSize}
 
   &:hover {
     background-position: right center;
@@ -75,17 +85,13 @@ export const CapabilitiesButton = styled.button`
   border: 1px solid #D4A043;
   color: #D4A043;
   border-radius: 50px;
-  padding: 10px 30px;
   font-family: 'Assistant', sans-serif;
-  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   margin: 8px 0 0 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
   transition: all 0.3s ease;
   box-shadow: 0 0 10px rgba(212, 160, 67, 0.1);
+  ${headerButtonSize}
 
   &:hover {
     background: rgba(212, 160, 67, 0.1);
@@ -113,14 +119,13 @@ export const PackagesButton = styled.button`
   border: 1px solid #D4A043;
   color: #D4A043;
   border-radius: 50px;
-  padding: 10px 25px;
   font-family: 'Assistant', sans-serif;
-  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   margin: 8px 0 0 0;
   transition: all 0.3s ease;
   box-shadow: 0 0 10px rgba(212, 160, 67, 0.1);
+  ${headerButtonSize}
 
   &:hover {
     background: rgba(212, 160, 67, 0.1);
