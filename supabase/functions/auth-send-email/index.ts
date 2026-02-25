@@ -92,10 +92,9 @@ Deno.serve(async (req: Request) => {
       redirectTo = `${redirectTo}${sep}lang=${lang}`;
     }
 
-    // Link to app with token_hash – useAuth calls verifyOtp. Use 'email' for signup (PKCE expects it).
+    // Use Supabase verify URL (same as default emails) – redirects to app with session in hash. Param is "token" (value=TokenHash).
     const verifyType = actionType === "signup" ? "email" : actionType;
-    const sep = redirectTo.includes("?") ? "&" : "?";
-    const actionLink = `${redirectTo.replace(/\/$/, "")}${sep}token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(verifyType)}`;
+    const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(verifyType)}&redirect_to=${encodeURIComponent(redirectTo)}`;
 
     // Always use APP_URL for API – viral-video-pro.vercel.app has send-auth-email + Resend.
     // redirectTo (from client) ensures the email link lands user on correct site (viraly.co.il or backup).

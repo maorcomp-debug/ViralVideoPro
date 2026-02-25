@@ -53,7 +53,7 @@ https://viral-video-pro.vercel.app
 
 ## Auth Hook – מיילים דו־לשוניים + שליחה מויראלי (לא מ-Supabase Auth)
 **בלי ה-Hook –** Supabase שולח מיילים מ־`noreply@mail.app.supabase.io` (Supabase Auth), תבנית עברית בלבד.  
-**עם ה-Hook –** מיילים דרך Resend מויראלי (`CONTACT_FROM_EMAIL`), עברית/אנגלית לפי שפת הממשק.
+**עם ה-Hook –** מיילים דרך Resend מויראלי (`CONTACT_FROM_EMAIL`), עברית/אנגלית לפי שפת הממשק. הקישור במייל מפנה ל־Supabase verify (כמו מיילים ברירת מחדל) – לחיצה מכניסה אוטומטית לחשבון.
 
 **חשוב:** אם המייל מגיע מ־"Supabase Auth" – ה-Hook לא מופעל. הפעל אותו (שלב 4 למטה).
 
@@ -142,10 +142,9 @@ https://viral-video-pro.vercel.app
 - **פתרון:** Supabase Dashboard → **Authentication** → **Hooks** → **Send Email** → Enable → בחר `auth-send-email` (HTTPS).
 - אחרי ההפעלה: מיילים יישלחו דרך Resend מויראלי, דו־לשוני.
 
-### 429 / "Invalid email" אחרי כמה ניסיונות הרשמה
-- **סיבה:** מגבלת **שליחת מיילים** של Supabase (ברירת מחדל: 2 מיילים בשעה) – **לא** מגבלת "sign-ups and sign-ins" (30/5 דקות).
-- **הבדל:** "Rate limit for sign-ups and sign-ins" = בקשות הרשמה/כניסה. **Email rate limit** = שליחת מייל אימות – מגבלה נפרדת (`rate_limit_email_sent`).
-- **פתרון:** Supabase Dashboard → **Authentication** → **Rate Limits** – חפש **Email** / `rate_limit_email_sent` והעלה (למשל ל־10 או 30). דורש SMTP מותאם או Hook.
+### 429 / "email rate limit exceeded" / "Too many signup attempts"
+- **סיבה:** מגבלת **שליחת מיילים** של Supabase (ברירת מחדל: 2 מיילים בשעה) – **לא** מגבלת "sign-ups and sign-ins" (30/5 דקות). חל על **כל** הפרויקט (גיבוי + פרודקשן – אותו Supabase).
+- **פתרון:** Supabase Dashboard → **Authentication** → **Rate Limits** – חפש **Email** / `rate_limit_email_sent` / `over_email_send_rate_limit` והעלה (למשל ל־10 או 30).
 
 ### לא מגיע מייל אימות בכלל (Hook מופעל, הודעה "Check your email" מופיעה)
 - **סיבה:** ה-API `send-auth-email` נכשל (Vercel) או Resend דוחה. Supabase מחזיר 200 כי ה-Hook רץ – אבל המייל לא נשלח.
