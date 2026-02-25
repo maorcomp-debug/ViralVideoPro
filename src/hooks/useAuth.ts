@@ -127,8 +127,8 @@ export const useAuth = (): UseAuthReturn => {
             cleanParams.delete('type');
             const qs = cleanParams.toString();
             const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '') + (window.location.hash || '');
-            // Brief delay so session persists to storage before reload
-            setTimeout(() => window.location.replace(cleanUrl), 150);
+            // Delay so session persists to storage before reload (PKCE needs time)
+            setTimeout(() => window.location.replace(cleanUrl), 400);
             return;
           }
           if (error) console.warn('verifyOtp failed:', error.message);

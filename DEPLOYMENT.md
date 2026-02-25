@@ -53,7 +53,7 @@ https://viral-video-pro.vercel.app
 
 ## Auth Hook – מיילים דו־לשוניים + שליחה מויראלי (לא מ-Supabase Auth)
 **בלי ה-Hook –** Supabase שולח מיילים מ־`noreply@mail.app.supabase.io` (Supabase Auth), תבנית עברית בלבד.  
-**עם ה-Hook –** מיילים דרך Resend מויראלי (`CONTACT_FROM_EMAIL`), עברית/אנגלית לפי שפת הממשק. הקישור במייל מפנה ל־Supabase verify (כמו מיילים ברירת מחדל) – לחיצה מכניסה אוטומטית לחשבון.
+**עם ה-Hook –** מיילים דרך Resend מויראלי (`CONTACT_FROM_EMAIL`), עברית/אנגלית לפי שפת הממשק. הקישור מפנה לאפליקציה עם token_hash – verifyOtp מכניס אוטומטית (Supabase verify מחזיר 500 ב־PKCE כשנפתח במכשיר אחר).
 
 **חשוב:** אם המייל מגיע מ־"Supabase Auth" – ה-Hook לא מופעל. הפעל אותו (שלב 4 למטה).
 
