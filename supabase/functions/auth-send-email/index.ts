@@ -92,7 +92,9 @@ Deno.serve(async (req: Request) => {
       redirectTo = `${redirectTo}${sep}lang=${lang}`;
     }
 
-    const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(actionType)}&redirect_to=${encodeURIComponent(redirectTo)}`;
+    // Link to app with token_hash – useAuth calls verifyOtp. Supabase /auth/v1/verify returns 400 for PKCE token_hash.
+    const sep = redirectTo.includes("?") ? "&" : "?";
+    const actionLink = `${redirectTo.replace(/\/$/, "")}${sep}token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(actionType)}`;
 
     // Always use APP_URL for API – viral-video-pro.vercel.app has send-auth-email + Resend.
     // redirectTo (from client) ensures the email link lands user on correct site (viraly.co.il or backup).
