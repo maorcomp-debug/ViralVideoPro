@@ -50,14 +50,17 @@ https://viral-video-pro.vercel.app
 
 ---
 
-## Auth Hook – מיילים דו־לשוניים (אימות + איפוס סיסמה)
-**בלי ה-Hook –** Supabase שולח מיילים (תבנית אחת, שפה אחת).  
-**עם ה-Hook –** מיילים דרך Resend: עברית/אנגלית לפי שפת הממשק.
+## Auth Hook – מיילים דו־לשוניים + שליחה מויראלי (לא מ-Supabase Auth)
+**בלי ה-Hook –** Supabase שולח מיילים מ־`noreply@mail.app.supabase.io` (Supabase Auth), תבנית עברית בלבד.  
+**עם ה-Hook –** מיילים דרך Resend מויראלי (`CONTACT_FROM_EMAIL`), עברית/אנגלית לפי שפת הממשק.
 
-**Flow עברית:** הרשמה מ־viraly.co.il → הודעה בעברית → מייל אימות בעברית → קישור → כניסה ל־viraly.co.il?lang=he.  
-**Flow אנגלית:** הרשמה מ־?lang=en → הודעה באנגלית → מייל אימות באנגלית → קישור → כניסה ל־?lang=en.
+**חשוב:** אם המייל מגיע מ־"Supabase Auth" – ה-Hook לא מופעל. הפעל אותו (שלב 4 למטה).
 
-**חובה:** `VITE_APP_URL` ב־Supabase Secrets = `https://viral-video-pro.vercel.app` (ה־API של send-auth-email נמצא שם).
+**Flow עברית:** הרשמה בעברית → מייל אימות בעברית → קישור → כניסה ל־?lang=he.  
+**Flow אנגלית:** הרשמה ב־?lang=en → מייל אימות באנגלית → קישור → כניסה ל־?lang=en.
+
+**חובה:** `VITE_APP_URL` ב־Supabase Secrets = `https://viral-video-pro.vercel.app` (ה־API של send-auth-email נמצא שם).  
+**חובה ב־Vercel:** `RESEND_API_KEY`, `CONTACT_FROM_EMAIL` (כתובת מאומתת ב־Resend – למשל `noreply@viraly.co.il`).
 
 1. **התחבר ל-Supabase CLI** (פעם אחת):
    ```bash
@@ -133,8 +136,13 @@ https://viral-video-pro.vercel.app
 
 **פרודקשן (viraly.co.il):** אם viraly.co.il הוא פרויקט Vercel נפרד – צריך להגדיר את אותם מפתחות **בפרויקט שמגיש ל־viraly.co.il**.
 
+### המייל מגיע מ־"Supabase Auth" / עברית בלבד
+- **סיבה:** ה-Send Email Hook לא מופעל. Supabase שולח מתבניתו המובנית.
+- **פתרון:** Supabase Dashboard → **Authentication** → **Hooks** → **Send Email** → Enable → בחר `auth-send-email` (HTTPS).
+- אחרי ההפעלה: מיילים יישלחו דרך Resend מויראלי, דו־לשוני.
+
 ### מייל אימות/איפוס – שפה
-- **מייל בעברית כשצריך אנגלית:** ה־auth-send-email hook לא פרוס. Supabase שולח מתבנית ברירת מחדל. יש לפרוס את ה-Hook (ראה למעלה).
+- **מייל בעברית כשצריך אנגלית:** ה־auth-send-email hook לא פרוס או לא מופעל. Supabase שולח מתבנית ברירת מחדל. יש לפרוס ולהפעיל את ה-Hook (ראה למעלה).
 - **זיהוי שפה:** הרשמה – משפת הממשק (preferred_language ב־metadata). איפוס סיסמה – מ־profiles.preferred_language (אם לא קיים: עברית).
 - **אחרי אימות:** הקישור במייל מפנה עם ?lang= – אנגלית → lang=en, עברית → lang=he.
 
