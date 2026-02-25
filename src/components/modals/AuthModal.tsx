@@ -491,12 +491,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           } else if (signUpError.message.includes('User already registered') || 
                      signUpError.message.includes('already exists')) {
             errorMessage = t('authErrors.userAlreadyRegistered');
+          } else if (signUpError.status === 429 || signUpError.message.includes('rate limit') || signUpError.message.includes('too many') || (signUpError as any).code === 'over_email_send_rate_limit') {
+            errorMessage = t('authErrors.rateLimit');
           } else if (signUpError.message.includes('Password') || signUpError.message.includes('password')) {
             errorMessage = t('authErrors.weakPassword');
           } else if (signUpError.message.includes('email') || signUpError.message.includes('Email')) {
             errorMessage = t('authErrors.invalidEmail');
-          } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('too many')) {
-            errorMessage = t('authErrors.rateLimit');
           }
           
           throw new Error(errorMessage);

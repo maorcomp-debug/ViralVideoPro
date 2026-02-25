@@ -141,6 +141,19 @@ https://viral-video-pro.vercel.app
 - **פתרון:** Supabase Dashboard → **Authentication** → **Hooks** → **Send Email** → Enable → בחר `auth-send-email` (HTTPS).
 - אחרי ההפעלה: מיילים יישלחו דרך Resend מויראלי, דו־לשוני.
 
+### 429 / "Invalid email" אחרי כמה ניסיונות הרשמה
+- **סיבה:** מגבלת **שליחת מיילים** של Supabase (ברירת מחדל: 2 מיילים בשעה) – **לא** מגבלת "sign-ups and sign-ins" (30/5 דקות).
+- **הבדל:** "Rate limit for sign-ups and sign-ins" = בקשות הרשמה/כניסה. **Email rate limit** = שליחת מייל אימות – מגבלה נפרדת (`rate_limit_email_sent`).
+- **פתרון:** Supabase Dashboard → **Authentication** → **Rate Limits** – חפש **Email** / `rate_limit_email_sent` והעלה (למשל ל־10 או 30). דורש SMTP מותאם או Hook.
+
+### לא מגיע מייל אימות בכלל (Hook מופעל)
+- **סיבה:** ה-API `send-auth-email` נכשל (Vercel) או Resend דוחה.
+- **בדיקה 1 – Supabase Logs:** Edge Functions → auth-send-email → Logs. אם רואים `API error 500` – ה-API נכשל.
+- **בדיקה 2 – Vercel:** Settings → Environment Variables – חובה: `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`.
+- **בדיקה 3 – Resend:** הדומיין של `CONTACT_FROM_EMAIL` חייב להיות מאומת ב־Resend. לדוגמה: `noreply@viraly.co.il` דורש אימות של `viraly.co.il`.
+- **בדיקה 4 – Resend Logs:** Resend Dashboard → Logs – האם המייל נשלח או נכשל?
+- **בדיקה 5 – ספאם:** בדוק תיקיית ספאם.
+
 ### מייל אימות/איפוס – שפה
 - **מייל בעברית כשצריך אנגלית:** ה־auth-send-email hook לא פרוס או לא מופעל. Supabase שולח מתבנית ברירת מחדל. יש לפרוס ולהפעיל את ה-Hook (ראה למעלה).
 - **זיהוי שפה:** הרשמה – משפת הממשק (preferred_language ב־metadata). איפוס סיסמה – מ־profiles.preferred_language (אם לא קיים: עברית).

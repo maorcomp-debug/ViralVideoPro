@@ -98,9 +98,11 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({ email, actionLink, redirectTo, lang, type }),
     });
 
+    const errText = await res.text();
     if (!res.ok) {
-      const errText = await res.text();
-      console.error("auth-send-email: API error", res.status, errText);
+      console.error("auth-send-email: API error", res.status, apiUrl, errText);
+    } else {
+      console.log("auth-send-email: OK", email, lang, type);
     }
   } catch (e) {
     console.error("auth-send-email error:", e);

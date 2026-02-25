@@ -576,7 +576,7 @@
     "authError401": "Auth error (401). User may exist. Try signing in.",
     "weakPassword": "Password too weak. At least 6 characters.",
     "invalidEmail": "Invalid email or already exists.",
-    "rateLimit": "Too many attempts. Try again in a few.",
+    "rateLimit": "Too many signup attempts. Try again in about an hour.",
     "signupSuccess": "Check your email to verify. Click the link, then sign in.",
     "createUserFailed": "Couldn't create user. Try again.",
     "signInRequired": "Sign up first.",
