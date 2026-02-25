@@ -121,14 +121,15 @@ export const useAuth = (): UseAuthReturn => {
             data = retry.data;
             error = retry.error;
           }
-          if (!error && data?.session) {
+          if (!error) {
             const cleanParams = new URLSearchParams(window.location.search);
             cleanParams.delete('token_hash');
             cleanParams.delete('type');
             const qs = cleanParams.toString();
             const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '') + (window.location.hash || '');
-            // Delay so session persists to storage before reload (PKCE needs time)
-            setTimeout(() => window.location.replace(cleanUrl), 400);
+            // Wait for session to persist before reload (PKCE/Storage async)
+            await new Promise((r) => setTimeout(r, 800));
+            window.location.replace(cleanUrl);
             return;
           }
           if (error) console.warn('verifyOtp failed:', error.message);
