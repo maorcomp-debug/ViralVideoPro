@@ -157,6 +157,21 @@ function buildRecoveryEmailHtml(lang: EmailLang, buttonUrl: string, fallbackUrl?
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Diagnostic: GET returns config status (no secrets) for debugging
+  if (req.method === 'GET') {
+    const hasResend = !!process.env.RESEND_API_KEY;
+    const hasFrom = !!(process.env.CONTACT_FROM_EMAIL || process.env.FROM_EMAIL);
+    const hasSupabase = !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL);
+    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    return res.status(200).json({
+      ok: true,
+      diagnostic: true,
+      emailReady: hasResend && hasFrom,
+      config: { hasResend, hasFrom, hasSupabase, hasServiceKey },
+    });
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' });
 
   try {

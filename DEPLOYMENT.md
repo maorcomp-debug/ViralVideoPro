@@ -146,13 +146,14 @@ https://viral-video-pro.vercel.app
 - **הבדל:** "Rate limit for sign-ups and sign-ins" = בקשות הרשמה/כניסה. **Email rate limit** = שליחת מייל אימות – מגבלה נפרדת (`rate_limit_email_sent`).
 - **פתרון:** Supabase Dashboard → **Authentication** → **Rate Limits** – חפש **Email** / `rate_limit_email_sent` והעלה (למשל ל־10 או 30). דורש SMTP מותאם או Hook.
 
-### לא מגיע מייל אימות בכלל (Hook מופעל)
-- **סיבה:** ה-API `send-auth-email` נכשל (Vercel) או Resend דוחה.
-- **בדיקה 1 – Supabase Logs:** Edge Functions → auth-send-email → Logs. אם רואים `API error 500` – ה-API נכשל.
-- **בדיקה 2 – Vercel:** Settings → Environment Variables – חובה: `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`.
+### לא מגיע מייל אימות בכלל (Hook מופעל, הודעה "Check your email" מופיעה)
+- **סיבה:** ה-API `send-auth-email` נכשל (Vercel) או Resend דוחה. Supabase מחזיר 200 כי ה-Hook רץ – אבל המייל לא נשלח.
+- **בדיקה 1 – אבחון API:** פתח בדפדפן: `https://viral-video-pro.vercel.app/api/send-auth-email` (GET). אמור להחזיר JSON עם `emailReady: true` ו-`config: { hasResend: true, hasFrom: true, ... }`. אם `hasResend` או `hasFrom` הם `false` – חסרים משתני סביבה ב-Vercel.
+- **בדיקה 2 – Vercel:** Settings → Environment Variables – חובה: `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`. **ודא שהם מוגדרים ל-Production** (ולא רק Preview).
 - **בדיקה 3 – Resend:** הדומיין של `CONTACT_FROM_EMAIL` חייב להיות מאומת ב־Resend. לדוגמה: `noreply@viraly.co.il` דורש אימות של `viraly.co.il`.
-- **בדיקה 4 – Resend Logs:** Resend Dashboard → Logs – האם המייל נשלח או נכשל?
-- **בדיקה 5 – ספאם:** בדוק תיקיית ספאם.
+- **בדיקה 4 – Resend Logs:** Resend Dashboard → Logs – האם יש ניסיון שליחה? אם לא – ה-API לא מגיע ל-Resend.
+- **בדיקה 5 – Supabase Logs:** Edge Functions → auth-send-email → Logs. חפש `API error 500` – אם מופיע, ה-API ב-Vercel נכשל.
+- **בדיקה 6 – ספאם:** בדוק תיקיית ספאם.
 
 ### מייל אימות/איפוס – שפה
 - **מייל בעברית כשצריך אנגלית:** ה־auth-send-email hook לא פרוס או לא מופעל. Supabase שולח מתבנית ברירת מחדל. יש לפרוס ולהפעיל את ה-Hook (ראה למעלה).
