@@ -74,8 +74,11 @@ Deno.serve(async (req: Request) => {
     if (isRecovery) {
       lang = await getPreferredLanguageFromProfile(user.id);
     } else {
-      const preferredLang = user?.user_metadata?.preferred_language;
-      lang = preferredLang === "en" ? "en" : "he";
+      // 1) user_metadata.preferred_language (from AuthModal signUp)
+      const fromMeta = user?.user_metadata?.preferred_language;
+      // 2) Fallback: parse redirect_to – client sends ?lang=en or ?lang=he
+      const fromRedirect = (redirectTo || "").match(/[?&]lang=([a-z]{2})/i)?.[1]?.toLowerCase();
+      lang = fromMeta === "en" || fromRedirect === "en" ? "en" : "he";
     }
 
     // Ensure redirect includes ?lang= for correct post-verification language
