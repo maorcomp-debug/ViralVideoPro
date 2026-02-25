@@ -106,21 +106,32 @@ export const useAuth = (): UseAuthReturn => {
     const initAuth = async () => {
       // Handle email verification via query params (token_hash)
       if (tokenHash && otpType && typeof window !== 'undefined') {
+        const verifyType = otpType as 'magiclink' | 'email' | 'signup' | 'recovery';
         try {
-          const { error } = await supabase.auth.verifyOtp({
+          let { data, error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type: otpType as 'magiclink' | 'email' | 'signup' | 'recovery',
+            type: verifyType,
           });
-          if (!error) {
-            // Build clean URL (preserve lang, path) and reload so app picks up session
-            const params = new URLSearchParams(window.location.search);
-            params.delete('token_hash');
-            params.delete('type');
-            const qs = params.toString();
-            const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '') + (window.location.hash || '');
-            window.location.replace(cleanUrl);
-            return; // Reload will re-run initAuth without token_hash
+          // Some Supabase versions expect 'email' for signup confirmation
+          if (error && verifyType === 'signup') {
+            const retry = await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: 'email',
+            });
+            data = retry.data;
+            error = retry.error;
           }
+          if (!error && data?.session) {
+            const cleanParams = new URLSearchParams(window.location.search);
+            cleanParams.delete('token_hash');
+            cleanParams.delete('type');
+            const qs = cleanParams.toString();
+            const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '') + (window.location.hash || '');
+            // Brief delay so session persists to storage before reload
+            setTimeout(() => window.location.replace(cleanUrl), 150);
+            return;
+          }
+          if (error) console.warn('verifyOtp failed:', error.message);
         } catch (e) {
           console.warn('verifyOtp from email link failed:', e);
         }
