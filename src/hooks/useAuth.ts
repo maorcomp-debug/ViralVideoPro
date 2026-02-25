@@ -112,9 +112,14 @@ export const useAuth = (): UseAuthReturn => {
             type: otpType as 'magiclink' | 'email' | 'signup' | 'recovery',
           });
           if (!error) {
-            const cleanPath = window.location.pathname || '/';
-            const hash = window.location.hash || '';
-            window.history.replaceState({}, '', cleanPath + hash);
+            // Build clean URL (preserve lang, path) and reload so app picks up session
+            const params = new URLSearchParams(window.location.search);
+            params.delete('token_hash');
+            params.delete('type');
+            const qs = params.toString();
+            const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '') + (window.location.hash || '');
+            window.location.replace(cleanUrl);
+            return; // Reload will re-run initAuth without token_hash
           }
         } catch (e) {
           console.warn('verifyOtp from email link failed:', e);
@@ -131,12 +136,12 @@ export const useAuth = (): UseAuthReturn => {
         
         if (accessToken && (type === 'signup' || type === 'email' || type === 'recovery')) {
           try {
-            // Supabase automatically handles hash fragments, but we need to ensure session is set
-            // The hash fragment is processed by Supabase SDK automatically on getSession()
-            console.log('📧 Email verification hash fragment detected');
-            // Clean up URL after processing
-            const cleanPath = window.location.pathname || '/';
-            window.history.replaceState({}, '', cleanPath);
+            // Supabase SDK processes hash automatically; reload with clean URL so app picks up session
+            const cleanParams = new URLSearchParams(window.location.search);
+            const qs = cleanParams.toString();
+            const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '');
+            window.location.replace(cleanUrl);
+            return;
           } catch (e) {
             console.warn('Error processing email verification hash:', e);
           }
