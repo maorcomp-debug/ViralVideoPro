@@ -133,9 +133,9 @@ export const ComparisonModal = ({
       <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1200px', maxHeight: '90vh' }}>
         <ModalCloseBtn onClick={onClose}>✕</ModalCloseBtn>
         <ModalHeader>
-          <ModalTitle>השוואת ניתוחים - Coach Edition</ModalTitle>
+          <ModalTitle>{t('comparison.modalTitle')}</ModalTitle>
           <ModalSubtitle>
-            השווה בין ניתוחים שונים של מתאמנים או ניתוחים לאורך זמן
+            {t('comparison.modalSubtitle')}
           </ModalSubtitle>
         </ModalHeader>
         
@@ -144,18 +144,18 @@ export const ComparisonModal = ({
             <ComparisonHeader>
               <div>
                 <h3 style={{ color: '#D4A043', margin: '0 0 5px 0' }}>
-                  בחר ניתוחים להשוואה ({selectedAnalyses.length} נבחרו)
+                  {t('comparison.selectAnalyses', { count: selectedAnalyses.length })}
                 </h3>
                 <p style={{ color: '#888', margin: 0, fontSize: '0.9rem' }}>
-                  ניתן לבחור עד 4 ניתוחים להשוואה
+                  {t('comparison.selectUpTo4')}
                 </p>
               </div>
             </ComparisonHeader>
 
             {uniqueSavedAnalyses.length === 0 ? (
               <EmptyState>
-                <h3>אין ניתוחים שמורים</h3>
-                <p>שמור ניתוחים כדי להשוות אותם</p>
+                <h3>{t('comparison.noSavedAnalyses')}</h3>
+                <p>{t('comparison.saveAnalysesToCompare')}</p>
               </EmptyState>
             ) : (
               <>
@@ -180,7 +180,7 @@ export const ComparisonModal = ({
                                 marginRight: '5px',
                                 fontWeight: 600
                               }}>
-                                (סרטון זהה)
+                                {t('comparison.sameVideo')}
                               </span>
                             )}
                           </SelectorName>
@@ -199,7 +199,7 @@ export const ComparisonModal = ({
                   <>
                     <ComparisonTable>
                       <ComparisonTableHeader>
-                        <TableHeaderCell>מומחה</TableHeaderCell>
+                        <TableHeaderCell>{t('comparison.expert')}</TableHeaderCell>
                         {selectedAnalysesData.map(analysis => (
                           <TableHeaderCell key={analysis.id}>
                             {getTraineeName(analysis.traineeId)}
@@ -227,7 +227,7 @@ export const ComparisonModal = ({
                       ))}
 
                       <ComparisonTableRow style={{ background: 'rgba(212, 160, 67, 0.1)', fontWeight: 700 }}>
-                        <TableLabel style={{ color: '#D4A043', fontWeight: 700 }}>ציון ממוצע כולל</TableLabel>
+                        <TableLabel style={{ color: '#D4A043', fontWeight: 700 }}>{t('comparison.overallAverage')}</TableLabel>
                         {overallAverages.map((avg, idx) => (
                           <TableCell key={idx}>
                             <ScoreCell $score={avg}>{avg}</ScoreCell>
@@ -237,7 +237,7 @@ export const ComparisonModal = ({
                     </ComparisonTable>
 
                     <ComparisonSummary>
-                      <SummaryTitle>סיכום השוואה</SummaryTitle>
+                      <SummaryTitle>{t('comparison.summaryTitle')}</SummaryTitle>
                       <SummaryText>
                         {selectedAnalysesData.length > 0 && (
                           <>
@@ -252,28 +252,28 @@ export const ComparisonModal = ({
                                   color: '#FFC107',
                                   fontWeight: 600
                                 }}>
-                                  ⚠️ שים לב: חלק מהניתוחים הם של אותו סרטון. הציונים וההמלצות אמורים להיות עקביים.
+                                  {t('comparison.sameVideoNote')}
                                 </div>
                               </>
                             )}
-                            <strong>מתאמנים משוואים:</strong>{' '}
+                            <strong>{t('comparison.traineesCompared')}</strong>{' '}
                             {Array.from(new Set(selectedAnalysesData.map(a => getTraineeName(a.traineeId)))).join(', ')}
                             <br />
-                            <strong>טווח תאריכים:</strong>{' '}
+                            <strong>{t('comparison.dateRange')}</strong>{' '}
                             {new Date(Math.min(...selectedAnalysesData.map(a => new Date(a.analysisDate).getTime()))).toLocaleDateString('he-IL')}
                             {' - '}
                             {new Date(Math.max(...selectedAnalysesData.map(a => new Date(a.analysisDate).getTime()))).toLocaleDateString('he-IL')}
                             <br />
-                            <strong>השינוי בציון הממוצע:</strong>{' '}
+                            <strong>{t('comparison.scoreChange')}</strong>{' '}
                             {overallAverages.length > 1 && (
                               <>
-                                {overallAverages[overallAverages.length - 1] > overallAverages[0] ? '↑ עלייה' : 
-                                 overallAverages[overallAverages.length - 1] < overallAverages[0] ? '↓ ירידה' : '→ ללא שינוי'}
+                                {overallAverages[overallAverages.length - 1] > overallAverages[0] ? t('comparison.changeUp') : 
+                                 overallAverages[overallAverages.length - 1] < overallAverages[0] ? t('comparison.changeDown') : t('comparison.changeSame')}
                                 {' '}({overallAverages[0]} → {overallAverages[overallAverages.length - 1]})
                                 {hasDuplicateVideos && overallAverages.length > 1 && 
                                  Math.abs(overallAverages[overallAverages.length - 1] - overallAverages[0]) > 2 && (
                                   <span style={{ color: '#F44336', marginRight: '5px' }}>
-                                    {' '}⚠️ שינוי גדול מדי עבור אותו סרטון
+                                    {' '}{t('comparison.largeChangeWarning')}
                                   </span>
                                 )}
                               </>

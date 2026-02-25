@@ -51,7 +51,8 @@ export const CoachDashboardModal = ({
   onViewAnalysis,
   onExportReport
 }: CoachDashboardModalProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const dateLocale = (i18n.language || i18n.resolvedLanguage || 'en').startsWith('he') ? 'he-IL' : 'en-US';
   const [isAddingTrainee, setIsAddingTrainee] = useState(false);
   const [editingTrainee, setEditingTrainee] = useState<Trainee | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', notes: '' });
@@ -285,26 +286,26 @@ export const CoachDashboardModal = ({
             <CoachHeader>
               <div style={{ flex: 1 }}>
                 <h3 style={{ color: '#D4A043', margin: '0 0 5px 0' }}>
-                  {trainees.length} מתאמנים רשומים
+                  {t('coachDashboard.traineesRegistered', { count: trainees.length })}
                 </h3>
                 <p style={{ color: '#888', margin: 0, fontSize: '0.9rem' }}>
-                  סך הכל {savedAnalyses.length} ניתוחים שמורים
+                  {t('coachDashboard.totalSavedAnalyses', { count: savedAnalyses.length })}
                 </p>
               </div>
               {!isAddingTrainee && (
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <CoachButton onClick={handleExportData}>
-                    ייצא נתונים
+                    {t('coachDashboard.exportData')}
                   </CoachButton>
                   <CoachButton onClick={handleImportData}>
-                    ייבא נתונים
+                    {t('coachDashboard.importData')}
                   </CoachButton>
                   <CoachButton onClick={() => {
                     setIsAddingTrainee(true);
                     setEditingTrainee(null);
                     setFormData({ name: '', email: '', phone: '', notes: '' });
                   }}>
-                    + הוסף מתאמן חדש
+                    {t('coachDashboard.addTrainee')}
                   </CoachButton>
                 </div>
               )}
@@ -313,40 +314,40 @@ export const CoachDashboardModal = ({
             {isAddingTrainee && (
               <TraineeForm style={{ background: 'rgba(212, 160, 67, 0.05)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.2)' }}>
                 <h3 style={{ color: '#D4A043', margin: '0 0 15px 0' }}>
-                  {editingTrainee ? 'עריכת מתאמן' : 'מתאמן חדש'}
+                  {editingTrainee ? t('coachDashboard.editTrainee') : t('coachDashboard.newTrainee')}
                 </h3>
                 <FormInput
-                  placeholder="שם מלא *"
+                  placeholder={t('coachDashboard.placeholderName')}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
                 <FormInput
                   type="email"
-                  placeholder="אימייל (אופציונלי)"
+                  placeholder={t('coachDashboard.placeholderEmail')}
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
                 <FormInput
                   type="tel"
-                  placeholder="טלפון (אופציונלי)"
+                  placeholder={t('coachDashboard.placeholderPhone')}
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
                 <FormTextarea
-                  placeholder="הערות (אופציונלי)"
+                  placeholder={t('coachDashboard.placeholderNotes')}
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 />
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                   <CoachButton onClick={handleSaveTrainee} style={{ flex: 1 }}>
-                    {editingTrainee ? 'שמור שינויים' : 'שמור מתאמן'}
+                    {editingTrainee ? t('coachDashboard.saveChanges') : t('coachDashboard.saveTrainee')}
                   </CoachButton>
                   <TraineeActionButton onClick={() => {
                     setIsAddingTrainee(false);
                     setEditingTrainee(null);
                     setFormData({ name: '', email: '', phone: '', notes: '' });
                   }}>
-                    ביטול
+                    {t('coachDashboard.cancel')}
                   </TraineeActionButton>
                 </div>
               </TraineeForm>
@@ -354,10 +355,10 @@ export const CoachDashboardModal = ({
 
             {trainees.length === 0 && !isAddingTrainee ? (
               <EmptyState>
-                <h3>אין מתאמנים רשומים</h3>
-                <p>התחל בהוספת מתאמן חדש כדי להתחיל לעבוד</p>
+                <h3>{t('coachDashboard.noTrainees')}</h3>
+                <p>{t('coachDashboard.startByAdding')}</p>
                 <CoachButton onClick={() => setIsAddingTrainee(true)}>
-                  + הוסף מתאמן ראשון
+                  {t('coachDashboard.addFirstTrainee')}
                 </CoachButton>
               </EmptyState>
             ) : (
@@ -378,7 +379,7 @@ export const CoachDashboardModal = ({
                         </TraineeInfo>
                       )}
                       <TraineeInfo>
-                        📊 {analysesCount} ניתוחים שמורים
+                        {t('coachDashboard.savedAnalysesCount', { count: analysesCount })}
                       </TraineeInfo>
                       {trainee.notes && (
                         <TraineeInfo style={{ color: '#888', fontSize: '0.85rem', marginTop: '10px' }}>
@@ -389,16 +390,16 @@ export const CoachDashboardModal = ({
                         <TraineeActionButton onClick={() => {
                           setViewingTraineeAnalyses(viewingTraineeAnalyses === trainee.id ? null : trainee.id);
                         }}>
-                          {viewingTraineeAnalyses === trainee.id ? 'הסתר ניתוחים' : 'צפה בניתוחים'}
+                          {viewingTraineeAnalyses === trainee.id ? t('coachDashboard.hideAnalyses') : t('coachDashboard.viewAnalyses')}
                         </TraineeActionButton>
                         <TraineeActionButton onClick={() => {
                           if (onTraineeSelect) onTraineeSelect(trainee.id);
                           onClose();
                         }}>
-                          בחר לניתוח
+                          {t('coachDashboard.selectForAnalysis')}
                         </TraineeActionButton>
                         <TraineeActionButton onClick={() => handleEditTrainee(trainee)}>
-                          ערוך
+                          {t('coachDashboard.edit')}
                         </TraineeActionButton>
                         {analysesCount > 0 && onExportReport && (
                           <TraineeActionButton 
@@ -407,24 +408,24 @@ export const CoachDashboardModal = ({
                             }}
                             style={{ background: 'rgba(212, 160, 67, 0.1)', borderColor: '#D4A043', color: '#D4A043' }}
                           >
-                            יצא דוח PDF
+                            {t('coachDashboard.exportPdfReport')}
                           </TraineeActionButton>
                         )}
                         <TraineeActionButton 
                           className="delete"
                           onClick={() => handleDeleteTrainee(trainee.id)}
                         >
-                          מחק
+                          {t('coachDashboard.delete')}
                         </TraineeActionButton>
                       </TraineeActions>
                       {viewingTraineeAnalyses === trainee.id && (
                         <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #222' }}>
                           <h4 style={{ color: '#D4A043', margin: '0 0 10px 0', fontSize: '0.95rem' }}>
-                            ניתוחים שמורים ({analysesCount})
+                            {t('coachDashboard.savedAnalysesTitle', { count: analysesCount })}
                           </h4>
                           {analysesCount === 0 ? (
                             <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
-                              אין ניתוחים שמורים עבור מתאמן זה
+                              {t('coachDashboard.noSavedAnalyses')}
                             </p>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -448,7 +449,7 @@ export const CoachDashboardModal = ({
                                         {analysis.videoName}
                                       </span>
                                       <span style={{ color: '#aaa', fontSize: '0.85rem' }}>
-                                        {new Date(analysis.analysisDate).toLocaleDateString('he-IL')}
+                                        {new Date(analysis.analysisDate).toLocaleDateString(dateLocale)}
                                       </span>
                                     </div>
                                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -460,11 +461,11 @@ export const CoachDashboardModal = ({
                                         fontSize: '0.85rem',
                                         fontWeight: 700
                                       }}>
-                                        ציון: {analysis.averageScore}
+                                        {t('coachDashboard.score')}: {analysis.averageScore}
                                       </span>
                                       {onViewAnalysis && (
                                         <span style={{ color: '#888', fontSize: '0.85rem' }}>
-                                          לחץ לצפייה →
+                                          {t('coachDashboard.clickToView')}
                                         </span>
                                       )}
                                     </div>

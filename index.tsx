@@ -1455,7 +1455,7 @@ const App = () => {
       if (analysesLimit !== -1 && analysesUsed >= analysesLimit) {
         return { 
           allowed: false, 
-          message: 'סיימת את מכסת הניתוחים בחבילה הנוכחית. כדי להמשיך לנתח, מומלץ לשדרג חבילה או להמתין שהמכסה תתחדש.' 
+          message: t('alerts.quotaExceeded')
         };
       }
 
@@ -1463,7 +1463,7 @@ const App = () => {
       if (minutesLimit !== -1 && minutesUsed >= minutesLimit) {
         return { 
           allowed: false, 
-          message: 'סיימת את מכסת הניתוחים בחבילה הנוכחית. כדי להמשיך לנתח, מומלץ לשדרג חבילה או להמתין שהמכסה תתחדש.' 
+          message: t('alerts.quotaExceeded')
         };
       }
 
@@ -1769,7 +1769,7 @@ const App = () => {
               const traineeForAnalysis = trainees.find(t => t.id === a.trainee_id);
               return {
                 id: a.id,
-                videoName: a.video_id ? (file?.name || 'ניתוח ללא קובץ') : 'ניתוח ללא קובץ',
+                videoName: a.video_id ? (file?.name || t('analysis.noFile')) : t('analysis.noFile'),
                 videoUrl: previewUrl || '',
                 traineeId: a.trainee_id || undefined,
                 traineeName: traineeForAnalysis?.name,
@@ -1897,7 +1897,7 @@ const App = () => {
       const trainee = trainees.find(t => t.id === selectedTrainee);
       const savedAnalysis: SavedAnalysis = {
         id: analysisData.id,
-        videoName: file?.name || 'ניתוח ללא קובץ',
+        videoName: file?.name || t('analysis.noFile'),
         videoUrl: previewUrl || '',
         traineeId: selectedTrainee || undefined,
         traineeName: trainee?.name,
@@ -1925,7 +1925,7 @@ const App = () => {
             const traineeForAnalysis = trainees.find(t => t.id === a.trainee_id);
             return {
               id: a.id,
-              videoName: a.video_id ? (file?.name || 'ניתוח ללא קובץ') : 'ניתוח ללא קובץ',
+              videoName: a.video_id ? (file?.name || t('analysis.noFile')) : t('analysis.noFile'),
               videoUrl: previewUrl || '',
               traineeId: a.trainee_id || undefined,
               traineeName: traineeForAnalysis?.name,
@@ -2329,12 +2329,15 @@ const App = () => {
         font-weight: 700;
       }
       a, button { display: none !important; }
-      ul { padding-right: 20px; margin: 0; }
+      ul { padding-inline-start: 20px; margin: 0; }
       li { margin-bottom: 8px; }
     `;
 
+    const reportLang = (i18n.language || i18n.resolvedLanguage || 'en').split('-')[0];
+    const reportDir = reportLang === 'he' ? 'rtl' : 'ltr';
+    const reportLocale = reportLang === 'he' ? 'he-IL' : 'en-US';
     const analysesHTML = traineeAnalyses.map((analysis, idx) => {
-      const date = new Date(analysis.analysisDate).toLocaleDateString('he-IL');
+      const date = new Date(analysis.analysisDate).toLocaleDateString(reportLocale);
       const expertsHTML = analysis.result.expertAnalysis?.map(expert => `
         <div class="expert-row">
           <div class="expert-header">
@@ -2342,24 +2345,24 @@ const App = () => {
             <span class="expert-score">${expert.score}</span>
           </div>
           <div class="expert-text">
-            <strong>ניתוח:</strong> ${expert.insight}<br/>
-            <strong>טיפים:</strong> ${expert.tips}
+            <strong>${t('coachReport.expertAnalysis')}:</strong> ${expert.insight}<br/>
+            <strong>${t('coachReport.tips')}:</strong> ${expert.tips}
           </div>
         </div>
       `).join('') || '';
 
       return `
         <div class="analysis-card">
-          <h4>ניתוח #${idx + 1} - ${date}</h4>
+          <h4>${t('coachReport.analysisNum', { num: idx + 1 })} - ${date}</h4>
           <div style="margin-bottom: 15px;">
-            <strong>קובץ:</strong> ${analysis.videoName}<br/>
-            <strong>ציון ממוצע:</strong> <span style="font-size: 1.2rem; font-weight: 700; color: #b8862e;">${analysis.averageScore}</span>
+            <strong>${t('coachReport.file')}:</strong> ${analysis.videoName}<br/>
+            <strong>${t('coachReport.averageScore')}:</strong> <span style="font-size: 1.2rem; font-weight: 700; color: #b8862e;">${analysis.averageScore}</span>
           </div>
-          ${analysis.result.hook ? `<div style="background: #fff9e6; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-right: 4px solid #b8862e;"><strong>טיפ זהב:</strong> "${analysis.result.hook}"</div>` : ''}
+          ${analysis.result.hook ? `<div style="background: #fff9e6; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-right: 4px solid #b8862e;"><strong>${t('coachReport.goldenTip')}:</strong> "${analysis.result.hook}"</div>` : ''}
           ${expertsHTML}
           ${analysis.result.committee ? `
             <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #ddd;">
-              <strong>סיכום ועדת המומחים:</strong><br/>
+              <strong>${t('coachReport.committeeSummary')}:</strong><br/>
               ${analysis.result.committee.summary}
               ${analysis.result.committee.finalTips && analysis.result.committee.finalTips.length > 0 ? `
                 <ul style="margin-top: 10px;">
@@ -2376,7 +2379,7 @@ const App = () => {
       <div class="trend-item">
         <span>${trend.role}</span>
         <span>
-          ממוצע: <strong>${trend.average.toFixed(1)}</strong>
+          ${t('coachReport.average')}: <strong>${trend.average.toFixed(1)}</strong>
           ${trend.improvement !== 0 ? ` | ${trend.improvement > 0 ? '<span class="improvement">↑ +' : '<span class="decline">↓ '}${trend.improvement.toFixed(1)}</span>` : ''}
         </span>
       </div>
@@ -2384,16 +2387,16 @@ const App = () => {
 
     printWindow.document.open();
     printWindow.document.write(`
-      <html dir="rtl">
+      <html dir="${reportDir}" lang="${reportLang}">
         <head>
-          <title>דוח מתאמן - ${trainee.name}</title>
+          <title>${t('coachReport.title')} - ${trainee.name}</title>
         </head>
         <body>
           <div class="report-wrapper">
             <div class="report-header">
               <div class="report-header-text">
-                <h1>דוח מתאמן מקצועי</h1>
-                <div class="subtitle">${trainee.name} | ${new Date().toLocaleDateString('he-IL')}</div>
+                <h1>${t('coachReport.proTitle')}</h1>
+                <div class="subtitle">${trainee.name} | ${new Date().toLocaleDateString(reportLocale)}</div>
               </div>
               <div class="report-logo-left">
                 <img src="${window.location.origin}/Logo.png" alt="Viraly Logo" />
@@ -2401,40 +2404,40 @@ const App = () => {
             </div>
 
             <div class="trainee-info">
-              <h3>פרטי המתאמן</h3>
-              <p><strong>שם:</strong> ${trainee.name}</p>
-              ${trainee.email ? `<p><strong>אימייל:</strong> ${trainee.email}</p>` : ''}
-              ${trainee.phone ? `<p><strong>טלפון:</strong> ${trainee.phone}</p>` : ''}
-              ${trainee.notes ? `<p><strong>הערות:</strong> ${trainee.notes}</p>` : ''}
+              <h3>${t('coachReport.traineeDetails')}</h3>
+              <p><strong>${t('coachReport.name')}:</strong> ${trainee.name}</p>
+              ${trainee.email ? `<p><strong>${t('coachReport.email')}:</strong> ${trainee.email}</p>` : ''}
+              ${trainee.phone ? `<p><strong>${t('coachReport.phone')}:</strong> ${trainee.phone}</p>` : ''}
+              ${trainee.notes ? `<p><strong>${t('coachReport.notes')}:</strong> ${trainee.notes}</p>` : ''}
             </div>
 
             <div class="summary-stats">
               <div class="stat-box">
                 <span class="number">${traineeAnalyses.length}</span>
-                <span class="label">סך ניתוחים</span>
+                <span class="label">${t('coachReport.totalAnalyses')}</span>
               </div>
               <div class="stat-box">
                 <span class="number">${firstAnalysis.averageScore}</span>
-                <span class="label">ציון ראשון</span>
+                <span class="label">${t('coachReport.firstScore')}</span>
               </div>
               <div class="stat-box">
                 <span class="number">${lastAnalysis.averageScore}</span>
-                <span class="label">ציון אחרון</span>
+                <span class="label">${t('coachReport.lastScore')}</span>
               </div>
               <div class="stat-box">
                 <span class="number ${isImproving ? 'improvement' : 'decline'}">${scoreChange > 0 ? '+' : ''}${scoreChange.toFixed(1)}</span>
-                <span class="label">שינוי כולל</span>
+                <span class="label">${t('coachReport.overallChange')}</span>
               </div>
             </div>
 
             ${expertTrends.length > 0 ? `
               <div class="trends-section">
-                <h3>מגמות לפי מומחה</h3>
+                <h3>${t('coachReport.trendsByExpert')}</h3>
                 ${trendsHTML}
               </div>
             ` : ''}
 
-            <h2>פירוט ניתוחים</h2>
+            <h2>${t('coachReport.analysisDetails')}</h2>
             ${analysesHTML}
           </div>
         </body>
@@ -4143,7 +4146,7 @@ const App = () => {
                     borderRadius: '4px',
                     fontWeight: 600
                   }}>
-                    לא בחבילה
+                    {t('coachTrack.notInPlan')}
                   </span>
                 )}
               </TrackCard>
@@ -4314,7 +4317,7 @@ const App = () => {
 
               {trainees.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(212, 160, 67, 0.1)', padding: '12px 20px', borderRadius: '8px', border: '1px solid rgba(212, 160, 67, 0.3)' }}>
-                  <span style={{ color: '#D4A043', fontWeight: 600 }}>מתאמן נבחר:</span>
+                  <span style={{ color: '#D4A043', fontWeight: 600 }}>{t('coachDashboard.selectedTrainee')}</span>
                   <select 
                     value={selectedTrainee || ''} 
                     onChange={(e) => setSelectedTrainee(e.target.value || null)}
@@ -4330,7 +4333,7 @@ const App = () => {
                       minWidth: '200px'
                     }}
                   >
-                    <option value="">-- בחר מתאמן --</option>
+                    <option value="">{t('coachDashboard.selectTraineePlaceholder')}</option>
                     {trainees.map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
@@ -4357,7 +4360,7 @@ const App = () => {
                   opacity: getMaxExperts() < 8 ? 0.5 : 1,
                   cursor: getMaxExperts() < 8 ? 'not-allowed' : 'pointer'
                 }}
-                title={getMaxExperts() < 8 ? '8 מומחים זמינים בחבילות מנוי בלבד. שדרג את החבילה.' : ''}
+                title={getMaxExperts() < 8 ? t('experts.all8Tooltip') : ''}
               >
                 {t('experts.toggleAll8')}
               </ExpertToggleButton>
@@ -4381,7 +4384,7 @@ const App = () => {
                   opacity: isDisabled ? 0.5 : 1,
                   cursor: isDisabled ? 'not-allowed' : 'pointer'
                 }}
-                title={isDisabled ? `מקסימום ${maxExperts} מומחים זמינים בחבילה שלך. שדרג את החבילה לבחור מומחים נוספים.` : ''}
+                title={isDisabled ? t('alerts.maxExperts', { max: maxExperts }) : ''}
               >
                 <FeatureTitle $selected={isSelected}>{expertTitle}</FeatureTitle>
                 <FeatureDesc $selected={isSelected}>{expertDesc}</FeatureDesc>
@@ -4599,7 +4602,7 @@ const App = () => {
             {loading ? t('analysis.watching') : (isImprovementMode ? t('analysis.analyzeImprovements') : t('analysis.action'))}
           </ActionButton>
           {selectedExperts.length < 3 && (
-            <ErrorMsg>נא לבחור לפחות 3 מומחים כדי להמשיך</ErrorMsg>
+            <ErrorMsg>{t('alerts.minExperts')}</ErrorMsg>
           )}
         </InputWrapper>
 

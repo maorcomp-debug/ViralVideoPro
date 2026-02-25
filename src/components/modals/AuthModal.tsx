@@ -212,6 +212,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [testPackageTier, setTestPackageTier] = useState<SubscriptionTier>('free');
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [passwordResetSent, setPasswordResetSent] = useState(false);
+  const [showSignupSuccessModal, setShowSignupSuccessModal] = useState(false);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('creator');
   const [selectedTrack, setSelectedTrack] = useState<TrackId | ''>('');
 
@@ -419,8 +420,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const effectiveTier = mode === 'initial' ? 'free' : selectedTier;
         const effectiveTrack = selectedTrack || undefined;
         const cleanPhoneForSignUp = mode === 'initial' ? '' : phone.trim().replace(/\D/g, '');
-        let displayName = mode === 'initial' ? (email.trim() || 'משתמש') : fullName.trim();
-        if (isTestAccount) displayName = `חבילת ${SUBSCRIPTION_PLANS[testPackageTier].name}`;
+        let displayName = mode === 'initial' ? (email.trim() || t('auth.defaultUserDisplayName')) : fullName.trim();
+        if (isTestAccount) displayName = t('auth.testAccountDisplayName', { plan: t(`plan.${testPackageTier}`) });
 
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
@@ -515,8 +516,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           const needsEmailConfirmation = !session && !data.user.email_confirmed_at;
           if (needsEmailConfirmation) {
             setLoading(false);
-            alert(t('authErrors.signupSuccess'));
-            onClose();
+            setShowSignupSuccessModal(true);
             return;
           }
 
@@ -645,6 +645,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  if (showSignupSuccessModal) {
+    return (
+      <AuthModalOverlay $isOpen={true}>
+        <AuthModalContent style={{ maxWidth: '420px' }}>
+          <p style={{ margin: '0 0 24px 0', color: '#e0e0e0', lineHeight: 1.6, textAlign: (i18n.language || 'he').startsWith('en') ? 'left' : 'right', direction: (i18n.language || 'he').startsWith('en') ? 'ltr' : 'rtl' }}>
+            {t('authErrors.signupSuccess')}
+          </p>
+          <AuthButton onClick={() => { setShowSignupSuccessModal(false); onClose(); }}>
+            {t('auth.ok')}
+          </AuthButton>
+        </AuthModalContent>
+      </AuthModalOverlay>
+    );
+  }
 
   return (
     <AuthModalOverlay 
@@ -927,16 +942,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ) : isTestAccount ? (
                 <div>
                   <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                    בחר חבילה לבדיקה
+                    {t('auth.selectPackageForTest')}
                   </label>
                   <PackageSelect
                     value={testPackageTier}
                     onChange={(e) => setTestPackageTier(e.target.value as SubscriptionTier)}
                   >
-                    <option value="free">חבילת ניסיון (חינם)</option>
-                    <option value="creator">חבילת יוצרים</option>
-                    <option value="pro">חבילת יוצרים באקסטרים</option>
-                    <option value="coach">חבילת מאמנים, סוכנויות ובתי ספר למשחק</option>
+                    <option value="free">{t('auth.testPackageFree')}</option>
+                    <option value="creator">{t('auth.testPackageCreator')}</option>
+                    <option value="pro">{t('auth.testPackagePro')}</option>
+                    <option value="coach">{t('auth.testPackageCoach')}</option>
                   </PackageSelect>
                   <div style={{ 
                     marginTop: '8px', 
@@ -947,20 +962,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     color: '#D4A043',
                     textAlign: 'right'
                   }}>
-                    שם הכניסה יהיה: חבילת {SUBSCRIPTION_PLANS[testPackageTier].name}
+                    {t('auth.testAccountDisplayName', { plan: t(`plan.${testPackageTier}`) })}
                   </div>
                 </div>
               ) : (
                 <div>
                   <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
-                    שם מלא (פרטי ומשפחה) *
+                    {t('auth.fullName')}
                   </label>
                   <input
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
-                    placeholder="לדוגמה: יוסי כהן"
+                    placeholder={t('auth.fullNamePlaceholder')}
                     style={{
                       width: '100%',
                       background: 'rgba(255, 255, 255, 0.1)',
@@ -999,7 +1014,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     }}
                   />
                   <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
-                    מספר טלפון ישראלי (10 ספרות)
+                    {t('auth.phoneHint')}
                   </div>
                 </div>
               )}
@@ -1032,7 +1047,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 />
                 {isTestAccount && (
                   <div style={{ marginTop: '5px', fontSize: '0.85rem', color: '#D4A043', textAlign: 'right', fontStyle: 'italic' }}>
-                    📧 מייל בדיקות - ניתן לרישום מרובה עם חבילות שונות
+                    {t('auth.testEmailHint')}
                   </div>
                 )}
               </div>
@@ -1156,7 +1171,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       }}
                       style={{ width: 16, height: 16, cursor: 'pointer' }}
                     />
-                    הפעל שדה קופון
+                    {t('auth.enableCouponField')}
                   </span>
                 </label>
 
@@ -1198,7 +1213,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       />
                       {couponValidating && (
                         <span style={{ color: '#D4A043', fontSize: '0.9rem', lineHeight: '44px', fontWeight: 600 }}>
-                          בודק...
+                          {t('auth.couponChecking')}
                         </span>
                       )}
                     </div>
@@ -1216,7 +1231,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         }}
                       >
                         <div style={{ fontWeight: 600, marginBottom: '4px' }}>
-                          ✓ קוד קופון תקין ותקף לחודש הראשון של ההרשמה
+                          {t('auth.couponValidFirstMonth')}
                         </div>
                         {couponValid.coupon?.description && (
                           <div style={{ fontSize: '0.85rem', opacity: 0.95 }}>
@@ -1225,7 +1240,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         )}
                         {(couponValid.coupon?.discount_type === 'percentage' || couponValid.coupon?.discount_type === 'fixed_amount') && (
                           <div style={{ marginTop: '6px', fontSize: '0.8rem', color: 'rgba(76, 175, 80, 0.95)' }}>
-                            ההנחה תחול על התשלום הראשון בחבילה.
+                            {t('auth.couponDiscountApplies')}
                           </div>
                         )}
                       </div>
@@ -1243,7 +1258,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           border: '1px solid rgba(244, 67, 54, 0.3)',
                         }}
                       >
-                        ✗ {couponValid.error || 'קוד קופון לא תקין'}
+                        ✗ {couponValid.error || t('auth.couponInvalid')}
                       </div>
                     )}
                   </>

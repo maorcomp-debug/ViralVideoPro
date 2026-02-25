@@ -165,9 +165,43 @@ https://viral-video-pro.vercel.app
 ---
 
 ## Git
-- **Repo:** maorcomp-debug/ViralVideoPro
-- **Branch:** main
+- **גיבוי (backup):** maorcomp-debug/ViralVideoPro, branch: main
+- **פרודקשן (production):** maorcomp-debug/ViralyPro, branch: main
 
-## Production (viraly.co.il)
-- **Repo:** maorcomp-debug/ViralyPro
-- לא לדחוף קוד גיבוי לפרודקשן – רק ViralVideoPro.
+## העברת עדכונים מגיבוי לפרודקשן (viraly.co.il)
+
+כשסיימת את כל העדכונים בגיבוי ומעוניין להעביר לפרודקשן:
+
+### שלב 1 – ודא שהגיבוי מעודכן
+```bash
+cd "גיבוי פרוייקט סופי"
+git add -A
+git commit -m "תיאור העדכונים"
+git push origin main
+```
+
+### שלב 2 – דחיפה לפרודקשן
+```bash
+git push viralypro main:main
+```
+
+זה ידחוף את ה־main המקומי (מהגיבוי) ל־ViralyPro.
+
+### שלב 3 – Vercel
+אם viraly.co.il מחובר ל־ViralyPro ב־Vercel – ה-deploy יתבצע אוטומטית אחרי ה-push.
+
+### שלב 4 – הגדרות פרודקשן
+- **Vercel** (פרויקט viraly.co.il): ודא env vars – `VITE_APP_URL` = `https://viraly.co.il` (אם נדרש)
+- **Supabase Redirect URLs:** viraly.co.il כבר אמור להיות ברשימה
+- **Auth Hook:** אותו Hook משמש את שני האתרים (Supabase משותף)
+
+### אם יש קונפליקטים
+אם ViralyPro התקדם בנפרד, אפשר למזג:
+```bash
+cd /path/to/ViralyPro   # clone של פרודקשן
+git remote add backup https://github.com/maorcomp-debug/ViralVideoPro.git
+git fetch backup
+git merge backup/main
+# פתור קונפליקטים אם יש
+git push origin main
+```
