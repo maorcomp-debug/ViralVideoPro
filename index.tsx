@@ -2584,6 +2584,8 @@ const App = () => {
       return html;
     };
 
+    const pdfDir = (i18n.language || 'he').startsWith('en') ? 'ltr' : 'rtl';
+    const isPdfLtr = pdfDir === 'ltr';
     const styles = `
       @page {
         size: A4;
@@ -2595,7 +2597,7 @@ const App = () => {
         box-sizing: border-box;
       }
       body { 
-        direction: rtl; 
+        direction: ${pdfDir}; 
         font-family: 'Assistant', sans-serif; 
         background: #ffffff !important; 
         color: #1a1a1a !important; 
@@ -2634,9 +2636,9 @@ const App = () => {
         padding-bottom: 14px;
       }
       .export-header-text {
-        text-align: right;
+        text-align: ${isPdfLtr ? 'left' : 'right'};
         flex: 1;
-        margin-right: 16px;
+        margin-${isPdfLtr ? 'left' : 'right'}: 16px;
       }
       .export-note { color: #666; font-size: 11px; margin-top: 4px; }
       .export-logo-left {
@@ -2748,12 +2750,13 @@ const App = () => {
         color: #555;
         font-weight: 700;
       }
-      /* Committee Tips styling using data attribute */
+      /* Committee Tips styling using data attribute – LTR for English */
       [data-pdf="committee-tips"] {
         background: #f9f9f9 !important;
         padding: 20px !important;
         border-radius: 8px !important;
-        text-align: right !important;
+        text-align: ${isPdfLtr ? 'left' : 'right'} !important;
+        direction: ${pdfDir} !important;
         max-width: 600px !important;
         width: 100% !important;
         margin: 20px auto 30px !important;
@@ -2766,10 +2769,10 @@ const App = () => {
         margin: 0 0 12px 0 !important;
         font-size: 1.1rem !important;
         font-weight: 700 !important;
-        text-align: right !important;
+        text-align: ${isPdfLtr ? 'left' : 'right'} !important;
       }
       [data-pdf="committee-tips"] ul {
-        padding-right: 24px !important;
+        padding-${isPdfLtr ? 'left' : 'right'}: 24px !important;
         margin: 0 !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
@@ -2819,14 +2822,13 @@ const App = () => {
       /* אל תציג כפתורים וקישורים */
       a, button { display: none !important; }
       /* רשימות */
-      ul { padding-right: 20px; margin: 0; }
+      ul { padding-${isPdfLtr ? 'left' : 'right'}: 20px; margin: 0; }
       li { margin-bottom: 8px; }
       /* איקונים – קטנים ועדינים יותר */
       svg { max-width: 16px; max-height: 16px; }
     `;
 
     const doc = printWindow.document;
-    const pdfDir = (i18n.language || 'he').startsWith('en') ? 'ltr' : 'rtl';
     const localeForDate = (i18n.language || 'he').startsWith('en') ? 'en-US' : 'he-IL';
     doc.open();
     doc.write(`
@@ -4652,7 +4654,7 @@ const App = () => {
                   </CompactResultBox>
                   
                   {result.committee.finalTips && result.committee.finalTips.length > 0 && (
-                    <CommitteeTips data-pdf="committee-tips">
+                    <CommitteeTips data-pdf="committee-tips" $isLtr={(i18n.language || 'he').startsWith('en')}>
                       <h5>{t('analysis.winningTips')}</h5>
                       <ul>
                         {result.committee.finalTips.map((tip, i) => (

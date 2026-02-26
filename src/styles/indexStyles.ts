@@ -1275,11 +1275,12 @@ export const CommitteeText = styled.p`
   margin: 0;
 `;
 
-export const CommitteeTips = styled.div`
+export const CommitteeTips = styled.div<{ $isLtr?: boolean }>`
   background: rgba(255,255,255,0.03);
   padding: 20px;
   border-radius: 8px;
-  text-align: right;
+  text-align: ${p => p.$isLtr ? 'left' : 'right'};
+  direction: ${p => p.$isLtr ? 'ltr' : 'rtl'};
   max-width: 600px;
   width: 100%;
   margin: 20px auto 30px;
@@ -1292,7 +1293,8 @@ export const CommitteeTips = styled.div`
   }
   
   ul {
-    padding-right: 20px;
+    padding-right: ${p => p.$isLtr ? '0' : '20px'};
+    padding-left: ${p => p.$isLtr ? '20px' : '0'};
     margin: 0;
   }
   li {
