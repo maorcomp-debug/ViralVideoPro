@@ -15,6 +15,14 @@ interface InitOrderRequest {
   preferredLanguage?: 'he' | 'en';
 }
 
+/** USD prices per package (matches en.json display). Used when preferredLanguage === 'en'. */
+const USD_PRICES: Record<string, { monthly: number; yearly: number }> = {
+  creator: { monthly: 19.99, yearly: 199.90 },
+  pro: { monthly: 29.99, yearly: 299.90 },
+  coach: { monthly: 49.99, yearly: 499.90 },
+  'coach-pro': { monthly: 89.99, yearly: 899.90 },
+};
+
 // RULE: This API only creates an order and returns the payment URL. It does NOT update profile or subscription.
 // מעבר לחבילה חדשה מתבצע רק לאחר קבלת תשלום בהצלחה (callback) – לא בלחיצה על שדרוג.
 export default async function handler(
@@ -116,9 +124,21 @@ export default async function handler(
       });
     }
 
-    let amount = body.billingPeriod === 'monthly' 
-      ? plan.monthly_price 
-      : plan.yearly_price;
+    const useUsd = body.preferredLanguage === 'en';
+    const usdPrices = useUsd ? USD_PRICES[body.subscriptionTier] : null;
+
+    let amount: number;
+    let currency: string;
+
+    if (useUsd && usdPrices) {
+      amount = body.billingPeriod === 'monthly' ? usdPrices.monthly : usdPrices.yearly;
+      currency = 'USD';
+    } else {
+      amount = body.billingPeriod === 'monthly'
+        ? Number(plan.monthly_price)
+        : Number(plan.yearly_price);
+      currency = 'ILS';
+    }
 
     // Fetch profile for discount and for Takbull customer data (name, email, phone)
     const { data: profile, error: profileError } = await supabase
@@ -136,18 +156,19 @@ export default async function handler(
     if (discountType && discountValue != null && amount > 0) {
       if (discountType === 'percentage') {
         const pct = Math.min(100, Math.max(0, Number(discountValue)));
-        amount = Math.round(amount * (1 - pct / 100));
+        amount = amount * (1 - pct / 100);
       } else if (discountType === 'fixed_amount') {
         const fixed = Math.min(amount, Math.max(0, Number(discountValue)));
-        amount = Math.round(amount - fixed);
+        amount = amount - fixed;
       }
-      amount = Math.max(0, amount);
+      amount = Math.max(0, currency === 'USD' ? Math.round(amount * 100) / 100 : Math.round(amount));
       console.log('💰 Applied registration coupon discount:', { discountType, discountValue, finalAmount: amount });
     }
 
     console.log('💰 Plan details:', {
       planId,
       billingPeriod: body.billingPeriod,
+      currency,
       monthlyPrice: plan.monthly_price,
       yearlyPrice: plan.yearly_price,
       amount,
@@ -207,7 +228,7 @@ export default async function handler(
         PhoneNumber: customerPhone,
       },
       RedirectAddress: redirectUrl,
-      Currency: 'ILS',
+      Currency: currency,
       Language: (body.preferredLanguage === 'en' ? 'en' : 'he') as string,
     };
 
