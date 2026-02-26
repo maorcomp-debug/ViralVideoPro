@@ -92,10 +92,10 @@ Deno.serve(async (req: Request) => {
       redirectTo = `${redirectTo}${sep}lang=${lang}`;
     }
 
-    // Link to app with token_hash – verifyOtp works without PKCE code verifier (Supabase verify returns 500 when opened on different device).
-    const verifyType = actionType === "signup" ? "email" : actionType;
-    const sep = redirectTo.includes("?") ? "&" : "?";
-    const actionLink = `${redirectTo.replace(/\/$/, "")}${sep}token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(verifyType)}`;
+    // Use Supabase verify URL (same as default Supabase flow) – server-side verification, then redirect to app with #access_token
+    const verifyType = actionType === "signup" ? "signup" : actionType;
+    const encodedRedirect = encodeURIComponent(redirectTo.replace(/\/$/, ""));
+    const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}&type=${verifyType}&redirect_to=${encodedRedirect}`;
 
     // Always use APP_URL for API – viral-video-pro.vercel.app has send-auth-email + Resend.
     // redirectTo (from client) ensures the email link lands user on correct site (viraly.co.il or backup).

@@ -148,20 +148,20 @@ export const useAuth = (): UseAuthReturn => {
         }
       }
 
-      // Handle email verification via hash fragment (#access_token) - Supabase default method
+      // Handle email verification via hash fragment (#access_token) – Supabase redirect after /auth/v1/verify
       if (typeof window !== 'undefined' && window.location.hash) {
-        const hash = window.location.hash.substring(1); // Remove #
+        const hash = window.location.hash.substring(1);
         const hashParams = new URLSearchParams(hash);
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         const type = hashParams.get('type');
-        
-        if (accessToken && (type === 'signup' || type === 'email' || type === 'recovery')) {
+        if (accessToken && refreshToken && (type === 'signup' || type === 'email' || type === 'recovery')) {
           try {
-            // Supabase SDK processes hash automatically; reload with clean URL so app picks up session
+            await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
             const cleanParams = new URLSearchParams(window.location.search);
             const qs = cleanParams.toString();
             const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '');
+            await new Promise((r) => setTimeout(r, 800));
             window.location.replace(cleanUrl);
             return;
           } catch (e) {
