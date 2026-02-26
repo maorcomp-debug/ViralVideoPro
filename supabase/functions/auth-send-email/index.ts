@@ -60,6 +60,8 @@ Deno.serve(async (req: Request) => {
     const email = user?.email;
     const tokenHash = email_data?.token_hash;
     let redirectTo = email_data?.redirect_to || APP_URL;
+    // Force production domain – replace backup URL with viraly.co.il (fixes EN signup redirect)
+    redirectTo = (redirectTo || "").replace(/https?:\/\/viral-video-pro\.vercel\.app/gi, "https://viraly.co.il");
     const actionType = (email_data?.email_action_type || "signup") as string;
 
     if (!email || !tokenHash || !SUPABASE_URL) {
