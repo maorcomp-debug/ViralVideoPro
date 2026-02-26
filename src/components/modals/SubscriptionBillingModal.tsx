@@ -205,12 +205,10 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
       .catch(() => {});
   }, [isOpen]);
 
-  const showPause = !isFree && status === 'active';
   const showCancel = !isFree && (status === 'active' || status === 'paused');
-  const showResume = !isFree && status === 'paused';
   const showUpgrade = isFree || status === 'expired';
 
-  const runAction = async (action: 'pause' | 'cancel' | 'resume') => {
+  const runAction = async (action: 'cancel') => {
     setLoading(action);
     setMessage(null);
     const base = typeof window !== 'undefined' ? window.location.origin : '';
@@ -228,26 +226,14 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
         return;
       }
       const periodEndStr = periodEnd ? formatDate(periodEnd) : '';
-      if (action === 'pause') {
-        setMessage({
-          text: `המנוי הושהה בהצלחה. תוכל להשתמש עד ${periodEndStr} או עד סיום המכסה.`,
-          success: true,
-        });
-      } else if (action === 'cancel') {
-        setMessage({
-          text: `המנוי בוטל בהצלחה. תוכל להשתמש עד ${periodEndStr} או עד סיום המכסה.`,
-          success: true,
-        });
-      } else {
-        setMessage({
-          text: 'המנוי חודש בהצלחה. החידוש האוטומטי פעיל.',
-          success: true,
-        });
-      }
+      setMessage({
+        text: `המנוי בוטל בהצלחה. תוכל להשתמש עד ${periodEndStr} או עד סיום המכסה. הביטול מסונכרן עם Takbull – לא יתבצע חיוב נוסף.`,
+        success: true,
+      });
       setApiStatus((prev) => ({
         ...prev,
-        subscription_status: action === 'resume' ? 'active' : action === 'pause' ? 'paused' : 'canceled',
-        auto_renew: action === 'resume',
+        subscription_status: 'canceled',
+        auto_renew: false,
       }));
       onRefresh?.();
     } catch (e) {
@@ -257,38 +243,15 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
     }
   };
 
-  const handlePause = () => {
-    const periodEndStr = periodEnd ? formatDate(periodEnd) : 'סיום המכסה';
-    setConfirmDialog({
-      title: 'להשהות את המנוי?',
-      body: `ההשהייה תיכנס לתוקף בסיום התקופה. לא תחויב שוב, ותוכל להמשיך להשתמש בחבילה עד ${periodEndStr} או עד סיום המכסה, המוקדם מביניהם.`,
-      confirmLabel: 'כן, השהה',
-      onConfirm: () => {
-        setConfirmDialog(null);
-        runAction('pause');
-      },
-    });
-  };
   const handleCancel = () => {
     const periodEndStr = periodEnd ? formatDate(periodEnd) : 'סיום המכסה';
     setConfirmDialog({
       title: 'לבטל את המנוי?',
-      body: `הביטול ייכנס לתוקף בסיום התקופה. לא תחויב שוב, ותוכל להמשיך להשתמש בחבילה עד ${periodEndStr} או עד סיום המכסה, המוקדם מביניהם.`,
+      body: `הביטול ייכנס לתוקף מיידית ב-Takbull – לא יתבצע חיוב נוסף. תוכל להמשיך להשתמש בחבילה עד ${periodEndStr} או עד סיום המכסה, המוקדם מביניהם.`,
       confirmLabel: 'כן, בטל מנוי',
       onConfirm: () => {
         setConfirmDialog(null);
         runAction('cancel');
-      },
-    });
-  };
-  const handleResume = () => {
-    setConfirmDialog({
-      title: 'לחדש את המנוי?',
-      body: 'החיוב המחזורי יחזור להיות פעיל, והמנוי יתחדש אוטומטית בסיום התקופה הנוכחית.',
-      confirmLabel: 'כן, חדש מנוי',
-      onConfirm: () => {
-        setConfirmDialog(null);
-        runAction('resume');
       },
     });
   };
@@ -367,16 +330,6 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
         )}
 
         <ButtonGroup>
-          {showPause && (
-            <PrimaryBtn onClick={handlePause} disabled={!!loading}>
-              {loading === 'pause' ? 'מעבד...' : 'השהה מנוי'}
-            </PrimaryBtn>
-          )}
-          {showResume && (
-            <PrimaryBtn onClick={handleResume} disabled={!!loading}>
-              {loading === 'resume' ? 'מעבד...' : 'חדש מנוי'}
-            </PrimaryBtn>
-          )}
           {showCancel && (
             <SecondaryBtn onClick={handleCancel} disabled={!!loading}>
               {loading === 'cancel' ? 'מעבד...' : 'בטל מנוי'}

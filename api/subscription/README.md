@@ -19,7 +19,7 @@
 ## שימוש
 
 - **GET /api/subscription** – סטטוס מנוי (דורש `Authorization: Bearer <session_access_token>`).
-- **POST /api/subscription** עם body `{ "action": "pause" }` או `"cancel"` או `"resume"` – השהה/ביטול/חידוש (דורש Authorization).
+- **POST /api/subscription** עם body `{ "action": "cancel" }` – ביטול מנוי (מסונכרן מיידית עם Takbull, דורש Authorization).
 - **POST /api/subscription** עם body `{ "action": "downgrade-expired" }` – Cron הורדה ל-Free (דורש CRON_SECRET ב־Authorization או ב־body/query כ־secret).
 
 ## Cron
@@ -28,4 +28,4 @@
 
 ## מיילים
 
-ניתן להוסיף שליחת מייל (Resend) בתוך `api/subscription.ts` אחרי כל פעולה (השהה/ביטול/חידוש/הורדה ל-Free).
+ניתן להוסיף שליחת מייל (Resend) בתוך `api/subscription.ts` אחרי כל פעולה (ביטול/הורדה ל-Free).

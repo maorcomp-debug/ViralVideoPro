@@ -375,7 +375,7 @@
     "faq4a": "No. Monthly plans. Pay for what you use.",
     "faq5q": "Can I cancel anytime?",
     "faq5a": "Yes. Access stays active until the end of your billing period.",
-    "faq6q": "What happens after cancel or pause?",
+    "faq6q": "What happens after cancel?",
     "faq6a": "Access stays until period end. No more charges.",
     "faq7q": "Refunds?",
     "faq7a": "No. Billing covers the period already started.",
@@ -728,7 +728,7 @@
   "manageSubscription": {
     "title": "What would you like to do?",
     "packagesUpgrade": "Choose packages / Upgrade",
-    "billingManage": "Subscription & billing (pause / cancel / renew)",
+    "billingManage": "Subscription & billing (cancel)",
     "back": "Back"
   },
   "subscriptionModal": {

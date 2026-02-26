@@ -163,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  if (req.method === 'POST' && ['pause', 'cancel', 'resume'].includes(action)) {
+  if (req.method === 'POST' && action === 'cancel') {
     try {
       const user = await getUserFromRequest(req);
       if (!user) return res.status(401).json({ error: 'לא מאומת' });
@@ -171,146 +171,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const { data: sub } = await admin
         .from('subscriptions')
-        .select('id, subscription_status, takbul_recurring_id')
+        .select('id, subscription_status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (!sub) return res.status(400).json({ error: action === 'resume' ? 'לא נמצא מנוי' : 'לא נמצא מנוי פעיל' });
+      if (!sub) return res.status(400).json({ error: 'לא נמצא מנוי פעיל' });
 
       const subAny = sub as any;
-      const recurringId = subAny.takbul_recurring_id;
+      if (subAny.subscription_status === 'canceled') return res.status(200).json({ ok: true, message: 'המנוי כבר בוטל' });
 
-      if (action === 'pause') {
-        if (subAny.subscription_status === 'paused') return res.status(200).json({ ok: true, message: 'המנוי כבר מושהה' });
-        if (recurringId) {
-          try {
-            const takbulApiKey = process.env.TAKBULL_API_KEY;
-            const takbulApiSecret = process.env.TAKBULL_API_SECRET;
-            if (takbulApiKey && takbulApiSecret) {
-              const resTakbul = await fetch('https://api.takbull.co.il/api/ExtranalAPI/StopRecurringCharge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ API_Key: takbulApiKey, API_Secret: takbulApiSecret, RecurringId: recurringId }),
-              });
-              if (!resTakbul.ok) console.warn('Takbul stopRecurringCharge failed:', await resTakbul.text());
-            }
-          } catch (e) { console.warn('Takbul pause error:', e); }
-        }
-        const now = new Date().toISOString();
-        await admin.from('subscriptions').update({
-          subscription_status: 'paused',
-          auto_renew: false,
-          paused_at: now,
-          updated_at: now,
-        } as any).eq('id', sub.id);
-        await logEvent(admin, user.id, 'pause', { subscription_id: sub.id });
-        const { data: profile } = await admin.from('profiles').select('user_id').eq('user_id', user.id).single();
-        // חשוב: בפרופיל נשמור סטטוס "paused" כדי לשקף למנהל שמדובר במנוי מושהה (לא "לא פעיל")
-        if (profile) await admin.from('profiles').update({ subscription_status: 'paused', updated_at: now }).eq('user_id', user.id);
-        const { email, lang } = await getEmailAndLangForUser(admin, user.id);
-        if (email) await sendSubscriptionActionEmail(email, 'pause', lang);
-        return res.status(200).json({ ok: true });
+      // Get the original order's uniqId for CancelSubscription API call (sync with Takbull immediately)
+      let uniqId: string | null = null;
+      try {
+        const { data: order } = await admin
+          .from('takbull_orders')
+          .select('uniq_id')
+          .eq('subscription_id', sub.id)
+          .not('uniq_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        uniqId = (order as any)?.uniq_id || null;
+      } catch (e) {
+        console.warn('Error fetching order uniqId:', e);
       }
 
-      if (action === 'cancel') {
-        if (subAny.subscription_status === 'canceled') return res.status(200).json({ ok: true, message: 'המנוי כבר בוטל' });
-        
-        // Get the original order's uniqId for CancelSubscription API call
-        let uniqId: string | null = null;
+      if (uniqId) {
         try {
-          const { data: order } = await admin
-            .from('takbull_orders')
-            .select('uniq_id')
-            .eq('subscription_id', sub.id)
-            .not('uniq_id', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          uniqId = (order as any)?.uniq_id || null;
-        } catch (e) {
-          console.warn('Error fetching order uniqId:', e);
-        }
-       
-
-        // Call CancelSubscription with original uniqId from GetRedirectUrl
-        if (uniqId) {
-          try {
-            const cancelUrl = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}`;
-            const resCancel = await fetch(cancelUrl, {
-              method: 'GET',
-              headers: { 'Accept': 'application/json' },
-            });
-            
-            if (!resCancel.ok) {
-              const errorText = await resCancel.text();
-              console.warn('Takbull CancelSubscription HTTP error:', resCancel.status, errorText);
+          const cancelUrl = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}`;
+          const resCancel = await fetch(cancelUrl, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+          });
+          if (!resCancel.ok) {
+            const errorText = await resCancel.text();
+            console.warn('Takbull CancelSubscription HTTP error:', resCancel.status, errorText);
+          } else {
+            const cancelData = await resCancel.json();
+            if (cancelData.InternalCode === 0) {
+              console.log('Takbull CancelSubscription succeeded for uniqId:', uniqId);
             } else {
-              const cancelData = await resCancel.json();
-              if (cancelData.InternalCode === 0) {
-                console.log('Takbull CancelSubscription succeeded for uniqId:', uniqId);
-              } else {
-                const errorMsg = cancelData.InternalDescription || 'Unknown error';
-                console.warn('Takbull CancelSubscription failed:', {
-                  uniqId,
-                  InternalCode: cancelData.InternalCode,
-                  InternalDescription: errorMsg,
-                });
-              }
-            }
-          } catch (e) {
-            console.warn('Takbull CancelSubscription error:', e);
-          }
-        } else {
-          console.warn('No uniqId found for subscription cancellation');
-        }
-
-        const now = new Date().toISOString();
-        await admin.from('subscriptions').update({
-          subscription_status: 'canceled',
-          status: 'cancelled',
-          auto_renew: false,
-          canceled_at: now,
-          updated_at: now,
-        } as any).eq('id', sub.id);
-        await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id, uniqId });
-        await admin.from('profiles').update({ subscription_status: 'cancelled', updated_at: now }).eq('user_id', user.id);
-        const { email: emailCancel, lang: langCancel } = await getEmailAndLangForUser(admin, user.id);
-        if (emailCancel) await sendSubscriptionActionEmail(emailCancel, 'cancel', langCancel);
-        return res.status(200).json({ ok: true });
-      }
-
-      if (action === 'resume') {
-        if (subAny.subscription_status !== 'paused') return res.status(400).json({ error: 'המנוי לא מושהה' });
-        if (recurringId) {
-          try {
-            const takbulApiKey = process.env.TAKBULL_API_KEY;
-            const takbulApiSecret = process.env.TAKBULL_API_SECRET;
-            if (takbulApiKey && takbulApiSecret) {
-              const resTakbul = await fetch('https://api.takbull.co.il/api/ExtranalAPI/ResumeRecurringCharge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ API_Key: takbulApiKey, API_Secret: takbulApiSecret, RecurringId: recurringId }),
+              console.warn('Takbull CancelSubscription failed:', {
+                uniqId,
+                InternalCode: cancelData.InternalCode,
+                InternalDescription: cancelData.InternalDescription || 'Unknown error',
               });
-              if (!resTakbul.ok) console.warn('Takbul resumeRecurringCharge failed:', await resTakbul.text());
             }
-          } catch (e) { console.warn('Takbul resume error:', e); }
+          }
+        } catch (e) {
+          console.warn('Takbull CancelSubscription error:', e);
         }
-        const now = new Date().toISOString();
-        await admin.from('subscriptions').update({
-          subscription_status: 'active',
-          status: 'active',
-          auto_renew: true,
-          paused_at: null,
-          updated_at: now,
-        } as any).eq('id', sub.id);
-        await logEvent(admin, user.id, 'resume', { subscription_id: sub.id });
-        await admin.from('profiles').update({ subscription_status: 'active', updated_at: now }).eq('user_id', user.id);
-        const { email: emailResume, lang: langResume } = await getEmailAndLangForUser(admin, user.id);
-        if (emailResume) await sendSubscriptionActionEmail(emailResume, 'resume', langResume);
-        return res.status(200).json({ ok: true });
+      } else {
+        console.warn('No uniqId found for subscription cancellation');
       }
+
+      const now = new Date().toISOString();
+      await admin.from('subscriptions').update({
+        subscription_status: 'canceled',
+        status: 'cancelled',
+        auto_renew: false,
+        canceled_at: now,
+        updated_at: now,
+      } as any).eq('id', sub.id);
+      await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id, uniqId });
+      await admin.from('profiles').update({ subscription_status: 'cancelled', updated_at: now }).eq('user_id', user.id);
+      const { email: emailCancel, lang: langCancel } = await getEmailAndLangForUser(admin, user.id);
+      if (emailCancel) await sendSubscriptionActionEmail(emailCancel, 'cancel', langCancel);
+      return res.status(200).json({ ok: true });
     } catch (e) {
       console.error('Subscription action error:', e);
       return res.status(500).json({ error: 'שגיאת שרת' });

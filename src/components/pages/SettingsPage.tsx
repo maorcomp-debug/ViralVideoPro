@@ -18,7 +18,7 @@ interface SettingsPageProps {
   usage: { analysesUsed: number; minutesUsed: number; periodStart: Date; periodEnd: Date } | null;
   onProfileUpdate: () => void;
   onOpenSubscriptionModal: () => void;
-  /** פתיחת מסך מנוי וחיוב (השהה / ביטול / חידוש) */
+  /** פתיחת מסך מנוי וחיוב (ביטול) */
   onOpenSubscriptionBillingModal?: () => void;
   /** עדכון אופטימי של selected_tracks ב-state (ממשק מתעדכן מיד, שמירה ל-DB ברקע) */
   onProfileTracksUpdated?: (trackIds: string[]) => void;
