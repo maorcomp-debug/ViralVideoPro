@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 
 interface UseAuthReturn {
   user: User | null;
@@ -155,12 +156,17 @@ export const useAuth = (): UseAuthReturn => {
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         const type = hashParams.get('type');
-        if (accessToken && refreshToken && (type === 'signup' || type === 'email' || type === 'recovery')) {
+        const validTypes = ['signup', 'email', 'recovery', 'magiclink'];
+        if (accessToken && refreshToken && type && validTypes.includes(type)) {
           try {
             await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
             const cleanParams = new URLSearchParams(window.location.search);
             const qs = cleanParams.toString();
-            const cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '');
+            let cleanUrl = window.location.origin + (window.location.pathname || '/') + (qs ? '?' + qs : '');
+            if (!cleanUrl.includes('lang=')) {
+              const lang = (i18n.language || i18n.resolvedLanguage || '').startsWith('en') ? 'en' : 'he';
+              cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + `lang=${lang}`;
+            }
             await new Promise((r) => setTimeout(r, 800));
             window.location.replace(cleanUrl);
             return;
