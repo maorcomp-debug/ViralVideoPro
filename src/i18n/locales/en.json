@@ -665,7 +665,7 @@
     "weakPassword": "Password too weak. At least 6 characters.",
     "invalidEmail": "Invalid email or already exists.",
     "rateLimit": "Too many signup attempts. Try again in about an hour.",
-    "signupSuccess": "Check your email to verify. Click the link, then sign\u00A0in.",
+    "signupSuccess": "Check your email to verify and click the link to sign\u00A0in.",
     "createUserFailed": "Couldn't create user. Try again.",
     "signInRequired": "Sign up first.",
     "emailNotConfirmed": "Verify your email first. Check your inbox.",
