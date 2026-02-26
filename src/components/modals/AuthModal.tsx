@@ -772,10 +772,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </form>
         ) : (
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {isUpgradeMode && (
+          {isUpgradeMode && (() => {
+            const isLtr = (i18n.language || 'he').startsWith('en');
+            return (
             <>
               <div>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: isLtr ? 'left' : 'right', display: 'block', marginBottom: '5px' }}>
                   {t('auth.fullName')}
                 </label>
                 <input
@@ -792,12 +794,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     padding: '12px',
                     color: '#fff',
                     fontSize: '1rem',
-                    direction: 'rtl',
+                    direction: isLtr ? 'ltr' : 'rtl',
                   }}
                 />
               </div>
               <div>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: isLtr ? 'left' : 'right', display: 'block', marginBottom: '5px' }}>
                   {t('auth.phone')}
                 </label>
                 <input
@@ -818,12 +820,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     textAlign: 'left',
                   }}
                 />
-                <div style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', marginTop: '5px' }}>
-                  {t('auth.phoneHint')}
-                </div>
               </div>
               <div>
-                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: 'right', display: 'block', marginBottom: '5px' }}>
+                <label style={{ color: '#D4A043', fontSize: '0.9rem', textAlign: isLtr ? 'left' : 'right', display: 'block', marginBottom: '5px' }}>
                   {t('auth.selectPackage')}
                 </label>
                 <PackageSelect
@@ -842,7 +841,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
               {/* בשדרוג לחבילת יוצרים לא מציגים בחירת תחום – התחום כבר נבחר בחינם; תחום נוסף ייבחר בהגדרות */}
             </>
-          )}
+            );
+          })()}
 
           {isSignUp && !isUpgradeMode && (
             <>
