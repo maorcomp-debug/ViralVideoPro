@@ -175,6 +175,19 @@ import {
   ComparisonIcon,
 } from './src/components/icons';
 
+/** Normalize expert role: "Web Screenwriter" -> "Screenwriter" (incorrect term) */
+function normalizeExpertRole(role: string): string {
+  return (role || '').replace(/\bWeb\s+Screenwriter\b/gi, 'Screenwriter').replace(/^תסריטאי רשת$/, 'תסריטאי');
+}
+
+function normalizeExpertAnalysis(analysis: AnalysisResult | null): AnalysisResult | null {
+  if (!analysis?.expertAnalysis) return analysis;
+  return {
+    ...analysis,
+    expertAnalysis: analysis.expertAnalysis.map((e) => ({ ...e, role: normalizeExpertRole(e.role || '') })),
+  };
+}
+
 const TRACKS = [
   { id: 'actors', icon: <TheaterMasksIcon /> },
   { id: 'musicians', icon: <MusicNoteIcon /> },
@@ -3002,7 +3015,15 @@ const App = () => {
         setLoading(false);
         return;
       }
-      const expertPanel = expertsForRun.join(', ');
+      const outputLang = (i18n.language || 'he').startsWith('en') ? 'en' : 'he';
+      const expertNamesForPrompt = outputLang === 'en'
+        ? expertsForRun.map((name) => {
+            const experts = EXPERTS_BY_TRACK[trackForExperts] || [];
+            const idx = experts.findIndex((e) => e.title === name);
+            return idx >= 0 ? t(`experts.${trackForExperts}.${idx}.title`) : name;
+          })
+        : expertsForRun;
+      const expertPanel = expertNamesForPrompt.join(', ');
 
       let extraContext = '';
       if (isImprovementMode && previousResult) {
@@ -3029,7 +3050,6 @@ const App = () => {
 
       const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
       const isDeepAnalysis = (activeTrack === 'coach' || activeTrack === 'pro') && analysisDepth === 'deep';
-      const outputLang = (i18n.language || 'he').startsWith('en') ? 'en' : 'he';
       const timestampExample = outputLang === 'he' ? '"בדקה 2:15..."' : '"at 2:15..."';
       const depthInstruction = isDeepAnalysis ? `
         
@@ -3070,6 +3090,7 @@ const App = () => {
         
         CRITICAL: OUTPUT MUST BE 100% ENGLISH. DO NOT USE HEBREW OR OTHER LANGUAGES IN THE DISPLAYED TEXT.
         Use standard professional English terminology throughout.
+        EXPERT ROLES: Use "Screenwriter" not "Web Screenwriter" for the script expert. "Web Screenwriter" is incorrect terminology.
       `;
 
       const systemInstruction = `
@@ -3270,6 +3291,8 @@ const App = () => {
         return;
       }
       
+      parsedResult = normalizeExpertAnalysis(parsedResult) ?? parsedResult;
+
       // Calculate average
       if (parsedResult.expertAnalysis && parsedResult.expertAnalysis.length > 0) {
         const total = parsedResult.expertAnalysis.reduce((acc, curr) => acc + (curr.score || 0), 0);
@@ -4100,8 +4123,7 @@ const App = () => {
             setShowCoachDashboard(false);
           }}
           onViewAnalysis={(analysis) => {
-            // ניתן להוסיף תצוגה של ניתוח שמור
-            setResult(analysis.result);
+            setResult(normalizeExpertAnalysis(analysis.result) ?? analysis.result);
             setAverageScore(analysis.averageScore);
             setShowCoachDashboard(false);
             setTimeout(() => {

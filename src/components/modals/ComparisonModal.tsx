@@ -32,6 +32,10 @@ import {
 } from '../../styles/indexStyles';
 import type { SavedAnalysis, Trainee } from '../../types';
 
+function normalizeExpertRole(role: string): string {
+  return (role || '').replace(/\bWeb\s+Screenwriter\b/gi, 'Screenwriter').replace(/^תסריטאי רשת$/, 'תסריטאי');
+}
+
 interface ComparisonModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -100,18 +104,18 @@ export const ComparisonModal = ({
       return null;
     }
 
-    // Compare by expert roles
+    // Compare by expert roles (normalize "Web Screenwriter" -> "Screenwriter")
     const allExpertRoles = new Set<string>();
     selectedAnalysesData.forEach(analysis => {
       analysis.result.expertAnalysis?.forEach(expert => {
-        allExpertRoles.add(expert.role);
+        allExpertRoles.add(normalizeExpertRole(expert.role));
       });
     });
 
     return Array.from(allExpertRoles).map(role => {
       const comparisonRow: any = { role, scores: [] };
       selectedAnalysesData.forEach(analysis => {
-        const expert = analysis.result.expertAnalysis?.find(e => e.role === role);
+        const expert = analysis.result.expertAnalysis?.find(e => normalizeExpertRole(e.role) === role);
         if (expert) {
           comparisonRow.scores.push(expert.score);
         } else {

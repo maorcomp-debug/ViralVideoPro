@@ -437,7 +437,7 @@
       "4": { "title": "Performance Coach", "desc": "Vibe, authenticity, trends" },
       "5": { "title": "Production Designer", "desc": "Lighting, sound quality" },
       "6": { "title": "Engagement Strategist", "desc": "Call to action, comments" },
-      "7": { "title": "Content Writer", "desc": "Punch, tight messaging" }
+      "7": { "title": "Screenwriter", "desc": "Punch, tight messaging" }
     },
     "influencers": {
       "0": { "title": "Speech Coach", "desc": "Diction, flow, persuasion" },
@@ -665,7 +665,7 @@
     "weakPassword": "Password too weak. At least 6 characters.",
     "invalidEmail": "Invalid email or already exists.",
     "rateLimit": "Too many signup attempts. Try again in about an hour.",
-    "signupSuccess": "Check your email to verify and click the link to sign\u00A0in.",
+    "signupSuccess": "Check your email to verify your account",
     "createUserFailed": "Couldn't create user. Try again.",
     "signInRequired": "Sign up first.",
     "emailNotConfirmed": "Verify your email first. Check your inbox.",
