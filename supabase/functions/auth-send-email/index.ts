@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
       redirectTo = `${redirectTo}${sep}lang=${lang}`;
     }
 
-    // Use Supabase verify URL (same as default Supabase flow) – server-side verification, then redirect to app with #access_token
+    // CANONICAL: Use Supabase verify URL (same as default Supabase flow). Do NOT link directly to app with token_hash – that flow fails.
     const verifyType = actionType === "signup" ? "signup" : actionType;
     const encodedRedirect = encodeURIComponent(redirectTo.replace(/\/$/, ""));
     const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}&type=${verifyType}&redirect_to=${encodedRedirect}`;

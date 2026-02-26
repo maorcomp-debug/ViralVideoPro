@@ -53,7 +53,15 @@ https://viral-video-pro.vercel.app
 
 ## Auth Hook – מיילים דו־לשוניים + שליחה מויראלי (לא מ-Supabase Auth)
 **בלי ה-Hook –** Supabase שולח מיילים מ־`noreply@mail.app.supabase.io` (Supabase Auth), תבנית עברית בלבד.  
-**עם ה-Hook –** מיילים דרך Resend מויראלי (`CONTACT_FROM_EMAIL`), עברית/אנגלית לפי שפת הממשק. הקישור מפנה ל־Supabase verify (כמו ברירת מחדל) → Supabase מאמת ומפנה לאפליקציה עם #access_token → setSession מכניס אוטומטית.
+**עם ה-Hook –** מיילים דרך Resend מויראלי (`CONTACT_FROM_EMAIL`), עברית/אנגלית לפי שפת הממשק.
+
+### Flow אימות (הנכון – לא לשנות)
+1. **קישור במייל** → `https://xxx.supabase.co/auth/v1/verify?token=...&type=signup&redirect_to=...`  
+   (לא קישור ישיר לאפליקציה עם token_hash)
+2. **לחיצה** → Supabase מאמת בצד שרת ומפנה לאפליקציה עם `#access_token=...&refresh_token=...&type=signup`
+3. **useAuth** → מזהה את ה-hash, קורא ל־`setSession`, מנקה URL ומרענן – המשתמש מחובר.
+
+**למה לא קישור ישיר לאפליקציה?** ניסיונות קודמים השתמשו ב־`app?token_hash=xxx&type=email` + `verifyOtp` – לא עבד (המשתמש חזר לאפליקציה אבל לא מזוהה). הפתרון: להשתמש ב־Supabase verify בדיוק כמו ברירת המחדל, ורק להחליף את תוכן המייל (דו־לשוני דרך Resend).
 
 **חשוב:** אם המייל מגיע מ־"Supabase Auth" – ה-Hook לא מופעל. הפעל אותו (שלב 4 למטה).
 

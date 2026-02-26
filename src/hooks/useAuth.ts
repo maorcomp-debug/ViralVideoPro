@@ -148,7 +148,7 @@ export const useAuth = (): UseAuthReturn => {
         }
       }
 
-      // Handle email verification via hash fragment (#access_token) – Supabase redirect after /auth/v1/verify
+      // CANONICAL: Hash from Supabase redirect after /auth/v1/verify. Must call setSession – SDK does not auto-process.
       if (typeof window !== 'undefined' && window.location.hash) {
         const hash = window.location.hash.substring(1);
         const hashParams = new URLSearchParams(hash);
