@@ -1,7 +1,7 @@
-# Deployment (גיבוי / ViralVideoPro)
+# Deployment (ViralVideoPro – פרודקשן viraly.co.il)
 
 ## Vercel
-https://viral-video-pro.vercel.app
+https://viraly.co.il (פרודקשן)
 
 ## Environment Variables (Vercel)
 ב־Vercel Dashboard → viral-video-pro → Settings → Environment Variables:
@@ -19,7 +19,7 @@ https://viral-video-pro.vercel.app
 |-----|-------|-------------|
 | RESEND_API_KEY | שליחת מיילים (אימות, יצירת קשר) | Production, Preview |
 | CONTACT_FROM_EMAIL | כתובת השולח במיילים | Production, Preview |
-| VITE_APP_URL | קישורים במיילים – `https://viral-video-pro.vercel.app` | Production, Preview |
+| VITE_APP_URL | קישורים במיילים – `https://viraly.co.il` | Production, Preview |
 
 ### תשלומים (Takbull)
 | Name | שימוש | Environment |
@@ -39,13 +39,12 @@ https://viral-video-pro.vercel.app
 ## Supabase – Redirect URLs (חובה להרשמה)
 ב־Supabase Dashboard → Authentication → URL Configuration:
 
-1. **Site URL:** `https://viraly.co.il` (פרודקשן) או `https://viral-video-pro.vercel.app` (גיבוי)
-2. **Redirect URLs** – הוסף **את שניהם** (פרודקשן + גיבוי) כדי שהמיילים יעבדו בשני האתרים:
-   - `https://viraly.co.il/**`
+1. **Site URL:** `https://viraly.co.il`
+2. **Redirect URLs** – הוסף:
    - `https://viraly.co.il`
+   - `https://viraly.co.il/**`
+   - `https://www.viraly.co.il` (אם משתמשים)
    - `https://www.viraly.co.il/**`
-   - `https://viral-video-pro.vercel.app/**`
-   - `https://viral-video-pro.vercel.app`
 
 בלי זה – קישור אימות המייל לא יעבוד וההרשמה תיכשל.
 
@@ -68,7 +67,7 @@ https://viral-video-pro.vercel.app
 **Flow עברית:** הרשמה בעברית → מייל אימות בעברית → קישור → כניסה ל־?lang=he.  
 **Flow אנגלית:** הרשמה ב־?lang=en → מייל אימות באנגלית → קישור → כניסה ל־?lang=en.
 
-**חובה:** `VITE_APP_URL` ב־Supabase Secrets = `https://viral-video-pro.vercel.app` (ה־API של send-auth-email נמצא שם).  
+**חובה:** `VITE_APP_URL` ב־Supabase Secrets = `https://viraly.co.il` (ה־API של send-auth-email).  
 **חובה ב־Vercel:** `RESEND_API_KEY`, `CONTACT_FROM_EMAIL` (כתובת מאומתת ב־Resend – למשל `noreply@viraly.co.il`).
 
 1. **התחבר ל-Supabase CLI** (פעם אחת):
@@ -84,7 +83,7 @@ https://viral-video-pro.vercel.app
 
 3. **הגדר Secrets ב-Supabase:**
    ```bash
-   npx supabase secrets set VITE_APP_URL=https://viral-video-pro.vercel.app
+   npx supabase secrets set VITE_APP_URL=https://viraly.co.il
    npx supabase secrets set SUPABASE_URL=https://poejxozjnwrsakrhiyny.supabase.co
    npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service_role_key>
    ```
@@ -105,8 +104,6 @@ https://viral-video-pro.vercel.app
 ### הרשמה/כניסה לא עובדת
 1. **ודא מפתחות Supabase:** `VITE_SUPABASE_URL` ו־`VITE_SUPABASE_ANON_KEY` ב־Vercel תואמים לפרויקט `poejxozjnwrsakrhiyny` (ראה "תיקון ב־Vercel" למטה).
 2. **Redirect URLs (חשוב לכניסה אוטומטית אחרי אימות):** Supabase → Authentication → **URL Configuration** → **Redirect URLs** – הוסף את **כל** כתובות האתר:
-   - `https://viral-video-pro.vercel.app`
-   - `https://viral-video-pro.vercel.app/**`
    - `https://viraly.co.il`
    - `https://viraly.co.il/**`
    - כל כתובת גיבוי/פרויקט נוסף (למשל `https://your-backup.vercel.app` ו־`https://your-backup.vercel.app/**`).
@@ -118,7 +115,7 @@ https://viral-video-pro.vercel.app
 אם מקבלים `AuthApiError: Invalid API key` בהרשמה – המפתח ב־Vercel לא תואם לפרויקט.
 
 ### תיקון ב־Vercel (חובה)
-1. היכנס ל־**Vercel Dashboard** → הפרויקט שמגיש ל־`viral-video-pro.vercel.app`
+1. היכנס ל־**Vercel Dashboard** → הפרויקט שמגיש ל־`viraly.co.il`
 2. **Settings** → **Environment Variables**
 3. מצא `VITE_SUPABASE_ANON_KEY` – **ערוך** (או מחק ויצור מחדש)
 4. העתק את המפתח מ־**Supabase Dashboard** → הפרויקט `poejxozjnwrsakrhiyny` → **Settings** → **API** → **Project API keys** → **anon public**
@@ -162,7 +159,7 @@ https://viral-video-pro.vercel.app
 
 ### לא מגיע מייל אימות בכלל (Hook מופעל, הודעה "Check your email" מופיעה)
 - **סיבה:** ה-API `send-auth-email` נכשל (Vercel) או Resend דוחה. Supabase מחזיר 200 כי ה-Hook רץ – אבל המייל לא נשלח.
-- **בדיקה 1 – אבחון API:** פתח בדפדפן: `https://viral-video-pro.vercel.app/api/send-auth-email` (GET). אמור להחזיר JSON עם `emailReady: true` ו-`config: { hasResend: true, hasFrom: true, ... }`. אם `hasResend` או `hasFrom` הם `false` – חסרים משתני סביבה ב-Vercel.
+- **בדיקה 1 – אבחון API:** פתח בדפדפן: `https://viraly.co.il/api/send-auth-email` (GET). אמור להחזיר JSON עם `emailReady: true` ו-`config: { hasResend: true, hasFrom: true, ... }`. אם `hasResend` או `hasFrom` הם `false` – חסרים משתני סביבה ב-Vercel.
 - **בדיקה 2 – Vercel:** Settings → Environment Variables – חובה: `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`. **ודא שהם מוגדרים ל-Production** (ולא רק Preview).
 - **בדיקה 3 – Resend:** הדומיין של `CONTACT_FROM_EMAIL` חייב להיות מאומת ב־Resend. לדוגמה: `noreply@viraly.co.il` דורש אימות של `viraly.co.il`. **אפשרות:** השתמש ב־`onboarding@resend.dev` (מאומת אוטומטית) – רק לבדיקות; לפרודקשן עדיף דומיין משלך.
 - **בדיקה 4 – Resend Logs:** Resend Dashboard → Logs – האם יש ניסיון שליחה? אם לא – ה-API לא מגיע ל-Resend או ה-Hook מחזיר מוקדם (חסר token_hash).
@@ -170,7 +167,7 @@ https://viral-video-pro.vercel.app
 - **בדיקה 6 – ספאם:** בדוק תיקיית ספאם.
 - **בדיקה 7 – שליחת בדיקה ידנית:** הוסף ב-Vercel משתנה `EMAIL_TEST_SECRET` (מחרוזת אקראית). ואז:
   ```
-  https://viral-video-pro.vercel.app/api/send-auth-email?test=1&email=המייל_שלך&secret=ה_SECRET_שהגדרת
+  https://viraly.co.il/api/send-auth-email?test=1&email=המייל_שלך&secret=ה_SECRET_שהגדרת
   ```
   אם מקבלים `{ ok: true, test: true, resendId: "..." }` – Resend עובד. אם `resendStatus` / `resendBody` – Resend דוחה (בדוק דומיין, Logs).
 
@@ -179,8 +176,8 @@ https://viral-video-pro.vercel.app
 - **זיהוי שפה:** הרשמה – משפת הממשק (preferred_language ב־metadata). איפוס סיסמה – מ־profiles.preferred_language (אם לא קיים: עברית).
 - **אחרי אימות:** הקישור במייל מפנה עם ?lang= – אנגלית → lang=en, עברית → lang=he.
 
-### בדיקה: איזה פרויקט Vercel מגיש ל־viral-video-pro.vercel.app?
-אם יש לך כמה פרויקטים (למשל viral-video-pro ו־viralypro) – עדכן את ה־env vars **בפרויקט שמגיש** ל־viral-video-pro.vercel.app.
+### בדיקה: איזה פרויקט Vercel מגיש ל־viraly.co.il?
+אם יש לך כמה פרויקטים – עדכן את ה־env vars **בפרויקט שמגיש** ל־viraly.co.il.
 
 ---
 

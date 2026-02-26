@@ -5,7 +5,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const APP_URL = Deno.env.get("VITE_APP_URL") || Deno.env.get("APP_URL") || "https://viral-video-pro.vercel.app";
+const APP_URL = Deno.env.get("VITE_APP_URL") || Deno.env.get("APP_URL") || "https://viraly.co.il";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || Deno.env.get("VITE_SUPABASE_URL") || "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
@@ -97,8 +97,7 @@ Deno.serve(async (req: Request) => {
     const encodedRedirect = encodeURIComponent(redirectTo.replace(/\/$/, ""));
     const actionLink = `${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}&type=${verifyType}&redirect_to=${encodedRedirect}`;
 
-    // Always use APP_URL for API – viral-video-pro.vercel.app has send-auth-email + Resend.
-    // redirectTo (from client) ensures the email link lands user on correct site (viraly.co.il or backup).
+    // APP_URL = production (viraly.co.il) – API + fallback redirect. redirectTo from client = landing URL.
     const apiUrl = `${APP_URL.replace(/\/$/, "")}/api/send-auth-email`;
     const res = await fetch(apiUrl, {
       method: "POST",
