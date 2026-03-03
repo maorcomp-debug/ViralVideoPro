@@ -23,6 +23,7 @@ import { CoachDashboardModal } from './src/components/modals/CoachDashboardModal
 import { AppLogo } from './src/components/AppLogo';
 import { LanguageDropdown } from './src/components/LanguageDropdown';
 import { AlertModal } from './src/components/AlertModal';
+import { FilePickerModal } from './src/components/FilePickerModal';
 import { showAlert } from './src/lib/alertStore';
 import { AppContainer, Header } from './src/styles/components';
 import {
@@ -287,9 +288,11 @@ const App = () => {
   const [upgradeToTier, setUpgradeToTier] = useState<SubscriptionTier>('free');
   const [hasShownTrackModal, setHasShownTrackModal] = useState(false);
   const [showUpgradeCompletionMessage, setShowUpgradeCompletionMessage] = useState(false);
+  const [showFilePickerModal, setShowFilePickerModal] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const loadUserDataInProgressRef = useRef(false);
@@ -1638,8 +1641,9 @@ const App = () => {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target as HTMLInputElement;
     const resetInput = () => {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (input) input.value = '';
     };
 
     const selectedFile = e.target.files?.[0];
@@ -1701,6 +1705,7 @@ const App = () => {
     setPreviewUrl(null);
     setFileIdentifier(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   const ALLOWED_DOC_TYPES = [
@@ -1741,6 +1746,7 @@ const App = () => {
     setIsImprovementMode(false);
     setSelectedTrainee(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (pdfInputRef.current) pdfInputRef.current.value = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -4531,15 +4537,33 @@ const App = () => {
                 )}
               </UploadSubtitle>
               
-              <UploadButton>
+              <UploadButton
+                as="button"
+                type="button"
+                onClick={() => setShowFilePickerModal(true)}
+              >
                 {isImprovementMode ? t('analysis.selectFile') : t('analysis.uploadNow')}
-                <FileInput 
-                  type="file" 
-                  accept="video/*,image/*" 
+                <FileInput
+                  type="file"
+                  accept="video/*,image/*"
                   onChange={handleFileSelect}
                   ref={fileInputRef}
                 />
+                <FileInput
+                  type="file"
+                  accept="video/*,image/*"
+                  capture="environment"
+                  onChange={handleFileSelect}
+                  ref={cameraInputRef}
+                />
               </UploadButton>
+              <FilePickerModal
+                show={showFilePickerModal}
+                onClose={() => setShowFilePickerModal(false)}
+                onPhotoLibrary={() => fileInputRef.current?.click()}
+                onTakePhoto={() => cameraInputRef.current?.click()}
+                onChooseFile={() => fileInputRef.current?.click()}
+              />
             </UploadContent>
           )}
         </UploadContainer>

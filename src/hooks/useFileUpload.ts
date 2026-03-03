@@ -9,6 +9,7 @@ interface UseFileUploadReturn {
   pdfFile: File | null;
   previewUrl: string | null;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  cameraInputRef: React.RefObject<HTMLInputElement>;
   pdfInputRef: React.RefObject<HTMLInputElement>;
   videoRef: React.RefObject<HTMLVideoElement>;
   setFile: (file: File | null) => void;
@@ -33,12 +34,14 @@ export const useFileUpload = (
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target as HTMLInputElement;
     const resetInput = () => {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (input) input.value = '';
     };
 
     const selectedFile = e.target.files?.[0];
@@ -98,9 +101,8 @@ export const useFileUpload = (
     }
     setFile(null);
     setPreviewUrl(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   }, [previewUrl]);
 
   const ALLOWED_DOC_TYPES = [
@@ -141,6 +143,7 @@ export const useFileUpload = (
     setPreviewUrl(null);
     setResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (pdfInputRef.current) pdfInputRef.current.value = '';
   }, [previewUrl, setResult]);
 
@@ -149,6 +152,7 @@ export const useFileUpload = (
     pdfFile,
     previewUrl,
     fileInputRef,
+    cameraInputRef,
     pdfInputRef,
     videoRef,
     setFile,
