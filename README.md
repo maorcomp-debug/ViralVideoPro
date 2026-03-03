@@ -40,6 +40,10 @@
    ```bash
    npm start
    ```
+   **לבדיקת ניתוח וידאו מקומית** (כולל API עם .env.local):
+   ```bash
+   npm run dev:full
+   ```
 
 6. **פתח בדפדפן:**
    ```

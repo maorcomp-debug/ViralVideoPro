@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "start": "vite --host --port 3000",
+    "dev:full": "vercel dev",
     "build": "vite build",
     "preview": "vite preview --host --port 4173"
   },

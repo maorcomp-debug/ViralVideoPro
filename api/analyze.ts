@@ -43,34 +43,18 @@ export default async function handler(
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'] as const;
-    let lastError: any;
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts },
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+      },
+    });
 
-    for (const model of modelsToTry) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: { parts },
-          config: {
-            systemInstruction,
-            responseMimeType: 'application/json',
-          },
-        });
-
-        const text = response.text || '{}';
-        const jsonText = text.replace(/```json|```/g, '').trim();
-        return res.status(200).json(JSON.parse(jsonText));
-      } catch (modelErr: any) {
-        lastError = modelErr;
-        const code = modelErr?.error?.code ?? modelErr?.status ?? modelErr?.code;
-        if (code === 12 && modelsToTry.indexOf(model) < modelsToTry.length - 1) {
-          console.warn(`Model ${model} returned UNIMPLEMENTED (12), trying fallback...`);
-          continue;
-        }
-        throw modelErr;
-      }
-    }
-    throw lastError;
+    const text = response.text || '{}';
+    const jsonText = text.replace(/```json|```/g, '').trim();
+    return res.status(200).json(JSON.parse(jsonText));
   } catch (err: any) {
     const code = err?.error?.code ?? err?.status ?? err?.code;
     const message = err?.message || err?.error?.message || 'Analysis failed';
