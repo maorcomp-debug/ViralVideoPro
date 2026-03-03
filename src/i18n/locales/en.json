@@ -508,6 +508,7 @@
     "geminiQuotaExceeded": "API quota exceeded. Wait or upgrade.",
     "geminiOverloaded": "Service overloaded (503). Try again in a few.",
     "geminiServerError": "Temporary server error. Try again shortly.",
+    "requestTooLarge": "Video too large to send. Sign in and try again – we'll upload it for analysis.",
     "invalidRequest": "Invalid request. File may be too large or wrong format.",
     "analysisError": "Analysis error ({{code}}). Slow connection, overload, or API issue.",
     "analysisError12": "The AI service is temporarily unavailable or overloaded. Please try again in a few minutes.",

@@ -332,6 +332,20 @@ export async function uploadVideo(file: File, userId: string) {
   return { path: `videos/${filePath}`, data };
 }
 
+/** Upload video and get signed URL for API (avoids Vercel 4.5MB body limit) */
+export async function uploadVideoAndGetSignedUrl(file: File, userId: string): Promise<{ path: string; signedUrl: string }> {
+  const uploadResult = await uploadVideo(file, userId);
+  const storagePath = uploadResult.path.replace(/^videos\//, '');
+  const { data: signed, error } = await supabase.storage
+    .from('videos')
+    .createSignedUrl(storagePath, 3600);
+  if (error || !signed?.signedUrl) {
+    console.error('Error creating signed URL:', error);
+    throw error || new Error('Failed to create signed URL');
+  }
+  return { path: uploadResult.path, signedUrl: signed.signedUrl };
+}
+
 export async function saveVideoToDatabase(videoData: {
   file_name: string;
   file_path: string;

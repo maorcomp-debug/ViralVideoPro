@@ -19,6 +19,9 @@ interface AnalyzeRequest {
     | { text: string }
     | { inlineData: { data: string; mimeType: string } }
   >;
+  videoUrl?: string;
+  videoMimeType?: string;
+  pdfUrl?: string;
 }
 
 export default async function handler(
@@ -37,15 +40,47 @@ export default async function handler(
   }
 
   try {
-    const { systemInstruction, parts } = req.body as AnalyzeRequest;
-    if (!systemInstruction || !Array.isArray(parts) || parts.length === 0) {
-      return res.status(400).json({ error: 'Missing systemInstruction or parts' });
+    const { systemInstruction, parts, videoUrl, videoMimeType, pdfUrl } = req.body as AnalyzeRequest;
+    if (!systemInstruction || (!Array.isArray(parts) && !videoUrl && !pdfUrl)) {
+      return res.status(400).json({ error: 'Missing systemInstruction or parts/videoUrl' });
+    }
+
+    const finalParts = [...(Array.isArray(parts) ? parts : [])];
+
+    if (videoUrl) {
+      const videoRes = await fetch(videoUrl);
+      if (!videoRes.ok) throw new Error(`Failed to fetch video: ${videoRes.status}`);
+      const videoBuf = await videoRes.arrayBuffer();
+      const videoB64 = Buffer.from(videoBuf).toString('base64');
+      finalParts.push({
+        inlineData: {
+          data: videoB64,
+          mimeType: videoMimeType || 'video/mp4',
+        },
+      });
+    }
+
+    if (pdfUrl) {
+      const pdfRes = await fetch(pdfUrl);
+      if (!pdfRes.ok) throw new Error(`Failed to fetch PDF: ${pdfRes.status}`);
+      const pdfBuf = await pdfRes.arrayBuffer();
+      const pdfB64 = Buffer.from(pdfBuf).toString('base64');
+      finalParts.push({
+        inlineData: {
+          data: pdfB64,
+          mimeType: 'application/pdf',
+        },
+      });
+    }
+
+    if (finalParts.length === 0) {
+      return res.status(400).json({ error: 'No content to analyze' });
     }
 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: { parts },
+      contents: { parts: finalParts },
       config: {
         systemInstruction,
         responseMimeType: 'application/json',

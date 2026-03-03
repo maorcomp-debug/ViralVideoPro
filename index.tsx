@@ -47,6 +47,7 @@ import {
   updateCurrentUserProfile,
   getUsageForCurrentPeriod,
   uploadVideo,
+  uploadVideoAndGetSignedUrl,
   saveVideoToDatabase,
   saveAnalysis,
   getTrainees,
@@ -3187,12 +3188,13 @@ const App = () => {
         parts.push({ text: prompt });
       }
       
+      let videoUploadPath: string | null = null;
+      let videoSignedUrl: string | null = null;
       if (file) {
         const maxFileBytes = getMaxFileBytes(activeTrack, subscription || undefined);
         const maxVideoSeconds = getMaxVideoSeconds(activeTrack, subscription || undefined);
         const limitText = getUploadLimitText(activeTrack, subscription || undefined);
         
-        // Check file size
         if (file.size > maxFileBytes) {
            const actualMb = (file.size / (1024 * 1024)).toFixed(1);
            showAlert(t('alerts.fileTooLarge', { mb: actualMb }));
@@ -3204,7 +3206,6 @@ const App = () => {
            return;
         }
         
-        // Check video duration if it's a video file
         if (file.type.startsWith('video') && videoRef.current) {
           const duration = videoRef.current.duration || 0;
           if (duration > maxVideoSeconds) {
@@ -3218,18 +3219,35 @@ const App = () => {
             return;
           }
         }
-        try {
-          const imagePart = await fileToGenerativePart(file);
-          parts.push(imagePart);
-        } catch (e) {
-          console.error("❌ File processing error", e);
-          showAlert(t('alerts.fileProcessingError'));
-          if (loadingTimeout) {
-            clearTimeout(loadingTimeout);
-            loadingTimeout = null;
+        if (file.type.startsWith('video') && user) {
+          try {
+            const { path, signedUrl } = await uploadVideoAndGetSignedUrl(file, user.id);
+            videoUploadPath = path;
+            videoSignedUrl = signedUrl;
+          } catch (e) {
+            console.error("❌ Video upload error", e);
+            showAlert(t('alerts.fileProcessingError'));
+            if (loadingTimeout) {
+              clearTimeout(loadingTimeout);
+              loadingTimeout = null;
+            }
+            setLoading(false);
+            return;
           }
-          setLoading(false);
-          return;
+        } else {
+          try {
+            const imagePart = await fileToGenerativePart(file);
+            parts.push(imagePart);
+          } catch (e) {
+            console.error("❌ File processing error", e);
+            showAlert(t('alerts.fileProcessingError'));
+            if (loadingTimeout) {
+              clearTimeout(loadingTimeout);
+              loadingTimeout = null;
+            }
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -3247,12 +3265,22 @@ const App = () => {
       let parsedResult: AnalysisResult | null = null;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          const apiRes = await fetch('/api/analyze', {
+          const body: Record<string, unknown> = { systemInstruction, parts };
+            if (videoSignedUrl) {
+              body.videoUrl = videoSignedUrl;
+              body.videoMimeType = file?.type || 'video/mp4';
+            }
+            const apiRes = await fetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ systemInstruction, parts }),
+            body: JSON.stringify(body),
           });
-          const data = await apiRes.json();
+          let data: any;
+          try {
+            data = await apiRes.json();
+          } catch {
+            data = { error: `Request failed: ${apiRes.status}` };
+          }
           if (!apiRes.ok) {
             const err = new Error(data?.error || `API ${apiRes.status}`) as any;
             err.status = apiRes.status;
@@ -3316,17 +3344,16 @@ const App = () => {
             let videoId: string | null = null;
             if (file) {
               try {
-                const uploadResult = await uploadVideo(file, user.id);
+                const filePath = videoUploadPath || (await uploadVideo(file, user.id)).path;
                 const videoData = await saveVideoToDatabase({
                   file_name: file.name,
-                  file_path: uploadResult.path,
+                  file_path: filePath,
                   file_size: file.size,
                   duration_seconds: videoRef.current?.duration ? Math.round(videoRef.current.duration) : null,
                   mime_type: file.type,
                 });
                 videoId = videoData.id;
               } catch (videoError) {
-                // Video save failed, but continue with analysis - analysis can be saved without video
                 console.error('Video save failed, continuing with analysis:', videoError);
               }
             }
@@ -3524,6 +3551,8 @@ const App = () => {
         showAlert(t('alerts.invalidRequest'));
       } else if (code === 12) {
         showAlert(t('alerts.analysisError12'));
+      } else if (code === 413) {
+        showAlert(t('alerts.requestTooLarge'));
       } else {
         showAlert(t('alerts.analysisError', { code: code ?? (i18n.language?.startsWith('en') ? 'unknown' : 'לא ידוע') }));
       }
