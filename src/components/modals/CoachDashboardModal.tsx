@@ -27,6 +27,7 @@ import {
   FormTextarea,
 } from '../../styles/indexStyles';
 import type { SavedAnalysis, Trainee, TrackId } from '../../types';
+import { showAlert } from '../../lib/alertStore';
 
 interface CoachDashboardModalProps {
   isOpen: boolean;
@@ -60,13 +61,13 @@ export const CoachDashboardModal = ({
 
   const handleSaveTrainee = async () => {
     if (!formData.name.trim()) {
-      alert(t('coachDashboard.enterTraineeName'));
+      showAlert(t('coachDashboard.enterTraineeName'));
       return;
     }
 
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
-      alert(t('coachDashboard.loginRequired'));
+      showAlert(t('coachDashboard.loginRequired'));
       return;
     }
 
@@ -117,7 +118,7 @@ export const CoachDashboardModal = ({
       setFormData({ name: '', email: '', phone: '', notes: '' });
     } catch (error) {
       console.error('Error saving trainee:', error);
-      alert(t('coachDashboard.saveError'));
+      showAlert(t('coachDashboard.saveError'));
     }
   };
 
@@ -126,7 +127,7 @@ export const CoachDashboardModal = ({
 
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
-      alert(t('coachDashboard.loginRequired'));
+      showAlert(t('coachDashboard.loginRequired'));
       return;
     }
 
@@ -159,7 +160,7 @@ export const CoachDashboardModal = ({
       })));
     } catch (error) {
       console.error('Error deleting trainee:', error);
-      alert(t('coachDashboard.deleteError'));
+      showAlert(t('coachDashboard.deleteError'));
     }
   };
 
@@ -205,10 +206,10 @@ export const CoachDashboardModal = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      alert(t('coachDashboard.exportSuccess'));
+      showAlert(t('coachDashboard.exportSuccess'));
     } catch (error) {
       console.error('Export error:', error);
-      alert(t('coachDashboard.exportError'));
+      showAlert(t('coachDashboard.exportError'));
     }
   };
 
@@ -255,12 +256,12 @@ export const CoachDashboardModal = ({
             setTrainees(importedTrainees);
             setSavedAnalyses(importedAnalyses);
             
-            alert(t('coachDashboard.importSuccess'));
+            showAlert(t('coachDashboard.importSuccess'));
             onClose(); // Close modal to show updated data
           }
         } catch (error: any) {
           console.error('Import error:', error);
-          alert(t('coachDashboard.importError', { error: error.message }));
+          showAlert(t('coachDashboard.importError', { error: error.message }));
         }
       };
       reader.readAsText(file);

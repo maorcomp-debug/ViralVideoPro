@@ -22,6 +22,8 @@ import { ComparisonModal } from './src/components/modals/ComparisonModal';
 import { CoachDashboardModal } from './src/components/modals/CoachDashboardModal';
 import { AppLogo } from './src/components/AppLogo';
 import { LanguageDropdown } from './src/components/LanguageDropdown';
+import { AlertModal } from './src/components/AlertModal';
+import { showAlert } from './src/lib/alertStore';
 import { AppContainer, Header } from './src/styles/components';
 import {
   ModalOverlay,
@@ -1030,10 +1032,10 @@ const App = () => {
     (async () => {
       try {
         await redeemCoupon(redeemCode.trim(), user.id);
-        alert(t('alerts.benefitRedeemed'));
+        showAlert(t('alerts.benefitRedeemed'));
         await loadUserData(user, true);
       } catch (err: any) {
-        alert(err?.message || t('alerts.benefitRedeemFailed'));
+        showAlert(err?.message || t('alerts.benefitRedeemFailed'));
       }
       const next = new URLSearchParams(location.search);
       next.delete('redeem');
@@ -1135,7 +1137,7 @@ const App = () => {
     console.log('🔔 handleSelectPlan called:', { tier, period, user: user?.email, isUpdatingSubscription });
     
     if (!user) {
-      alert(t('alerts.loginRequired'));
+      showAlert(t('alerts.loginRequired'));
       setAuthModalMode('initial');
       setShowAuthModal(true);
       setShowSubscriptionModal(false);
@@ -1184,7 +1186,7 @@ const App = () => {
         );
       } catch (err: any) {
         console.error('❌ TAKBUK init-order error:', err);
-        alert(err.message || t('alerts.paymentPageError'));
+        showAlert(err.message || t('alerts.paymentPageError'));
       } finally {
         updatingSubscriptionRef.current = false;
         setIsUpdatingSubscription(false);
@@ -1273,7 +1275,7 @@ const App = () => {
       }
     } catch (error: any) {
       console.error('Error saving subscription (free tier):', error);
-      alert(t('alerts.subscriptionSaveError'));
+      showAlert(t('alerts.subscriptionSaveError'));
     } finally {
       updatingSubscriptionRef.current = false;
       setIsUpdatingSubscription(false);
@@ -1626,7 +1628,7 @@ const App = () => {
         return prev.filter(t => t !== title);
       } else {
         if (prev.length >= maxExperts) {
-          alert(t('alerts.maxExperts', { max: maxExperts }));
+          showAlert(t('alerts.maxExperts', { max: maxExperts }));
           setShowSubscriptionModal(true);
           return prev;
         }
@@ -1649,7 +1651,7 @@ const App = () => {
 
     if (selectedFile.size > maxFileBytes) {
       const actualMb = (selectedFile.size / (1024 * 1024)).toFixed(1);
-      alert(t('alerts.fileTooLarge', { mb: actualMb }));
+      showAlert(t('alerts.fileTooLarge', { mb: actualMb }));
       resetInput();
       return;
     }
@@ -1674,7 +1676,7 @@ const App = () => {
       videoEl.onloadedmetadata = () => {
         if (videoEl.duration > maxVideoSeconds) {
           const durationSeconds = Math.round(videoEl.duration);
-          alert(t('alerts.videoTooLong', { seconds: durationSeconds }));
+          showAlert(t('alerts.videoTooLong', { seconds: durationSeconds }));
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;
@@ -1683,7 +1685,7 @@ const App = () => {
       };
 
       videoEl.onerror = () => {
-        alert(t('alerts.videoMetadataError'));
+        showAlert(t('alerts.videoMetadataError'));
         URL.revokeObjectURL(objectUrl);
         resetInput();
       };
@@ -1716,7 +1718,7 @@ const App = () => {
       if (isAllowed) {
         setPdfFile(selectedFile);
       } else {
-        alert(t('alerts.pdfOnly'));
+        showAlert(t('alerts.pdfOnly'));
       }
     }
   };
@@ -1799,7 +1801,7 @@ const App = () => {
               new Map(mappedAnalyses.map(a => [a.id, a])).values()
             );
             setSavedAnalyses(uniqueAnalyses);
-            alert(t('alerts.analysisAlreadySaved'));
+            showAlert(t('alerts.analysisAlreadySaved'));
             return;
           }
         }
@@ -1807,7 +1809,7 @@ const App = () => {
     }
 
     if (activeTrack === 'coach' && !selectedTrainee) {
-      alert(t('alerts.selectTraineeFirst'));
+      showAlert(t('alerts.selectTraineeFirst'));
       setShowCoachDashboard(true);
       return;
     }
@@ -1926,7 +1928,7 @@ const App = () => {
       };
 
       // Don't add to state here - reload from Supabase to ensure consistency
-      alert(t('alerts.analysisSavedSuccess') + (trainee ? ` ${t('alerts.forTrainee', { name: trainee.name })}` : ''));
+      showAlert(t('alerts.analysisSavedSuccess') + (trainee ? ` ${t('alerts.forTrainee', { name: trainee.name })}` : ''));
       
       // Reload analyses from Supabase to get the latest data
       if (user) {
@@ -2115,7 +2117,7 @@ const App = () => {
       }
     } catch (error) {
       console.error('Error saving analysis:', error);
-      alert(t('alerts.analysisSaveError'));
+      showAlert(t('alerts.analysisSaveError'));
     } finally {
       // CRITICAL: Always reset saving state, even on error
       if (savingTimeout) {
@@ -2146,7 +2148,7 @@ const App = () => {
   const handleExportCoachReport = (traineeId: string) => {
     const trainee = trainees.find(t => t.id === traineeId);
     if (!trainee) {
-      alert(t('alerts.traineeNotFound'));
+      showAlert(t('alerts.traineeNotFound'));
       return;
     }
 
@@ -2155,7 +2157,7 @@ const App = () => {
       .sort((a, b) => new Date(a.analysisDate).getTime() - new Date(b.analysisDate).getTime());
 
     if (traineeAnalyses.length === 0) {
-      alert(t('alerts.noAnalysesForTrainee'));
+      showAlert(t('alerts.noAnalysesForTrainee'));
       return;
     }
 
@@ -2186,7 +2188,7 @@ const App = () => {
     // Generate report HTML
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert(t('alerts.popupBlocked'));
+      showAlert(t('alerts.popupBlocked'));
       return;
     }
 
@@ -2472,14 +2474,14 @@ const App = () => {
     if (!result) return;
 
     if (!canUseFeature('pdfExport')) {
-      alert(t('alerts.pdfSubscriptionOnly'));
+      showAlert(t('alerts.pdfSubscriptionOnly'));
       setShowSubscriptionModal(true);
       return;
     }
 
     const printWindow = window.open('', '_blank', 'width=900,height=1200');
     if (!printWindow) {
-      alert(t('alerts.allowPopupsForPdf'));
+      showAlert(t('alerts.allowPopupsForPdf'));
       return;
     }
 
@@ -2918,14 +2920,14 @@ const App = () => {
 
     // Validate inputs (no loading yet – so we never show "צוות המומחים צופה" when blocking)
     if (!prompt.trim() && !file) {
-      alert(t('alerts.uploadOrTypeFirst'));
+      showAlert(t('alerts.uploadOrTypeFirst'));
       return;
     }
     if (selectedExperts.length < 3) {
       const trackToUse = activeTrack === 'coach' ? coachTrainingTrack : activeTrack;
       const defaults = (EXPERTS_BY_TRACK[trackToUse] || []).slice(0, 3).map(e => e.title);
       if (defaults.length < 3) {
-        alert(t('alerts.minExperts'));
+        showAlert(t('alerts.minExperts'));
         return;
       }
       setSelectedExperts(defaults);
@@ -2933,7 +2935,7 @@ const App = () => {
 
     // Check if user is logged in
     if (!user) {
-      alert(t('alerts.signupRequired'));
+      showAlert(t('alerts.signupRequired'));
       setAuthModalMode('initial');
       setShowAuthModal(true);
       return;
@@ -2943,7 +2945,7 @@ const App = () => {
     const effectiveTier = subscription?.tier || profile?.subscription_tier || 'free';
     const freeUsage = usage?.analysesUsed ?? subscription?.usage?.analysesUsed ?? 0;
     if (effectiveTier === 'free' && freeUsage >= 1) {
-      alert(t('alerts.trialFinished'));
+      showAlert(t('alerts.trialFinished'));
       setShowSubscriptionModal(true);
       return;
     }
@@ -2967,7 +2969,7 @@ const App = () => {
 
     if (!limitCheck || !limitCheck.allowed) {
       setLoading(false);
-      if (limitCheck?.message) alert(limitCheck.message);
+      if (limitCheck?.message) showAlert(limitCheck.message);
       if (limitCheck?.message && limitCheck.message !== SUBSCRIPTION_CHECK_ERROR) {
         setShowSubscriptionModal(true);
       }
@@ -2978,14 +2980,14 @@ const App = () => {
     const trackAvailable = isTrackAvailable(activeTrack);
     if (!trackAvailable) {
       setLoading(false);
-      alert(t('alerts.trackNotInPlan'));
+      showAlert(t('alerts.trackNotInPlan'));
       setShowSubscriptionModal(true);
       return;
     }
 
     if (activeTrack === 'coach' && !canUseFeature('traineeManagement')) {
       setLoading(false);
-      alert(t('coachTrack.alertMessage'));
+      showAlert(t('coachTrack.alertMessage'));
       setShowSubscriptionModal(true);
       return;
     }
@@ -3007,7 +3009,7 @@ const App = () => {
         : (EXPERTS_BY_TRACK[trackForExperts] || []).slice(0, 3).map(e => e.title)
       );
       if (expertsForRun.length < 3) {
-        alert(t('alerts.notEnoughExperts'));
+        showAlert(t('alerts.notEnoughExperts'));
         if (loadingTimeout) {
           clearTimeout(loadingTimeout);
           loadingTimeout = null;
@@ -3193,7 +3195,7 @@ const App = () => {
         // Check file size
         if (file.size > maxFileBytes) {
            const actualMb = (file.size / (1024 * 1024)).toFixed(1);
-           alert(t('alerts.fileTooLarge', { mb: actualMb }));
+           showAlert(t('alerts.fileTooLarge', { mb: actualMb }));
            if (loadingTimeout) {
              clearTimeout(loadingTimeout);
              loadingTimeout = null;
@@ -3207,7 +3209,7 @@ const App = () => {
           const duration = videoRef.current.duration || 0;
           if (duration > maxVideoSeconds) {
             const durationSeconds = Math.round(duration);
-            alert(t('alerts.videoTooLong', { seconds: durationSeconds }));
+            showAlert(t('alerts.videoTooLong', { seconds: durationSeconds }));
             if (loadingTimeout) {
               clearTimeout(loadingTimeout);
               loadingTimeout = null;
@@ -3221,7 +3223,7 @@ const App = () => {
           parts.push(imagePart);
         } catch (e) {
           console.error("❌ File processing error", e);
-          alert(t('alerts.fileProcessingError'));
+          showAlert(t('alerts.fileProcessingError'));
           if (loadingTimeout) {
             clearTimeout(loadingTimeout);
             loadingTimeout = null;
@@ -3269,7 +3271,7 @@ const App = () => {
             continue;
           }
           if (code === 403) {
-            alert(t('alerts.missingApiKey'));
+            showAlert(t('alerts.missingApiKey'));
           }
           throw err;
         }
@@ -3278,7 +3280,7 @@ const App = () => {
 
       if (!parsedResult.expertAnalysis || parsedResult.expertAnalysis.length === 0) {
         console.error("❌ Invalid result structure - no expertAnalysis");
-        alert(t('alerts.invalidResponseNoExperts'));
+        showAlert(t('alerts.invalidResponseNoExperts'));
         setLoading(false);
         return;
       }
@@ -3286,7 +3288,7 @@ const App = () => {
       // Validate result structure
       if (!parsedResult.expertAnalysis || parsedResult.expertAnalysis.length === 0) {
         console.error("❌ Invalid result structure - no expertAnalysis");
-        alert(t('alerts.invalidResponseNoExperts'));
+        showAlert(t('alerts.invalidResponseNoExperts'));
         setLoading(false);
         return;
       }
@@ -3474,7 +3476,7 @@ const App = () => {
             // Show alert to user so they know the analysis wasn't saved
             const errorMessage = saveError?.message || t('alerts.unknownError');
             const errorCode = saveError?.code || 'UNKNOWN';
-            alert(t('alerts.analysisSaveErrorDb', { error: errorMessage, code: errorCode }));
+            showAlert(t('alerts.analysisSaveErrorDb', { error: errorMessage, code: errorCode }));
             
             // Don't block UI - analysis result is still shown
             // Usage will be updated on next page load or when user manually saves
@@ -3513,15 +3515,17 @@ const App = () => {
       
       const code = error?.error?.code ?? error?.status ?? (typeof error?.code === 'number' ? error.code : undefined);
       if (code === 429) {
-        alert(t('alerts.geminiQuotaExceeded'));
+        showAlert(t('alerts.geminiQuotaExceeded'));
       } else if (code === 503) {
-        alert(t('alerts.geminiOverloaded'));
+        showAlert(t('alerts.geminiOverloaded'));
       } else if (code === 500 || code === 502 || code === 504) {
-        alert(t('alerts.geminiServerError'));
+        showAlert(t('alerts.geminiServerError'));
       } else if (code === 400) {
-        alert(t('alerts.invalidRequest'));
+        showAlert(t('alerts.invalidRequest'));
+      } else if (code === 12) {
+        showAlert(t('alerts.analysisError12'));
       } else {
-        alert(t('alerts.analysisError', { code: code ?? (i18n.language?.startsWith('en') ? 'unknown' : 'לא ידוע') }));
+        showAlert(t('alerts.analysisError', { code: code ?? (i18n.language?.startsWith('en') ? 'unknown' : 'לא ידוע') }));
       }
     } finally {
       // Stop video when analysis ends (success or error)
@@ -3562,7 +3566,7 @@ const App = () => {
   const handleSetAll = () => {
     const maxExperts = getMaxExperts();
     if (maxExperts < 8) {
-      alert(t('alerts.all8Experts'));
+      showAlert(t('alerts.all8Experts'));
       setShowSubscriptionModal(true);
       return;
     }
@@ -4932,7 +4936,7 @@ const App = () => {
         }}
         onError={(error) => {
           console.error('Payment error:', error);
-          alert(t('alerts.paymentError', { error: String(error) }));
+          showAlert(t('alerts.paymentError', { error: String(error) }));
         }}
       />
       
@@ -5100,7 +5104,7 @@ const App = () => {
             }
           } catch (error) {
             console.error('Error adding track:', error);
-            alert(t('alerts.addTrackError'));
+            showAlert(t('alerts.addTrackError'));
           }
         }}
         onFinishTrackSelection={async () => {
@@ -5111,6 +5115,7 @@ const App = () => {
           }
         }}
       />
+      <AlertModal />
     </>
   );
 };

@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { fadeIn } from '../../styles/globalStyles';
 import { SUBSCRIPTION_PLANS, TEST_ACCOUNT_EMAIL } from '../../constants';
 import type { SubscriptionTier } from '../../types';
+import { showAlert } from '../../lib/alertStore';
 
 // --- Package Selection Modal Styled Components ---
 const ModalOverlay = styled.div<{ $isOpen: boolean }>`
@@ -396,7 +397,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert(t('alerts.userNotConnected'));
+        showAlert(t('alerts.userNotConnected'));
         setLoading(null);
         return;
       }
@@ -408,7 +409,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
       
       if (updateError) {
         console.error('Error updating subscription tier:', updateError);
-        alert(t('alerts.packageUpdateError'));
+        showAlert(t('alerts.packageUpdateError'));
         setLoading(null);
         return;
       }
@@ -417,7 +418,7 @@ export const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Error saving package selection:', err);
-      alert(t('alerts.choiceSaveError'));
+      showAlert(t('alerts.choiceSaveError'));
     } finally {
       setLoading(null);
     }

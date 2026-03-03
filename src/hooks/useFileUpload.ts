@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TrackId, UserSubscription } from '../types';
 import { getMaxFileBytes, getMaxVideoSeconds, getUploadLimitText } from '../constants';
+import { showAlert } from '../lib/alertStore';
 
 interface UseFileUploadReturn {
   file: File | null;
@@ -49,7 +50,7 @@ export const useFileUpload = (
 
     if (selectedFile.size > maxFileBytes) {
       const actualMb = (selectedFile.size / (1024 * 1024)).toFixed(1);
-      alert(t('alerts.fileTooLarge', { mb: actualMb }));
+      showAlert(t('alerts.fileTooLarge', { mb: actualMb }));
       resetInput();
       return;
     }
@@ -72,7 +73,7 @@ export const useFileUpload = (
       videoEl.onloadedmetadata = () => {
         if (videoEl.duration > maxVideoSeconds) {
           const durationSeconds = Math.round(videoEl.duration);
-          alert(t('alerts.videoTooLong', { seconds: durationSeconds }));
+          showAlert(t('alerts.videoTooLong', { seconds: durationSeconds }));
           URL.revokeObjectURL(objectUrl);
           resetInput();
           return;
@@ -81,7 +82,7 @@ export const useFileUpload = (
       };
 
       videoEl.onerror = () => {
-        alert(t('alerts.videoMetadataError'));
+        showAlert(t('alerts.videoMetadataError'));
         URL.revokeObjectURL(objectUrl);
         resetInput();
       };
@@ -117,7 +118,7 @@ export const useFileUpload = (
       if (isAllowed) {
         setPdfFile(selectedFile);
       } else {
-        alert(t('alerts.pdfOnly'));
+        showAlert(t('alerts.pdfOnly'));
       }
     }
     if (pdfInputRef.current) pdfInputRef.current.value = '';

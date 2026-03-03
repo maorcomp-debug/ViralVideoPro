@@ -510,6 +510,7 @@
     "geminiServerError": "Temporary server error. Try again shortly.",
     "invalidRequest": "Invalid request. File may be too large or wrong format.",
     "analysisError": "Analysis error ({{code}}). Slow connection, overload, or API issue.",
+    "analysisError12": "The AI service is temporarily unavailable or overloaded. Please try again in a few minutes.",
     "all8Experts": "All 8 experts in paid plans. Upgrade to access.",
     "paymentError": "Payment error: {{error}}",
     "addTrackError": "Couldn't add track. Add later from settings.",

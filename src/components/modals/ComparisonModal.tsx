@@ -31,6 +31,7 @@ import {
   EmptyState,
 } from '../../styles/indexStyles';
 import type { SavedAnalysis, Trainee } from '../../types';
+import { showAlert } from '../../lib/alertStore';
 
 function normalizeExpertRole(role: string): string {
   return (role || '').replace(/\bWeb\s+Screenwriter\b/gi, 'Screenwriter').replace(/^תסריטאי רשת$/, 'תסריטאי');
@@ -64,7 +65,7 @@ export const ComparisonModal = ({
         return prev.filter(id => id !== analysisId);
       } else {
         if (prev.length >= 4) {
-          alert(t('comparison.maxAnalyses'));
+          showAlert(t('comparison.maxAnalyses'));
           return prev;
         }
         return [...prev, analysisId];

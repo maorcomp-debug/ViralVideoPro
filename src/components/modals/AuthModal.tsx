@@ -6,6 +6,7 @@ import { fadeIn } from '../../styles/globalStyles';
 import { validateCoupon, redeemCoupon, updateCurrentUserProfile } from '../../lib/supabase-helpers';
 import { TEST_ACCOUNT_EMAIL, SUBSCRIPTION_PLANS } from '../../constants';
 import type { SubscriptionTier, TrackId } from '../../types';
+import { showAlert } from '../../lib/alertStore';
 
 // --- Auth Modal Styled Components ---
 const AuthModalOverlay = styled.div<{ $isOpen: boolean }>`
@@ -588,7 +589,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   console.error('Error redeeming coupon:', couponError);
                   // Show notification but don't block - user is already registered
                   setTimeout(() => {
-                    alert(t('authErrors.couponError', { error: couponError.message }));
+                    showAlert(t('authErrors.couponError', { error: couponError.message }));
                   }, 1000);
                 });
             }

@@ -28,6 +28,7 @@ import {
   deleteAllTrialsViaAdminApi,
   deleteAllRedemptionsViaAdminApi,
 } from '../../lib/supabase-helpers';
+import { showAlert } from '../../lib/alertStore';
 import { supabase } from '../../lib/supabase';
 import type { SubscriptionTier } from '../../types';
 import { SUBSCRIPTION_PLANS } from '../../constants';
@@ -1090,10 +1091,10 @@ export const AdminPage: React.FC = () => {
       // Clear cache and reload immediately - no delays
       clearAdminCache();
       await loadData(true); // Force refresh to get fresh data
-      alert(t('alerts.userDeleted'));
+      showAlert(t('alerts.userDeleted'));
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      alert(t('alerts.deleteUserError', { error: error.message || 'Unknown error' }));
+      showAlert(t('alerts.deleteUserError', { error: error.message || 'Unknown error' }));
       // Reload data even on error to ensure UI is in sync
       clearAdminCache();
       loadData(true).catch(() => {});
@@ -1103,7 +1104,7 @@ export const AdminPage: React.FC = () => {
   const handleDeleteByEmail = async () => {
     const email = deleteByEmailValue.trim();
     if (!email) {
-      alert(t('alerts.enterEmail'));
+      showAlert(t('alerts.enterEmail'));
       return;
     }
     if (!confirm(`למחוק משתמש עם אימייל ${email}? (גם מ-Supabase Auth)`)) return;
@@ -1113,10 +1114,10 @@ export const AdminPage: React.FC = () => {
       setDeleteByEmailValue('');
       clearAdminCache();
       await loadData(true);
-      alert(t('alerts.userDeleted'));
+      showAlert(t('alerts.userDeleted'));
     } catch (error: any) {
       console.error('Error deleting user by email:', error);
-      alert(t('alerts.deleteUserError', { error: error.message || 'Unknown error' }));
+      showAlert(t('alerts.deleteUserError', { error: error.message || 'Unknown error' }));
       clearAdminCache();
       loadData(true).catch(() => {});
     } finally {
@@ -1128,10 +1129,10 @@ export const AdminPage: React.FC = () => {
     try {
       await updateUserProfile(userId, { role: 'admin' });
       await loadData();
-      alert(t('alerts.setAdminSuccess'));
+      showAlert(t('alerts.setAdminSuccess'));
     } catch (error: any) {
       console.error('Error making user admin:', error);
-      alert(t('alerts.setAdminError', { error: error.message || 'Unknown error' }));
+      showAlert(t('alerts.setAdminError', { error: error.message || 'Unknown error' }));
     }
   };
 
@@ -1202,17 +1203,17 @@ export const AdminPage: React.FC = () => {
           }
         }
         
-        alert(t('alerts.planUpdated'));
+        showAlert(t('alerts.planUpdated'));
       } catch (dbError: any) {
         // If DB update fails, revert optimistic update
         loadData(true).catch(() => {});
-        alert(t('alerts.planUpdateError', { error: dbError.message || 'Unknown error' }));
+        showAlert(t('alerts.planUpdateError', { error: dbError.message || 'Unknown error' }));
       }
     } catch (error: any) {
       console.error('Error updating package:', error);
       // Revert on error
       loadData(true).catch(() => {});
-      alert(t('alerts.planUpdateError', { error: error.message || 'Unknown error' }));
+      showAlert(t('alerts.planUpdateError', { error: error.message || 'Unknown error' }));
     }
   };
   
@@ -1257,10 +1258,10 @@ export const AdminPage: React.FC = () => {
       });
       setEditingCoupon(null);
       await loadData(true);
-      alert(t('alerts.benefitUpdated'));
+      showAlert(t('alerts.benefitUpdated'));
     } catch (error: any) {
       console.error('Error updating coupon:', error);
-      alert(t('alerts.benefitUpdateError', { error: error.message || 'Unknown error' }));
+      showAlert(t('alerts.benefitUpdateError', { error: error.message || 'Unknown error' }));
     }
   };
 
@@ -1274,7 +1275,7 @@ export const AdminPage: React.FC = () => {
       console.log('[Admin] delete coupon OK (direct)');
       setEditingCoupon(null);
       await loadData(true);
-      alert(t('alerts.benefitDeleted'));
+      showAlert(t('alerts.benefitDeleted'));
     } catch (directErr: any) {
       if (directErr?.message !== 'RLS') console.warn('[Admin] direct delete failed', directErr);
       try {
@@ -1282,10 +1283,10 @@ export const AdminPage: React.FC = () => {
         console.log('[Admin] delete coupon OK (API)');
         setEditingCoupon(null);
         await loadData(true);
-        alert(t('alerts.benefitDeleted'));
+        showAlert(t('alerts.benefitDeleted'));
       } catch (apiErr: any) {
         console.error('[Admin] delete coupon failed', apiErr);
-        alert(t('alerts.benefitDeleteError', { error: (apiErr.message || directErr.message || 'Unknown error') }) + '\n\n' + t('alerts.benefitDeleteHint'));
+        showAlert(t('alerts.benefitDeleteError', { error: (apiErr.message || directErr.message || 'Unknown error') }) + '\n\n' + t('alerts.benefitDeleteHint'));
       }
     }
   };
@@ -1297,23 +1298,23 @@ export const AdminPage: React.FC = () => {
       if (error) throw error;
       if (trials.length > 0 && (!deleted || deleted.length === 0)) throw new Error('RLS');
       await loadData(true);
-      alert(t('alerts.allTrialsDeleted'));
+      showAlert(t('alerts.allTrialsDeleted'));
     } catch (directErr: any) {
       if (directErr?.message !== 'RLS') console.warn('[Admin] direct delete all trials failed', directErr);
       try {
         await deleteAllTrialsViaAdminApi();
         await loadData(true);
-        alert(t('alerts.allTrialsDeleted'));
+        showAlert(t('alerts.allTrialsDeleted'));
       } catch (apiErr: any) {
         console.error('[Admin] delete all trials failed', apiErr);
-        alert(t('alerts.trialsDeleteError', { error: apiErr.message || directErr.message || 'Unknown error' }));
+        showAlert(t('alerts.trialsDeleteError', { error: apiErr.message || directErr.message || 'Unknown error' }));
       }
     }
   };
 
   const handleDeleteSelectedTrials = async () => {
     if (selectedTrials.size === 0) {
-      alert(t('alerts.noTrialsSelected'));
+      showAlert(t('alerts.noTrialsSelected'));
       return;
     }
     if (!confirm(`למחוק ${selectedTrials.size} התנסויות שנבחרו? לא ניתן לשחזר.`)) return;
@@ -1324,7 +1325,7 @@ export const AdminPage: React.FC = () => {
       if (!deleted || deleted.length === 0) throw new Error('RLS');
       setSelectedTrials(new Set());
       await loadData(true);
-      alert(t('alerts.trialsDeleted', { count: ids.length }));
+      showAlert(t('alerts.trialsDeleted', { count: ids.length }));
     } catch (directErr: any) {
       if (directErr?.message !== 'RLS') console.warn('[Admin] direct trials delete failed', directErr);
       try {
@@ -1342,17 +1343,17 @@ export const AdminPage: React.FC = () => {
         if (!res.ok || !data.ok) throw new Error(data.error || text || `שגיאה ${res.status}`);
         setSelectedTrials(new Set());
         await loadData(true);
-        alert(t('alerts.trialsDeleted', { count: ids.length }));
+        showAlert(t('alerts.trialsDeleted', { count: ids.length }));
       } catch (apiErr: any) {
         console.error('[Admin] delete selected trials failed', apiErr);
-        alert(t('alerts.trialsDeleteError', { error: apiErr.message || directErr.message || 'Unknown error' }));
+        showAlert(t('alerts.trialsDeleteError', { error: apiErr.message || directErr.message || 'Unknown error' }));
       }
     }
   };
 
   const handleDeleteSelectedCoupons = async () => {
     if (selectedCoupons.size === 0) {
-      alert(t('alerts.noCouponsSelected'));
+      showAlert(t('alerts.noCouponsSelected'));
       return;
     }
     if (!confirm(`למחוק ${selectedCoupons.size} הטבות שנבחרו? לא ניתן לשחזר.`)) return;
@@ -1367,7 +1368,7 @@ export const AdminPage: React.FC = () => {
       console.log('[Admin] delete selected coupons OK (direct)', ids.length);
       setSelectedCoupons(new Set());
       await loadData(true);
-      alert(t('alerts.couponsDeleted', { count: ids.length }));
+      showAlert(t('alerts.couponsDeleted', { count: ids.length }));
     } catch (directErr: any) {
       if (directErr?.message !== 'RLS') console.warn('[Admin] direct batch delete failed', directErr);
       try {
@@ -1386,10 +1387,10 @@ export const AdminPage: React.FC = () => {
         console.log('[Admin] delete selected coupons OK (API)', ids.length);
         setSelectedCoupons(new Set());
         await loadData(true);
-        alert(t('alerts.couponsDeleted', { count: ids.length }));
+        showAlert(t('alerts.couponsDeleted', { count: ids.length }));
       } catch (apiErr: any) {
         console.error('[Admin] delete selected coupons failed', apiErr);
-        alert(t('alerts.benefitDeleteError', { error: (apiErr.message || directErr.message || 'Unknown error') }) + '\n\n' + t('alerts.benefitDeleteHint'));
+        showAlert(t('alerts.benefitDeleteError', { error: (apiErr.message || directErr.message || 'Unknown error') }) + '\n\n' + t('alerts.benefitDeleteHint'));
       }
     }
   };
@@ -1403,12 +1404,12 @@ export const AdminPage: React.FC = () => {
         target_all: updateForm.sendToAll,
         target_tier: updateForm.sendToAll ? undefined : [],
       });
-      alert(t('alerts.updateSentSuccess'));
+      showAlert(t('alerts.updateSentSuccess'));
       setUpdateForm({ title: '', content: '', sendToAll: true, attachBenefit: false });
       await loadData();
     } catch (error: any) {
       console.error('Error sending update:', error);
-      alert(t('alerts.updateSendError', { error: error.message || 'Unknown error' }));
+      showAlert(t('alerts.updateSendError', { error: error.message || 'Unknown error' }));
     }
   };
 
@@ -1419,11 +1420,11 @@ export const AdminPage: React.FC = () => {
     if (isCreatingCoupon) return;
     const titleTrimmed = couponForm.title?.trim();
     if (!titleTrimmed) {
-      alert(t('alerts.fillBenefitTitle'));
+      showAlert(t('alerts.fillBenefitTitle'));
       return;
     }
     if (couponForm.targetScope === 'user' && couponForm.deliveryEmail && !couponForm.targetUserEmail?.trim()) {
-      alert(t('alerts.fillUserEmail'));
+      showAlert(t('alerts.fillUserEmail'));
       return;
     }
     setIsCreatingCoupon(true);
@@ -1549,7 +1550,7 @@ export const AdminPage: React.FC = () => {
           }
         }
 
-        alert(t('alerts.benefitCreatedSuccess'));
+        showAlert(t('alerts.benefitCreatedSuccess'));
         // Do not redirect to /?redeem=... – benefit is delivered only where configured (email and/or in-app updates)
         setCouponForm({
           benefitType: 'free_week',
@@ -1575,7 +1576,7 @@ export const AdminPage: React.FC = () => {
       await loadData(true);
     } catch (error: any) {
       console.error('Error creating coupon:', error);
-      alert(t('alerts.benefitCreateError', { error: error.message || 'Unknown error' }));
+      showAlert(t('alerts.benefitCreateError', { error: error.message || 'Unknown error' }));
     } finally {
       setIsCreatingCoupon(false);
     }
