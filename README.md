@@ -36,13 +36,13 @@
    - הרץ את `supabase/storage_policies.sql`
    - הרץ את `supabase/webhooks/payments.sql`
 
-5. **הרץ את האפליקציה:**
+5. **הרץ את האפליקציה** (כולל API עם .env.local):
+   ```bash
+   npm run dev
+   ```
+   או רק פרונט (ללא API):
    ```bash
    npm start
-   ```
-   **לבדיקת ניתוח וידאו מקומית** (כולל API עם .env.local):
-   ```bash
-   npm run dev:full
    ```
 
 6. **פתח בדפדפן:**

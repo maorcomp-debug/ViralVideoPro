@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "vercel dev",
     "start": "vite --host --port 3000",
-    "dev:full": "vercel dev",
+    "dev:vite": "vite --host",
     "build": "vite build",
     "preview": "vite preview --host --port 4173"
   },
