@@ -32,7 +32,7 @@ export default async function handler(
   const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({
-      error: 'API key not configured. Set GEMINI_API_KEY in Vercel environment variables.',
+      error: 'API key not configured. Set GEMINI_API_KEY or VITE_GEMINI_API_KEY in .env.local (local) or Vercel env vars (production).',
     });
   }
 

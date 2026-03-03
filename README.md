@@ -22,11 +22,12 @@
    npm install
    ```
 
-3. **צור קובץ `.env.local`** (בשורש הפרויקט):
+3. **צור קובץ `.env.local`** (בשורש הפרויקט) – העתק מ-`.env.example`:
    ```env
+   GEMINI_API_KEY=your-gemini-api-key
+   # או VITE_GEMINI_API_KEY=your-gemini-api-key
    VITE_SUPABASE_URL=your-supabase-project-url
    VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-   VITE_GEMINI_API_KEY=your-gemini-api-key
    ```
 
 4. **הגדר את Supabase:**
