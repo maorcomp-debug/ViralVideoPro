@@ -227,12 +227,11 @@ export const SubscriptionBillingModal: React.FC<SubscriptionBillingModalProps> =
       }
       const periodEndStr = periodEnd ? formatDate(periodEnd) : '';
       setMessage({
-        text: `המנוי בוטל בהצלחה. תוכל להשתמש עד ${periodEndStr} או עד סיום המכסה. הביטול מסונכרן עם Takbull – לא יתבצע חיוב נוסף.`,
+        text: `בקשת הביטול נרשמה בהצלחה. לא יתבצע חיוב נוסף, ותוכל להשתמש בחבילה עד ${periodEndStr} או עד סיום המכסה.`,
         success: true,
       });
       setApiStatus((prev) => ({
         ...prev,
-        subscription_status: 'canceled',
         auto_renew: false,
       }));
       onRefresh?.();

@@ -228,15 +228,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const now = new Date().toISOString();
+      // IMPORTANT: Do NOT disable access immediately. We only turn off auto_renew and
+      // record canceled_at. The subscription remains active until the end of the
+      // current billing period, and the nightly cron (downgrade-expired) handles
+      // moving the user to the free tier when the period ends.
       await admin.from('subscriptions').update({
-        subscription_status: 'canceled',
-        status: 'cancelled',
         auto_renew: false,
         canceled_at: now,
         updated_at: now,
       } as any).eq('id', sub.id);
       await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id, uniqId });
-      await admin.from('profiles').update({ subscription_status: 'cancelled', updated_at: now }).eq('user_id', user.id);
+      // Keep profile.subscription_status as-is (typically 'active') so the user
+      // continues to have access until the period end.
+      await admin.from('profiles').update({ updated_at: now }).eq('user_id', user.id);
       const { email: emailCancel, lang: langCancel } = await getEmailAndLangForUser(admin, user.id);
       if (emailCancel) await sendSubscriptionActionEmail(emailCancel, 'cancel', langCancel);
       return res.status(200).json({ ok: true });
