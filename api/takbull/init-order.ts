@@ -209,6 +209,9 @@ export default async function handler(
 
     // Prepare request to Takbull API
     // Try multiple authentication methods as different APIs use different formats
+    const now = new Date();
+    const dueDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
     const takbullPayload: any = {
       DealType: 4, // Subscription
       Interval:1,
@@ -230,6 +233,8 @@ export default async function handler(
       RedirectAddress: redirectUrl,
       Currency: currency,
       Language: (body.preferredLanguage === 'en' ? 'en' : 'he') as string,
+      // RecuringDueDate – first charge date for the recurring payment = purchase date
+      RecuringDueDate: dueDate,
     };
 
     // Add subscription parameters if needed (check Takbull docs)
