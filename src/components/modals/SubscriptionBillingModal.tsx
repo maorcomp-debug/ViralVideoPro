@@ -16,7 +16,7 @@ const Overlay = styled.div<{ $isOpen: boolean }>`
   display: ${(p) => (p.$isOpen ? 'flex' : 'none')};
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.95);
+  background: #050505;
   align-items: center;
   justify-content: center;
   z-index: 10001;
@@ -45,7 +45,7 @@ const Box = styled.div`
   @media (max-width: 600px) {
     max-width: none;
     width: 100vw;
-    min-height: 100vh;
+    min-height: 100dvh;
     border-radius: 0;
     padding: 20px 16px;
     margin: 0;

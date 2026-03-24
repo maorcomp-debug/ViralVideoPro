@@ -353,17 +353,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           >
             ← {t('header.back')}
           </button>
-          <h1 style={{ color: '#D4A043', margin: 0, fontSize: '2rem' }}>⚙️ {t('header.settings')}</h1>
-          <div style={{ width: '100px' }}></div>
+          <h1 style={{ color: '#D4A043', margin: 0, fontSize: 'clamp(1.25rem, 4vw, 2rem)', textAlign: 'center', flex: 1 }}>⚙️ {t('header.settings')}</h1>
+          <div style={{ width: '16px' }}></div>
         </div>
       </Header>
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '40px 20px', color: '#fff' }}>
+      <div style={{ maxWidth: '800px', width: '100%', boxSizing: 'border-box', margin: '0 auto', padding: '40px 20px', color: '#fff', overflowX: 'hidden' }}>
         {/* Tabs */}
         <div style={{
           display: 'flex',
           gap: '10px',
           marginBottom: '20px',
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: '4px',
         }}>
           <button
             onClick={() => setActiveTab('general')}
@@ -377,6 +380,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               fontSize: '0.95rem',
               fontWeight: activeTab === 'general' ? 700 : 400,
               transition: 'all 0.3s',
+              whiteSpace: 'nowrap',
+              flex: '0 0 auto',
             }}
           >
             {t('header.language')}
@@ -393,6 +398,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               fontSize: '0.95rem',
               fontWeight: activeTab === 'profile' ? 700 : 400,
               transition: 'all 0.3s',
+              whiteSpace: 'nowrap',
+              flex: '0 0 auto',
             }}
           >
             {t('settings.tabProfile')}
@@ -409,6 +416,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               fontSize: '0.95rem',
               fontWeight: activeTab === 'password' ? 700 : 400,
               transition: 'all 0.3s',
+              whiteSpace: 'nowrap',
+              flex: '0 0 auto',
             }}
           >
             {t('settings.tabPassword')}
@@ -425,6 +434,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               fontSize: '0.95rem',
               fontWeight: activeTab === 'subscription' ? 700 : 400,
               transition: 'all 0.3s',
+              whiteSpace: 'nowrap',
+              flex: '0 0 auto',
             }}
           >
             {t('settings.tabSubscription')}
@@ -441,6 +452,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               fontSize: '0.95rem',
               fontWeight: activeTab === 'updates' ? 700 : 400,
               transition: 'all 0.3s',
+              whiteSpace: 'nowrap',
+              flex: '0 0 auto',
             }}
           >
             {t('settings.tabUpdates')}
@@ -752,6 +765,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               borderRadius: '8px',
               marginBottom: '20px',
               textAlign: i18n.language?.startsWith('he') ? 'right' : 'left',
+              width: '100%',
+              boxSizing: 'border-box',
+              overflowWrap: 'anywhere',
             }}>
               <h3 style={{ color: '#D4A043', margin: '0 0 10px 0' }}>{t('settings.subscriptionStatus')}</h3>
               <div style={{ margin: '5px 0', color: '#ccc', display: 'flex', flexDirection: 'column', gap: '8px' }}>
