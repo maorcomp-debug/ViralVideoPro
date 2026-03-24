@@ -13,6 +13,12 @@ const Overlay = styled.div<{ $isOpen: boolean }>`
   z-index: 10000;
   padding: 20px;
   animation: ${fadeIn} 0.2s ease;
+
+  @media (max-width: 600px) {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
 `;
 
 const Box = styled.div`
@@ -23,6 +29,17 @@ const Box = styled.div`
   max-width: 420px;
   width: 100%;
   text-align: center;
+
+  @media (max-width: 600px) {
+    max-width: none;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    padding: 22px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
 `;
 
 const Title = styled.h3`
