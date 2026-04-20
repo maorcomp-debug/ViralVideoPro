@@ -11,6 +11,8 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL ||
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const CRON_SECRET = process.env.CRON_SECRET || process.env.SUBSCRIPTION_CRON_SECRET || '';
+const takbullApiKey = process.env.TAKBULL_API_KEY || '';
+const takbullApiSecret = process.env.TAKBULL_API_SECRET || '';
 
 function getSupabaseAdmin(): SupabaseClient {
   if (!supabaseUrl || !supabaseServiceKey) throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
@@ -82,6 +84,75 @@ async function sendSubscriptionActionEmail(toEmail: string, action: 'pause' | 'c
     if (!res.ok) console.warn('Resend subscription email failed:', await res.text());
   } catch (e) {
     console.warn('Resend subscription email error:', e);
+  }
+}
+
+function isTakbullCancelSuccess(payload: any): boolean {
+  const code = payload?.InternalCode ?? payload?.responseCode;
+  if (typeof code === 'number') return code === 0;
+  if (typeof payload?.Status === 'number') return payload.Status === 1;
+  if (typeof payload?.Status === 'string') return payload.Status.toLowerCase() === 'approved' || payload.Status.toLowerCase() === 'success';
+  return payload?.ok === true || payload?.success === true;
+}
+
+async function callTakbullCancel(uniqId: string): Promise<{ ok: boolean; details?: string }> {
+  if (!takbullApiKey || !takbullApiSecret) {
+    return { ok: false, details: 'Missing TAKBULL_API_KEY/TAKBULL_API_SECRET' };
+  }
+
+  const headers = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'API_Key': takbullApiKey,
+    'API_Secret': takbullApiSecret,
+  };
+
+  // Try official endpoint first with headers.
+  try {
+    const url = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}`;
+    const response = await fetch(url, { method: 'GET', headers });
+    const raw = await response.text();
+    let parsed: any = null;
+    try { parsed = raw ? JSON.parse(raw) : null; } catch (_) {}
+    if (response.ok && isTakbullCancelSuccess(parsed)) return { ok: true };
+    console.warn('Takbull CancelSubscription GET failed', { status: response.status, body: raw?.slice(0, 500) });
+  } catch (e) {
+    console.warn('Takbull CancelSubscription GET error', e);
+  }
+
+  // Fallback: some gateways require API keys in query.
+  try {
+    const url = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}&API_Key=${encodeURIComponent(takbullApiKey)}&API_Secret=${encodeURIComponent(takbullApiSecret)}`;
+    const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+    const raw = await response.text();
+    let parsed: any = null;
+    try { parsed = raw ? JSON.parse(raw) : null; } catch (_) {}
+    if (response.ok && isTakbullCancelSuccess(parsed)) return { ok: true };
+    console.warn('Takbull CancelSubscription GET(query auth) failed', { status: response.status, body: raw?.slice(0, 500) });
+  } catch (e) {
+    console.warn('Takbull CancelSubscription GET(query auth) error', e);
+  }
+
+  // Fallback: Refund endpoint (documented) for immediate charge cancellation/refund.
+  try {
+    const response = await fetch('https://api.takbull.co.il/api/ExtranalAPI/Refund', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        uniqId,
+        CancelReason: 'Subscription cancel requested by user',
+        CreateDocument: false,
+      }),
+    });
+    const raw = await response.text();
+    let parsed: any = null;
+    try { parsed = raw ? JSON.parse(raw) : null; } catch (_) {}
+    if (response.ok && isTakbullCancelSuccess(parsed)) return { ok: true };
+    console.warn('Takbull Refund fallback failed', { status: response.status, body: raw?.slice(0, 500) });
+    return { ok: false, details: `Takbull rejected cancel/refund (HTTP ${response.status})` };
+  } catch (e) {
+    console.warn('Takbull Refund fallback error', e);
+    return { ok: false, details: 'Network error while calling Takbull cancel/refund API' };
   }
 }
 
@@ -255,6 +326,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .from('takbull_orders')
             .select('uniq_id, payment_status, order_status, created_at')
             .eq('user_id', user.id)
+            .eq('payment_status', 'paid')
+            .eq('order_status', 'completed')
             .not('uniq_id', 'is', null)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -266,41 +339,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (!uniqId) {
-        return res.status(500).json({ error: 'לא נמצא מזהה חיוב מול Takbull, לא ניתן לבצע ביטול מסונכרן כרגע' });
-      }
-
-      let takbullCanceled = false;
-      if (uniqId) {
+        // Last resort (legacy data): latest order with uniqId even if statuses are missing.
         try {
-          const cancelUrl = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}`;
-          const resCancel = await fetch(cancelUrl, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-          });
-          if (!resCancel.ok) {
-            const errorText = await resCancel.text();
-            console.warn('Takbull CancelSubscription HTTP error:', resCancel.status, errorText);
-          } else {
-            const cancelData = await resCancel.json();
-            const successCode = cancelData?.InternalCode ?? cancelData?.responseCode;
-            if (successCode === 0) {
-              console.log('Takbull CancelSubscription succeeded for uniqId:', uniqId);
-              takbullCanceled = true;
-            } else {
-              console.warn('Takbull CancelSubscription failed:', {
-                uniqId,
-                InternalCode: cancelData.InternalCode,
-                InternalDescription: cancelData.InternalDescription || 'Unknown error',
-              });
-            }
-          }
+          const { data: orderByUserAny } = await admin
+            .from('takbull_orders')
+            .select('uniq_id, created_at')
+            .eq('user_id', user.id)
+            .not('uniq_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          uniqId = (orderByUserAny as any)?.uniq_id || null;
         } catch (e) {
-          console.warn('Takbull CancelSubscription error:', e);
+          console.warn('Error fetching last-resort uniqId by user:', e);
         }
       }
 
+      if (!uniqId) {
+        return res.status(500).json({ error: 'לא נמצא מזהה חיוב מול Takbull, לא ניתן לבצע ביטול מסונכרן כרגע' });
+      }
+
+      const takbullResult = await callTakbullCancel(uniqId);
+      const takbullCanceled = takbullResult.ok;
+
       if (!takbullCanceled) {
-        return res.status(502).json({ error: 'ביטול המנוי מול Takbull נכשל. לא בוצע שינוי מקומי כדי למנוע חוסר סנכרון.' });
+        return res.status(502).json({ error: `ביטול המנוי מול Takbull נכשל. לא בוצע שינוי מקומי כדי למנוע חוסר סנכרון.${takbullResult.details ? ` (${takbullResult.details})` : ''}` });
       }
 
       const now = new Date().toISOString();
