@@ -17,6 +17,11 @@ function getSupabaseAdmin(): SupabaseClient {
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
+function isMissingColumnError(error: unknown): boolean {
+  const anyErr = error as { code?: string; message?: string } | null;
+  return anyErr?.code === '42703' || (typeof anyErr?.message === 'string' && anyErr.message.includes('does not exist'));
+}
+
 async function getUserFromRequest(req: VercelRequest): Promise<{ id: string } | null> {
   const auth = req.headers.authorization;
   const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
@@ -90,17 +95,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const user = await getUserFromRequest(req);
       if (!user) return res.status(401).json({ error: 'לא מאומת' });
       const admin = getSupabaseAdmin();
-      const { data: sub, error } = await admin
+      let sub: any = null;
+      const modernResult = await admin
         .from('subscriptions')
         .select('id, status, subscription_status, auto_renew, current_period_start, current_period_end, plan, start_date, end_date')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) {
-        console.error('Subscription status error:', error);
+
+      if (modernResult.error && !isMissingColumnError(modernResult.error)) {
+        console.error('Subscription status error:', modernResult.error);
         return res.status(500).json({ error: 'שגיאה בקבלת סטטוס מנוי' });
       }
+
+      if (modernResult.error && isMissingColumnError(modernResult.error)) {
+        // Backward compatibility for DBs that did not run the newer subscription migration yet.
+        const legacyResult = await admin
+          .from('subscriptions')
+          .select('id, status, plan, start_date, end_date')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (legacyResult.error) {
+          console.error('Subscription status legacy error:', legacyResult.error);
+          return res.status(500).json({ error: 'שגיאה בקבלת סטטוס מנוי' });
+        }
+        sub = legacyResult.data;
+      } else {
+        sub = modernResult.data;
+      }
+
       const subscription_status = (sub as any)?.subscription_status ?? (sub?.status === 'cancelled' ? 'canceled' : sub?.status === 'active' ? 'active' : 'expired');
       const auto_renew = (sub as any)?.auto_renew ?? (sub?.status === 'active');
       const current_period_end = (sub as any)?.current_period_end ?? sub?.end_date ?? null;
@@ -169,18 +195,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!user) return res.status(401).json({ error: 'לא מאומת' });
       const admin = getSupabaseAdmin();
 
-      const { data: sub } = await admin
+      let sub: any = null;
+      const modernSubResult = await admin
         .from('subscriptions')
-        .select('id, subscription_status')
+        .select('id, status, subscription_status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
+      if (modernSubResult.error && !isMissingColumnError(modernSubResult.error)) {
+        console.error('Cancel fetch subscription error:', modernSubResult.error);
+        return res.status(500).json({ error: 'שגיאה באיתור המנוי' });
+      }
+
+      if (modernSubResult.error && isMissingColumnError(modernSubResult.error)) {
+        const legacySubResult = await admin
+          .from('subscriptions')
+          .select('id, status')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (legacySubResult.error) {
+          console.error('Cancel fetch legacy subscription error:', legacySubResult.error);
+          return res.status(500).json({ error: 'שגיאה באיתור המנוי' });
+        }
+        sub = legacySubResult.data;
+      } else {
+        sub = modernSubResult.data;
+      }
+
       if (!sub) return res.status(400).json({ error: 'לא נמצא מנוי פעיל' });
 
       const subAny = sub as any;
-      if (subAny.subscription_status === 'canceled') return res.status(200).json({ ok: true, message: 'המנוי כבר בוטל' });
+      const effectiveStatus = subAny.subscription_status ?? (subAny.status === 'cancelled' ? 'canceled' : subAny.status);
+      if (effectiveStatus === 'canceled') return res.status(200).json({ ok: true, message: 'המנוי כבר בוטל' });
 
       // Get the original order's uniqId for CancelSubscription API call (sync with Takbull immediately)
       let uniqId: string | null = null;
@@ -198,6 +248,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.warn('Error fetching order uniqId:', e);
       }
 
+      if (!uniqId) {
+        // Fallback: in older data order may not be linked to subscription_id yet.
+        try {
+          const { data: orderByUser } = await admin
+            .from('takbull_orders')
+            .select('uniq_id, payment_status, order_status, created_at')
+            .eq('user_id', user.id)
+            .not('uniq_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          uniqId = (orderByUser as any)?.uniq_id || null;
+        } catch (e) {
+          console.warn('Error fetching fallback order uniqId by user:', e);
+        }
+      }
+
+      if (!uniqId) {
+        return res.status(500).json({ error: 'לא נמצא מזהה חיוב מול Takbull, לא ניתן לבצע ביטול מסונכרן כרגע' });
+      }
+
+      let takbullCanceled = false;
       if (uniqId) {
         try {
           const cancelUrl = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}`;
@@ -210,8 +282,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.warn('Takbull CancelSubscription HTTP error:', resCancel.status, errorText);
           } else {
             const cancelData = await resCancel.json();
-            if (cancelData.InternalCode === 0) {
+            const successCode = cancelData?.InternalCode ?? cancelData?.responseCode;
+            if (successCode === 0) {
               console.log('Takbull CancelSubscription succeeded for uniqId:', uniqId);
+              takbullCanceled = true;
             } else {
               console.warn('Takbull CancelSubscription failed:', {
                 uniqId,
@@ -223,8 +297,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } catch (e) {
           console.warn('Takbull CancelSubscription error:', e);
         }
-      } else {
-        console.warn('No uniqId found for subscription cancellation');
+      }
+
+      if (!takbullCanceled) {
+        return res.status(502).json({ error: 'ביטול המנוי מול Takbull נכשל. לא בוצע שינוי מקומי כדי למנוע חוסר סנכרון.' });
       }
 
       const now = new Date().toISOString();
@@ -232,11 +308,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // record canceled_at. The subscription remains active until the end of the
       // current billing period, and the nightly cron (downgrade-expired) handles
       // moving the user to the free tier when the period ends.
-      await admin.from('subscriptions').update({
+      const cancelUpdate = {
         auto_renew: false,
         canceled_at: now,
         updated_at: now,
-      } as any).eq('id', sub.id);
+      } as any;
+      const cancelResult = await admin.from('subscriptions').update(cancelUpdate).eq('id', sub.id);
+      if (cancelResult.error && isMissingColumnError(cancelResult.error)) {
+        // Legacy schema fallback: keep old fields only.
+        const legacyCancelResult = await admin
+          .from('subscriptions')
+          .update({
+            updated_at: now,
+          } as any)
+          .eq('id', sub.id);
+        if (legacyCancelResult.error) {
+          console.error('Legacy cancel update error:', legacyCancelResult.error);
+          return res.status(500).json({ error: 'שגיאה בעדכון מצב המנוי' });
+        }
+      } else if (cancelResult.error) {
+        console.error('Cancel update error:', cancelResult.error);
+        return res.status(500).json({ error: 'שגיאה בעדכון מצב המנוי' });
+      }
       await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id, uniqId });
       // Keep profile.subscription_status as-is (typically 'active') so the user
       // continues to have access until the period end.
