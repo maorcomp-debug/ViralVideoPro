@@ -1174,9 +1174,27 @@ const App = () => {
             preferredLanguage: preferredLang,
           }),
         });
-        const data = await res.json();
-        if (!data.ok || !data.paymentUrl) {
-          throw new Error(data.error || t('alerts.initPaymentFailed'));
+
+        const contentType = res.headers.get('content-type') || '';
+        let data: any = {};
+        let responseText = '';
+
+        // /api can return non-JSON (e.g. 404 HTML when running Vite without Vercel dev)
+        if (contentType.includes('application/json')) {
+          data = await res.json().catch(() => ({}));
+        } else {
+          responseText = await res.text().catch(() => '');
+        }
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error('Local API not available. Start the app with "npm run dev" (Vercel dev) to open Takbull payment page.');
+          }
+          throw new Error(data?.error || responseText || t('alerts.initPaymentFailed'));
+        }
+
+        if (!data?.ok || !data?.paymentUrl) {
+          throw new Error(data?.error || t('alerts.initPaymentFailed'));
         }
         setUpgradeFromTier(subscription?.tier || 'free');
         setUpgradeToTier(tier);
@@ -3137,12 +3155,16 @@ const App = () => {
            - Focus on professional standards and industry best practices
            - Each tip should offer genuine value and be implementable
            - Tips should reflect deep understanding of the track's professional requirements
+
+        6. VIDEO ORIENTATION RELIABILITY:
+           - Do NOT claim the video is upside-down, rotated, mirrored, or orientation-broken unless the evidence is explicit and undeniable across multiple moments.
+           - If orientation is not clearly problematic, assume it is correct and do not mention orientation issues.
         
-          ${file && file.type.startsWith('video') ? `6. TAKE RECOMMENDATION: At the end, provide an honest professional recommendation:
+          ${file && file.type.startsWith('video') ? `7. TAKE RECOMMENDATION: At the end, provide an honest professional recommendation:
            - If the performance is ready: Clearly state if the video/take is ready to submit/upload in its current state, and why
            - If a retake is needed: Honestly recommend another take if significant improvements are needed, explaining specifically what should be improved
            - Be authentic - don't always recommend retakes, and don't always say it's ready. Assess professionally and honestly.
-        ` : `6. SCRIPT/INSTRUCTIONS ONLY (no video): Do NOT include "takeRecommendation" in the JSON. Omit it entirely. Focus on script quality, tips, and actionable feedback. Do NOT provide expert scores - use null for "score" in each expert.`}
+        ` : `7. SCRIPT/INSTRUCTIONS ONLY (no video): Do NOT include "takeRecommendation" in the JSON. Omit it entirely. Focus on script quality, tips, and actionable feedback. Do NOT provide expert scores - use null for "score" in each expert.`}
 
         Return the result as a raw JSON object with this exact structure (Keys must be English, Values MUST be in ${outputLang === 'he' ? 'Hebrew' : 'English'}):
         {
