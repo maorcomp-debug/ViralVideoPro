@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vercel dev",
     "start": "vite --host --port 3000",
+    "start:local-api": "vite --host --port 3000 --mode localapi",
     "dev:vite": "vite --host",
     "build": "vite build",
     "preview": "vite preview --host --port 4173"

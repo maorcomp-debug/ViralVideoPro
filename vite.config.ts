@@ -6,12 +6,13 @@ import { localApiPlugin } from './vite-local-api';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     const geminiKey = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY;
+    const useLocalApi = mode === 'localapi' || env.LOCAL_API === 'true' || env.VITE_LOCAL_API === 'true';
     return {
       base: '/',
       server: {
         port: 3000,
         host: '0.0.0.0',
-        // Local API (subscription + takbull) uses .env.local keys. Other /api routes proxy to production.
+        // Default: all /api → production (viraly.co.il). Set LOCAL_API=true for local Takbull/subscription API.
         proxy: {
           '/api': {
             target: 'https://viraly.co.il',
@@ -20,7 +21,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      plugins: [react(), localApiPlugin(env)],
+      plugins: [react(), ...(useLocalApi ? [localApiPlugin(env)] : [])],
       define: {
         'process.env.API_KEY': JSON.stringify(geminiKey),
         'process.env.GEMINI_API_KEY': JSON.stringify(geminiKey)
