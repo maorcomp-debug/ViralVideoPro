@@ -9,13 +9,18 @@ import {
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+  '';
 const CRON_SECRET = process.env.CRON_SECRET || process.env.SUBSCRIPTION_CRON_SECRET || '';
 const takbullApiKey = process.env.TAKBULL_API_KEY || '';
 const takbullApiSecret = process.env.TAKBULL_API_SECRET || '';
 
 function getSupabaseAdmin(): SupabaseClient {
-  if (!supabaseUrl || !supabaseServiceKey) throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (add to .env.local for local API)');
+  }
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
@@ -87,73 +92,134 @@ async function sendSubscriptionActionEmail(toEmail: string, action: 'pause' | 'c
   }
 }
 
+type CancelCandidate = { uniqId: string; recuringDueDates: string[] };
+
+function getConfigErrorResponse(e: unknown): { status: number; error: string } | null {
+  const msg = e instanceof Error ? e.message : '';
+  if (msg.includes('SUPABASE_SERVICE_ROLE_KEY')) {
+    return {
+      status: 500,
+      error: 'חסר SUPABASE_SERVICE_ROLE_KEY ב-.env.local. הוסף את מפתח service_role מ-Supabase והפעל מחדש npm run start',
+    };
+  }
+  return null;
+}
+
+function formatRecuringDueDate(input: unknown): string | null {
+  if (!input) return null;
+  const d = input instanceof Date ? input : new Date(String(input));
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getRecuringDueDatesFromOrder(order: any): string[] {
+  const dates: string[] = [];
+  const add = (value: unknown) => {
+    const formatted = formatRecuringDueDate(value);
+    if (formatted && !dates.includes(formatted)) dates.push(formatted);
+  };
+
+  const response = order?.takbull_response;
+  if (response && typeof response === 'object') {
+    add(response.recuringDueDate);
+    add(response.RecuringDueDate);
+  }
+
+  add(order?.created_at);
+  add(order?.completed_at);
+  return dates;
+}
+
+function addCancelCandidate(candidates: CancelCandidate[], order: any) {
+  const uniqId = typeof order?.uniq_id === 'string' ? order.uniq_id.trim() : String(order?.uniq_id || '').trim();
+  if (!uniqId) return;
+
+  const recuringDueDates = getRecuringDueDatesFromOrder(order);
+  const existing = candidates.find((c) => c.uniqId === uniqId);
+  if (existing) {
+    for (const date of recuringDueDates) {
+      if (!existing.recuringDueDates.includes(date)) existing.recuringDueDates.push(date);
+    }
+    return;
+  }
+
+  candidates.push({ uniqId, recuringDueDates });
+}
+
 function isTakbullCancelSuccess(payload: any): boolean {
-  const code = payload?.InternalCode ?? payload?.responseCode;
+  const code =
+    payload?.InternalCode ??
+    payload?.internalCode ??
+    payload?.responseCode ??
+    payload?.statusCode;
   if (typeof code === 'number') return code === 0;
+  if (typeof code === 'string') return code === '0' || code.toLowerCase() === 'success';
   if (typeof payload?.Status === 'number') return payload.Status === 1;
   if (typeof payload?.Status === 'string') return payload.Status.toLowerCase() === 'approved' || payload.Status.toLowerCase() === 'success';
   return payload?.ok === true || payload?.success === true;
 }
 
-async function callTakbullCancel(uniqId: string): Promise<{ ok: boolean; details?: string }> {
+function buildCancelSubscriptionUrl(uniqId: string, recuringDueDate?: string | null, includeQueryAuth = false): string {
+  const params = new URLSearchParams({ uniqId });
+  if (recuringDueDate) params.set('RecuringDueDate', recuringDueDate);
+  if (includeQueryAuth) {
+    params.set('API_Key', takbullApiKey);
+    params.set('API_Secret', takbullApiSecret);
+  }
+  return `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?${params.toString()}`;
+}
+
+async function callTakbullCancelSubscription(
+  uniqId: string,
+  recuringDueDates: string[],
+): Promise<{ ok: boolean; details?: string }> {
   if (!takbullApiKey || !takbullApiSecret) {
     return { ok: false, details: 'Missing TAKBULL_API_KEY/TAKBULL_API_SECRET' };
   }
 
   const headers = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'API_Key': takbullApiKey,
-    'API_Secret': takbullApiSecret,
+    Accept: 'application/json',
+    API_Key: takbullApiKey,
+    API_Secret: takbullApiSecret,
   };
 
-  // Try official endpoint first with headers.
-  try {
-    const url = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}`;
-    const response = await fetch(url, { method: 'GET', headers });
-    const raw = await response.text();
-    let parsed: any = null;
-    try { parsed = raw ? JSON.parse(raw) : null; } catch (_) {}
-    if (response.ok && isTakbullCancelSuccess(parsed)) return { ok: true };
-    console.warn('Takbull CancelSubscription GET failed', { status: response.status, body: raw?.slice(0, 500) });
-  } catch (e) {
-    console.warn('Takbull CancelSubscription GET error', e);
+  const dueDatesToTry = recuringDueDates.length > 0 ? recuringDueDates : [null];
+  let lastDetails: string | undefined;
+
+  for (const recuringDueDate of dueDatesToTry) {
+    for (const includeQueryAuth of [false, true]) {
+      try {
+        const url = buildCancelSubscriptionUrl(uniqId, recuringDueDate, includeQueryAuth);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: includeQueryAuth ? { Accept: 'application/json' } : headers,
+        });
+        const raw = await response.text();
+        let parsed: any = null;
+        try { parsed = raw ? JSON.parse(raw) : null; } catch (_) {}
+        if (response.ok && isTakbullCancelSuccess(parsed)) return { ok: true };
+
+        const providerMsg =
+          parsed?.internalDescription ||
+          parsed?.InternalDescription ||
+          parsed?.message ||
+          raw?.slice(0, 200);
+        lastDetails = `CancelSubscription rejected: ${providerMsg}`;
+        console.warn('Takbull CancelSubscription GET failed', {
+          uniqId,
+          recuringDueDate,
+          includeQueryAuth,
+          status: response.status,
+          body: raw?.slice(0, 500),
+        });
+      } catch (e) {
+        console.warn('Takbull CancelSubscription GET error', { uniqId, recuringDueDate, includeQueryAuth, e });
+        lastDetails = 'Network error while calling Takbull CancelSubscription API';
+      }
+    }
   }
 
-  // Fallback: some gateways require API keys in query.
-  try {
-    const url = `https://api.takbull.co.il/api/ExtranalAPI/CancelSubscription?uniqId=${encodeURIComponent(uniqId)}&API_Key=${encodeURIComponent(takbullApiKey)}&API_Secret=${encodeURIComponent(takbullApiSecret)}`;
-    const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
-    const raw = await response.text();
-    let parsed: any = null;
-    try { parsed = raw ? JSON.parse(raw) : null; } catch (_) {}
-    if (response.ok && isTakbullCancelSuccess(parsed)) return { ok: true };
-    console.warn('Takbull CancelSubscription GET(query auth) failed', { status: response.status, body: raw?.slice(0, 500) });
-  } catch (e) {
-    console.warn('Takbull CancelSubscription GET(query auth) error', e);
-  }
-
-  // Fallback: Refund endpoint (documented) for immediate charge cancellation/refund.
-  try {
-    const response = await fetch('https://api.takbull.co.il/api/ExtranalAPI/Refund', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        uniqId,
-        CancelReason: 'Subscription cancel requested by user',
-        CreateDocument: false,
-      }),
-    });
-    const raw = await response.text();
-    let parsed: any = null;
-    try { parsed = raw ? JSON.parse(raw) : null; } catch (_) {}
-    if (response.ok && isTakbullCancelSuccess(parsed)) return { ok: true };
-    console.warn('Takbull Refund fallback failed', { status: response.status, body: raw?.slice(0, 500) });
-    return { ok: false, details: `Takbull rejected cancel/refund (HTTP ${response.status})` };
-  } catch (e) {
-    console.warn('Takbull Refund fallback error', e);
-    return { ok: false, details: 'Network error while calling Takbull cancel/refund API' };
-  }
+  return { ok: false, details: lastDetails || 'Takbull CancelSubscription failed' };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -209,6 +275,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     } catch (e) {
       console.error('Subscription status:', e);
+      const configErr = getConfigErrorResponse(e);
+      if (configErr) return res.status(configErr.status).json({ error: configErr.error });
       return res.status(500).json({ error: 'שגיאת שרת' });
     }
   }
@@ -303,64 +371,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const effectiveStatus = subAny.subscription_status ?? (subAny.status === 'cancelled' ? 'canceled' : subAny.status);
       if (effectiveStatus === 'canceled') return res.status(200).json({ ok: true, message: 'המנוי כבר בוטל' });
 
-      // Get the original order's uniqId for CancelSubscription API call (sync with Takbull immediately)
-      let uniqId: string | null = null;
+      // Build cancel candidates from original initiate-order uniqId + RecuringDueDate (purchase date).
+      const cancelCandidates: CancelCandidate[] = [];
+      const orderSelect = 'uniq_id, created_at, completed_at, takbull_response';
+
       try {
-        const { data: order } = await admin
+        const { data: linkedOrder } = await admin
           .from('takbull_orders')
-          .select('uniq_id')
+          .select(orderSelect)
           .eq('subscription_id', sub.id)
           .not('uniq_id', 'is', null)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        uniqId = (order as any)?.uniq_id || null;
+        if (linkedOrder) addCancelCandidate(cancelCandidates, linkedOrder);
       } catch (e) {
-        console.warn('Error fetching order uniqId:', e);
+        console.warn('Error fetching linked order uniqId:', e);
       }
 
-      if (!uniqId) {
-        // Fallback: in older data order may not be linked to subscription_id yet.
-        try {
-          const { data: orderByUser } = await admin
-            .from('takbull_orders')
-            .select('uniq_id, payment_status, order_status, created_at')
-            .eq('user_id', user.id)
-            .eq('payment_status', 'paid')
-            .eq('order_status', 'completed')
-            .not('uniq_id', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          uniqId = (orderByUser as any)?.uniq_id || null;
-        } catch (e) {
-          console.warn('Error fetching fallback order uniqId by user:', e);
-        }
+      try {
+        const { data: paidOrders } = await admin
+          .from('takbull_orders')
+          .select(orderSelect)
+          .eq('user_id', user.id)
+          .eq('payment_status', 'paid')
+          .eq('order_status', 'completed')
+          .not('uniq_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        (paidOrders || []).forEach((order) => addCancelCandidate(cancelCandidates, order));
+      } catch (e) {
+        console.warn('Error fetching paid/completed order uniqIds:', e);
       }
 
-      if (!uniqId) {
-        // Last resort (legacy data): latest order with uniqId even if statuses are missing.
-        try {
-          const { data: orderByUserAny } = await admin
-            .from('takbull_orders')
-            .select('uniq_id, created_at')
-            .eq('user_id', user.id)
-            .not('uniq_id', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          uniqId = (orderByUserAny as any)?.uniq_id || null;
-        } catch (e) {
-          console.warn('Error fetching last-resort uniqId by user:', e);
-        }
+      try {
+        const { data: latestOrders } = await admin
+          .from('takbull_orders')
+          .select(orderSelect)
+          .eq('user_id', user.id)
+          .not('uniq_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        (latestOrders || []).forEach((order) => addCancelCandidate(cancelCandidates, order));
+      } catch (e) {
+        console.warn('Error fetching recent order uniqIds:', e);
       }
 
-      if (!uniqId) {
+      if (cancelCandidates.length === 0) {
         return res.status(500).json({ error: 'לא נמצא מזהה חיוב מול Takbull, לא ניתן לבצע ביטול מסונכרן כרגע' });
       }
 
-      const takbullResult = await callTakbullCancel(uniqId);
-      const takbullCanceled = takbullResult.ok;
+      let takbullCanceled = false;
+      let takbullResult: { ok: boolean; details?: string } = { ok: false };
+      let usedUniqId: string | null = null;
+      let usedRecuringDueDate: string | null = null;
+      for (const candidate of cancelCandidates) {
+        const result = await callTakbullCancelSubscription(candidate.uniqId, candidate.recuringDueDates);
+        if (result.ok) {
+          takbullCanceled = true;
+          takbullResult = result;
+          usedUniqId = candidate.uniqId;
+          usedRecuringDueDate = candidate.recuringDueDates[0] || null;
+          break;
+        }
+        takbullResult = result;
+      }
 
       if (!takbullCanceled) {
         return res.status(502).json({ error: `ביטול המנוי מול Takbull נכשל. לא בוצע שינוי מקומי כדי למנוע חוסר סנכרון.${takbullResult.details ? ` (${takbullResult.details})` : ''}` });
@@ -373,6 +448,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // moving the user to the free tier when the period ends.
       const cancelUpdate = {
         auto_renew: false,
+        subscription_status: 'canceled',
+        status: 'cancelled',
         canceled_at: now,
         updated_at: now,
       } as any;
@@ -393,7 +470,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('Cancel update error:', cancelResult.error);
         return res.status(500).json({ error: 'שגיאה בעדכון מצב המנוי' });
       }
-      await logEvent(admin, user.id, 'cancel', { subscription_id: sub.id, uniqId });
+      await logEvent(admin, user.id, 'cancel', {
+        subscription_id: sub.id,
+        uniqId: usedUniqId,
+        recuringDueDate: usedRecuringDueDate,
+      });
       // Keep profile.subscription_status as-is (typically 'active') so the user
       // continues to have access until the period end.
       await admin.from('profiles').update({ updated_at: now }).eq('user_id', user.id);
@@ -402,6 +483,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true });
     } catch (e) {
       console.error('Subscription action error:', e);
+      const configErr = getConfigErrorResponse(e);
+      if (configErr) return res.status(configErr.status).json({ error: configErr.error });
       return res.status(500).json({ error: 'שגיאת שרת' });
     }
   }

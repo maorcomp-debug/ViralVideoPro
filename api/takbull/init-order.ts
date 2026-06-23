@@ -374,7 +374,7 @@ export default async function handler(
     await supabase
       .from('takbull_orders')
       .update({ 
-        takbull_response: takbullData,
+        takbull_response: { ...takbullData, recuringDueDate: dueDate },
         uniq_id: takbullData.uniqId || null, // Store uniqId for callback lookup
         order_status: takbullData.responseCode === 0 ? 'processing' : 'failed',
         error_message: takbullData.responseCode !== 0 ? takbullData.message : null
