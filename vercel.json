@@ -3,8 +3,8 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/share/:token", "destination": "/api/share/page/:token" }
+    { "source": "/share/:token", "destination": "/api/share/page/:token" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
