@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { fetchShareByToken, getSupabaseAdmin, isShareAvailable, renderShareHtmlPage } from '../../../server/share-lib';
+import { fetchShareByToken, getSupabaseAdmin, isShareAvailable, renderShareHtmlPage } from '../server/share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Cache-Control', unavailable ? 'no-store' : 'public, max-age=60, s-maxage=300');
     return res.status(unavailable ? 404 : 200).end(html);
   } catch (e) {
-    console.error('share/page:', e);
+    console.error('share-page:', e);
     return res.status(500).end('Server error');
   }
 }

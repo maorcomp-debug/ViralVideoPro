@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabaseAdmin, getUserFromRequest } from '../../../server/share-lib';
+import { getSupabaseAdmin, getUserFromRequest } from '../server/share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('id');
 
     if (error) {
-      console.error('share/deactivate:', error);
+      console.error('share-deactivate:', error);
       return res.status(500).json({ error: 'שגיאה בביטול קישור' });
     }
     if (!data?.length) {
@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     return res.status(200).json({ ok: true });
   } catch (e) {
-    console.error('share/deactivate:', e);
+    console.error('share-deactivate:', e);
     return res.status(500).json({ error: 'שגיאת שרת' });
   }
 }

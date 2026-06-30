@@ -19,7 +19,7 @@ export async function createShareLink(
     throw new Error(s.authRequired);
   }
 
-  const res = await fetch('/api/share/create', {
+  const res = await fetch('/api/share-create', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -51,7 +51,7 @@ export async function deactivateShareLink(token: string): Promise<void> {
     throw new Error(s.authRequiredDeactivate);
   }
 
-  const res = await fetch(`/api/share/deactivate/${encodeURIComponent(token)}`, {
+  const res = await fetch(`/api/share-deactivate?token=${encodeURIComponent(token)}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${session.access_token}`,
@@ -66,7 +66,7 @@ export async function deactivateShareLink(token: string): Promise<void> {
 
 export async function fetchPublicShare(token: string) {
   const s = getShareStrings();
-  const res = await fetch(`/api/share/public/${encodeURIComponent(token)}`);
+  const res = await fetch(`/api/share-public?token=${encodeURIComponent(token)}`);
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(json.message || json.error || s.unavailableShare);

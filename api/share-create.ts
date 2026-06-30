@@ -5,7 +5,7 @@ import {
   getUserFromRequest,
   resolveSharePublicUrl,
   sanitizeCreateBody,
-} from '../../server/share-lib';
+} from '../server/share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -52,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const url = `${resolveSharePublicUrl()}/share/${data.public_token}`;
     return res.status(200).json({ token: data.public_token, url });
   } catch (e) {
-    console.error('share/create:', e);
+    console.error('share-create:', e);
     return res.status(500).json({ error: 'שגיאת שרת' });
   }
 }

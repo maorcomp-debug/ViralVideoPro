@@ -4,7 +4,7 @@ import {
   getSupabaseAdmin,
   isShareAvailable,
   toPublicPayload,
-} from '../../../server/share-lib';
+} from '../server/share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = String(req.query.token || '');
@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     return res.status(200).json(toPublicPayload(row));
   } catch (e) {
-    console.error('share/public:', e);
+    console.error('share-public:', e);
     return res.status(500).json({ error: 'שגיאת שרת' });
   }
 }
