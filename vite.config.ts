@@ -23,8 +23,8 @@ export default defineConfig(({ mode, command }) => {
             changeOrigin: true,
             secure: true,
             bypass(req) {
-              // Let local share API middleware handle these (do not proxy to production).
-              if (req.url?.startsWith('/api/share')) return false;
+              const url = req.url || '';
+              if (url.startsWith('/api/share') || url.includes('shareAction=')) return false;
             },
           },
         },

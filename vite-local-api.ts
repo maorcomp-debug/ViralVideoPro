@@ -25,7 +25,6 @@ const LOCAL_API_ROUTES: Record<string, () => Promise<HandlerModule>> = {
   '/api/takbull/init-order': () => import('./api/takbull/init-order'),
   '/api/takbull/callback': () => import('./api/takbull/callback'),
   '/api/takbull/ipn': () => import('./api/takbull/ipn'),
-  '/api/viral-share': () => import('./api/viral-share'),
 };
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -78,8 +77,9 @@ function resolveShareRoute(url: string): {
   loadHandler: () => Promise<HandlerModule>;
 } | null {
   const path = url.split('?')[0];
-  if (path === '/api/viral-share') {
-    return { loadHandler: LOCAL_API_ROUTES['/api/viral-share'] };
+  const params = new URL(url, 'http://localhost').searchParams;
+  if (path === '/api/subscription' && params.has('shareAction')) {
+    return { loadHandler: LOCAL_API_ROUTES['/api/subscription'] };
   }
   return null;
 }

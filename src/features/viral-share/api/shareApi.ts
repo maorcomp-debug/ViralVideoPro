@@ -19,7 +19,7 @@ export async function createShareLink(
     throw new Error(s.authRequired);
   }
 
-  const res = await fetch('/api/viral-share?action=create', {
+  const res = await fetch('/api/subscription?shareAction=create', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -51,12 +51,15 @@ export async function deactivateShareLink(token: string): Promise<void> {
     throw new Error(s.authRequiredDeactivate);
   }
 
-  const res = await fetch(`/api/viral-share?action=deactivate&token=${encodeURIComponent(token)}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  });
+  const res = await fetch(
+    `/api/subscription?shareAction=deactivate&token=${encodeURIComponent(token)}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    }
+  );
 
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
@@ -66,7 +69,9 @@ export async function deactivateShareLink(token: string): Promise<void> {
 
 export async function fetchPublicShare(token: string) {
   const s = getShareStrings();
-  const res = await fetch(`/api/viral-share?action=public&token=${encodeURIComponent(token)}`);
+  const res = await fetch(
+    `/api/subscription?shareAction=public&token=${encodeURIComponent(token)}`
+  );
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(json.message || json.error || s.unavailableShare);

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { EmailLang } from './email-templates';
+import { handleShareApi } from '../lib/share-handlers';
 import {
   getSubscriptionSubject,
   getSubscriptionConfirmLine,
@@ -223,6 +224,10 @@ async function callTakbullCancelSubscription(
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.query.shareAction) {
+    return handleShareApi(req, res);
+  }
+
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const action = typeof req.body?.action === 'string' ? req.body.action : null;
