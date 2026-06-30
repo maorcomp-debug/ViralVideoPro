@@ -3,10 +3,14 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { localApiPlugin } from './vite-local-api';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
     const env = loadEnv(mode, '.', '');
     const geminiKey = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY;
     const useLocalApi = mode === 'localapi' || env.LOCAL_API === 'true' || env.VITE_LOCAL_API === 'true';
+    const devPlugins =
+      command === 'serve'
+        ? [localApiPlugin(env, { shareOnly: !useLocalApi })]
+        : [];
     return {
       base: '/',
       server: {
@@ -26,7 +30,7 @@ export default defineConfig(({ mode }) => {
         },
       },
       // Share API always local (Supabase migration). Other /api → production unless LOCAL_API=true.
-      plugins: [react(), localApiPlugin(env, { shareOnly: !useLocalApi })],
+      plugins: [react(), ...devPlugins],
       define: {
         'process.env.API_KEY': JSON.stringify(geminiKey),
         'process.env.GEMINI_API_KEY': JSON.stringify(geminiKey)
