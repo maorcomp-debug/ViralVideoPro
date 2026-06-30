@@ -5,7 +5,7 @@ import {
   getUserFromRequest,
   resolveSharePublicUrl,
   sanitizeCreateBody,
-} from './_share-lib';
+} from '../lib/share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

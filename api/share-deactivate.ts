@@ -1,5 +1,5 @@
 ﻿import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabaseAdmin, getUserFromRequest } from './_share-lib';
+import { getSupabaseAdmin, getUserFromRequest } from '../lib/share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
