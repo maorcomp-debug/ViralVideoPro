@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { EmailLang } from './email-templates';
-import { handleShareApi } from './_share-handlers';
 import {
   getSubscriptionSubject,
   getSubscriptionConfirmLine,
   buildSubscriptionActionEmailHtml,
+  handleShareApi,
 } from './email-templates';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
