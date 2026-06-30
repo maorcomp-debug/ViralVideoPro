@@ -609,7 +609,7 @@ function renderShareHtmlPage(
 
 
 async function handleCreate(req: VercelRequest, res: VercelResponse) {
-  const user = await getUserFromRequest(req);
+  const user = await getShareUserFromRequest(req);
   if (!user) {
     return res.status(401).json({ error: 'נדרשת התחברות' });
   }
@@ -619,7 +619,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'נתוני שיתוף לא תקינים' });
   }
 
-  const admin = getSupabaseAdmin();
+  const admin = getShareSupabaseAdmin();
   const publicToken = generatePublicToken();
 
   const { data, error } = await admin
@@ -655,7 +655,7 @@ async function handlePublic(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Invalid token' });
   }
 
-  const admin = getSupabaseAdmin();
+  const admin = getShareSupabaseAdmin();
   const row = await fetchShareByToken(admin, token, { incrementView: true });
   if (!row || !isShareAvailable(row)) {
     return res.status(404).json({
@@ -672,7 +672,7 @@ async function handlePage(req: VercelRequest, res: VercelResponse) {
     return res.status(400).end('Invalid token');
   }
 
-  const admin = getSupabaseAdmin();
+  const admin = getShareSupabaseAdmin();
   const row = await fetchShareByToken(admin, token, { incrementView: true });
   const unavailable = !row || !isShareAvailable(row);
   const html = renderShareHtmlPage(token, row, unavailable);
@@ -688,10 +688,10 @@ async function handleDeactivate(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Invalid token' });
   }
 
-  const user = await getUserFromRequest(req);
+  const user = await getShareUserFromRequest(req);
   if (!user) return res.status(401).json({ error: 'נדרשת התחברות' });
 
-  const admin = getSupabaseAdmin();
+  const admin = getShareSupabaseAdmin();
   const { data, error } = await admin
     .from('share_reports')
     .update({ is_active: false, updated_at: new Date().toISOString() })
