@@ -12,13 +12,26 @@ const FORCE_LOCAL_ENV_KEYS = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'VITE_SUPABASE_URL',
   'VITE_SUPABASE_ANON_KEY',
+  'VITE_APP_URL',
+  'APP_URL',
 ];
 
-const LOCAL_API_ROUTES: Record<string, () => Promise<{ default: (req: VercelRequest, res: VercelResponse) => Promise<unknown> }>> = {
+type HandlerModule = {
+  default: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
+};
+
+const LOCAL_API_ROUTES: Record<string, () => Promise<HandlerModule>> = {
   '/api/subscription': () => import('./api/subscription'),
   '/api/takbull/init-order': () => import('./api/takbull/init-order'),
   '/api/takbull/callback': () => import('./api/takbull/callback'),
   '/api/takbull/ipn': () => import('./api/takbull/ipn'),
+  '/api/share/create': () => import('./api/share/create'),
+};
+
+const SHARE_TOKEN_ROUTES: Record<string, () => Promise<HandlerModule>> = {
+  public: () => import('./api/share/public/[token]'),
+  page: () => import('./api/share/page/[token]'),
+  deactivate: () => import('./api/share/deactivate/[token]'),
 };
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -67,18 +80,52 @@ function applyLocalEnv(env: Record<string, string>) {
   }
 }
 
+function resolveShareRoute(url: string): {
+  loadHandler: () => Promise<HandlerModule>;
+  token?: string;
+} | null {
+  const create = LOCAL_API_ROUTES['/api/share/create'];
+  if (url === '/api/share/create' && create) return { loadHandler: create };
+
+  const tokenMatch = url.match(/^\/api\/share\/(public|page|deactivate)\/([^/]+)$/);
+  if (tokenMatch) {
+    const kind = tokenMatch[1];
+    const loader = SHARE_TOKEN_ROUTES[kind];
+    if (loader) return { loadHandler: loader, token: decodeURIComponent(tokenMatch[2]) };
+  }
+  return null;
+}
+
+function resolveLocalApiRoute(url: string): {
+  loadHandler: () => Promise<HandlerModule>;
+  token?: string;
+} | null {
+  const exact = LOCAL_API_ROUTES[url];
+  if (exact) return { loadHandler: exact };
+  return resolveShareRoute(url);
+}
+
 /** Run Vercel serverless handlers locally during `npm run start` (uses .env.local). */
-export function localApiPlugin(env: Record<string, string>): Plugin {
+export function localApiPlugin(
+  env: Record<string, string>,
+  options: { shareOnly?: boolean } = {}
+): Plugin {
+  const shareOnly = options.shareOnly ?? false;
   return {
     name: 'local-api',
+    enforce: 'pre' as const,
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = req.url?.split('?')[0] || '';
-        const loadHandler = LOCAL_API_ROUTES[url];
-        if (!loadHandler) return next();
+        const resolved = shareOnly ? resolveShareRoute(url) : resolveLocalApiRoute(url);
+        if (!resolved) return next();
 
         try {
           applyLocalEnv(env);
+
+          if (url.startsWith('/api/share')) {
+            console.log(`[local-api] ${req.method} ${url}`);
+          }
 
           let body: unknown;
           if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
@@ -87,14 +134,19 @@ export function localApiPlugin(env: Record<string, string>): Plugin {
           }
 
           const parsedUrl = new URL(req.url || '/', 'http://localhost');
+          const query: Record<string, string> = Object.fromEntries(
+            parsedUrl.searchParams.entries()
+          );
+          if (resolved.token) query.token = resolved.token;
+
           const vercelReq = {
             method: req.method,
             headers: req.headers,
-            query: Object.fromEntries(parsedUrl.searchParams.entries()),
+            query,
             body,
           } as VercelRequest;
 
-          const { default: handler } = await loadHandler();
+          const { default: handler } = await resolved.loadHandler();
           await handler(vercelReq, createVercelResponse(res));
         } catch (error) {
           console.error(`Local ${url} error:`, error);

@@ -1,5 +1,25 @@
-import styled, { css } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import { fadeIn, shimmer, glowReady, breathingHigh } from './globalStyles';
+
+const viralScorePulse = keyframes`
+  0%, 100% {
+    text-shadow:
+      0 0 20px rgba(240, 215, 140, 0.55),
+      0 0 45px rgba(212, 160, 67, 0.35),
+      0 0 70px rgba(212, 160, 67, 0.15);
+  }
+  50% {
+    text-shadow:
+      0 0 28px rgba(255, 230, 170, 0.75),
+      0 0 55px rgba(212, 160, 67, 0.5),
+      0 0 90px rgba(212, 160, 67, 0.25);
+  }
+`;
+
+const sparkShimmer = keyframes`
+  0%, 100% { opacity: 0.65; transform: scaleX(0.92); }
+  50% { opacity: 1; transform: scaleX(1); }
+`;
 
 // --- Main Page Styles ---
 
@@ -1307,21 +1327,53 @@ export const FinalScore = styled.div`
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 10px;
-  
+  margin-top: 16px;
+  margin-bottom: 8px;
+  width: 100%;
+  max-width: 320px;
+
   .number {
-    font-size: 4rem;
+    font-size: 4.5rem;
     font-weight: 800;
     line-height: 1;
-    color: #fff;
-    text-shadow: 0 0 20px rgba(212, 160, 67, 0.4);
+    color: #f5ecd4;
+    animation: ${viralScorePulse} 3s ease-in-out infinite;
   }
   .label {
     color: #D4A043;
     font-size: 1rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-top: 5px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    margin-top: 8px;
+    text-transform: none;
+  }
+  .glow-rule {
+    position: relative;
+    display: block;
+    width: min(100%, 280px);
+    height: 2px;
+    margin-top: 14px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(212, 160, 67, 0.15) 20%,
+      rgba(255, 230, 160, 0.85) 50%,
+      rgba(212, 160, 67, 0.15) 80%,
+      transparent 100%
+    );
+    animation: ${sparkShimmer} 2.8s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(212, 160, 67, 0.45);
+
+    &::after {
+      content: '✦';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ffe9a8;
+      font-size: 0.75rem;
+      text-shadow: 0 0 10px rgba(255, 230, 160, 0.9);
+    }
   }
 `;
 
@@ -1334,11 +1386,19 @@ export const ActionButtonsContainer = styled.div`
   padding-top: 20px;
   border-top: 1px solid rgba(255,255,255,0.1);
   justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
 
   @media (max-width: 600px) {
     flex-direction: column;
   }
+`;
+
+export const ActionButtonsFullRow = styled.div`
+  flex-basis: 100%;
+  display: flex;
+  justify-content: center;
+  width: 100%;
 `;
 
 export const SecondaryButton = styled.button`

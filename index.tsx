@@ -1,4 +1,5 @@
 import './src/i18n';
+import { clearAppStoragePreservingLanguage } from './src/i18n/setLanguage';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createRoot } from 'react-dom/client';
@@ -9,6 +10,7 @@ import { SettingsPage } from './src/components/pages/SettingsPage';
 import { AdminPage } from './src/components/pages/AdminPage';
 import { OrderReceivedPage } from './src/components/pages/OrderReceivedPage';
 import { PaymentRedirectPage } from './src/components/pages/PaymentRedirectPage';
+import { SharePublicPage } from './src/pages/SharePublicPage';
 import { SubscriptionModal } from './src/components/modals/SubscriptionModal';
 import { SubscriptionBillingModal } from './src/components/modals/SubscriptionBillingModal';
 import { UpgradeBenefitsModal } from './src/components/modals/UpgradeBenefitsModal';
@@ -23,6 +25,7 @@ import { CoachDashboardModal } from './src/components/modals/CoachDashboardModal
 import { AppLogo } from './src/components/AppLogo';
 import { LanguageDropdown } from './src/components/LanguageDropdown';
 import { AlertModal } from './src/components/AlertModal';
+import { ViralShareEntry, isViralShareBlocked } from './src/features/viral-share';
 import { showAlert } from './src/lib/alertStore';
 import { AppContainer, Header } from './src/styles/components';
 import {
@@ -150,6 +153,7 @@ import {
   CommitteeTips,
   FinalScore,
   ActionButtonsContainer,
+  ActionButtonsFullRow,
   SecondaryButton,
   PrimaryButton,
   PremiumBadge,
@@ -2971,6 +2975,9 @@ const App = () => {
 
     // הצגת טעינה מיידית עם הלחיצה (לפני כל await)
     setLoading(true);
+    setLastAnalysisHadVideo(
+      !!(file && (file.type.startsWith('video') || /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(file.name)))
+    );
 
     // Full limit check (for paid tiers and when free usage not yet in state)
     const SUBSCRIPTION_CHECK_ERROR = t('alerts.subscriptionCheckError');
@@ -3353,7 +3360,9 @@ const App = () => {
       }
 
       setResult(parsedResult);
-      setLastAnalysisHadVideo(!!(file && file.type.startsWith('video')));
+      setLastAnalysisHadVideo(
+        !!(file && (file.type.startsWith('video') || /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(file.name)))
+      );
       
       // CRITICAL: Save analysis and update usage IMMEDIATELY after analysis completes successfully
       // This ensures usage is tracked correctly for all subscription tiers
@@ -3787,15 +3796,8 @@ const App = () => {
       setUser(null);
       resetUserState();
       
-      // Clear all storage
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch (e) {
-        console.error('Error clearing storage:', e);
-      }
-      
-      // Set logout flag
+      // Clear session storage but keep UI language preference
+      clearAppStoragePreservingLanguage();
       localStorage.setItem('just_logged_out', 'true');
       
       console.log('✅ Logout complete, reloading page...');
@@ -3810,14 +3812,8 @@ const App = () => {
       setUser(null);
       resetUserState();
       
-      // Clear storage
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-        localStorage.setItem('just_logged_out', 'true');
-      } catch (e) {
-        console.error('Error clearing storage:', e);
-      }
+      clearAppStoragePreservingLanguage();
+      localStorage.setItem('just_logged_out', 'true');
       
       // Force reload as fallback
       window.location.href = '/';
@@ -4800,13 +4796,28 @@ const App = () => {
                     <FinalScore data-pdf="final-score">
                       <span className="number">{averageScore}</span>
                       <span className="label">{t('analysis.viralScoreLabel')}</span>
+                      <span className="glow-rule" aria-hidden="true" />
                     </FinalScore>
                   )}
                 </CommitteeSection>
               )}
             </div>
 
+            {result && !isViralShareBlocked(activeTrack, !!selectedTrainee) && (
+              <ViralShareEntry
+                layout="standalone"
+                score={averageScore}
+                trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
+                result={result}
+                suggestedCreatorName={profile?.full_name?.trim() || undefined}
+              />
+            )}
+
             <ActionButtonsContainer>
+              <SecondaryButton onClick={handleReset}>
+                <RefreshIcon />
+                {t('analysis.startOver')}
+              </SecondaryButton>
               <PrimaryButton 
                 onClick={handleExportPdf} 
                 disabled={loading || !canUseFeature('pdfExport')}
@@ -4825,24 +4836,22 @@ const App = () => {
                   {isSavingAnalysis ? `💾 ${t('analysis.saving')}` : `💾 ${t('analysis.saveForTrainee')}`}
                 </PrimaryButton>
               )}
-              <SecondaryButton onClick={handleReset}>
-                <RefreshIcon />
-                {t('analysis.startOver')}
-              </SecondaryButton>
               {lastAnalysisHadVideo && (
-                <PrimaryButton 
-                  onClick={handleUploadImprovedTake}
-                  disabled={!canUseFeature('improvementTracking')}
-                  style={{
-                    opacity: !canUseFeature('improvementTracking') ? 0.5 : 1,
-                    cursor: !canUseFeature('improvementTracking') ? 'not-allowed' : 'pointer'
-                  }}
-                  title={!canUseFeature('improvementTracking') ? t('alerts.improvementTrackingSubscriptionOnly') : ''}
-                >
-                  <UploadIconSmall />
-                  {t('analysis.uploadImproved')}
-                  {!canUseFeature('improvementTracking') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
-                </PrimaryButton>
+                <ActionButtonsFullRow>
+                  <PrimaryButton 
+                    onClick={handleUploadImprovedTake}
+                    disabled={!canUseFeature('improvementTracking')}
+                    style={{
+                      opacity: !canUseFeature('improvementTracking') ? 0.5 : 1,
+                      cursor: !canUseFeature('improvementTracking') ? 'not-allowed' : 'pointer'
+                    }}
+                    title={!canUseFeature('improvementTracking') ? t('alerts.improvementTrackingSubscriptionOnly') : ''}
+                  >
+                    <UploadIconSmall />
+                    {t('analysis.uploadImproved')}
+                    {!canUseFeature('improvementTracking') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
+                  </PrimaryButton>
+                </ActionButtonsFullRow>
               )}
             </ActionButtonsContainer>
 
@@ -5179,6 +5188,7 @@ const AppRouter = () => {
         <Route path="/admin" element={<App />} />
         <Route path="/analysis/:analysisId?" element={<App />} />
         <Route path="/creator" element={<App />} />
+        <Route path="/share/:token" element={<SharePublicPage />} />
         <Route path="/order-received" element={<OrderReceivedPage />} />
         <Route path="/payment-redirect" element={<PaymentRedirectPage />} />
       </Routes>

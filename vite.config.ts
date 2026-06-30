@@ -18,10 +18,15 @@ export default defineConfig(({ mode }) => {
             target: 'https://viraly.co.il',
             changeOrigin: true,
             secure: true,
+            bypass(req) {
+              // Let local share API middleware handle these (do not proxy to production).
+              if (req.url?.startsWith('/api/share')) return false;
+            },
           },
         },
       },
-      plugins: [react(), ...(useLocalApi ? [localApiPlugin(env)] : [])],
+      // Share API always local (Supabase migration). Other /api → production unless LOCAL_API=true.
+      plugins: [react(), localApiPlugin(env, { shareOnly: !useLocalApi })],
       define: {
         'process.env.API_KEY': JSON.stringify(geminiKey),
         'process.env.GEMINI_API_KEY': JSON.stringify(geminiKey)

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import i18n from '../i18n';
+import { clearAppStoragePreservingLanguage } from '../i18n/setLanguage';
 
 interface UseAuthReturn {
   user: User | null;
@@ -54,13 +55,7 @@ export const useAuth = (): UseAuthReturn => {
       
       if (error) {
         console.error('Error during signOut:', error);
-        // Even if signOut fails, clear storage
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-        } catch (e) {
-          console.error('Error clearing storage:', e);
-        }
+        clearAppStoragePreservingLanguage();
       }
       
       // Set flag in localStorage to indicate we just logged out
@@ -82,13 +77,7 @@ export const useAuth = (): UseAuthReturn => {
         console.error('Error setting logout flag:', e);
       }
       
-      // Clear storage as fallback
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch (e) {
-        console.error('Error clearing storage:', e);
-      }
+      clearAppStoragePreservingLanguage();
       
       // Force page reload as last resort
       window.location.href = '/';

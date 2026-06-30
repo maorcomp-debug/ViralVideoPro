@@ -1,0 +1,52 @@
+import type { CreatorTypeKey } from './creatorTypeLabels';
+import { CREATOR_TYPE_LABELS } from './creatorTypeLabels';
+
+export const shareEn = {
+  buttonPrimary: 'Share Your AI Result',
+  buttonSubtitle: 'Show the world your creator potential',
+  buttonAria: 'Share your AI analysis result',
+  modalTitle: 'Share Your Creator Win',
+  modalSubtitle: 'AI detected strong viral potential — own it and share it',
+  consentText:
+    'Only selected highlights from your analysis will appear on your public share page. The link you create is public and shows approved data only.',
+  consentCheckbox: 'I agree to share the selected data',
+  continue: 'Continue',
+  back: 'Back',
+  includeCreatorName: 'Include creator name on the share card',
+  creatorTypeLabel: 'Creator type',
+  viralScoreLabel: 'Your AI Creator Score',
+  metricsTitle: 'Creator Strengths',
+  insightTitle: 'AI Insight',
+  cta: 'Analyze Your Video',
+  previewTitle: 'Preview',
+  shareSectionTitle: 'Share Your Win',
+  mockWhatsApp: 'WhatsApp',
+  mockTelegram: 'Telegram',
+  mockFacebook: 'Facebook',
+  mockInstagram: 'Instagram',
+  mockThreads: 'Threads',
+  mockCopy: 'Copy link',
+  mockNative: 'Quick share',
+  mockSuccess: 'Your public share link will be ready in the next step. Preview looks great!',
+  creatingLink: 'Creating your public share link…',
+  linkCreateError: 'Could not create share link',
+  linkRetry: 'Try again',
+  linkCopied: 'Link copied to clipboard',
+  shareWhatsAppText: 'AI spotted my creator strengths and viral potential on VIRALY',
+  shareNativeTitle: 'Share Your AI Result | VIRALY',
+  publicUnavailable: 'This share is no longer available.',
+  publicBackHome: 'Back to VIRALY',
+  close: 'Close',
+  authRequired: 'Sign in required to create a share link',
+  authRequiredDeactivate: 'Sign in required',
+  deactivateError: 'Could not deactivate link',
+  unavailableShare: 'Share unavailable',
+  metricFallbacks: [
+    'Strong on-camera presence',
+    'Promising audience engagement',
+    'Clear viral energy',
+  ] as [string, string, string],
+  creatorTypes: CREATOR_TYPE_LABELS.en satisfies Record<CreatorTypeKey, string>,
+};
+
+export type ShareStrings = typeof shareEn;
