@@ -179,7 +179,7 @@ export function renderShareHtmlPage(
   unavailable: boolean
 ): string {
   const base = APP_BASE_URL;
-  const cardImage = `${base}/api/share/card/${encodeURIComponent(token)}`;
+  const cardImage = `${base}/Logo.png`;
   const pageUrl = `${base}/share/${encodeURIComponent(token)}`;
 
   if (unavailable || !row || !isShareAvailable(row)) {
