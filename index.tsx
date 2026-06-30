@@ -3552,13 +3552,14 @@ const App = () => {
       }
       setLoading(false);
       
-      // Jump to results area immediately
+      // Jump to results — prefer share CTA when visible (mobile)
       setTimeout(() => {
-        const resultsElement = document.getElementById('results-area');
-        if (resultsElement) {
-          resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const shareCta = document.getElementById('viral-share-cta');
+        const target = shareCta ?? document.getElementById('results-area');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: shareCta ? 'center' : 'start' });
         }
-      }, 200);
+      }, 400);
 
     } catch (error: any) {
       console.error("❌ API Error:", error);
@@ -4803,17 +4804,18 @@ const App = () => {
               )}
             </div>
 
-            {result && !isViralShareBlocked(activeTrack, !!selectedTrainee) && (
-              <ViralShareEntry
-                layout="standalone"
-                score={averageScore}
-                trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
-                result={result}
-                suggestedCreatorName={profile?.full_name?.trim() || undefined}
-              />
-            )}
-
             <ActionButtonsContainer>
+              {result && !isViralShareBlocked(activeTrack, !!selectedTrainee) && (
+                <ActionButtonsFullRow id="viral-share-cta">
+                  <ViralShareEntry
+                    layout="inline"
+                    score={averageScore}
+                    trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
+                    result={result}
+                    suggestedCreatorName={profile?.full_name?.trim() || undefined}
+                  />
+                </ActionButtonsFullRow>
+              )}
               <SecondaryButton onClick={handleReset}>
                 <RefreshIcon />
                 {t('analysis.startOver')}

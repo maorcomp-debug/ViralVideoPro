@@ -13,9 +13,9 @@ import { VIRAL_SHARE_Z_INDEX } from '../constants';
 
 export const ShareButtonRow = styled.div<{ $inline?: boolean }>`
   width: 100%;
-  max-width: ${({ $inline }) => ($inline ? '420px' : '440px')};
-  flex: ${({ $inline }) => ($inline ? '1 1 auto' : '0 1 auto')};
-  min-width: ${({ $inline }) => ($inline ? '260px' : '0')};
+  max-width: ${({ $inline }) => ($inline ? '100%' : '440px')};
+  flex: ${({ $inline }) => ($inline ? '1 1 100%' : '0 1 auto')};
+  min-width: ${({ $inline }) => ($inline ? '0' : '0')};
   flex-shrink: 0;
   margin: ${({ $inline }) => ($inline ? '0' : '16px auto 24px')};
   display: flex;
@@ -27,8 +27,8 @@ export const ShareButtonRow = styled.div<{ $inline?: boolean }>`
 export const ShareActionButton = styled.button`
   position: relative;
   width: 100%;
-  min-width: 260px;
-  max-width: 420px;
+  min-width: 0;
+  max-width: 100%;
   background: linear-gradient(
     125deg,
     #8a6420 0%,
