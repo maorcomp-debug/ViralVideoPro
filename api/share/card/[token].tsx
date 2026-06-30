@@ -1,16 +1,25 @@
 import { ImageResponse } from '@vercel/og';
-import { createClient } from '@supabase/supabase-js';
 import {
   resolveCreatorTypeLabel,
   SHARE_PUBLIC_COPY,
   sharePublicLocale,
-} from '../../../src/features/viral-share/i18n/creatorTypeLabels';
+} from '../../../lib/shareCreatorTypes';
 
 export const config = { runtime: 'edge' };
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const serviceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+
+interface ShareCardRow {
+  viral_score: number;
+  ai_insight: string;
+  creator_name: string | null;
+  creator_type: string | null;
+  language: string | null;
+  is_active: boolean;
+  expires_at: string | null;
+}
 
 async function loadFont(): Promise<ArrayBuffer> {
   const res = await fetch(
@@ -24,6 +33,25 @@ function isAvailable(row: { is_active: boolean; expires_at: string | null }) {
   if (!row.is_active) return false;
   if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) return false;
   return true;
+}
+
+async function fetchShareRow(token: string): Promise<ShareCardRow | null> {
+  const url =
+    `${supabaseUrl}/rest/v1/share_reports` +
+    `?select=viral_score,ai_insight,creator_name,creator_type,language,is_active,expires_at` +
+    `&public_token=eq.${encodeURIComponent(token)}` +
+    '&limit=1';
+
+  const res = await fetch(url, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+  });
+
+  if (!res.ok) return null;
+  const rows = (await res.json()) as ShareCardRow[];
+  return rows[0] ?? null;
 }
 
 export default async function handler(req: Request) {
@@ -41,12 +69,7 @@ export default async function handler(req: Request) {
     return new Response('Font error', { status: 500 });
   }
 
-  const admin = createClient(supabaseUrl, serviceKey);
-  const { data } = await admin
-    .from('share_reports')
-    .select('viral_score, ai_insight, creator_name, creator_type, language, is_active, expires_at')
-    .eq('public_token', token)
-    .maybeSingle();
+  const data = await fetchShareRow(token);
 
   if (!data || !isAvailable(data)) {
     return new ImageResponse(
