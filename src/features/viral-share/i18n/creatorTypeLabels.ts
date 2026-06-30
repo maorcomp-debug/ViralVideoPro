@@ -7,4 +7,4 @@ export {
   resolveCreatorTypeLabel,
   sharePublicLocale,
   type CreatorTypeKey,
-} from '../../../../lib/shareCreatorTypes';
+} from '../../../../api/_shareCreatorTypes';
