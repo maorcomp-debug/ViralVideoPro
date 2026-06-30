@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import type { EmailLang } from './email-templates';
+import type { EmailLang } from '../lib/email-templates';
 import {
   buildBenefitEmailHtml,
   buildBenefitEmailText,
   buildBenefitEmailSubject,
   getPackageLabel,
-} from './email-templates';
+} from '../lib/email-templates';
 
 interface SendBenefitEmailRequest {
   title: string;
