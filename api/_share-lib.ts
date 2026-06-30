@@ -1,4 +1,4 @@
-import type { VercelRequest } from '@vercel/node';
+﻿import type { VercelRequest } from '@vercel/node';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
 import {

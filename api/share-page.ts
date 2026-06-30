@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { fetchShareByToken, getSupabaseAdmin, isShareAvailable, renderShareHtmlPage } from '../server/share-lib';
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { fetchShareByToken, getSupabaseAdmin, isShareAvailable, renderShareHtmlPage } from './_share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {

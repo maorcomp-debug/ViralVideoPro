@@ -1,10 +1,10 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   fetchShareByToken,
   getSupabaseAdmin,
   isShareAvailable,
   toPublicPayload,
-} from '../server/share-lib';
+} from './_share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = String(req.query.token || '');
