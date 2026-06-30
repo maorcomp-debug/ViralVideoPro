@@ -4,7 +4,7 @@ import {
   getSupabaseAdmin,
   isShareAvailable,
   toPublicPayload,
-} from '../share-lib';
+} from '../../../server/share-lib';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = String(req.query.token || '');
