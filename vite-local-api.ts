@@ -25,10 +25,6 @@ const LOCAL_API_ROUTES: Record<string, () => Promise<HandlerModule>> = {
   '/api/takbull/init-order': () => import('./api/takbull/init-order'),
   '/api/takbull/callback': () => import('./api/takbull/callback'),
   '/api/takbull/ipn': () => import('./api/takbull/ipn'),
-  '/api/share-create': () => import('./api/share-create'),
-  '/api/share-public': () => import('./api/share-public'),
-  '/api/share-page': () => import('./api/share-page'),
-  '/api/share-deactivate': () => import('./api/share-deactivate'),
 };
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -77,13 +73,10 @@ function applyLocalEnv(env: Record<string, string>) {
   }
 }
 
-function resolveShareRoute(url: string): {
+function resolveShareRoute(_url: string): {
   loadHandler: () => Promise<HandlerModule>;
 } | null {
-  const path = url.split('?')[0];
-  if (!path.startsWith('/api/share-')) return null;
-  const loader = LOCAL_API_ROUTES[path];
-  return loader ? { loadHandler: loader } : null;
+  return null;
 }
 
 function resolveLocalApiRoute(url: string): {
