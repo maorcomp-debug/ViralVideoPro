@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { EmailLang } from './email-templates';
-import { handleShareApi } from '../lib/share-handlers';
+import { handleShareApi } from './_share-handlers';
 import {
   getSubscriptionSubject,
   getSubscriptionConfirmLine,

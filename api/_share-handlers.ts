@@ -9,7 +9,7 @@ import {
   resolveSharePublicUrl,
   sanitizeCreateBody,
   toPublicPayload,
-} from './share-lib';
+} from './_share-lib';
 
 async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req);
@@ -135,6 +135,9 @@ export async function handleShareApi(req: VercelRequest, res: VercelResponse) {
     if (action === 'page') {
       return res.status(500).end('Server error');
     }
-    return res.status(500).json({ error: 'שגיאת שרת' });
+    const msg = e instanceof Error && e.message.includes('SUPABASE')
+      ? 'שגיאת תצורת שרת'
+      : 'שגיאת שרת';
+    return res.status(500).json({ error: msg });
   }
 }
