@@ -229,7 +229,10 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
 
   const handleFeedShare = async (platform: SocialSharePlatform) => {
     if (!shareUrl) return;
-    await openFeedShare(platform, shareUrl, shareMessage);
+    const result = await openFeedShare(platform, shareUrl, shareMessage);
+    if (result === 'desktop_guide') {
+      showAlert(platform === 'instagram' ? s.desktopInstagramFeedHint : s.desktopFeedShareHint);
+    }
   };
 
   const handleStoryPlatform = async (platform: StoryPlatform) => {
@@ -239,7 +242,9 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     }
     const linkForStory = shareUrl || SHARE_CTA_URL;
     const result = await openStoryPlatformShare(platform, cardImage, linkForStory);
-    if (result === 'unsupported') {
+    if (result === 'desktop_guide') {
+      showAlert(s.desktopStoryShareHint);
+    } else if (result === 'unsupported') {
       showAlert(s.storyShareUnsupported);
     }
   };

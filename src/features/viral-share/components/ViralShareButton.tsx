@@ -25,13 +25,13 @@ export const ViralShareButton: React.FC<ViralShareButtonProps> = ({ onClick }) =
         <ShareButtonSubtitle>{s.buttonSubtitle}</ShareButtonSubtitle>
       </ShareButtonText>
       <ShareHexIconWrap aria-hidden>
-        <ShareSparkle $top="2px" $left="2px" $size="7px">
+        <ShareSparkle $top="1px" $left="1px" $size="4px">
           ✦
         </ShareSparkle>
-        <ShareSparkle $top="8px" $left="44px" $size="5px">
+        <ShareSparkle $top="4px" $left="22px" $size="3px">
           ✦
         </ShareSparkle>
-        <ShareSparkle $top="40px" $left="6px" $size="5px">
+        <ShareSparkle $top="20px" $left="3px" $size="3px">
           ✦
         </ShareSparkle>
         <ShareHexagon />

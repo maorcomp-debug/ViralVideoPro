@@ -1,9 +1,13 @@
+import { isDesktopBrowser } from './shareDevice';
+
 export type SocialSharePlatform =
   | 'whatsapp'
   | 'telegram'
   | 'facebook'
   | 'threads'
   | 'instagram';
+
+export type FeedShareResult = 'opened' | 'desktop_guide' | 'unsupported';
 
 export function supportsNativeShare(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
@@ -62,7 +66,8 @@ export async function openQuickShare(opts: {
 export function buildSocialShareUrl(
   platform: SocialSharePlatform,
   shareUrl: string,
-  message: string
+  message: string,
+  desktop = false
 ): string | null {
   const url = encodeURIComponent(shareUrl);
   const text = encodeURIComponent(message);
@@ -70,11 +75,13 @@ export function buildSocialShareUrl(
 
   switch (platform) {
     case 'whatsapp':
-      return `https://wa.me/?text=${combined}`;
+      return desktop
+        ? `https://web.whatsapp.com/send?text=${combined}`
+        : `https://wa.me/?text=${combined}`;
     case 'telegram':
       return `https://t.me/share/url?url=${url}&text=${text}`;
     case 'facebook':
-      return `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+      return `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`;
     case 'threads':
       return `https://www.threads.net/intent/post?text=${combined}`;
     case 'instagram':
@@ -84,28 +91,33 @@ export function buildSocialShareUrl(
   }
 }
 
-/** Feed / post share — opens platform with link (not story). */
-export async function openFeedShare(
-  platform: SocialSharePlatform,
-  shareUrl: string,
-  message: string
-): Promise<void> {
-  if (platform === 'instagram') {
-    await openInstagramFeedShare(shareUrl, message);
-    return;
-  }
-
-  const href = buildSocialShareUrl(platform, shareUrl, message);
-  if (href) {
-    window.open(href, '_blank', 'noopener,noreferrer');
+async function copyShareText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
   }
 }
 
-async function openInstagramFeedShare(shareUrl: string, message: string): Promise<void> {
+function openWebTab(url: string): void {
+  const tab = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!tab) {
+    window.location.assign(url);
+  }
+}
+
+async function openInstagramFeedShare(shareUrl: string, message: string): Promise<FeedShareResult> {
   const text = `${message}\n${shareUrl}`;
   const ua = navigator.userAgent || '';
   const isAndroid = /Android/i.test(ua);
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+  if (!isAndroid && !isIOS) {
+    await copyShareText(text);
+    openWebTab('https://www.instagram.com/');
+    return 'desktop_guide';
+  }
 
   if (isAndroid) {
     const intent =
@@ -113,16 +125,35 @@ async function openInstagramFeedShare(shareUrl: string, message: string): Promis
       `S.android.intent.extra.TEXT=${encodeURIComponent(text)};` +
       `package=com.instagram.android;end`;
     window.location.href = intent;
-    return;
+    return 'opened';
   }
 
   if (isIOS) {
     window.location.href = `instagram://sharesheet?text=${encodeURIComponent(text)}`;
     setTimeout(() => {
-      window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+      openWebTab('https://www.instagram.com/');
     }, 900);
-    return;
+    return 'opened';
   }
 
-  window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+  return 'unsupported';
+}
+
+/** Feed / post share — opens platform with link (not story). */
+export async function openFeedShare(
+  platform: SocialSharePlatform,
+  shareUrl: string,
+  message: string
+): Promise<FeedShareResult> {
+  const desktop = isDesktopBrowser();
+
+  if (platform === 'instagram') {
+    return openInstagramFeedShare(shareUrl, message);
+  }
+
+  const href = buildSocialShareUrl(platform, shareUrl, message, desktop);
+  if (!href) return 'unsupported';
+
+  openWebTab(href);
+  return desktop ? 'desktop_guide' : 'opened';
 }

@@ -40,6 +40,12 @@ export const shareEn = {
   storyShareHint: 'Opens the app with your card. Add a link sticker to your share page in story',
   storyTapLinkHint: 'Add a link sticker to your share page in story',
   storyShareUnsupported: 'Story sharing is not supported on this device — try from your phone',
+  desktopFeedShareHint:
+    'The share platform opened in your browser. Log in if prompted — the login screen appears automatically.',
+  desktopInstagramFeedHint:
+    'Text and link copied. Log in to Instagram in the new tab and paste into a post or story.',
+  desktopStoryShareHint:
+    'Story image downloaded and link copied. Log in on the platform tab and upload the image to your story.',
   mockSuccess: 'Your public share link will be ready in the next step. Preview looks great!',
   creatingLink: 'Creating your public share link…',
   linkCreateError: 'Could not create share link',

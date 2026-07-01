@@ -26,9 +26,9 @@ export const ShareButtonRow = styled.div<{ $inline?: boolean }>`
 
 export const ShareActionButton = styled.button`
   position: relative;
-  width: 100%;
+  width: 50%;
+  max-width: 220px;
   min-width: 0;
-  max-width: 100%;
   background: linear-gradient(
     125deg,
     #8a6420 0%,
@@ -40,23 +40,23 @@ export const ShareActionButton = styled.button`
   );
   border: 1px solid rgba(255, 255, 255, 0.55);
   color: #1a1208;
-  padding: 14px 18px;
-  border-radius: 18px;
+  padding: 8px 12px;
+  border-radius: 12px;
   font-family: 'Assistant', sans-serif;
   cursor: pointer;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 8px;
   direction: inherit;
   overflow: hidden;
   animation: ${vsBreathingGlow} 3.2s ease-in-out infinite;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.12) inset,
-    0 8px 28px rgba(212, 160, 67, 0.45),
-    0 0 24px rgba(212, 160, 67, 0.25);
+    0 4px 14px rgba(212, 160, 67, 0.45),
+    0 0 12px rgba(212, 160, 67, 0.25);
   -webkit-tap-highlight-color: transparent;
 
   &::before {
@@ -77,10 +77,10 @@ export const ShareActionButton = styled.button`
   &::after {
     content: '';
     position: absolute;
-    top: 6px;
+    top: 4px;
     left: 18%;
-    width: 48px;
-    height: 8px;
+    width: 28px;
+    height: 5px;
     background: radial-gradient(ellipse, rgba(255, 255, 255, 0.85) 0%, transparent 70%);
     filter: blur(1px);
     pointer-events: none;
@@ -118,7 +118,7 @@ export const ShareButtonText = styled.span`
 
 export const ShareButtonTitle = styled.span`
   font-weight: 800;
-  font-size: 1.08rem;
+  font-size: 0.88rem;
   line-height: 1.25;
   color: #1a1008;
   letter-spacing: 0.01em;
@@ -126,18 +126,18 @@ export const ShareButtonTitle = styled.span`
 
 export const ShareButtonSubtitle = styled.span`
   font-weight: 500;
-  font-size: 0.82rem;
+  font-size: 0.68rem;
   line-height: 1.35;
   color: rgba(26, 16, 8, 0.72);
-  margin-top: 2px;
+  margin-top: 1px;
 `;
 
 export const ShareHexIconWrap = styled.span`
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  width: 52px;
-  height: 52px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -145,7 +145,7 @@ export const ShareHexIconWrap = styled.span`
 
 export const ShareHexagon = styled.span`
   position: absolute;
-  inset: 4px;
+  inset: 2px;
   background: linear-gradient(160deg, #2a2420 0%, #12100e 100%);
   clip-path: polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -167,8 +167,8 @@ export const ShareSparkle = styled.span<{ $top: string; $left: string; $size?: s
 export const ShareCrownSvg = styled.svg`
   position: relative;
   z-index: 1;
-  width: 26px;
-  height: 26px;
+  width: 14px;
+  height: 14px;
   fill: ${VS_COLORS.goldLight};
   filter: drop-shadow(0 0 4px rgba(212, 160, 67, 0.6));
 `;

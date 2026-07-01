@@ -1,8 +1,9 @@
 import { normalizeStoryBlob } from './captureStoryImage';
+import { isMobileDevice } from './shareDevice';
 
 export type StoryPlatform = 'instagram' | 'facebook' | 'whatsapp';
 
-export type StoryShareResult = 'opened' | 'cancelled' | 'unsupported';
+export type StoryShareResult = 'opened' | 'cancelled' | 'unsupported' | 'desktop_guide';
 
 const DEFAULT_LINK = 'https://viraly.co.il';
 
@@ -28,6 +29,15 @@ async function copyImageToClipboard(blob: Blob): Promise<boolean> {
   }
 }
 
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function triggerImageDownload(blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -35,6 +45,13 @@ function triggerImageDownload(blob: Blob): void {
   link.download = 'viraly-story.png';
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function openWebTab(url: string): void {
+  const tab = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!tab) {
+    window.location.assign(url);
+  }
 }
 
 function openAndroidStoryIntent(
@@ -66,6 +83,41 @@ const STORY_INTENTS: Record<StoryPlatform, { android: string; package: string; i
   },
 };
 
+const DESKTOP_WEB: Record<StoryPlatform, string> = {
+  instagram: 'https://www.instagram.com/',
+  facebook: 'https://www.facebook.com/',
+  whatsapp: 'https://web.whatsapp.com/',
+};
+
+async function openDesktopStoryShare(
+  platform: StoryPlatform,
+  normalized: Blob,
+  file: File,
+  url: string
+): Promise<StoryShareResult> {
+  if (navigator.share) {
+    const attempts: ShareData[] = [
+      { files: [file], url, title: 'VIRALY' },
+      { files: [file], text: url, title: 'VIRALY' },
+      { url, text: url, title: 'VIRALY' },
+    ];
+    for (const payload of attempts) {
+      if (navigator.canShare && !navigator.canShare(payload)) continue;
+      try {
+        await navigator.share(payload);
+        return 'opened';
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return 'cancelled';
+      }
+    }
+  }
+
+  triggerImageDownload(normalized);
+  await copyText(url);
+  openWebTab(DESKTOP_WEB[platform]);
+  return 'desktop_guide';
+}
+
 /** Share story image to a specific platform with optional link sticker URL. */
 export async function openStoryPlatformShare(
   platform: StoryPlatform,
@@ -76,6 +128,10 @@ export async function openStoryPlatformShare(
   const file = new File([normalized], 'viraly-story.png', { type: 'image/png' });
   const cfg = STORY_INTENTS[platform];
   const url = linkUrl || DEFAULT_LINK;
+
+  if (!isMobileDevice()) {
+    return openDesktopStoryShare(platform, normalized, file, url);
+  }
 
   if (navigator.share && (navigator.canShare?.({ files: [file] }) ?? true)) {
     try {
@@ -113,10 +169,7 @@ export async function openStoryPlatformShare(
 
 export function canShareStoryImage(imageBlob: Blob | null): boolean {
   if (!imageBlob) return false;
-  if (isAndroid() || isIOS()) return true;
-  if (!navigator.share) return false;
-  const file = new File([imageBlob], 'viraly-story.png', { type: 'image/png' });
-  return navigator.canShare?.({ files: [file] }) ?? false;
+  return true;
 }
 
 export function resolveStoryLinkUrl(sharePageUrl?: string | null): string {
