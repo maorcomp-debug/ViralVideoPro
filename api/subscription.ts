@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
-import { looksLikeEmail, resolveCreatorDisplayName } from '../lib/creatorDisplayName';
 
 type EmailLang = 'he' | 'en';
 
@@ -403,6 +402,33 @@ async function getShareUserFromRequest(req: VercelRequest): Promise<{ id: string
   return { id: user.id };
 }
 
+function shareLooksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function shareNormalizeNameCandidate(value?: string | null): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed || shareLooksLikeEmail(trimmed)) return undefined;
+  return trimmed;
+}
+
+function shareResolveCreatorDisplayName(sources: {
+  fullName?: string | null;
+  metadataFullName?: string | null;
+}): string | undefined {
+  const candidates = [sources.fullName, sources.metadataFullName];
+  for (const candidate of candidates) {
+    const name = shareNormalizeNameCandidate(candidate);
+    if (!name) continue;
+    const words = name.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) return name;
+  }
+  for (const candidate of candidates) {
+    const name = shareNormalizeNameCandidate(candidate);
+    if (name && name.length >= 2) return name;
+  }
+  return undefined;
+}
 
 const SHARE_APP_BASE_URL =
   (process.env.VITE_APP_URL || process.env.APP_URL || 'https://viraly.co.il').replace(/\/$/, '');
@@ -456,7 +482,7 @@ function sanitizeCreateBody(raw: unknown): CreateShareBody | null {
   const includeCreatorName = b.includeCreatorName === true;
   const rawCreatorName = includeCreatorName ? truncate(String(b.creatorName || ''), 60) || null : null;
   const creatorName =
-    rawCreatorName && !looksLikeEmail(rawCreatorName) ? rawCreatorName : null;
+    rawCreatorName && !shareLooksLikeEmail(rawCreatorName) ? rawCreatorName : null;
   const creatorTypeRaw = includeCreatorName ? String(b.creatorType || '').trim() : '';
   const creatorType =
     includeCreatorName && creatorTypeRaw && isCreatorTypeKey(creatorTypeRaw)
@@ -487,7 +513,7 @@ function isShareAvailable(row: {
 
 function toPublicPayload(row: PublicShareRecord) {
   const creatorName =
-    row.creator_name && !looksLikeEmail(row.creator_name) ? row.creator_name : null;
+    row.creator_name && !shareLooksLikeEmail(row.creator_name) ? row.creator_name : null;
   return {
     viralScore: row.viral_score,
     metrics: row.metrics.slice(0, 3),
@@ -503,13 +529,13 @@ async function resolvePublicCreatorName(
   userId: string,
   storedName: string | null
 ): Promise<string | null> {
-  if (storedName && !looksLikeEmail(storedName)) return storedName;
+  if (storedName && !shareLooksLikeEmail(storedName)) return storedName;
   const { data: profile } = await admin
     .from('profiles')
     .select('full_name')
     .eq('user_id', userId)
     .maybeSingle();
-  const resolved = resolveCreatorDisplayName({ fullName: (profile as { full_name?: string | null })?.full_name });
+  const resolved = shareResolveCreatorDisplayName({ fullName: (profile as { full_name?: string | null })?.full_name });
   return resolved ? truncate(resolved, 60) : null;
 }
 
@@ -615,9 +641,10 @@ function renderShareHtmlPage(
     ? `<div class="name">${shareEscapeHtml(payload.creatorName)}</div>`
     : '';
   const creatorTypeLabel = resolveCreatorTypeLabel(payload.creatorType, locale);
-  const typeBlock = creatorTypeLabel
-    ? `<div class="type">${shareEscapeHtml(creatorTypeLabel)}</div>`
-    : '';
+  const typeBlock =
+    payload.creatorName && creatorTypeLabel
+      ? `<div class="type">${shareEscapeHtml(creatorTypeLabel)}</div>`
+      : '';
   const metricsHtml = payload.metrics
     .map((m) => `<li>${shareEscapeHtml(m)}</li>`)
     .join('');
@@ -704,7 +731,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
         .select('full_name')
         .eq('user_id', user.id)
         .maybeSingle();
-      const resolved = resolveCreatorDisplayName({
+      const resolved = shareResolveCreatorDisplayName({
         fullName: (profile as { full_name?: string | null })?.full_name,
       });
       creatorName = resolved ? truncate(resolved, 60) : null;
@@ -754,7 +781,7 @@ async function handlePublic(req: VercelRequest, res: VercelResponse) {
   }
   const creatorName = row.user_id
     ? await resolvePublicCreatorName(admin, row.user_id, row.creator_name)
-    : row.creator_name && !looksLikeEmail(row.creator_name)
+    : row.creator_name && !shareLooksLikeEmail(row.creator_name)
       ? row.creator_name
       : null;
   return res.status(200).json(toPublicPayload({ ...row, creator_name: creatorName }));

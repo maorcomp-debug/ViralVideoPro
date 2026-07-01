@@ -21,7 +21,7 @@ export const ViralShareEntry: React.FC<ViralShareEntryProps> = ({
   blocked = false,
   layout = 'standalone',
 }) => {
-  const flow = useViralShareFlow(score, trackId, result ?? EMPTY_RESULT);
+  const flow = useViralShareFlow(score, trackId, result ?? EMPTY_RESULT, suggestedCreatorName);
 
   if (!VIRAL_SHARE_ENABLED || blocked || !result) {
     return null;
@@ -39,10 +39,11 @@ export const ViralShareEntry: React.FC<ViralShareEntryProps> = ({
         onConsentChange={flow.setConsentAccepted}
         includeCreatorName={flow.includeCreatorName}
         onIncludeCreatorNameChange={flow.setIncludeCreatorName}
+        creatorDisplayName={flow.creatorDisplayName}
+        onCreatorDisplayNameChange={flow.setCreatorDisplayName}
         creatorType={flow.creatorType}
         onCreatorTypeChange={flow.setCreatorType}
         payload={flow.payload}
-        suggestedCreatorName={suggestedCreatorName}
         trackId={trackId}
         onClose={flow.close}
         onNext={flow.goNext}

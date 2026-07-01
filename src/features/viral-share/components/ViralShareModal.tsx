@@ -27,10 +27,11 @@ interface ViralShareModalProps {
   onConsentChange: (v: boolean) => void;
   includeCreatorName: boolean;
   onIncludeCreatorNameChange: (v: boolean) => void;
+  creatorDisplayName: string;
+  onCreatorDisplayNameChange: (v: string) => void;
   creatorType: CreatorTypeKey;
   onCreatorTypeChange: (v: CreatorTypeKey) => void;
   payload: SharePreviewData;
-  suggestedCreatorName?: string;
   trackId: TrackId;
   onClose: () => void;
   onNext: () => void;
@@ -44,10 +45,11 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
   onConsentChange,
   includeCreatorName,
   onIncludeCreatorNameChange,
+  creatorDisplayName,
+  onCreatorDisplayNameChange,
   creatorType,
   onCreatorTypeChange,
   payload,
-  suggestedCreatorName,
   trackId,
   onClose,
   onNext,
@@ -86,6 +88,8 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
             <CreatorIdentitySection
               includeName={includeCreatorName}
               onIncludeNameChange={onIncludeCreatorNameChange}
+              creatorDisplayName={creatorDisplayName}
+              onCreatorDisplayNameChange={onCreatorDisplayNameChange}
               creatorType={creatorType}
               onCreatorTypeChange={onCreatorTypeChange}
             />
@@ -94,7 +98,7 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
           {(step === 'preview' || step === 'share') && (
             <SharePreviewCard
               data={payload}
-              creatorName={suggestedCreatorName}
+              creatorName={creatorDisplayName}
               creatorType={creatorType}
               showIdentity={includeCreatorName}
               showHeading={step === 'preview'}
@@ -108,7 +112,7 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
             <ShareActions
               payload={payload}
               includeCreatorName={includeCreatorName}
-              suggestedCreatorName={suggestedCreatorName}
+              creatorDisplayName={creatorDisplayName}
               creatorType={creatorType}
               trackId={trackId}
             />

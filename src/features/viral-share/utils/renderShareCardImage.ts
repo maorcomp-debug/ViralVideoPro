@@ -102,13 +102,13 @@ export async function renderShareCardImage(input: RenderShareCardInput): Promise
     ctx.textAlign = align;
     ctx.fillText(input.creatorName.trim(), textX, y);
     y += 56;
-  }
-  if (input.showIdentity && input.creatorTypeLabel) {
-    ctx.fillStyle = '#D4A043';
-    ctx.font = '500 34px Assistant, Arial, sans-serif';
-    ctx.textAlign = align;
-    ctx.fillText(input.creatorTypeLabel, textX, y);
-    y += 48;
+    if (input.creatorTypeLabel) {
+      ctx.fillStyle = '#D4A043';
+      ctx.font = '500 34px Assistant, Arial, sans-serif';
+      ctx.textAlign = align;
+      ctx.fillText(input.creatorTypeLabel, textX, y);
+      y += 48;
+    }
   }
 
   ctx.textAlign = 'center';

@@ -51,10 +51,10 @@ export const SharePreviewCard: React.FC<SharePreviewCardProps> = ({
       <PreviewCard>
         <PreviewLogo src="/Logo.png" alt="VIRALY" decoding="async" />
         {showIdentity && creatorName?.trim() && (
-          <PreviewCreatorName>{creatorName.trim()}</PreviewCreatorName>
-        )}
-        {showIdentity && (
-          <PreviewCreatorType>{creatorTypeLabel}</PreviewCreatorType>
+          <>
+            <PreviewCreatorName>{creatorName.trim()}</PreviewCreatorName>
+            <PreviewCreatorType>{creatorTypeLabel}</PreviewCreatorType>
+          </>
         )}
         <PreviewScore>{data.viralScore}%</PreviewScore>
         <PreviewScoreLabel>{s.viralScoreLabel}</PreviewScoreLabel>

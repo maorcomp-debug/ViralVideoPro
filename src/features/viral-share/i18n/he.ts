@@ -14,6 +14,8 @@ export const shareHe = {
   back: 'חזרה',
   includeCreatorName: 'כלול את שם היוצר בשיתוף',
   creatorTypeLabel: 'סוג יוצר',
+  creatorNameLabel: 'שם מלא לשיתוף',
+  creatorNamePlaceholder: 'שם פרטי ושם משפחה',
   viralScoreLabel: 'פוטנציאל ויראלי',
   metricsTitle: 'נקודות חוזק',
   insightTitle: 'תובנת AI',

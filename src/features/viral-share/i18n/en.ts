@@ -14,6 +14,8 @@ export const shareEn = {
   back: 'Back',
   includeCreatorName: 'Include creator name on the share card',
   creatorTypeLabel: 'Creator type',
+  creatorNameLabel: 'Full name for sharing',
+  creatorNamePlaceholder: 'First and last name',
   viralScoreLabel: 'Your AI Creator Score',
   metricsTitle: 'Creator Strengths',
   insightTitle: 'AI Insight',

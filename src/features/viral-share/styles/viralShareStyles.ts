@@ -367,6 +367,28 @@ export const FieldLabel = styled.div`
   margin: 12px 0 8px;
 `;
 
+export const ShareNameInput = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 160, 67, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f5f5;
+  font-family: 'Assistant', sans-serif;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  &:focus {
+    outline: 2px solid rgba(212, 160, 67, 0.5);
+    outline-offset: 1px;
+  }
+`;
+
 export const TypeChipGrid = styled.div`
   display: flex;
   flex-wrap: wrap;

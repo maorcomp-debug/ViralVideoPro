@@ -17,12 +17,14 @@ function lightHaptic(): void {
 export function useViralShareFlow(
   score: number,
   trackId: TrackId,
-  result: AnalysisResult
+  result: AnalysisResult,
+  suggestedCreatorName?: string
 ) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<ViralShareStep>('consent');
   const [consentAccepted, setConsentAccepted] = useState(false);
-  const [includeCreatorName, setIncludeCreatorName] = useState(false);
+  const [includeCreatorName, setIncludeCreatorName] = useState(true);
+  const [creatorDisplayName, setCreatorDisplayName] = useState('');
   const [creatorType, setCreatorType] = useState<CreatorTypeKey>(() =>
     mapTrackToCreatorType(trackId)
   );
@@ -35,11 +37,12 @@ export function useViralShareFlow(
   const open = useCallback(() => {
     setStep('consent');
     setConsentAccepted(false);
-    setIncludeCreatorName(false);
+    setIncludeCreatorName(true);
+    setCreatorDisplayName(suggestedCreatorName?.trim() || '');
     setCreatorType(mapTrackToCreatorType(trackId));
     setIsOpen(true);
     lightHaptic();
-  }, [trackId]);
+  }, [trackId, suggestedCreatorName]);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -71,6 +74,8 @@ export function useViralShareFlow(
     setConsentAccepted,
     includeCreatorName,
     setIncludeCreatorName,
+    creatorDisplayName,
+    setCreatorDisplayName,
     creatorType,
     setCreatorType,
     payload,
@@ -79,4 +84,4 @@ export function useViralShareFlow(
     goNext,
     goBack,
   };
-}
+};

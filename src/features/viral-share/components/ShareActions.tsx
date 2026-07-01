@@ -18,6 +18,8 @@ import type { CreatorTypeKey, SharePreviewData } from '../types';
 
 import type { TrackId } from '../../../types';
 
+import { looksLikeEmail } from '../../../../lib/creatorDisplayName';
+
 import { renderShareCardImage } from '../utils/renderShareCardImage';
 
 import {
@@ -30,9 +32,16 @@ import {
 interface ShareActionsProps {
   payload: SharePreviewData;
   includeCreatorName: boolean;
-  suggestedCreatorName?: string;
+  creatorDisplayName: string;
   creatorType: CreatorTypeKey;
   trackId: TrackId;
+}
+
+function shareCreatorNameForApi(include: boolean, raw?: string): string | undefined {
+  if (!include) return undefined;
+  const trimmed = raw?.trim();
+  if (!trimmed || looksLikeEmail(trimmed)) return undefined;
+  return trimmed;
 }
 
 type SocialLabelKey = 'mockWhatsApp' | 'mockTelegram' | 'mockFacebook' | 'mockInstagram' | 'mockThreads';
@@ -48,12 +57,13 @@ const SOCIAL_PLATFORMS: { id: SocialSharePlatform; labelKey: SocialLabelKey }[] 
 export const ShareActions: React.FC<ShareActionsProps> = ({
   payload,
   includeCreatorName,
-  suggestedCreatorName,
+  creatorDisplayName,
   creatorType,
   trackId,
 }) => {
   const s = getShareStrings();
   const rtl = isShareRtl();
+  const creatorNameForShare = shareCreatorNameForApi(includeCreatorName, creatorDisplayName);
 
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [cardImage, setCardImage] = useState<Blob | null>(null);
@@ -72,7 +82,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
         const { url } = await createShareLink({
           payload,
           includeCreatorName,
-          creatorName: suggestedCreatorName,
+          creatorName: creatorNameForShare,
           creatorType,
           trackId,
         });
@@ -89,7 +99,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [payload, includeCreatorName, suggestedCreatorName, creatorType, trackId, s.linkCreateError, attempt]);
+  }, [payload, includeCreatorName, creatorNameForShare, creatorType, trackId, s.linkCreateError, attempt]);
 
   useEffect(() => {
     if (!shareUrl) return;
@@ -100,7 +110,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
           viralScore: payload.viralScore,
           metrics: payload.metrics,
           insight: payload.insight,
-          creatorName: suggestedCreatorName,
+          creatorName: creatorNameForShare,
           creatorTypeLabel: getCreatorTypeLabel(creatorType),
           showIdentity: includeCreatorName,
           strings: s,
@@ -117,7 +127,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   }, [
     shareUrl,
     payload,
-    suggestedCreatorName,
+    creatorNameForShare,
     creatorType,
     includeCreatorName,
     s,
