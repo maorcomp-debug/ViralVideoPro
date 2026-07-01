@@ -3,23 +3,22 @@ import styled from 'styled-components';
 import { SharePreviewCard } from './SharePreviewCard';
 import { getShareStrings, isShareRtl, type ShareLocale } from '../i18n';
 import { SHARE_CTA_URL } from '../constants';
+import { STORY_H, STORY_W } from '../utils/captureStoryImage';
 import type { CreatorTypeKey, SharePreviewData } from '../types';
 
-const STORY_W = 1080;
-const STORY_H = 1920;
-const CARD_BASE_W = 440;
-const CARD_SCALE = (STORY_W - 112) / CARD_BASE_W;
+const CARD_STORY_W = STORY_W - 112;
 
 const CaptureRoot = styled.div`
   position: fixed;
-  left: -12000px;
   top: 0;
+  left: 0;
   width: ${STORY_W}px;
   height: ${STORY_H}px;
   background: #050505;
   overflow: hidden;
   pointer-events: none;
-  z-index: -1;
+  opacity: 0;
+  z-index: 2147483646;
 
   * {
     animation: none !important;
@@ -31,9 +30,8 @@ const CardStage = styled.div`
   position: absolute;
   top: 50%;
   left: 50%;
-  width: ${CARD_BASE_W}px;
-  transform: translate(-50%, -52%) scale(${CARD_SCALE});
-  transform-origin: center center;
+  width: ${CARD_STORY_W}px;
+  transform: translate(-50%, -52%);
 `;
 
 const SiteFooter = styled.div`
@@ -72,6 +70,7 @@ export const ShareStoryCapture = forwardRef<HTMLDivElement, ShareStoryCapturePro
     const rtl = locale ? locale === 'he' : isShareRtl();
     const s = getShareStrings(locale);
     const siteLabel = SHARE_CTA_URL.replace(/^https?:\/\//, '');
+    const logoSrc = `${window.location.origin}/Logo.png`;
 
     return (
       <CaptureRoot ref={ref} dir={rtl ? 'rtl' : 'ltr'} aria-hidden>
@@ -85,6 +84,8 @@ export const ShareStoryCapture = forwardRef<HTMLDivElement, ShareStoryCapturePro
             showHeading={false}
             ctaMode="decorative"
             locale={locale}
+            variant="story"
+            logoSrc={logoSrc}
           />
         </CardStage>
         <SiteFooter>

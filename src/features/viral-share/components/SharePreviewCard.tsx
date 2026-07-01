@@ -31,6 +31,9 @@ export interface SharePreviewCardProps {
   ctaTarget?: '_blank' | '_self';
   /** Public share pages use stored row language, not app UI language. */
   locale?: ShareLocale;
+  /** story = full-size card for story image capture */
+  variant?: 'modal' | 'story';
+  logoSrc?: string;
 }
 
 export const SharePreviewCard: React.FC<SharePreviewCardProps> = ({
@@ -44,46 +47,68 @@ export const SharePreviewCard: React.FC<SharePreviewCardProps> = ({
   ctaHref = SHARE_CTA_URL,
   ctaTarget = '_self',
   locale,
+  variant = 'modal',
+  logoSrc = '/Logo.png',
 }) => {
   const s = getShareStrings(locale);
   const creatorTypeLabel = getCreatorTypeLabel(creatorType, locale);
+  const story = variant === 'story';
 
   return (
     <>
       {showHeading && <SectionHeading>{s.previewTitle}</SectionHeading>}
-      <PreviewCard>
-        <PreviewLogo src="/Logo.png" alt="VIRALY" decoding="async" />
+      <PreviewCard $story={story}>
+        <PreviewLogo
+          src={logoSrc}
+          alt="VIRALY"
+          decoding="async"
+          crossOrigin="anonymous"
+          $story={story}
+        />
         {showIdentity && creatorName?.trim() && (
-          <PreviewCreatorName>{creatorName.trim()}</PreviewCreatorName>
+          <PreviewCreatorName $story={story}>{creatorName.trim()}</PreviewCreatorName>
         )}
         {showCreatorType && (
-          <PreviewCreatorType>{creatorTypeLabel}</PreviewCreatorType>
+          <PreviewCreatorType $story={story}>{creatorTypeLabel}</PreviewCreatorType>
         )}
-        <PreviewScore>{data.viralScore}%</PreviewScore>
-        <PreviewScoreLabel>{s.viralScoreLabel}</PreviewScoreLabel>
-        <PreviewScoreRule aria-hidden />
-        <SectionHeading style={{ fontSize: '0.85rem', marginBottom: 10 }}>
+        <PreviewScore $story={story}>{data.viralScore}%</PreviewScore>
+        <PreviewScoreLabel $story={story}>{s.viralScoreLabel}</PreviewScoreLabel>
+        <PreviewScoreRule $story={story} aria-hidden />
+        <SectionHeading
+          style={{
+            fontSize: story ? '1.87rem' : '0.85rem',
+            marginBottom: story ? 22 : 10,
+          }}
+        >
           {s.metricsTitle}
         </SectionHeading>
-        <PreviewMetrics>
+        <PreviewMetrics $story={story}>
           {data.metrics.map((m, i) => (
-            <PreviewMetricItem key={i}>{m}</PreviewMetricItem>
+            <PreviewMetricItem key={i} $story={story}>
+              {m}
+            </PreviewMetricItem>
           ))}
         </PreviewMetrics>
-        <SectionHeading style={{ fontSize: '0.8rem', marginBottom: 8 }}>
+        <SectionHeading
+          style={{
+            fontSize: story ? '1.76rem' : '0.8rem',
+            marginBottom: story ? 18 : 8,
+          }}
+        >
           {s.insightTitle}
         </SectionHeading>
-        <PreviewInsight>"{data.insight}"</PreviewInsight>
+        <PreviewInsight $story={story}>"{data.insight}"</PreviewInsight>
         {ctaMode === 'link' ? (
           <PreviewCta
             href={ctaHref}
             target={ctaTarget}
             rel={ctaTarget === '_blank' ? 'noopener noreferrer' : undefined}
+            $story={story}
           >
             {s.cta}
           </PreviewCta>
         ) : (
-          <PreviewCta as="span" $decorative aria-hidden>
+          <PreviewCta as="span" $decorative $story={story} aria-hidden>
             {s.cta}
           </PreviewCta>
         )}

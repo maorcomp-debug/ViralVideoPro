@@ -32,6 +32,8 @@ export const shareEn = {
   mockStoryShare: 'Share to Story',
   mockNative: 'Quick share',
   storySectionTitle: 'Share to Story',
+  storyPreviewTitle: 'Story preview',
+  storyImagePreparing: 'Preparing story image…',
   storyInstagram: 'Instagram Story',
   storyFacebook: 'Facebook Story',
   storyWhatsApp: 'WhatsApp Status',

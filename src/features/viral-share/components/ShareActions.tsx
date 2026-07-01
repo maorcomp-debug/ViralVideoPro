@@ -6,6 +6,7 @@ import {
   SectionHeading,
   ShareLinkBox,
   ShareLinkText,
+  StoryImagePreview,
 } from '../styles/viralShareStyles';
 
 import { getCreatorTypeLabel, getShareStrings, isShareRtl } from '../i18n';
@@ -22,8 +23,7 @@ import { looksLikeEmail } from '../../../../lib/creatorDisplayName';
 
 import { SHARE_CTA_URL } from '../constants';
 
-import { captureStoryImageFromElement } from '../utils/captureStoryImage';
-import { renderShareCardImage } from '../utils/renderShareCardImage';
+import { buildStoryCardImage } from '../utils/buildStoryCardImage';
 import { ShareStoryCapture } from './ShareStoryCapture';
 
 import { openFeedShare, openQuickShare, type SocialSharePlatform } from '../utils/shareSocial';
@@ -65,6 +65,19 @@ const STORY_PLATFORMS: { id: StoryPlatform; labelKey: 'storyInstagram' | 'storyF
   { id: 'whatsapp', labelKey: 'storyWhatsApp' },
 ];
 
+async function waitForRef<T extends HTMLElement>(
+  getRef: () => T | null,
+  attempts = 15,
+  delayMs = 120
+): Promise<T | null> {
+  for (let i = 0; i < attempts; i++) {
+    const node = getRef();
+    if (node) return node;
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return null;
+}
+
 export const ShareActions: React.FC<ShareActionsProps> = ({
   payload,
   includeCreatorName,
@@ -78,10 +91,18 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
 
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [cardImage, setCardImage] = useState<Blob | null>(null);
+  const [cardImageUrl, setCardImageUrl] = useState<string | null>(null);
+  const [storyImageLoading, setStoryImageLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const storyCaptureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cardImageUrl) URL.revokeObjectURL(cardImageUrl);
+    };
+  }, [cardImageUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +111,10 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
         setLoading(true);
         setError(null);
         setCardImage(null);
+        setCardImageUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
         const { url } = await createShareLink({
           payload,
           includeCreatorName,
@@ -116,24 +141,13 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     if (!shareUrl) return;
     let cancelled = false;
     (async () => {
-      await new Promise((r) => setTimeout(r, 200));
-      if (cancelled) return;
-
-      const captureNode = storyCaptureRef.current;
-      if (captureNode) {
-        try {
-          const blob = await captureStoryImageFromElement(captureNode);
-          if (!cancelled) {
-            setCardImage(blob);
-            return;
-          }
-        } catch {
-          /* fall through to canvas */
-        }
-      }
-
+      setStoryImageLoading(true);
       try {
-        const blob = await renderShareCardImage({
+        const captureNode = await waitForRef(() => storyCaptureRef.current);
+        if (cancelled) return;
+
+        const blob = await buildStoryCardImage({
+          captureNode,
           viralScore: payload.viralScore,
           metrics: payload.metrics,
           insight: payload.insight,
@@ -145,9 +159,24 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
           rtl,
           siteUrl: SHARE_CTA_URL,
         });
-        if (!cancelled) setCardImage(blob);
+
+        if (!cancelled) {
+          setCardImage(blob);
+          setCardImageUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return URL.createObjectURL(blob);
+          });
+        }
       } catch {
-        if (!cancelled) setCardImage(null);
+        if (!cancelled) {
+          setCardImage(null);
+          setCardImageUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+        }
+      } finally {
+        if (!cancelled) setStoryImageLoading(false);
       }
     })();
     return () => {
@@ -254,13 +283,28 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
       <SectionHeading style={{ fontSize: '0.9rem', marginTop: 8 }}>
         {s.storySectionTitle}
       </SectionHeading>
+      {storyImageLoading && (
+        <SectionHeading style={{ fontSize: '0.78rem', opacity: 0.75 }}>
+          {s.storyImagePreparing}
+        </SectionHeading>
+      )}
+      {cardImageUrl && !storyImageLoading && (
+        <>
+          <SectionHeading style={{ fontSize: '0.78rem', opacity: 0.85, marginBottom: 6 }}>
+            {s.storyPreviewTitle}
+          </SectionHeading>
+          <StoryImagePreview>
+            <img src={cardImageUrl} alt={s.storyPreviewTitle} />
+          </StoryImagePreview>
+        </>
+      )}
       <MockShareRow>
         {STORY_PLATFORMS.map(({ id, labelKey }) => (
           <MockShareBtn
             key={id}
             type="button"
             onClick={() => handleStoryPlatform(id)}
-            disabled={!cardImage}
+            disabled={!cardImage || storyImageLoading}
             style={storyReady ? { fontWeight: 700 } : undefined}
           >
             {s[labelKey]}

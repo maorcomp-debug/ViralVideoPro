@@ -413,15 +413,15 @@ export const TypeChip = styled.button<{ $active: boolean }>`
   }
 `;
 
-export const PreviewCard = styled.div`
+export const PreviewCard = styled.div<{ $story?: boolean }>`
   background: linear-gradient(145deg, rgba(212, 160, 67, 0.12) 0%, rgba(10, 10, 10, 0.95) 40%, #0a0a0a 100%);
   border: 1px solid rgba(212, 160, 67, 0.35);
-  border-radius: 18px;
-  padding: 24px 20px;
+  border-radius: ${({ $story }) => ($story ? '40px' : '18px')};
+  padding: ${({ $story }) => ($story ? '52px 44px' : '24px 20px')};
   text-align: center;
   position: relative;
   overflow: hidden;
-  animation: ${vsFadeIn} 0.4s ease-out;
+  animation: ${({ $story }) => ($story ? 'none' : vsFadeIn)} 0.4s ease-out;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
   &::before {
@@ -430,55 +430,57 @@ export const PreviewCard = styled.div`
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
+    height: ${({ $story }) => ($story ? '6px' : '3px')};
     background: linear-gradient(90deg, transparent, ${VS_COLORS.gold}, transparent);
     background-size: 200% 100%;
-    animation: ${vsShimmer} 4s linear infinite;
+    animation: ${({ $story }) => ($story ? 'none' : vsShimmer)} 4s linear infinite;
   }
 `;
 
-export const PreviewLogo = styled.img`
-  height: 36px;
+export const PreviewLogo = styled.img<{ $story?: boolean }>`
+  height: ${({ $story }) => ($story ? '79px' : '36px')};
   width: auto;
-  margin-bottom: 16px;
+  margin-bottom: ${({ $story }) => ($story ? '35px' : '16px')};
   opacity: 0.95;
 `;
 
-export const PreviewCreatorName = styled.div`
+export const PreviewCreatorName = styled.div<{ $story?: boolean }>`
   color: #fff;
-  font-size: 1.1rem;
+  font-size: ${({ $story }) => ($story ? '2.42rem' : '1.1rem')};
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: ${({ $story }) => ($story ? '9px' : '4px')};
+  text-align: center;
 `;
 
-export const PreviewCreatorType = styled.div`
+export const PreviewCreatorType = styled.div<{ $story?: boolean }>`
   color: ${VS_COLORS.gold};
-  font-size: 0.8rem;
+  font-size: ${({ $story }) => ($story ? '1.76rem' : '0.8rem')};
   letter-spacing: 0.5px;
-  margin-bottom: 16px;
+  margin-bottom: ${({ $story }) => ($story ? '35px' : '16px')};
+  text-align: center;
 `;
 
-export const PreviewScore = styled.div`
-  font-size: 3.75rem;
+export const PreviewScore = styled.div<{ $story?: boolean }>`
+  font-size: ${({ $story }) => ($story ? '8.25rem' : '3.75rem')};
   font-weight: 800;
   line-height: 1;
-  animation: ${vsScoreGlow} 3s ease-in-out infinite;
+  animation: ${({ $story }) => ($story ? 'none' : vsScoreGlow)} 3s ease-in-out infinite;
 `;
 
-export const PreviewScoreLabel = styled.div`
+export const PreviewScoreLabel = styled.div<{ $story?: boolean }>`
   color: ${VS_COLORS.gold};
-  font-size: 0.9rem;
+  font-size: ${({ $story }) => ($story ? '1.98rem' : '0.9rem')};
   font-weight: 600;
   letter-spacing: 1px;
-  margin-top: 8px;
-  margin-bottom: 12px;
+  margin-top: ${({ $story }) => ($story ? '18px' : '8px')};
+  margin-bottom: ${({ $story }) => ($story ? '26px' : '12px')};
 `;
 
-export const PreviewScoreRule = styled.div`
+export const PreviewScoreRule = styled.div<{ $story?: boolean }>`
   position: relative;
-  width: min(100%, 240px);
-  height: 2px;
-  margin: 0 auto 18px;
+  width: min(100%, ${({ $story }) => ($story ? '528px' : '240px')});
+  height: ${({ $story }) => ($story ? '4px' : '2px')};
+  margin: 0 auto ${({ $story }) => ($story ? '40px' : '18px')};
   background: linear-gradient(
     90deg,
     transparent,
@@ -496,23 +498,23 @@ export const PreviewScoreRule = styled.div`
     left: 50%;
     transform: translate(-50%, -50%);
     color: #ffe9a8;
-    font-size: 0.7rem;
+    font-size: ${({ $story }) => ($story ? '1.54rem' : '0.7rem')};
     text-shadow: 0 0 8px rgba(255, 230, 160, 0.9);
   }
 `;
 
-export const PreviewMetrics = styled.ul`
+export const PreviewMetrics = styled.ul<{ $story?: boolean }>`
   list-style: none;
-  margin: 0 0 16px;
+  margin: 0 0 ${({ $story }) => ($story ? '35px' : '16px')};
   padding: 0;
   text-align: start;
 `;
 
-export const PreviewMetricItem = styled.li`
+export const PreviewMetricItem = styled.li<{ $story?: boolean }>`
   color: ${VS_COLORS.text};
-  font-size: 0.88rem;
+  font-size: ${({ $story }) => ($story ? '1.94rem' : '0.88rem')};
   line-height: 1.45;
-  padding: 6px 0;
+  padding: ${({ $story }) => ($story ? '13px 0' : '6px 0')};
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 
   &:last-child {
@@ -522,33 +524,33 @@ export const PreviewMetricItem = styled.li`
   &::before {
     content: '✦';
     color: ${VS_COLORS.gold};
-    margin-inline-end: 8px;
-    font-size: 0.7rem;
+    margin-inline-end: ${({ $story }) => ($story ? '18px' : '8px')};
+    font-size: ${({ $story }) => ($story ? '1.54rem' : '0.7rem')};
   }
 `;
 
-export const PreviewInsight = styled.blockquote`
-  margin: 0 0 18px;
-  padding: 12px 14px;
+export const PreviewInsight = styled.blockquote<{ $story?: boolean }>`
+  margin: 0 0 ${({ $story }) => ($story ? '40px' : '18px')};
+  padding: ${({ $story }) => ($story ? '26px 31px' : '12px 14px')};
   background: rgba(0, 0, 0, 0.35);
-  border-radius: 10px;
-  border-inline-end: 3px solid ${VS_COLORS.gold};
+  border-radius: ${({ $story }) => ($story ? '22px' : '10px')};
+  border-inline-end: ${({ $story }) => ($story ? '6px' : '3px')} solid ${VS_COLORS.gold};
   color: #f0f0f0;
-  font-size: 0.92rem;
+  font-size: ${({ $story }) => ($story ? '2.02rem' : '0.92rem')};
   font-style: italic;
   line-height: 1.55;
   text-align: start;
 `;
 
-export const PreviewCta = styled.a<{ $decorative?: boolean }>`
+export const PreviewCta = styled.a<{ $decorative?: boolean; $story?: boolean }>`
   display: inline-block;
-  margin-top: 4px;
-  padding: 10px 20px;
-  border-radius: 24px;
+  margin-top: ${({ $story }) => ($story ? '9px' : '4px')};
+  padding: ${({ $story }) => ($story ? '22px 44px' : '10px 20px')};
+  border-radius: ${({ $story }) => ($story ? '53px' : '24px')};
   background: linear-gradient(135deg, ${VS_COLORS.goldDark}, ${VS_COLORS.gold});
   color: #000;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: ${({ $story }) => ($story ? '1.94rem' : '0.88rem')};
   text-decoration: none;
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: ${({ $decorative }) => ($decorative ? 'default' : 'pointer')};
@@ -614,6 +616,22 @@ export const ShareLinkText = styled.div`
   font-size: 0.78rem;
   line-height: 1.45;
   text-align: left;
+`;
+
+export const StoryImagePreview = styled.div`
+  margin: 10px auto 14px;
+  max-width: 160px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 160, 67, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    vertical-align: top;
+  }
 `;
 
 export const PublicPageWrap = styled.div`

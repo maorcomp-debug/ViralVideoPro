@@ -1,3 +1,5 @@
+import { normalizeStoryBlob } from './captureStoryImage';
+
 export type StoryPlatform = 'instagram' | 'facebook' | 'whatsapp';
 
 export type StoryShareResult = 'opened' | 'cancelled' | 'unsupported';
@@ -70,7 +72,8 @@ export async function openStoryPlatformShare(
   imageBlob: Blob,
   linkUrl: string = DEFAULT_LINK
 ): Promise<StoryShareResult> {
-  const file = new File([imageBlob], 'viraly-story.png', { type: 'image/png' });
+  const normalized = await normalizeStoryBlob(imageBlob);
+  const file = new File([normalized], 'viraly-story.png', { type: 'image/png' });
   const cfg = STORY_INTENTS[platform];
   const url = linkUrl || DEFAULT_LINK;
 
@@ -92,15 +95,15 @@ export async function openStoryPlatformShare(
   }
 
   if (isAndroid()) {
-    triggerImageDownload(imageBlob);
+    triggerImageDownload(normalized);
     setTimeout(() => {
       openAndroidStoryIntent(cfg.android, cfg.package, url);
-    }, 400);
+    }, 500);
     return 'opened';
   }
 
   if (isIOS()) {
-    await copyImageToClipboard(imageBlob);
+    await copyImageToClipboard(normalized);
     window.location.href = `${cfg.ios}?url=${encodeURIComponent(url)}`;
     return 'opened';
   }

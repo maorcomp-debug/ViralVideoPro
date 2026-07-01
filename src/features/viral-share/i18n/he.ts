@@ -32,6 +32,8 @@ export const shareHe = {
   mockStoryShare: 'שתף לסטורי',
   mockNative: 'שיתוף מהיר',
   storySectionTitle: 'שתף לסטורי',
+  storyPreviewTitle: 'תצוגה מקדימה לסטורי',
+  storyImagePreparing: 'מכין תמונת סטורי…',
   storyInstagram: 'סטורי Instagram',
   storyFacebook: 'סטורי Facebook',
   storyWhatsApp: 'סטטוס WhatsApp',
