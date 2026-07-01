@@ -13,17 +13,13 @@ import type { CreatorTypeKey } from '../types';
 interface CreatorTypePickerProps {
   value: CreatorTypeKey;
   onChange: (value: CreatorTypeKey) => void;
-  disabled?: boolean;
 }
 
 export const CreatorTypePicker: React.FC<CreatorTypePickerProps> = ({
   value,
   onChange,
-  disabled,
 }) => {
   const s = getShareStrings();
-
-  if (disabled) return null;
 
   return (
     <>
@@ -112,7 +108,6 @@ export const CreatorIdentitySection: React.FC<CreatorIdentitySectionProps> = ({
       <CreatorTypePicker
         value={creatorType}
         onChange={onCreatorTypeChange}
-        disabled={!includeName}
       />
     </>
   );

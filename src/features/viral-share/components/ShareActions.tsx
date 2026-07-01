@@ -22,13 +22,13 @@ import { looksLikeEmail } from '../../../../lib/creatorDisplayName';
 
 import { renderShareCardImage } from '../utils/renderShareCardImage';
 
+import { openFeedShare, openQuickShare, type SocialSharePlatform } from '../utils/shareSocial';
+
 import {
-  openFeedShare,
-  openQuickShare,
-  openStoryCapableShare,
-  supportsStoryShare,
-  type SocialSharePlatform,
-} from '../utils/shareSocial';
+  canShareStoryImage,
+  openStoryPlatformShare,
+  type StoryPlatform,
+} from '../utils/storySharePlatforms';
 
 interface ShareActionsProps {
   payload: SharePreviewData;
@@ -53,6 +53,12 @@ const SOCIAL_PLATFORMS: { id: SocialSharePlatform; labelKey: SocialLabelKey }[] 
   { id: 'facebook', labelKey: 'mockFacebook' },
   { id: 'instagram', labelKey: 'mockInstagram' },
   { id: 'threads', labelKey: 'mockThreads' },
+];
+
+const STORY_PLATFORMS: { id: StoryPlatform; labelKey: 'storyInstagram' | 'storyFacebook' | 'storyWhatsApp' }[] = [
+  { id: 'instagram', labelKey: 'storyInstagram' },
+  { id: 'facebook', labelKey: 'storyFacebook' },
+  { id: 'whatsapp', labelKey: 'storyWhatsApp' },
 ];
 
 export const ShareActions: React.FC<ShareActionsProps> = ({
@@ -112,7 +118,8 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
           insight: payload.insight,
           creatorName: creatorNameForShare,
           creatorTypeLabel: getCreatorTypeLabel(creatorType),
-          showIdentity: includeCreatorName,
+          showCreatorName: includeCreatorName && !!creatorNameForShare,
+          showCreatorType: true,
           strings: s,
           rtl,
         });
@@ -151,14 +158,12 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     await openFeedShare(platform, shareUrl, shareMessage);
   };
 
-  const handleStoryShare = async () => {
-    if (!shareUrl) return;
-    const result = await openStoryCapableShare({
-      shareUrl,
-      message: shareMessage,
-      title: s.shareNativeTitle,
-      imageBlob: cardImage,
-    });
+  const handleStoryPlatform = async (platform: StoryPlatform) => {
+    if (!cardImage) {
+      showAlert(s.storyShareUnsupported);
+      return;
+    }
+    const result = await openStoryPlatformShare(platform, cardImage);
     if (result === 'unsupported') {
       showAlert(s.storyShareUnsupported);
     }
@@ -193,7 +198,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     );
   }
 
-  const storyReady = supportsStoryShare(cardImage);
+  const storyReady = canShareStoryImage(cardImage);
 
   return (
     <>
@@ -215,18 +220,24 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
           </MockShareBtn>
         ))}
       </MockShareRow>
+      <SectionHeading style={{ fontSize: '0.9rem', marginTop: 8 }}>
+        {s.storySectionTitle}
+      </SectionHeading>
       <MockShareRow>
-        <MockShareBtn
-          type="button"
-          onClick={handleStoryShare}
-          disabled={!shareUrl}
-          style={storyReady ? { fontWeight: 700 } : undefined}
-        >
-          {s.mockStoryShare}
-        </MockShareBtn>
+        {STORY_PLATFORMS.map(({ id, labelKey }) => (
+          <MockShareBtn
+            key={id}
+            type="button"
+            onClick={() => handleStoryPlatform(id)}
+            disabled={!cardImage}
+            style={storyReady ? { fontWeight: 700 } : undefined}
+          >
+            {s[labelKey]}
+          </MockShareBtn>
+        ))}
       </MockShareRow>
       {storyReady && (
-        <SectionHeading style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: -4 }}>
+        <SectionHeading style={{ fontSize: '0.78rem', opacity: 0.8, marginTop: -4 }}>
           {s.storyShareHint}
         </SectionHeading>
       )}

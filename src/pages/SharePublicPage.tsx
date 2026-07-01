@@ -55,7 +55,7 @@ export const SharePublicPage: React.FC = () => {
           insight: row.aiInsight,
           creatorType: typeKey,
         });
-        setShowIdentity(!!(row.creatorName || row.creatorType));
+        setShowIdentity(!!row.creatorName);
         setCreatorName(row.creatorName || undefined);
         setCreatorType(typeKey);
       } catch {
@@ -100,6 +100,7 @@ export const SharePublicPage: React.FC = () => {
           creatorName={creatorName}
           creatorType={creatorType || data.creatorType}
           showIdentity={showIdentity}
+          showCreatorType={!!creatorType}
           showHeading={false}
           ctaMode="link"
           ctaHref={resolveShareCtaUrl()}

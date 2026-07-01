@@ -22,6 +22,8 @@ export interface SharePreviewCardProps {
   creatorName?: string;
   creatorType: CreatorTypeKey;
   showIdentity: boolean;
+  /** Creator type title (שחקן, יוצר תוכן…) — always shown on share cards. */
+  showCreatorType?: boolean;
   showHeading?: boolean;
   /** decorative = preview only (no navigation); link = clickable CTA */
   ctaMode?: 'decorative' | 'link';
@@ -36,6 +38,7 @@ export const SharePreviewCard: React.FC<SharePreviewCardProps> = ({
   creatorName,
   creatorType,
   showIdentity,
+  showCreatorType = true,
   showHeading = true,
   ctaMode = 'decorative',
   ctaHref = SHARE_CTA_URL,
@@ -53,7 +56,7 @@ export const SharePreviewCard: React.FC<SharePreviewCardProps> = ({
         {showIdentity && creatorName?.trim() && (
           <PreviewCreatorName>{creatorName.trim()}</PreviewCreatorName>
         )}
-        {showIdentity && (
+        {showCreatorType && (
           <PreviewCreatorType>{creatorTypeLabel}</PreviewCreatorType>
         )}
         <PreviewScore>{data.viralScore}%</PreviewScore>

@@ -483,11 +483,9 @@ function sanitizeCreateBody(raw: unknown): CreateShareBody | null {
   const rawCreatorName = includeCreatorName ? truncate(String(b.creatorName || ''), 60) || null : null;
   const creatorName =
     rawCreatorName && !shareLooksLikeEmail(rawCreatorName) ? rawCreatorName : null;
-  const creatorTypeRaw = includeCreatorName ? String(b.creatorType || '').trim() : '';
+  const creatorTypeRaw = String(b.creatorType || '').trim();
   const creatorType =
-    includeCreatorName && creatorTypeRaw && isCreatorTypeKey(creatorTypeRaw)
-      ? creatorTypeRaw
-      : null;
+    creatorTypeRaw && isCreatorTypeKey(creatorTypeRaw) ? creatorTypeRaw : null;
   const trackId = b.trackId ? truncate(String(b.trackId), 32) : undefined;
   const lang = b.language === 'en' ? 'en' : 'he';
   return {
@@ -746,7 +744,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
       metrics: body.metrics,
       ai_insight: body.aiInsight,
       creator_name: creatorName,
-      creator_type: body.includeCreatorName ? body.creatorType || null : null,
+      creator_type: body.creatorType || null,
       track_id: body.trackId || null,
       language: body.language || 'he',
       expires_at: null,

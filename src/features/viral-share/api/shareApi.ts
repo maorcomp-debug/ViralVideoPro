@@ -31,7 +31,7 @@ export async function createShareLink(
       aiInsight: input.payload.insight,
       includeCreatorName: input.includeCreatorName,
       creatorName: input.includeCreatorName ? input.creatorName : undefined,
-      creatorType: input.includeCreatorName ? input.creatorType : undefined,
+      creatorType: input.creatorType,
       trackId: input.trackId,
       language: getShareLocale(),
     }),

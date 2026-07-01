@@ -104,6 +104,7 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
               creatorName={creatorDisplayName}
               creatorType={creatorType}
               showIdentity={includeCreatorName}
+              showCreatorType
               showHeading={step === 'preview'}
               ctaMode="link"
               ctaHref={resolveShareCtaUrl()}

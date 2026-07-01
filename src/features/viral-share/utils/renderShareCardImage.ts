@@ -48,7 +48,8 @@ export interface RenderShareCardInput {
   insight: string;
   creatorName?: string;
   creatorTypeLabel?: string;
-  showIdentity: boolean;
+  showCreatorName: boolean;
+  showCreatorType: boolean;
   strings: ShareStrings;
   rtl: boolean;
 }
@@ -96,14 +97,14 @@ export async function renderShareCardImage(input: RenderShareCardInput): Promise
   const align = input.rtl ? 'right' : 'left';
   const textX = input.rtl ? STORY_WIDTH - pad : pad;
 
-  if (input.showIdentity && input.creatorName?.trim()) {
+  if (input.showCreatorName && input.creatorName?.trim()) {
     ctx.fillStyle = '#f5f5f5';
     ctx.font = '600 44px Assistant, Arial, sans-serif';
     ctx.textAlign = align;
     ctx.fillText(input.creatorName.trim(), textX, y);
     y += 56;
   }
-  if (input.showIdentity && input.creatorTypeLabel) {
+  if (input.showCreatorType && input.creatorTypeLabel) {
     ctx.fillStyle = '#D4A043';
     ctx.font = '500 34px Assistant, Arial, sans-serif';
     ctx.textAlign = align;

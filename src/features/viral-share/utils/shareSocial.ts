@@ -18,31 +18,23 @@ export function supportsStoryShare(imageBlob: Blob | null): boolean {
 
 export type StoryShareResult = 'shared' | 'cancelled' | 'unsupported';
 
-/** Native share with story image — for "Share to Story" only. */
+/** @deprecated Use openStoryPlatformShare from storySharePlatforms */
 export async function openStoryCapableShare(opts: {
   shareUrl: string;
   message: string;
   title: string;
   imageBlob: Blob | null;
 }): Promise<StoryShareResult> {
-  if (opts.imageBlob && supportsNativeShare()) {
-    const file = new File([opts.imageBlob], 'viraly-share.png', { type: 'image/png' });
-    const withImage: ShareData = {
-      title: opts.title,
-      text: opts.message,
-      url: opts.shareUrl,
-      files: [file],
-    };
-    if (navigator.canShare?.(withImage) ?? true) {
-      try {
-        await navigator.share(withImage);
-        return 'shared';
-      } catch (err) {
-        if ((err as Error)?.name === 'AbortError') return 'cancelled';
-      }
+  if (!opts.imageBlob) return 'unsupported';
+  const file = new File([opts.imageBlob], 'viraly-share.png', { type: 'image/png' });
+  if (navigator.share && (navigator.canShare?.({ files: [file] }) ?? true)) {
+    try {
+      await navigator.share({ files: [file] });
+      return 'shared';
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return 'cancelled';
     }
   }
-
   return 'unsupported';
 }
 
