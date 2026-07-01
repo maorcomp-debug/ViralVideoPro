@@ -1,4 +1,5 @@
 import { isDesktopBrowser } from './shareDevice';
+import { openInNewTab } from './openExternalTab';
 
 export type SocialSharePlatform =
   | 'whatsapp'
@@ -79,7 +80,9 @@ export function buildSocialShareUrl(
         ? `https://web.whatsapp.com/send?text=${combined}`
         : `https://wa.me/?text=${combined}`;
     case 'telegram':
-      return `https://t.me/share/url?url=${url}&text=${text}`;
+      return desktop
+        ? `https://t.me/share/url?url=${url}`
+        : `https://t.me/share/url?url=${url}&text=${text}`;
     case 'facebook':
       return `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`;
     case 'threads':
@@ -101,8 +104,7 @@ async function copyShareText(text: string): Promise<boolean> {
 }
 
 function tryOpenNewTab(url: string): boolean {
-  const tab = window.open(url, '_blank', 'noopener,noreferrer');
-  return tab !== null;
+  return openInNewTab(url);
 }
 
 async function openInstagramFeedShare(shareUrl: string, message: string): Promise<FeedShareResult> {
@@ -112,8 +114,8 @@ async function openInstagramFeedShare(shareUrl: string, message: string): Promis
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
   if (!isAndroid && !isIOS) {
-    await copyShareText(text);
-    tryOpenNewTab('https://www.instagram.com/');
+    openInNewTab('https://www.instagram.com/');
+    void copyShareText(text);
     return 'desktop_guide';
   }
 
@@ -151,6 +153,10 @@ export async function openFeedShare(
 
   const href = buildSocialShareUrl(platform, shareUrl, message, desktop);
   if (!href) return 'unsupported';
+
+  if (desktop && platform === 'telegram') {
+    void copyShareText(`${message}\n${shareUrl}`);
+  }
 
   if (!tryOpenNewTab(href)) {
     return 'desktop_guide';

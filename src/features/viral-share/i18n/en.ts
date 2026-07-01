@@ -41,15 +41,15 @@ export const shareEn = {
   storyTapLinkHint: 'Add a link sticker to your share page in story',
   storyShareUnsupported: 'Story sharing is not supported on this device — try from your phone',
   desktopFeedShareHint:
-    'The share platform opened in your browser. Log in if prompted — the login screen appears automatically.',
+    'The share platform opened in a new tab. Log in if prompted — text and link were copied to your clipboard.',
   desktopInstagramFeedHint:
-    'Text and link copied. Log in to Instagram in the new tab and paste into a post or story.',
+    'Text and link copied. Instagram opened in a new tab — log in and paste into a post or story.',
   desktopStoryShareHint:
-    'Story image downloaded and link copied. Log in on the platform tab and upload the image to your story.',
+    'Story image downloaded and link copied. The platform opened in a new tab — log in and upload the image to your story.',
   desktopInstagramStoryHint:
-    'Story image downloaded and link copied. Instagram desktop has no direct story upload — use the phone app.',
+    'Story image downloaded and link copied. Instagram opened in a new tab — upload the image to your story.',
   desktopFacebookStoryHint:
-    'Story image downloaded and link copied. Facebook story composer opened — upload the downloaded image.',
+    'Story image downloaded and link copied. Facebook opened in a new tab — tap «Add to Story» and upload the downloaded image.',
   mockSuccess: 'Your public share link will be ready in the next step. Preview looks great!',
   creatingLink: 'Creating your public share link…',
   linkCreateError: 'Could not create share link',

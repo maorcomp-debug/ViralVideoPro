@@ -24,19 +24,24 @@ export const ShareButtonRow = styled.div<{ $inline?: boolean }>`
   box-sizing: border-box;
 `;
 
-/** Elevated share CTA — sits between score and utility action buttons. */
+/** Elevated share CTA — sits directly under the viral score glow line. */
 export const ShareCtaZone = styled.div`
   display: flex;
   justify-content: center;
   width: 100%;
-  margin-top: 32px;
-  margin-bottom: 28px;
+  margin-top: 10px;
+  margin-bottom: 44px;
   padding: 0 12px;
   box-sizing: border-box;
 
+  @media (min-width: 601px) {
+    margin-top: 8px;
+    margin-bottom: 48px;
+  }
+
   @media (max-width: 600px) {
-    margin-top: 28px;
-    margin-bottom: 24px;
+    margin-top: 14px;
+    margin-bottom: 28px;
   }
 `;
 

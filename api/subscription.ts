@@ -611,7 +611,10 @@ function renderShareHtmlPage(
   <meta property="og:title" content="${shareEscapeHtml(title)}" />
   <meta property="og:description" content="${shareEscapeHtml(desc)}" />
   <meta property="og:url" content="${pageUrl}" />
+  <meta property="og:type" content="website" />
   <meta property="og:locale" content="${copy.ogLocale}" />
+  <meta property="og:image" content="${cardImage}" />
+  <meta name="description" content="${shareEscapeHtml(desc)}" />
   <meta name="twitter:card" content="summary_large_image" />
   <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <style>
@@ -657,11 +660,15 @@ function renderShareHtmlPage(
   <meta property="og:title" content="${shareEscapeHtml(title)}" />
   <meta property="og:description" content="${desc}" />
   <meta property="og:url" content="${pageUrl}" />
+  <meta property="og:type" content="website" />
   <meta property="og:image" content="${cardImage}" />
+  <meta property="og:image:secure_url" content="${cardImage}" />
+  <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:locale" content="${copy.ogLocale}" />
   <meta property="og:site_name" content="VIRALY" />
+  <meta name="description" content="${desc}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${shareEscapeHtml(title)}" />
   <meta name="twitter:description" content="${desc}" />

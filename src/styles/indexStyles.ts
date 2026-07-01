@@ -1328,7 +1328,7 @@ export const FinalScore = styled.div`
   flex-direction: column;
   align-items: center;
   margin-top: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   width: 100%;
   max-width: 320px;
 

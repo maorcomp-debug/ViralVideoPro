@@ -4803,24 +4803,39 @@ const App = () => {
                       <span className="glow-rule" aria-hidden="true" />
                     </FinalScore>
                   )}
+
+                  {result && !isViralShareBlocked(activeTrack, !!selectedTrainee) && (
+                    <ShareCtaZone id="viral-share-cta">
+                      <ViralShareEntry
+                        layout="inline"
+                        score={averageScore}
+                        trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
+                        result={result}
+                        suggestedCreatorName={resolveCreatorDisplayName({
+                          fullName: profile?.full_name,
+                          metadataFullName: user?.user_metadata?.full_name,
+                        })}
+                      />
+                    </ShareCtaZone>
+                  )}
                 </CommitteeSection>
               )}
-            </div>
 
-            {result && !isViralShareBlocked(activeTrack, !!selectedTrainee) && (
-              <ShareCtaZone id="viral-share-cta">
-                <ViralShareEntry
-                  layout="inline"
-                  score={averageScore}
-                  trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
-                  result={result}
-                  suggestedCreatorName={resolveCreatorDisplayName({
-                    fullName: profile?.full_name,
-                    metadataFullName: user?.user_metadata?.full_name,
-                  })}
-                />
-              </ShareCtaZone>
-            )}
+              {result && !result.committee && !isViralShareBlocked(activeTrack, !!selectedTrainee) && (
+                <ShareCtaZone id="viral-share-cta">
+                  <ViralShareEntry
+                    layout="inline"
+                    score={averageScore}
+                    trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
+                    result={result}
+                    suggestedCreatorName={resolveCreatorDisplayName({
+                      fullName: profile?.full_name,
+                      metadataFullName: user?.user_metadata?.full_name,
+                    })}
+                  />
+                </ShareCtaZone>
+              )}
+            </div>
 
             <ActionButtonsContainer>
               <ActionButtonsPairRow>

@@ -1,4 +1,5 @@
 import { normalizeStoryBlob } from './captureStoryImage';
+import { openInNewTab } from './openExternalTab';
 import { isMobileDevice } from './shareDevice';
 
 export type StoryPlatform = 'instagram' | 'facebook' | 'whatsapp';
@@ -7,9 +8,10 @@ export type StoryShareResult = 'opened' | 'cancelled' | 'unsupported' | 'desktop
 
 const DEFAULT_LINK = 'https://viraly.co.il';
 
-const DESKTOP_STORY_WEB: Record<StoryPlatform, string | null> = {
-  instagram: null,
-  facebook: 'https://www.facebook.com/stories/create',
+/** Desktop story upload is manual — open the platform home, not feed/story sharer URLs. */
+const DESKTOP_STORY_WEB: Record<StoryPlatform, string> = {
+  instagram: 'https://www.instagram.com/',
+  facebook: 'https://www.facebook.com/',
   whatsapp: 'https://web.whatsapp.com/',
 };
 
@@ -53,11 +55,6 @@ function triggerImageDownload(blob: Blob): void {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-function tryOpenNewTab(url: string): boolean {
-  const tab = window.open(url, '_blank', 'noopener,noreferrer');
-  return tab !== null;
-}
-
 function openAndroidStoryIntent(
   action: string,
   packageName: string,
@@ -87,19 +84,15 @@ const STORY_INTENTS: Record<StoryPlatform, { android: string; package: string; i
   },
 };
 
-async function openDesktopStoryShare(
+function openDesktopStoryShare(
   platform: StoryPlatform,
   normalized: Blob,
   url: string
-): Promise<StoryShareResult> {
+): StoryShareResult {
+  // Open platform tab synchronously (user gesture) so Viraly stays open.
+  openInNewTab(DESKTOP_STORY_WEB[platform]);
   triggerImageDownload(normalized);
-  await copyText(url);
-
-  const webUrl = DESKTOP_STORY_WEB[platform];
-  if (webUrl) {
-    tryOpenNewTab(webUrl);
-  }
-
+  void copyText(url);
   return 'desktop_guide';
 }
 
@@ -115,7 +108,7 @@ export async function openStoryPlatformShare(
   const url = linkUrl || DEFAULT_LINK;
 
   if (!isMobileDevice()) {
-    return openDesktopStoryShare(platform, normalized, url);
+    return Promise.resolve(openDesktopStoryShare(platform, normalized, url));
   }
 
   if (navigator.share && (navigator.canShare?.({ files: [file] }) ?? true)) {
