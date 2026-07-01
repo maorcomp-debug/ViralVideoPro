@@ -24,6 +24,22 @@ export const ShareButtonRow = styled.div<{ $inline?: boolean }>`
   box-sizing: border-box;
 `;
 
+/** Elevated share CTA — sits between score and utility action buttons. */
+export const ShareCtaZone = styled.div`
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 32px;
+  margin-bottom: 28px;
+  padding: 0 12px;
+  box-sizing: border-box;
+
+  @media (max-width: 600px) {
+    margin-top: 28px;
+    margin-bottom: 24px;
+  }
+`;
+
 export const ShareActionButton = styled.button`
   position: relative;
   width: 72%;

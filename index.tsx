@@ -25,7 +25,7 @@ import { CoachDashboardModal } from './src/components/modals/CoachDashboardModal
 import { AppLogo } from './src/components/AppLogo';
 import { LanguageDropdown } from './src/components/LanguageDropdown';
 import { AlertModal } from './src/components/AlertModal';
-import { ViralShareEntry, isViralShareBlocked } from './src/features/viral-share';
+import { ViralShareEntry, isViralShareBlocked, ShareCtaZone } from './src/features/viral-share';
 import { resolveCreatorDisplayName } from './lib/creatorDisplayName';
 import { showAlert } from './src/lib/alertStore';
 import { AppContainer, Header } from './src/styles/components';
@@ -4807,21 +4807,22 @@ const App = () => {
               )}
             </div>
 
+            {result && !isViralShareBlocked(activeTrack, !!selectedTrainee) && (
+              <ShareCtaZone id="viral-share-cta">
+                <ViralShareEntry
+                  layout="inline"
+                  score={averageScore}
+                  trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
+                  result={result}
+                  suggestedCreatorName={resolveCreatorDisplayName({
+                    fullName: profile?.full_name,
+                    metadataFullName: user?.user_metadata?.full_name,
+                  })}
+                />
+              </ShareCtaZone>
+            )}
+
             <ActionButtonsContainer>
-              {result && !isViralShareBlocked(activeTrack, !!selectedTrainee) && (
-                <ActionButtonsFullRow id="viral-share-cta">
-                  <ViralShareEntry
-                    layout="inline"
-                    score={averageScore}
-                    trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
-                    result={result}
-                    suggestedCreatorName={resolveCreatorDisplayName({
-                      fullName: profile?.full_name,
-                      metadataFullName: user?.user_metadata?.full_name,
-                    })}
-                  />
-                </ActionButtonsFullRow>
-              )}
               <ActionButtonsPairRow>
                 <SecondaryButton onClick={handleReset}>
                   <RefreshIcon />

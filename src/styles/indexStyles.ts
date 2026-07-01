@@ -1382,8 +1382,8 @@ export const FinalScore = styled.div`
 export const ActionButtonsContainer = styled.div`
   display: flex;
   gap: 20px;
-  margin-top: 40px;
-  padding-top: 20px;
+  margin-top: 8px;
+  padding-top: 24px;
   border-top: 1px solid rgba(255,255,255,0.1);
   justify-content: center;
   align-items: center;
