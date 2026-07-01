@@ -28,10 +28,11 @@ const CaptureRoot = styled.div`
 
 const CardStage = styled.div`
   position: absolute;
-  top: 50%;
+  top: 88px;
   left: 50%;
   width: ${CARD_STORY_W}px;
-  transform: translate(-50%, -52%);
+  transform: translateX(-50%);
+  transform-origin: top center;
 `;
 
 const SiteFooter = styled.div`
@@ -74,7 +75,7 @@ export const ShareStoryCapture = forwardRef<HTMLDivElement, ShareStoryCapturePro
 
     return (
       <CaptureRoot ref={ref} dir={rtl ? 'rtl' : 'ltr'} aria-hidden>
-        <CardStage>
+        <CardStage data-story-card-stage>
           <SharePreviewCard
             data={payload}
             creatorName={showCreatorName ? creatorName : undefined}
