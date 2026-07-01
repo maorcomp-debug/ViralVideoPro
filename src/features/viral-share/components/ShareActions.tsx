@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import {
   MockShareBtn,
@@ -8,7 +8,7 @@ import {
   ShareLinkText,
 } from '../styles/viralShareStyles';
 
-import { getShareStrings } from '../i18n';
+import { getCreatorTypeLabel, getShareStrings, isShareRtl } from '../i18n';
 
 import { createShareLink } from '../api/shareApi';
 
@@ -18,7 +18,14 @@ import type { CreatorTypeKey, SharePreviewData } from '../types';
 
 import type { TrackId } from '../../../types';
 
-import { openInstagramShare, openSocialShare, type SocialSharePlatform } from '../utils/shareSocial';
+import { renderShareCardImage } from '../utils/renderShareCardImage';
+
+import {
+  openSocialShare,
+  openStoryCapableShare,
+  supportsStoryShare,
+  type SocialSharePlatform,
+} from '../utils/shareSocial';
 
 interface ShareActionsProps {
   payload: SharePreviewData;
@@ -46,11 +53,14 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   trackId,
 }) => {
   const s = getShareStrings();
+  const rtl = isShareRtl();
 
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [cardImage, setCardImage] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const autoStoryOpened = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +68,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
       try {
         setLoading(true);
         setError(null);
+        setCardImage(null);
         const { url } = await createShareLink({
           payload,
           includeCreatorName,
@@ -80,6 +91,52 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     };
   }, [payload, includeCreatorName, suggestedCreatorName, creatorType, trackId, s.linkCreateError, attempt]);
 
+  useEffect(() => {
+    if (!shareUrl) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const blob = await renderShareCardImage({
+          viralScore: payload.viralScore,
+          metrics: payload.metrics,
+          insight: payload.insight,
+          creatorName: suggestedCreatorName,
+          creatorTypeLabel: getCreatorTypeLabel(creatorType),
+          showIdentity: includeCreatorName,
+          strings: s,
+          rtl,
+        });
+        if (!cancelled) setCardImage(blob);
+      } catch {
+        if (!cancelled) setCardImage(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    shareUrl,
+    payload,
+    suggestedCreatorName,
+    creatorType,
+    includeCreatorName,
+    s,
+    rtl,
+  ]);
+
+  useEffect(() => {
+    if (!shareUrl || !cardImage || autoStoryOpened.current) return;
+    if (!supportsStoryShare(cardImage)) return;
+
+    autoStoryOpened.current = true;
+    void openStoryCapableShare({
+      shareUrl,
+      message: s.shareWhatsAppText,
+      title: s.shareNativeTitle,
+      imageBlob: cardImage,
+    });
+  }, [shareUrl, cardImage, s.shareWhatsAppText, s.shareNativeTitle]);
+
   const shareMessage = s.shareWhatsAppText;
 
   const handleCopy = async () => {
@@ -94,26 +151,21 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
 
   const handleSocial = async (platform: SocialSharePlatform) => {
     if (!shareUrl) return;
-    if (platform === 'instagram') {
-      await openInstagramShare(shareUrl, shareMessage);
-      return;
-    }
-    openSocialShare(platform, shareUrl, shareMessage);
+    await openSocialShare(platform, shareUrl, shareMessage, {
+      imageBlob: cardImage,
+      title: s.shareNativeTitle,
+    });
   };
 
-  const handleNativeShare = async () => {
+  const handleStoryShare = async () => {
     if (!shareUrl) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: s.shareNativeTitle,
-          text: shareMessage,
-          url: shareUrl,
-        });
-      } catch {
-        /* user cancelled */
-      }
-    } else {
+    const result = await openStoryCapableShare({
+      shareUrl,
+      message: shareMessage,
+      title: s.shareNativeTitle,
+      imageBlob: cardImage,
+    });
+    if (result === 'unsupported') {
       handleCopy();
     }
   };
@@ -135,14 +187,31 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     );
   }
 
+  const storyReady = supportsStoryShare(cardImage);
+
   return (
     <>
       <SectionHeading>{s.shareSectionTitle}</SectionHeading>
+      {storyReady && (
+        <SectionHeading style={{ fontSize: '0.85rem', opacity: 0.85, marginTop: -4 }}>
+          {s.storyShareHint}
+        </SectionHeading>
+      )}
       {shareUrl && (
         <ShareLinkBox>
           <ShareLinkText dir="ltr">{shareUrl}</ShareLinkText>
         </ShareLinkBox>
       )}
+      <MockShareRow>
+        <MockShareBtn
+          type="button"
+          onClick={handleStoryShare}
+          disabled={!shareUrl}
+          style={storyReady ? { fontWeight: 700 } : undefined}
+        >
+          {s.mockStoryShare}
+        </MockShareBtn>
+      </MockShareRow>
       <MockShareRow>
         {SOCIAL_PLATFORMS.map(({ id, labelKey }) => (
           <MockShareBtn
@@ -159,7 +228,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
         <MockShareBtn type="button" onClick={handleCopy} disabled={!shareUrl}>
           {s.mockCopy}
         </MockShareBtn>
-        <MockShareBtn type="button" onClick={handleNativeShare} disabled={!shareUrl}>
+        <MockShareBtn type="button" onClick={handleStoryShare} disabled={!shareUrl}>
           {s.mockNative}
         </MockShareBtn>
       </MockShareRow>
