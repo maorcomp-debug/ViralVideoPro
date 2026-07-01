@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import {
   MockShareBtn,
@@ -22,7 +22,9 @@ import { looksLikeEmail } from '../../../../lib/creatorDisplayName';
 
 import { SHARE_CTA_URL } from '../constants';
 
+import { captureStoryImageFromElement } from '../utils/captureStoryImage';
 import { renderShareCardImage } from '../utils/renderShareCardImage';
+import { ShareStoryCapture } from './ShareStoryCapture';
 
 import { openFeedShare, openQuickShare, type SocialSharePlatform } from '../utils/shareSocial';
 
@@ -79,6 +81,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const storyCaptureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +116,22 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     if (!shareUrl) return;
     let cancelled = false;
     (async () => {
+      await new Promise((r) => setTimeout(r, 200));
+      if (cancelled) return;
+
+      const captureNode = storyCaptureRef.current;
+      if (captureNode) {
+        try {
+          const blob = await captureStoryImageFromElement(captureNode);
+          if (!cancelled) {
+            setCardImage(blob);
+            return;
+          }
+        } catch {
+          /* fall through to canvas */
+        }
+      }
+
       try {
         const blob = await renderShareCardImage({
           viralScore: payload.viralScore,
@@ -205,6 +224,15 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
 
   return (
     <>
+      {shareUrl && (
+        <ShareStoryCapture
+          ref={storyCaptureRef}
+          payload={payload}
+          creatorName={creatorDisplayName}
+          creatorType={creatorType}
+          showCreatorName={includeCreatorName && !!creatorNameForShare}
+        />
+      )}
       <SectionHeading>{s.shareSectionTitle}</SectionHeading>
       {shareUrl && (
         <ShareLinkBox>
