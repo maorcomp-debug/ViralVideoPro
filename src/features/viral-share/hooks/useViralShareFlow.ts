@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AnalysisResult, TrackId } from '../../../types';
 import { mapTrackToCreatorType } from '../constants';
 import { buildSharePayload } from '../utils/buildSharePayload';
@@ -33,6 +33,13 @@ export function useViralShareFlow(
     () => buildSharePayload(score, trackId, result),
     [score, trackId, result]
   );
+
+  useEffect(() => {
+    const name = suggestedCreatorName?.trim();
+    if (name) {
+      setCreatorDisplayName((prev) => (prev.trim() ? prev : name));
+    }
+  }, [suggestedCreatorName]);
 
   const open = useCallback(() => {
     setStep('consent');

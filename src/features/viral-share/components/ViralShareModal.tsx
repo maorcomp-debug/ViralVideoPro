@@ -32,6 +32,7 @@ interface ViralShareModalProps {
   creatorType: CreatorTypeKey;
   onCreatorTypeChange: (v: CreatorTypeKey) => void;
   payload: SharePreviewData;
+  suggestedCreatorName?: string;
   trackId: TrackId;
   onClose: () => void;
   onNext: () => void;
@@ -50,6 +51,7 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
   creatorType,
   onCreatorTypeChange,
   payload,
+  suggestedCreatorName,
   trackId,
   onClose,
   onNext,
@@ -90,6 +92,7 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
               onIncludeNameChange={onIncludeCreatorNameChange}
               creatorDisplayName={creatorDisplayName}
               onCreatorDisplayNameChange={onCreatorDisplayNameChange}
+              suggestedCreatorName={suggestedCreatorName}
               creatorType={creatorType}
               onCreatorTypeChange={onCreatorTypeChange}
             />

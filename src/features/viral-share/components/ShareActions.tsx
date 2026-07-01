@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import {
   MockShareBtn,
@@ -23,7 +23,8 @@ import { looksLikeEmail } from '../../../../lib/creatorDisplayName';
 import { renderShareCardImage } from '../utils/renderShareCardImage';
 
 import {
-  openSocialShare,
+  openFeedShare,
+  openQuickShare,
   openStoryCapableShare,
   supportsStoryShare,
   type SocialSharePlatform,
@@ -70,7 +71,6 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const autoStoryOpened = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,19 +134,6 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     rtl,
   ]);
 
-  useEffect(() => {
-    if (!shareUrl || !cardImage || autoStoryOpened.current) return;
-    if (!supportsStoryShare(cardImage)) return;
-
-    autoStoryOpened.current = true;
-    void openStoryCapableShare({
-      shareUrl,
-      message: s.shareWhatsAppText,
-      title: s.shareNativeTitle,
-      imageBlob: cardImage,
-    });
-  }, [shareUrl, cardImage, s.shareWhatsAppText, s.shareNativeTitle]);
-
   const shareMessage = s.shareWhatsAppText;
 
   const handleCopy = async () => {
@@ -159,12 +146,9 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     }
   };
 
-  const handleSocial = async (platform: SocialSharePlatform) => {
+  const handleFeedShare = async (platform: SocialSharePlatform) => {
     if (!shareUrl) return;
-    await openSocialShare(platform, shareUrl, shareMessage, {
-      imageBlob: cardImage,
-      title: s.shareNativeTitle,
-    });
+    await openFeedShare(platform, shareUrl, shareMessage);
   };
 
   const handleStoryShare = async () => {
@@ -174,6 +158,18 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
       message: shareMessage,
       title: s.shareNativeTitle,
       imageBlob: cardImage,
+    });
+    if (result === 'unsupported') {
+      showAlert(s.storyShareUnsupported);
+    }
+  };
+
+  const handleQuickShare = async () => {
+    if (!shareUrl) return;
+    const result = await openQuickShare({
+      shareUrl,
+      message: shareMessage,
+      title: s.shareNativeTitle,
     });
     if (result === 'unsupported') {
       handleCopy();
@@ -202,16 +198,23 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   return (
     <>
       <SectionHeading>{s.shareSectionTitle}</SectionHeading>
-      {storyReady && (
-        <SectionHeading style={{ fontSize: '0.85rem', opacity: 0.85, marginTop: -4 }}>
-          {s.storyShareHint}
-        </SectionHeading>
-      )}
       {shareUrl && (
         <ShareLinkBox>
           <ShareLinkText dir="ltr">{shareUrl}</ShareLinkText>
         </ShareLinkBox>
       )}
+      <MockShareRow>
+        {SOCIAL_PLATFORMS.map(({ id, labelKey }) => (
+          <MockShareBtn
+            key={id}
+            type="button"
+            onClick={() => handleFeedShare(id)}
+            disabled={!shareUrl}
+          >
+            {s[labelKey]}
+          </MockShareBtn>
+        ))}
+      </MockShareRow>
       <MockShareRow>
         <MockShareBtn
           type="button"
@@ -222,23 +225,16 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
           {s.mockStoryShare}
         </MockShareBtn>
       </MockShareRow>
-      <MockShareRow>
-        {SOCIAL_PLATFORMS.map(({ id, labelKey }) => (
-          <MockShareBtn
-            key={id}
-            type="button"
-            onClick={() => handleSocial(id)}
-            disabled={!shareUrl}
-          >
-            {s[labelKey]}
-          </MockShareBtn>
-        ))}
-      </MockShareRow>
+      {storyReady && (
+        <SectionHeading style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: -4 }}>
+          {s.storyShareHint}
+        </SectionHeading>
+      )}
       <MockShareRow>
         <MockShareBtn type="button" onClick={handleCopy} disabled={!shareUrl}>
           {s.mockCopy}
         </MockShareBtn>
-        <MockShareBtn type="button" onClick={handleStoryShare} disabled={!shareUrl}>
+        <MockShareBtn type="button" onClick={handleQuickShare} disabled={!shareUrl}>
           {s.mockNative}
         </MockShareBtn>
       </MockShareRow>

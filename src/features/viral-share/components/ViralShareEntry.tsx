@@ -44,6 +44,7 @@ export const ViralShareEntry: React.FC<ViralShareEntryProps> = ({
         creatorType={flow.creatorType}
         onCreatorTypeChange={flow.setCreatorType}
         payload={flow.payload}
+        suggestedCreatorName={suggestedCreatorName}
         trackId={trackId}
         onClose={flow.close}
         onNext={flow.goNext}

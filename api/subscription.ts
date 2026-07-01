@@ -641,10 +641,9 @@ function renderShareHtmlPage(
     ? `<div class="name">${shareEscapeHtml(payload.creatorName)}</div>`
     : '';
   const creatorTypeLabel = resolveCreatorTypeLabel(payload.creatorType, locale);
-  const typeBlock =
-    payload.creatorName && creatorTypeLabel
-      ? `<div class="type">${shareEscapeHtml(creatorTypeLabel)}</div>`
-      : '';
+  const typeBlock = creatorTypeLabel
+    ? `<div class="type">${shareEscapeHtml(creatorTypeLabel)}</div>`
+    : '';
   const metricsHtml = payload.metrics
     .map((m) => `<li>${shareEscapeHtml(m)}</li>`)
     .join('');

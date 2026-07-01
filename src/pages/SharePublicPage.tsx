@@ -55,7 +55,7 @@ export const SharePublicPage: React.FC = () => {
           insight: row.aiInsight,
           creatorType: typeKey,
         });
-        setShowIdentity(!!row.creatorName);
+        setShowIdentity(!!(row.creatorName || row.creatorType));
         setCreatorName(row.creatorName || undefined);
         setCreatorType(typeKey);
       } catch {

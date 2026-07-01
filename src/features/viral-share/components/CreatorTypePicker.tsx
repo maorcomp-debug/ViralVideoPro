@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CREATOR_TYPE_OPTIONS } from '../constants';
 import {
   FieldLabel,
@@ -49,6 +49,7 @@ interface CreatorIdentitySectionProps {
   onIncludeNameChange: (v: boolean) => void;
   creatorDisplayName: string;
   onCreatorDisplayNameChange: (v: string) => void;
+  suggestedCreatorName?: string;
   creatorType: CreatorTypeKey;
   onCreatorTypeChange: (v: CreatorTypeKey) => void;
 }
@@ -58,10 +59,27 @@ export const CreatorIdentitySection: React.FC<CreatorIdentitySectionProps> = ({
   onIncludeNameChange,
   creatorDisplayName,
   onCreatorDisplayNameChange,
+  suggestedCreatorName,
   creatorType,
   onCreatorTypeChange,
 }) => {
   const s = getShareStrings();
+  const profileName = suggestedCreatorName?.trim() || '';
+  const filledFromProfile = !!profileName && creatorDisplayName.trim() === profileName;
+
+  useEffect(() => {
+    if (!includeName || !profileName) return;
+    if (!creatorDisplayName.trim()) {
+      onCreatorDisplayNameChange(profileName);
+    }
+  }, [includeName, profileName, creatorDisplayName, onCreatorDisplayNameChange]);
+
+  const handleIncludeChange = (checked: boolean) => {
+    onIncludeNameChange(checked);
+    if (checked && profileName && !creatorDisplayName.trim()) {
+      onCreatorDisplayNameChange(profileName);
+    }
+  };
 
   return (
     <>
@@ -70,7 +88,7 @@ export const CreatorIdentitySection: React.FC<CreatorIdentitySectionProps> = ({
         <input
           type="checkbox"
           checked={includeName}
-          onChange={(e) => onIncludeNameChange(e.target.checked)}
+          onChange={(e) => handleIncludeChange(e.target.checked)}
         />
       </ToggleRow>
       {includeName && (
@@ -80,10 +98,15 @@ export const CreatorIdentitySection: React.FC<CreatorIdentitySectionProps> = ({
             type="text"
             value={creatorDisplayName}
             onChange={(e) => onCreatorDisplayNameChange(e.target.value)}
-            placeholder={s.creatorNamePlaceholder}
+            placeholder={profileName ? profileName : s.creatorNamePlaceholder}
             maxLength={60}
             autoComplete="name"
           />
+          {filledFromProfile && (
+            <p style={{ margin: '0 0 8px', fontSize: '0.8rem', color: 'rgba(212,160,67,0.85)' }}>
+              {s.creatorNameFromProfile}
+            </p>
+          )}
         </>
       )}
       <CreatorTypePicker
