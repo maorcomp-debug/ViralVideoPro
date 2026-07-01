@@ -100,11 +100,9 @@ async function copyShareText(text: string): Promise<boolean> {
   }
 }
 
-function openWebTab(url: string): void {
+function tryOpenNewTab(url: string): boolean {
   const tab = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!tab) {
-    window.location.assign(url);
-  }
+  return tab !== null;
 }
 
 async function openInstagramFeedShare(shareUrl: string, message: string): Promise<FeedShareResult> {
@@ -115,7 +113,7 @@ async function openInstagramFeedShare(shareUrl: string, message: string): Promis
 
   if (!isAndroid && !isIOS) {
     await copyShareText(text);
-    openWebTab('https://www.instagram.com/');
+    tryOpenNewTab('https://www.instagram.com/');
     return 'desktop_guide';
   }
 
@@ -131,7 +129,7 @@ async function openInstagramFeedShare(shareUrl: string, message: string): Promis
   if (isIOS) {
     window.location.href = `instagram://sharesheet?text=${encodeURIComponent(text)}`;
     setTimeout(() => {
-      openWebTab('https://www.instagram.com/');
+      tryOpenNewTab('https://www.instagram.com/');
     }, 900);
     return 'opened';
   }
@@ -154,6 +152,8 @@ export async function openFeedShare(
   const href = buildSocialShareUrl(platform, shareUrl, message, desktop);
   if (!href) return 'unsupported';
 
-  openWebTab(href);
+  if (!tryOpenNewTab(href)) {
+    return 'desktop_guide';
+  }
   return desktop ? 'desktop_guide' : 'opened';
 }

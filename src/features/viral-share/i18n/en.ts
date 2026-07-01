@@ -46,6 +46,10 @@ export const shareEn = {
     'Text and link copied. Log in to Instagram in the new tab and paste into a post or story.',
   desktopStoryShareHint:
     'Story image downloaded and link copied. Log in on the platform tab and upload the image to your story.',
+  desktopInstagramStoryHint:
+    'Story image downloaded and link copied. Instagram desktop has no direct story upload — use the phone app.',
+  desktopFacebookStoryHint:
+    'Story image downloaded and link copied. Facebook story composer opened — upload the downloaded image.',
   mockSuccess: 'Your public share link will be ready in the next step. Preview looks great!',
   creatingLink: 'Creating your public share link…',
   linkCreateError: 'Could not create share link',

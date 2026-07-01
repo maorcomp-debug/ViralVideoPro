@@ -1454,6 +1454,12 @@ export const PrimaryButton = styled.button`
   }
 `;
 
+export const ActionPrimaryWide = styled(PrimaryButton)`
+  width: 72%;
+  max-width: 300px;
+  justify-content: center;
+`;
+
 export const PremiumBadge = styled.span`
   background: rgba(212, 160, 67, 0.15);
   color: #D4A043;

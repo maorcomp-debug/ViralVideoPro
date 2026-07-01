@@ -243,7 +243,13 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     const linkForStory = shareUrl || SHARE_CTA_URL;
     const result = await openStoryPlatformShare(platform, cardImage, linkForStory);
     if (result === 'desktop_guide') {
-      showAlert(s.desktopStoryShareHint);
+      const hint =
+        platform === 'instagram'
+          ? s.desktopInstagramStoryHint
+          : platform === 'facebook'
+            ? s.desktopFacebookStoryHint
+            : s.desktopStoryShareHint;
+      showAlert(hint);
     } else if (result === 'unsupported') {
       showAlert(s.storyShareUnsupported);
     }

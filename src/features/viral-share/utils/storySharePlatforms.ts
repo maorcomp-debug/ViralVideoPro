@@ -7,6 +7,12 @@ export type StoryShareResult = 'opened' | 'cancelled' | 'unsupported' | 'desktop
 
 const DEFAULT_LINK = 'https://viraly.co.il';
 
+const DESKTOP_STORY_WEB: Record<StoryPlatform, string | null> = {
+  instagram: null,
+  facebook: 'https://www.facebook.com/stories/create',
+  whatsapp: 'https://web.whatsapp.com/',
+};
+
 function isAndroid(): boolean {
   return /Android/i.test(navigator.userAgent || '');
 }
@@ -47,11 +53,9 @@ function triggerImageDownload(blob: Blob): void {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-function openWebTab(url: string): void {
+function tryOpenNewTab(url: string): boolean {
   const tab = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!tab) {
-    window.location.assign(url);
-  }
+  return tab !== null;
 }
 
 function openAndroidStoryIntent(
@@ -83,38 +87,19 @@ const STORY_INTENTS: Record<StoryPlatform, { android: string; package: string; i
   },
 };
 
-const DESKTOP_WEB: Record<StoryPlatform, string> = {
-  instagram: 'https://www.instagram.com/',
-  facebook: 'https://www.facebook.com/',
-  whatsapp: 'https://web.whatsapp.com/',
-};
-
 async function openDesktopStoryShare(
   platform: StoryPlatform,
   normalized: Blob,
-  file: File,
   url: string
 ): Promise<StoryShareResult> {
-  if (navigator.share) {
-    const attempts: ShareData[] = [
-      { files: [file], url, title: 'VIRALY' },
-      { files: [file], text: url, title: 'VIRALY' },
-      { url, text: url, title: 'VIRALY' },
-    ];
-    for (const payload of attempts) {
-      if (navigator.canShare && !navigator.canShare(payload)) continue;
-      try {
-        await navigator.share(payload);
-        return 'opened';
-      } catch (err) {
-        if ((err as Error)?.name === 'AbortError') return 'cancelled';
-      }
-    }
-  }
-
   triggerImageDownload(normalized);
   await copyText(url);
-  openWebTab(DESKTOP_WEB[platform]);
+
+  const webUrl = DESKTOP_STORY_WEB[platform];
+  if (webUrl) {
+    tryOpenNewTab(webUrl);
+  }
+
   return 'desktop_guide';
 }
 
@@ -130,7 +115,7 @@ export async function openStoryPlatformShare(
   const url = linkUrl || DEFAULT_LINK;
 
   if (!isMobileDevice()) {
-    return openDesktopStoryShare(platform, normalized, file, url);
+    return openDesktopStoryShare(platform, normalized, url);
   }
 
   if (navigator.share && (navigator.canShare?.({ files: [file] }) ?? true)) {

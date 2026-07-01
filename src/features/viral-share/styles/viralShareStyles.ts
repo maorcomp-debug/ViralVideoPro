@@ -26,8 +26,8 @@ export const ShareButtonRow = styled.div<{ $inline?: boolean }>`
 
 export const ShareActionButton = styled.button`
   position: relative;
-  width: 50%;
-  max-width: 220px;
+  width: 72%;
+  max-width: 300px;
   min-width: 0;
   background: linear-gradient(
     125deg,
@@ -40,8 +40,8 @@ export const ShareActionButton = styled.button`
   );
   border: 1px solid rgba(255, 255, 255, 0.55);
   color: #1a1208;
-  padding: 8px 12px;
-  border-radius: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
   font-family: 'Assistant', sans-serif;
   cursor: pointer;
   display: flex;
@@ -118,7 +118,7 @@ export const ShareButtonText = styled.span`
 
 export const ShareButtonTitle = styled.span`
   font-weight: 800;
-  font-size: 0.88rem;
+  font-size: 0.96rem;
   line-height: 1.25;
   color: #1a1008;
   letter-spacing: 0.01em;
@@ -126,18 +126,18 @@ export const ShareButtonTitle = styled.span`
 
 export const ShareButtonSubtitle = styled.span`
   font-weight: 500;
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   line-height: 1.35;
   color: rgba(26, 16, 8, 0.72);
-  margin-top: 1px;
+  margin-top: 2px;
 `;
 
 export const ShareHexIconWrap = styled.span`
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -167,8 +167,8 @@ export const ShareSparkle = styled.span<{ $top: string; $left: string; $size?: s
 export const ShareCrownSvg = styled.svg`
   position: relative;
   z-index: 1;
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
   fill: ${VS_COLORS.goldLight};
   filter: drop-shadow(0 0 4px rgba(212, 160, 67, 0.6));
 `;

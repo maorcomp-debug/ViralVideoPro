@@ -155,6 +155,7 @@ import {
   FinalScore,
   ActionButtonsContainer,
   ActionButtonsFullRow,
+  ActionPrimaryWide,
   SecondaryButton,
   PrimaryButton,
   PremiumBadge,
@@ -4824,39 +4825,26 @@ const App = () => {
                 <RefreshIcon />
                 {t('analysis.startOver')}
               </SecondaryButton>
-              <PrimaryButton 
-                onClick={handleExportPdf} 
-                disabled={loading || !canUseFeature('pdfExport')}
-                style={{
-                  opacity: !canUseFeature('pdfExport') ? 0.5 : 1,
-                  cursor: !canUseFeature('pdfExport') ? 'not-allowed' : 'pointer'
-                }}
-                title={!canUseFeature('pdfExport') ? t('alerts.pdfSubscriptionOnly') : ''}
-              >
-                {!canUseFeature('pdfExport') ? <NoEntryIcon /> : <PdfIcon />}
-                {t('analysis.exportPdf')}
-                {!canUseFeature('pdfExport') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
-              </PrimaryButton>
               {activeTrack === 'coach' && canUseFeature('traineeManagement') && (
                 <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee || isSavingAnalysis}>
                   {isSavingAnalysis ? `💾 ${t('analysis.saving')}` : `💾 ${t('analysis.saveForTrainee')}`}
                 </PrimaryButton>
               )}
-              {lastAnalysisHadVideo && (
+              {result && (
                 <ActionButtonsFullRow>
-                  <PrimaryButton 
-                    onClick={handleUploadImprovedTake}
-                    disabled={!canUseFeature('improvementTracking')}
+                  <ActionPrimaryWide
+                    onClick={handleExportPdf}
+                    disabled={loading || !canUseFeature('pdfExport')}
                     style={{
-                      opacity: !canUseFeature('improvementTracking') ? 0.5 : 1,
-                      cursor: !canUseFeature('improvementTracking') ? 'not-allowed' : 'pointer'
+                      opacity: !canUseFeature('pdfExport') ? 0.5 : 1,
+                      cursor: !canUseFeature('pdfExport') ? 'not-allowed' : 'pointer',
                     }}
-                    title={!canUseFeature('improvementTracking') ? t('alerts.improvementTrackingSubscriptionOnly') : ''}
+                    title={!canUseFeature('pdfExport') ? t('alerts.pdfSubscriptionOnly') : ''}
                   >
-                    <UploadIconSmall />
-                    {t('analysis.uploadImproved')}
-                    {!canUseFeature('improvementTracking') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
-                  </PrimaryButton>
+                    {!canUseFeature('pdfExport') ? <NoEntryIcon /> : <PdfIcon />}
+                    {t('analysis.exportPdf')}
+                    {!canUseFeature('pdfExport') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
+                  </ActionPrimaryWide>
                 </ActionButtonsFullRow>
               )}
             </ActionButtonsContainer>
