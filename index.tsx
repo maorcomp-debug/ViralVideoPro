@@ -26,6 +26,7 @@ import { AppLogo } from './src/components/AppLogo';
 import { LanguageDropdown } from './src/components/LanguageDropdown';
 import { AlertModal } from './src/components/AlertModal';
 import { ViralShareEntry, isViralShareBlocked } from './src/features/viral-share';
+import { resolveCreatorDisplayName } from './lib/creatorDisplayName';
 import { showAlert } from './src/lib/alertStore';
 import { AppContainer, Header } from './src/styles/components';
 import {
@@ -4812,7 +4813,10 @@ const App = () => {
                     score={averageScore}
                     trackId={activeTrack === 'coach' ? coachTrainingTrack : activeTrack}
                     result={result}
-                    suggestedCreatorName={profile?.full_name?.trim() || undefined}
+                    suggestedCreatorName={resolveCreatorDisplayName({
+                      fullName: profile?.full_name,
+                      metadataFullName: user?.user_metadata?.full_name,
+                    })}
                   />
                 </ActionButtonsFullRow>
               )}

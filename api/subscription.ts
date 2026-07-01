@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
+import { looksLikeEmail, resolveCreatorDisplayName } from '../lib/creatorDisplayName';
 
 type EmailLang = 'he' | 'en';
 
@@ -453,7 +454,9 @@ function sanitizeCreateBody(raw: unknown): CreateShareBody | null {
   const aiInsight = truncate(String(b.aiInsight || ''), 200);
   if (!aiInsight) return null;
   const includeCreatorName = b.includeCreatorName === true;
-  const creatorName = includeCreatorName ? truncate(String(b.creatorName || ''), 60) || null : null;
+  const rawCreatorName = includeCreatorName ? truncate(String(b.creatorName || ''), 60) || null : null;
+  const creatorName =
+    rawCreatorName && !looksLikeEmail(rawCreatorName) ? rawCreatorName : null;
   const creatorTypeRaw = includeCreatorName ? String(b.creatorType || '').trim() : '';
   const creatorType =
     includeCreatorName && creatorTypeRaw && isCreatorTypeKey(creatorTypeRaw)
@@ -483,25 +486,42 @@ function isShareAvailable(row: {
 }
 
 function toPublicPayload(row: PublicShareRecord) {
+  const creatorName =
+    row.creator_name && !looksLikeEmail(row.creator_name) ? row.creator_name : null;
   return {
     viralScore: row.viral_score,
     metrics: row.metrics.slice(0, 3),
     aiInsight: row.ai_insight,
-    creatorName: row.creator_name,
+    creatorName,
     creatorType: row.creator_type,
     language: row.language,
   };
+}
+
+async function resolvePublicCreatorName(
+  admin: SupabaseClient,
+  userId: string,
+  storedName: string | null
+): Promise<string | null> {
+  if (storedName && !looksLikeEmail(storedName)) return storedName;
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('full_name')
+    .eq('user_id', userId)
+    .maybeSingle();
+  const resolved = resolveCreatorDisplayName({ fullName: (profile as { full_name?: string | null })?.full_name });
+  return resolved ? truncate(resolved, 60) : null;
 }
 
 async function fetchShareByToken(
   admin: SupabaseClient,
   token: string,
   opts?: { incrementView?: boolean }
-): Promise<(PublicShareRecord & { id?: string }) | null> {
+): Promise<(PublicShareRecord & { id?: string; user_id?: string }) | null> {
   const { data, error } = await admin
     .from('share_reports')
     .select(
-      'id, viral_score, metrics, ai_insight, creator_name, creator_type, language, is_active, expires_at, view_count'
+      'id, user_id, viral_score, metrics, ai_insight, creator_name, creator_type, language, is_active, expires_at, view_count'
     )
     .eq('public_token', token)
     .maybeSingle();
@@ -528,6 +548,7 @@ async function fetchShareByToken(
     is_active: data.is_active,
     expires_at: data.expires_at,
     id: data.id,
+    user_id: data.user_id,
   };
 }
 
@@ -673,6 +694,23 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const admin = getShareSupabaseAdmin();
   const publicToken = generatePublicToken();
 
+  let creatorName: string | null = null;
+  if (body.includeCreatorName) {
+    if (body.creatorName) {
+      creatorName = body.creatorName;
+    } else {
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const resolved = resolveCreatorDisplayName({
+        fullName: (profile as { full_name?: string | null })?.full_name,
+      });
+      creatorName = resolved ? truncate(resolved, 60) : null;
+    }
+  }
+
   const { data, error } = await admin
     .from('share_reports')
     .insert({
@@ -681,7 +719,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
       viral_score: body.viralScore,
       metrics: body.metrics,
       ai_insight: body.aiInsight,
-      creator_name: body.includeCreatorName ? body.creatorName || null : null,
+      creator_name: creatorName,
       creator_type: body.includeCreatorName ? body.creatorType || null : null,
       track_id: body.trackId || null,
       language: body.language || 'he',
@@ -714,7 +752,12 @@ async function handlePublic(req: VercelRequest, res: VercelResponse) {
       message: 'תוצאת השיתוף אינה זמינה עוד.',
     });
   }
-  return res.status(200).json(toPublicPayload(row));
+  const creatorName = row.user_id
+    ? await resolvePublicCreatorName(admin, row.user_id, row.creator_name)
+    : row.creator_name && !looksLikeEmail(row.creator_name)
+      ? row.creator_name
+      : null;
+  return res.status(200).json(toPublicPayload({ ...row, creator_name: creatorName }));
 }
 
 async function handlePage(req: VercelRequest, res: VercelResponse) {
@@ -726,7 +769,14 @@ async function handlePage(req: VercelRequest, res: VercelResponse) {
   const admin = getShareSupabaseAdmin();
   const row = await fetchShareByToken(admin, token, { incrementView: true });
   const unavailable = !row || !isShareAvailable(row);
-  const html = renderShareHtmlPage(token, row, unavailable);
+  let pageRow = row;
+  if (row?.user_id) {
+    const creatorName = await resolvePublicCreatorName(admin, row.user_id, row.creator_name);
+    pageRow = { ...row, creator_name: creatorName };
+  } else if (row?.creator_name && looksLikeEmail(row.creator_name)) {
+    pageRow = { ...row, creator_name: null };
+  }
+  const html = renderShareHtmlPage(token, pageRow, unavailable);
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', unavailable ? 'no-store' : 'public, max-age=60, s-maxage=300');
