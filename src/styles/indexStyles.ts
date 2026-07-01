@@ -1401,6 +1401,30 @@ export const ActionButtonsFullRow = styled.div`
   width: 100%;
 `;
 
+export const ActionButtonsPairRow = styled.div`
+  flex-basis: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 12px;
+  width: 72%;
+  max-width: 440px;
+  margin: 0 auto;
+
+  > button {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.9rem;
+    padding: 11px 16px;
+  }
+
+  @media (max-width: 600px) {
+    width: calc(100% - 16px);
+    max-width: 100%;
+    gap: 10px;
+  }
+`;
+
 export const SecondaryButton = styled.button`
   background: transparent;
   border: 1px solid #888;

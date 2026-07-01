@@ -155,6 +155,7 @@ import {
   FinalScore,
   ActionButtonsContainer,
   ActionButtonsFullRow,
+  ActionButtonsPairRow,
   ActionPrimaryWide,
   SecondaryButton,
   PrimaryButton,
@@ -4821,10 +4822,27 @@ const App = () => {
                   />
                 </ActionButtonsFullRow>
               )}
-              <SecondaryButton onClick={handleReset}>
-                <RefreshIcon />
-                {t('analysis.startOver')}
-              </SecondaryButton>
+              <ActionButtonsPairRow>
+                <SecondaryButton onClick={handleReset}>
+                  <RefreshIcon />
+                  {t('analysis.startOver')}
+                </SecondaryButton>
+                {lastAnalysisHadVideo && (
+                  <PrimaryButton
+                    onClick={handleUploadImprovedTake}
+                    disabled={!canUseFeature('improvementTracking')}
+                    style={{
+                      opacity: !canUseFeature('improvementTracking') ? 0.5 : 1,
+                      cursor: !canUseFeature('improvementTracking') ? 'not-allowed' : 'pointer',
+                    }}
+                    title={!canUseFeature('improvementTracking') ? t('alerts.improvementTrackingSubscriptionOnly') : ''}
+                  >
+                    <UploadIconSmall />
+                    {t('analysis.uploadImproved')}
+                    {!canUseFeature('improvementTracking') && <PremiumBadge>{t('plan.badgePro')}</PremiumBadge>}
+                  </PrimaryButton>
+                )}
+              </ActionButtonsPairRow>
               {activeTrack === 'coach' && canUseFeature('traineeManagement') && (
                 <PrimaryButton onClick={handleSaveAnalysis} disabled={!result || !selectedTrainee || isSavingAnalysis}>
                   {isSavingAnalysis ? `💾 ${t('analysis.saving')}` : `💾 ${t('analysis.saveForTrainee')}`}
