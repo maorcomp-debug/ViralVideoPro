@@ -3,8 +3,12 @@ import { toBlob } from 'html-to-image';
 export const STORY_W = 1080;
 export const STORY_H = 1920;
 
-const CARD_TOP = 88;
-const FOOTER_RESERVE = 220;
+/** Modal body content width — matches ShareModalPanel (440) minus padding (20×2). */
+export const MODAL_PREVIEW_CARD_WIDTH = 400;
+
+const STORY_MARGIN_X = 36;
+const STORY_MARGIN_TOP = 48;
+const STORY_MARGIN_BOTTOM = 56;
 
 function loadImageElement(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -31,18 +35,57 @@ function waitForImages(root: HTMLElement): Promise<void> {
   ).then(() => undefined);
 }
 
-function fitStoryCardStage(node: HTMLElement): void {
-  const cardStage = node.querySelector('[data-story-card-stage]') as HTMLElement | null;
-  if (!cardStage) return;
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Failed to encode PNG'))), 'image/png', 0.92);
+  });
+}
 
-  const maxCardH = STORY_H - CARD_TOP - FOOTER_RESERVE;
-  cardStage.style.top = `${CARD_TOP}px`;
-  cardStage.style.left = '50%';
-  cardStage.style.transformOrigin = 'top center';
+/** Capture the visible preview card exactly as rendered in the modal. */
+export async function capturePreviewCardElement(cardEl: HTMLElement): Promise<Blob> {
+  if (document.fonts?.ready) {
+    await document.fonts.ready;
+  }
+  await waitForImages(cardEl);
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  const naturalH = cardStage.scrollHeight;
-  const scale = naturalH > maxCardH ? maxCardH / naturalH : 1;
-  cardStage.style.transform = `translateX(-50%) scale(${scale})`;
+  const blob = await toBlob(cardEl, {
+    cacheBust: true,
+    pixelRatio: 2,
+    skipFonts: false,
+  });
+
+  if (!blob) throw new Error('Failed to capture preview card');
+  return blob;
+}
+
+/** Scale the modal preview card to fill a 9:16 story frame (same layout, larger). */
+export async function compositeCardOntoStory(cardBlob: Blob): Promise<Blob> {
+  const cardBitmap = await createImageBitmap(cardBlob);
+  const canvas = document.createElement('canvas');
+  canvas.width = STORY_W;
+  canvas.height = STORY_H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    cardBitmap.close();
+    return cardBlob;
+  }
+
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(0, 0, STORY_W, STORY_H);
+
+  const maxW = STORY_W - STORY_MARGIN_X * 2;
+  const maxH = STORY_H - STORY_MARGIN_TOP - STORY_MARGIN_BOTTOM;
+  const scale = Math.min(maxW / cardBitmap.width, maxH / cardBitmap.height);
+  const dw = cardBitmap.width * scale;
+  const dh = cardBitmap.height * scale;
+  const dx = (STORY_W - dw) / 2;
+  const dy = STORY_MARGIN_TOP + (maxH - dh) / 2;
+
+  ctx.drawImage(cardBitmap, dx, dy, dw, dh);
+  cardBitmap.close();
+
+  return canvasToBlob(canvas);
 }
 
 /** Sample top-center band — true when gold logo pixels are absent. */
@@ -52,9 +95,9 @@ export async function isStoryLogoMissing(blob: Blob): Promise<boolean> {
     const w = bitmap.width;
     const h = bitmap.height;
     const sx = Math.floor(w * 0.28);
-    const sy = Math.floor(h * 0.05);
+    const sy = Math.floor(h * 0.04);
     const sw = Math.max(1, Math.floor(w * 0.44));
-    const sh = Math.max(1, Math.floor(h * 0.12));
+    const sh = Math.max(1, Math.floor(h * 0.1));
     const canvas = document.createElement('canvas');
     canvas.width = sw;
     canvas.height = sh;
@@ -80,7 +123,7 @@ export async function isStoryLogoMissing(blob: Blob): Promise<boolean> {
   }
 }
 
-/** Draw logo at the top of the story card if capture clipped or skipped it. */
+/** Draw logo onto story when the card capture skipped it. */
 export async function compositeStoryLogo(blob: Blob, logoDataUrl: string): Promise<Blob> {
   const bitmap = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
@@ -96,19 +139,15 @@ export async function compositeStoryLogo(blob: Blob, logoDataUrl: string): Promi
   bitmap.close();
 
   const logo = await loadImageElement(logoDataUrl);
-  const logoH = 79;
+  const logoH = Math.round(STORY_H * 0.045);
   const logoW = (logo.width / logo.height) * logoH;
-  const logoY = CARD_TOP + 52;
+  const logoY = STORY_MARGIN_TOP + Math.round(STORY_H * 0.02);
   const logoX = STORY_W / 2 - logoW / 2;
   ctx.drawImage(logo, logoX, logoY, logoW, logoH);
 
-  const composited = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob((b) => resolve(b), 'image/png', 0.92);
-  });
-  return composited ?? blob;
+  return canvasToBlob(canvas);
 }
 
-/** True when the capture is effectively blank (DOM capture failed silently). */
 export async function isStoryImageBlank(blob: Blob): Promise<boolean> {
   if (blob.size < 8000) return true;
   try {
@@ -141,68 +180,12 @@ export async function isStoryImageBlank(blob: Blob): Promise<boolean> {
   }
 }
 
-/** Normalize to 1080×1920 PNG for reliable mobile story sharing. */
 export async function normalizeStoryBlob(blob: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(blob);
-  if (
-    bitmap.width === STORY_W &&
-    bitmap.height === STORY_H &&
-    blob.size < 3_500_000
-  ) {
+  if (bitmap.width === STORY_W && bitmap.height === STORY_H) {
     bitmap.close();
     return blob;
   }
-
-  const canvas = document.createElement('canvas');
-  canvas.width = STORY_W;
-  canvas.height = STORY_H;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    bitmap.close();
-    return blob;
-  }
-
-  ctx.fillStyle = '#050505';
-  ctx.fillRect(0, 0, STORY_W, STORY_H);
-  const scale = Math.min(STORY_W / bitmap.width, STORY_H / bitmap.height);
-  const dw = bitmap.width * scale;
-  const dh = bitmap.height * scale;
-  const dx = (STORY_W - dw) / 2;
-  const dy = (STORY_H - dh) / 2;
-  ctx.drawImage(bitmap, dx, dy, dw, dh);
   bitmap.close();
-
-  const normalized = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob((b) => resolve(b), 'image/png', 0.92);
-  });
-  return normalized ?? blob;
-}
-
-/** Capture an off-screen DOM node as a story PNG (1080×1920). */
-export async function captureStoryImageFromElement(node: HTMLElement): Promise<Blob> {
-  if (document.fonts?.ready) {
-    await document.fonts.ready;
-  }
-
-  fitStoryCardStage(node);
-  await waitForImages(node);
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-  fitStoryCardStage(node);
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-  const blob = await toBlob(node, {
-    cacheBust: true,
-    pixelRatio: 1,
-    width: STORY_W,
-    height: STORY_H,
-    skipFonts: false,
-    style: {
-      animation: 'none',
-      transition: 'none',
-      opacity: '1',
-    },
-  });
-
-  if (!blob) throw new Error('Failed to capture story image');
-  return blob;
+  return compositeCardOntoStory(blob);
 }

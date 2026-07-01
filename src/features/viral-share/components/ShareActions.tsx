@@ -36,6 +36,7 @@ import {
 } from '../utils/storySharePlatforms';
 
 interface ShareActionsProps {
+  previewCardRef: React.RefObject<HTMLDivElement | null>;
   payload: SharePreviewData;
   includeCreatorName: boolean;
   creatorDisplayName: string;
@@ -80,6 +81,7 @@ async function waitForRef<T extends HTMLElement>(
 }
 
 export const ShareActions: React.FC<ShareActionsProps> = ({
+  previewCardRef,
   payload,
   includeCreatorName,
   creatorDisplayName,
@@ -98,7 +100,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const storyCaptureRef = useRef<HTMLDivElement>(null);
+  const fallbackCaptureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,11 +161,13 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     (async () => {
       setStoryImageLoading(true);
       try {
-        const captureNode = await waitForRef(() => storyCaptureRef.current);
+        const previewCard = await waitForRef(() => previewCardRef.current);
+        const fallbackRoot = await waitForRef(() => fallbackCaptureRef.current);
         if (cancelled) return;
 
         const blob = await buildStoryCardImage({
-          captureNode,
+          previewCardElement: previewCard,
+          fallbackCaptureRoot: fallbackRoot,
           logoDataUrl,
           viralScore: payload.viralScore,
           metrics: payload.metrics,
@@ -202,6 +206,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   }, [
     shareUrl,
     logoDataUrl,
+    previewCardRef,
     payload,
     creatorNameForShare,
     creatorType,
@@ -232,7 +237,8 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
       showAlert(s.storyShareUnsupported);
       return;
     }
-    const result = await openStoryPlatformShare(platform, cardImage, SHARE_CTA_URL);
+    const linkForStory = shareUrl || SHARE_CTA_URL;
+    const result = await openStoryPlatformShare(platform, cardImage, linkForStory);
     if (result === 'unsupported') {
       showAlert(s.storyShareUnsupported);
     }
@@ -273,7 +279,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     <>
       {shareUrl && logoDataUrl && (
         <ShareStoryCapture
-          ref={storyCaptureRef}
+          ref={fallbackCaptureRef}
           payload={payload}
           creatorName={creatorDisplayName}
           creatorType={creatorType}

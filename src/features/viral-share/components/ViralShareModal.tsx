@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   ShareModalBody,
   ShareModalClose,
@@ -59,6 +59,7 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
 }) => {
   const s = getShareStrings();
   const rtl = isShareRtl();
+  const previewCardRef = useRef<HTMLDivElement>(null);
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -100,6 +101,7 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
 
           {(step === 'preview' || step === 'share') && (
             <SharePreviewCard
+              ref={previewCardRef}
               data={payload}
               creatorName={creatorDisplayName}
               creatorType={creatorType}
@@ -114,6 +116,7 @@ export const ViralShareModal: React.FC<ViralShareModalProps> = ({
 
           {step === 'share' && (
             <ShareActions
+              previewCardRef={previewCardRef}
               payload={payload}
               includeCreatorName={includeCreatorName}
               creatorDisplayName={creatorDisplayName}

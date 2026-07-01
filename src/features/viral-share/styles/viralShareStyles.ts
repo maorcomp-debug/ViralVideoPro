@@ -620,17 +620,19 @@ export const ShareLinkText = styled.div`
 
 export const StoryImagePreview = styled.div`
   margin: 10px auto 14px;
-  max-width: 160px;
+  width: min(180px, 55vw);
+  aspect-ratio: 9 / 16;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(212, 160, 67, 0.35);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  background: #050505;
 
   img {
     display: block;
     width: 100%;
-    height: auto;
-    vertical-align: top;
+    height: 100%;
+    object-fit: contain;
   }
 `;
 

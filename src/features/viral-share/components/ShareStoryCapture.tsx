@@ -1,58 +1,24 @@
 import React, { forwardRef } from 'react';
 import styled from 'styled-components';
 import { SharePreviewCard } from './SharePreviewCard';
-import { getShareStrings, isShareRtl, type ShareLocale } from '../i18n';
-import { SHARE_CTA_URL } from '../constants';
-import { STORY_H, STORY_W } from '../utils/captureStoryImage';
+import { isShareRtl, type ShareLocale } from '../i18n';
+import { MODAL_PREVIEW_CARD_WIDTH } from '../utils/captureStoryImage';
 import type { CreatorTypeKey, SharePreviewData } from '../types';
 
-const CARD_STORY_W = STORY_W - 112;
-
+/** Off-screen clone of the modal preview card for capture fallback. */
 const CaptureRoot = styled.div`
   position: fixed;
   top: 0;
-  left: 0;
-  width: ${STORY_W}px;
-  height: ${STORY_H}px;
-  background: #050505;
-  overflow: hidden;
+  left: -8000px;
+  width: ${MODAL_PREVIEW_CARD_WIDTH}px;
   pointer-events: none;
   opacity: 0;
-  z-index: 2147483646;
+  z-index: -1;
 
   * {
     animation: none !important;
     transition: none !important;
   }
-`;
-
-const CardStage = styled.div`
-  position: absolute;
-  top: 88px;
-  left: 50%;
-  width: ${CARD_STORY_W}px;
-  transform: translateX(-50%);
-  transform-origin: top center;
-`;
-
-const SiteFooter = styled.div`
-  position: absolute;
-  bottom: 72px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-family: 'Assistant', sans-serif;
-  color: #e6be74;
-  font-size: 30px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-`;
-
-const SiteHint = styled.div`
-  margin-top: 8px;
-  font-size: 20px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.45);
 `;
 
 export interface ShareStoryCaptureProps {
@@ -70,29 +36,21 @@ export const ShareStoryCapture = forwardRef<HTMLDivElement, ShareStoryCapturePro
     ref
   ) {
     const rtl = locale ? locale === 'he' : isShareRtl();
-    const s = getShareStrings(locale);
-    const siteLabel = SHARE_CTA_URL.replace(/^https?:\/\//, '');
 
     return (
       <CaptureRoot ref={ref} dir={rtl ? 'rtl' : 'ltr'} aria-hidden>
-        <CardStage data-story-card-stage>
-          <SharePreviewCard
-            data={payload}
-            creatorName={showCreatorName ? creatorName : undefined}
-            creatorType={creatorType}
-            showIdentity={showCreatorName && !!creatorName?.trim()}
-            showCreatorType
-            showHeading={false}
-            ctaMode="decorative"
-            locale={locale}
-            variant="story"
-            logoSrc={logoSrc}
-          />
-        </CardStage>
-        <SiteFooter>
-          {siteLabel}
-          <SiteHint>{s.storyTapLinkHint}</SiteHint>
-        </SiteFooter>
+        <SharePreviewCard
+          data={payload}
+          creatorName={showCreatorName ? creatorName : undefined}
+          creatorType={creatorType}
+          showIdentity={showCreatorName && !!creatorName?.trim()}
+          showCreatorType
+          showHeading={false}
+          ctaMode="decorative"
+          locale={locale}
+          variant="modal"
+          logoSrc={logoSrc}
+        />
       </CaptureRoot>
     );
   }
