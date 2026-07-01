@@ -8,8 +8,7 @@ export type StoryShareResult = 'opened' | 'cancelled' | 'unsupported' | 'desktop
 
 const DEFAULT_LINK = 'https://viraly.co.il';
 
-/** Desktop story upload is manual — open the platform home, not feed/story sharer URLs. */
-const DESKTOP_STORY_WEB: Record<StoryPlatform, string> = {
+const PLATFORM_WEB: Record<StoryPlatform, string> = {
   instagram: 'https://www.instagram.com/',
   facebook: 'https://www.facebook.com/',
   whatsapp: 'https://web.whatsapp.com/',
@@ -35,24 +34,6 @@ async function copyImageToClipboard(blob: Blob): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function triggerImageDownload(blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'viraly-story.png';
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 function openAndroidStoryIntent(
@@ -84,16 +65,30 @@ const STORY_INTENTS: Record<StoryPlatform, { android: string; package: string; i
   },
 };
 
-function openDesktopStoryShare(
+async function tryNativeStoryShare(
   platform: StoryPlatform,
-  normalized: Blob,
+  file: File,
   url: string
-): StoryShareResult {
-  // Open platform tab synchronously (user gesture) so Viraly stays open.
-  openInNewTab(DESKTOP_STORY_WEB[platform]);
-  triggerImageDownload(normalized);
-  void copyText(url);
-  return 'desktop_guide';
+): Promise<StoryShareResult | null> {
+  if (!navigator.share) return null;
+
+  const payloads: ShareData[] = [];
+  if (platform === 'instagram' || platform === 'facebook') {
+    payloads.push({ files: [file], url });
+  }
+  payloads.push({ files: [file] });
+
+  for (const payload of payloads) {
+    if (navigator.canShare && !navigator.canShare(payload)) continue;
+    try {
+      await navigator.share(payload);
+      return 'opened';
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return 'cancelled';
+    }
+  }
+
+  return null;
 }
 
 /** Share story image to a specific platform with optional link sticker URL. */
@@ -102,47 +97,35 @@ export async function openStoryPlatformShare(
   imageBlob: Blob,
   linkUrl: string = DEFAULT_LINK
 ): Promise<StoryShareResult> {
-  const normalized = await normalizeStoryBlob(imageBlob);
-  const file = new File([normalized], 'viraly-story.png', { type: 'image/png' });
-  const cfg = STORY_INTENTS[platform];
   const url = linkUrl || DEFAULT_LINK;
+  const cfg = STORY_INTENTS[platform];
 
-  if (!isMobileDevice()) {
-    return Promise.resolve(openDesktopStoryShare(platform, normalized, url));
-  }
+  // Try Web Share API first (mobile + desktop) — same flow, no auto-download.
+  const file = new File([imageBlob], 'viraly-story.png', { type: 'image/png' });
+  const nativeResult = await tryNativeStoryShare(platform, file, url);
+  if (nativeResult) return nativeResult;
 
-  if (navigator.share && (navigator.canShare?.({ files: [file] }) ?? true)) {
-    try {
-      const payload: ShareData = { files: [file] };
-      if (platform === 'instagram' || platform === 'facebook') {
-        payload.url = url;
-      }
-      if (navigator.canShare?.(payload) ?? true) {
-        await navigator.share(payload);
-        return 'opened';
-      }
-      await navigator.share({ files: [file] });
+  const normalized = await normalizeStoryBlob(imageBlob);
+  const normalizedFile = new File([normalized], 'viraly-story.png', { type: 'image/png' });
+  const nativeRetry = await tryNativeStoryShare(platform, normalizedFile, url);
+  if (nativeRetry) return nativeRetry;
+
+  if (isMobileDevice()) {
+    if (isAndroid()) {
+      openAndroidStoryIntent(cfg.android, cfg.package, url);
       return 'opened';
-    } catch (err) {
-      if ((err as Error)?.name === 'AbortError') return 'cancelled';
+    }
+
+    if (isIOS()) {
+      await copyImageToClipboard(normalized);
+      window.location.href = `${cfg.ios}?url=${encodeURIComponent(url)}`;
+      return 'opened';
     }
   }
 
-  if (isAndroid()) {
-    triggerImageDownload(normalized);
-    setTimeout(() => {
-      openAndroidStoryIntent(cfg.android, cfg.package, url);
-    }, 500);
-    return 'opened';
-  }
-
-  if (isIOS()) {
-    await copyImageToClipboard(normalized);
-    window.location.href = `${cfg.ios}?url=${encodeURIComponent(url)}`;
-    return 'opened';
-  }
-
-  return 'unsupported';
+  // Desktop fallback — open platform for login/share; user stays on Viraly.
+  openInNewTab(PLATFORM_WEB[platform]);
+  return 'desktop_guide';
 }
 
 export function canShareStoryImage(imageBlob: Blob | null): boolean {

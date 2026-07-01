@@ -1,9 +1,7 @@
 import {
   capturePreviewCardElement,
   compositeCardOntoStory,
-  compositeStoryLogo,
   isStoryImageBlank,
-  isStoryLogoMissing,
 } from './captureStoryImage';
 import { renderShareCardImage } from './renderShareCardImage';
 import type { ShareStrings } from '../i18n';
@@ -24,12 +22,8 @@ export interface BuildStoryImageInput {
   siteUrl: string;
 }
 
-async function buildFromCardBlob(cardBlob: Blob, logoDataUrl: string): Promise<Blob> {
-  let storyBlob = await compositeCardOntoStory(cardBlob);
-  if (await isStoryLogoMissing(storyBlob)) {
-    storyBlob = await compositeStoryLogo(storyBlob, logoDataUrl);
-  }
-  return storyBlob;
+async function buildFromCardBlob(cardBlob: Blob): Promise<Blob> {
+  return compositeCardOntoStory(cardBlob);
 }
 
 /** Capture the modal preview card and upscale to story size (identical text layout). */
@@ -42,7 +36,7 @@ export async function buildStoryCardImage(input: BuildStoryImageInput): Promise<
   for (const cardEl of sources) {
     try {
       const cardBlob = await capturePreviewCardElement(cardEl);
-      const storyBlob = await buildFromCardBlob(cardBlob, input.logoDataUrl);
+      const storyBlob = await buildFromCardBlob(cardBlob);
       if (!(await isStoryImageBlank(storyBlob))) {
         return storyBlob;
       }
@@ -64,5 +58,5 @@ export async function buildStoryCardImage(input: BuildStoryImageInput): Promise<
     siteUrl: input.siteUrl,
     logoDataUrl: input.logoDataUrl,
   });
-  return buildFromCardBlob(canvasBlob, input.logoDataUrl);
+  return buildFromCardBlob(canvasBlob);
 }

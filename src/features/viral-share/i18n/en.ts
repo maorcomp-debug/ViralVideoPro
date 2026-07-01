@@ -45,11 +45,11 @@ export const shareEn = {
   desktopInstagramFeedHint:
     'Text and link copied. Instagram opened in a new tab — log in and paste into a post or story.',
   desktopStoryShareHint:
-    'Story image downloaded and link copied. The platform opened in a new tab — log in and upload the image to your story.',
+    'The platform opened in a new tab. Log in if needed, then share the story image from the system share menu.',
   desktopInstagramStoryHint:
-    'Story image downloaded and link copied. Instagram opened in a new tab — upload the image to your story.',
+    'Instagram opened in a new tab. Log in if needed, then share to story — or use the system share sheet if it appeared.',
   desktopFacebookStoryHint:
-    'Story image downloaded and link copied. Facebook opened in a new tab — tap «Add to Story» and upload the downloaded image.',
+    'Facebook opened in a new tab. Log in if needed, tap «Add to Story» and share the image.',
   mockSuccess: 'Your public share link will be ready in the next step. Preview looks great!',
   creatingLink: 'Creating your public share link…',
   linkCreateError: 'Could not create share link',
