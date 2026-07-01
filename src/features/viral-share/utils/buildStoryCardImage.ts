@@ -8,6 +8,7 @@ import type { ShareStrings } from '../i18n';
 
 export interface BuildStoryImageInput {
   captureNode: HTMLElement | null;
+  logoDataUrl: string;
   viralScore: number;
   metrics: string[];
   insight: string;
@@ -44,6 +45,7 @@ export async function buildStoryCardImage(input: BuildStoryImageInput): Promise<
     strings: input.strings,
     rtl: input.rtl,
     siteUrl: input.siteUrl,
+    logoDataUrl: input.logoDataUrl,
   });
   return normalizeStoryBlob(canvasBlob);
 }

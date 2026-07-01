@@ -62,7 +62,6 @@ export const SharePreviewCard: React.FC<SharePreviewCardProps> = ({
           src={logoSrc}
           alt="VIRALY"
           decoding="async"
-          crossOrigin="anonymous"
           $story={story}
         />
         {showIdentity && creatorName?.trim() && (

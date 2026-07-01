@@ -12,7 +12,9 @@ const TEXT_MUTED = '#a8a8a8';
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!src.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
     img.src = src;
@@ -125,6 +127,7 @@ export interface RenderShareCardInput {
   strings: ShareStrings;
   rtl: boolean;
   siteUrl?: string;
+  logoDataUrl?: string;
 }
 
 export async function renderShareCardImage(input: RenderShareCardInput): Promise<Blob> {
@@ -169,7 +172,7 @@ export async function renderShareCardImage(input: RenderShareCardInput): Promise
   let y = cardY + 72;
 
   try {
-    const logo = await loadImage('/Logo.png');
+    const logo = await loadImage(input.logoDataUrl || '/Logo.png');
     const logoH = 72;
     const logoW = (logo.width / logo.height) * logoH;
     ctx.drawImage(logo, cx - logoW / 2, y, logoW, logoH);

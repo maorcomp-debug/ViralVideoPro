@@ -59,18 +59,18 @@ export interface ShareStoryCaptureProps {
   creatorName?: string;
   creatorType: CreatorTypeKey;
   showCreatorName: boolean;
+  logoSrc: string;
   locale?: ShareLocale;
 }
 
 export const ShareStoryCapture = forwardRef<HTMLDivElement, ShareStoryCaptureProps>(
   function ShareStoryCapture(
-    { payload, creatorName, creatorType, showCreatorName, locale },
+    { payload, creatorName, creatorType, showCreatorName, logoSrc, locale },
     ref
   ) {
     const rtl = locale ? locale === 'he' : isShareRtl();
     const s = getShareStrings(locale);
     const siteLabel = SHARE_CTA_URL.replace(/^https?:\/\//, '');
-    const logoSrc = `${window.location.origin}/Logo.png`;
 
     return (
       <CaptureRoot ref={ref} dir={rtl ? 'rtl' : 'ltr'} aria-hidden>

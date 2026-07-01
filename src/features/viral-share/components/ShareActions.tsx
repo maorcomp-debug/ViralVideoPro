@@ -24,6 +24,7 @@ import { looksLikeEmail } from '../../../../lib/creatorDisplayName';
 import { SHARE_CTA_URL } from '../constants';
 
 import { buildStoryCardImage } from '../utils/buildStoryCardImage';
+import { loadLogoDataUrl } from '../utils/loadLogoDataUrl';
 import { ShareStoryCapture } from './ShareStoryCapture';
 
 import { openFeedShare, openQuickShare, type SocialSharePlatform } from '../utils/shareSocial';
@@ -93,16 +94,25 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   const [cardImage, setCardImage] = useState<Blob | null>(null);
   const [cardImageUrl, setCardImageUrl] = useState<string | null>(null);
   const [storyImageLoading, setStoryImageLoading] = useState(false);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const storyCaptureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    loadLogoDataUrl()
+      .then((url) => {
+        if (!cancelled) setLogoDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setLogoDataUrl(`${window.location.origin}/Logo.png`);
+      });
     return () => {
-      if (cardImageUrl) URL.revokeObjectURL(cardImageUrl);
+      cancelled = true;
     };
-  }, [cardImageUrl]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,7 +148,13 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   }, [payload, includeCreatorName, creatorNameForShare, creatorType, trackId, s.linkCreateError, attempt]);
 
   useEffect(() => {
-    if (!shareUrl) return;
+    return () => {
+      if (cardImageUrl) URL.revokeObjectURL(cardImageUrl);
+    };
+  }, [cardImageUrl]);
+
+  useEffect(() => {
+    if (!shareUrl || !logoDataUrl) return;
     let cancelled = false;
     (async () => {
       setStoryImageLoading(true);
@@ -148,6 +164,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
 
         const blob = await buildStoryCardImage({
           captureNode,
+          logoDataUrl,
           viralScore: payload.viralScore,
           metrics: payload.metrics,
           insight: payload.insight,
@@ -184,6 +201,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
     };
   }, [
     shareUrl,
+    logoDataUrl,
     payload,
     creatorNameForShare,
     creatorType,
@@ -253,34 +271,18 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
 
   return (
     <>
-      {shareUrl && (
+      {shareUrl && logoDataUrl && (
         <ShareStoryCapture
           ref={storyCaptureRef}
           payload={payload}
           creatorName={creatorDisplayName}
           creatorType={creatorType}
           showCreatorName={includeCreatorName && !!creatorNameForShare}
+          logoSrc={logoDataUrl}
         />
       )}
       <SectionHeading>{s.shareSectionTitle}</SectionHeading>
-      {shareUrl && (
-        <ShareLinkBox>
-          <ShareLinkText dir="ltr">{shareUrl}</ShareLinkText>
-        </ShareLinkBox>
-      )}
-      <MockShareRow>
-        {SOCIAL_PLATFORMS.map(({ id, labelKey }) => (
-          <MockShareBtn
-            key={id}
-            type="button"
-            onClick={() => handleFeedShare(id)}
-            disabled={!shareUrl}
-          >
-            {s[labelKey]}
-          </MockShareBtn>
-        ))}
-      </MockShareRow>
-      <SectionHeading style={{ fontSize: '0.9rem', marginTop: 8 }}>
+      <SectionHeading style={{ fontSize: '0.9rem', marginTop: 4 }}>
         {s.storySectionTitle}
       </SectionHeading>
       {storyImageLoading && (
@@ -312,10 +314,27 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
         ))}
       </MockShareRow>
       {storyReady && (
-        <SectionHeading style={{ fontSize: '0.78rem', opacity: 0.8, marginTop: -4 }}>
+        <SectionHeading style={{ fontSize: '0.78rem', opacity: 0.8, marginTop: -4, marginBottom: 12 }}>
           {s.storyShareHint}
         </SectionHeading>
       )}
+      {shareUrl && (
+        <ShareLinkBox>
+          <ShareLinkText dir="ltr">{shareUrl}</ShareLinkText>
+        </ShareLinkBox>
+      )}
+      <MockShareRow>
+        {SOCIAL_PLATFORMS.map(({ id, labelKey }) => (
+          <MockShareBtn
+            key={id}
+            type="button"
+            onClick={() => handleFeedShare(id)}
+            disabled={!shareUrl}
+          >
+            {s[labelKey]}
+          </MockShareBtn>
+        ))}
+      </MockShareRow>
       <MockShareRow>
         <MockShareBtn type="button" onClick={handleCopy} disabled={!shareUrl}>
           {s.mockCopy}
