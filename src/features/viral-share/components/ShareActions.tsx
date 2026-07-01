@@ -20,6 +20,8 @@ import type { TrackId } from '../../../types';
 
 import { looksLikeEmail } from '../../../../lib/creatorDisplayName';
 
+import { SHARE_CTA_URL } from '../constants';
+
 import { renderShareCardImage } from '../utils/renderShareCardImage';
 
 import { openFeedShare, openQuickShare, type SocialSharePlatform } from '../utils/shareSocial';
@@ -122,6 +124,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
           showCreatorType: true,
           strings: s,
           rtl,
+          siteUrl: SHARE_CTA_URL,
         });
         if (!cancelled) setCardImage(blob);
       } catch {
@@ -163,7 +166,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
       showAlert(s.storyShareUnsupported);
       return;
     }
-    const result = await openStoryPlatformShare(platform, cardImage);
+    const result = await openStoryPlatformShare(platform, cardImage, SHARE_CTA_URL);
     if (result === 'unsupported') {
       showAlert(s.storyShareUnsupported);
     }
